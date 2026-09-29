@@ -1,0 +1,462 @@
+/* ==================================================
+   SECCIÓN: CONFIGURACIÓN
+   ACACHETE LOGISTICS
+
+   Solo lo PROPIO de secciones/configuracion.html. Lo común (página,
+   tarjeta, botones, avisos, tabla, formulario y ventanas) viene de
+   css/componentes.css. Las clases propias empiezan con "cfg-".
+   ================================================== */
+
+/* ==================================================
+   PANTALLA DE INICIO: TARJETAS DE MÓDULOS
+   ================================================== */
+
+/* Tarjetas en columnas que se acomodan al ancho */
+.cfg-inicio {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+/* Una tarjeta = un botón que abre su módulo */
+.cfg-modulo-tarjeta {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 18px 20px;
+    background-color: var(--color-blanco);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+    box-shadow: var(--sombra-tarjeta);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.cfg-modulo-tarjeta:hover {
+    border-color: var(--color-naranja);
+    box-shadow: 0 6px 18px rgba(0, 28, 59, 0.12);
+    transform: translateY(-2px);
+}
+
+.cfg-modulo-icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    border-radius: var(--radio-grande);
+    background-color: var(--color-naranja-claro);
+    font-size: 1.4rem;
+    color: #B34A07;
+}
+
+.cfg-modulo-textos {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    min-width: 0;
+}
+
+.cfg-modulo-nombre {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-texto);
+}
+
+.cfg-modulo-descripcion {
+    font-size: 0.85rem;
+    color: var(--color-gris);
+    line-height: 1.35;
+}
+
+/* "Administrador y Admin G1" */
+.cfg-modulo-acceso {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-azul);
+}
+
+.cfg-modulo-flecha {
+    font-size: 1.1rem;
+    color: var(--color-gris);
+    transition: transform 0.2s ease;
+}
+
+.cfg-modulo-tarjeta:hover .cfg-modulo-flecha {
+    transform: translateX(3px);
+    color: var(--color-naranja);
+}
+
+/* ==================================================
+   MÓDULO ABIERTO
+   ================================================== */
+
+.cfg-modulo {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.cfg-modulo-cabecera {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* "← Configuración" */
+.cfg-volver {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    width: fit-content;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-azul);
+    text-decoration: none;
+}
+
+.cfg-volver:hover {
+    text-decoration: underline;
+}
+
+.cfg-modulo-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-azul-marino);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cfg-modulo-tarjeta:hover,
+    .cfg-modulo-tarjeta:hover .cfg-modulo-flecha {
+        transform: none;
+    }
+}
+
+/* Nota azul (ej. "No hay opciones de configuración para tu rol") */
+.cfg-nota {
+    margin: 0;
+    padding: 10px 14px;
+    background-color: var(--color-azul-claro);
+    border-left: 4px solid var(--color-azul);
+    border-radius: var(--radio);
+    font-size: 0.85rem;
+    color: var(--color-azul-marino);
+}
+
+.cfg-nota i {
+    margin-right: 6px;
+}
+
+/* ==================================================
+   TARJETAS
+   ================================================== */
+
+.cfg-tarjeta {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px 24px;
+}
+
+.cfg-tarjeta-cabecera {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.cfg-tarjeta-titulo {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-texto);
+}
+
+.cfg-tarjeta-texto {
+    margin: 4px 0 0;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+/* ---------- Valores base: campos en fila ---------- */
+
+.cfg-base {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px 24px;
+}
+
+.cfg-base .campo {
+    width: 240px;
+}
+
+/* El botón queda alineado con los campos (debajo de la etiqueta) */
+.cfg-guardar-base {
+    margin-top: 24px;
+}
+
+/* Campos numéricos: más angostos y el número grande */
+.cfg-numero {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* ---------- Tablas del módulo ---------- */
+
+.cfg-tabla {
+    min-width: 560px;
+}
+
+/* Número de marca en un círculo naranja */
+.cfg-numero-marca {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-right: 8px;
+    border-radius: 50%;
+    background-color: var(--color-naranja-claro);
+    font-weight: 700;
+    color: #B34A07;
+}
+
+/* ==================================================
+   HORARIO POR DÍA
+   ================================================== */
+
+/* Botón "Volver a la base" en la tabla de días */
+.boton-icono-base {
+    color: var(--color-naranja);
+}
+
+.boton-icono-base:hover:not(:disabled) {
+    background-color: var(--color-naranja-claro);
+    border-color: #F8CBA8;
+}
+
+/* ---------- Ventana del día ---------- */
+
+/* La ventana del día es más ancha: 4 columnas por marca */
+.cfg-dialogo-ancho {
+    width: min(640px, calc(100vw - 32px));
+}
+
+.cfg-dia-cantidad {
+    max-width: 260px;
+    margin-bottom: 18px;
+}
+
+.cfg-dia-marcas,
+#cfgDiaMarcas {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Una fila = "Marca N" + inicia desde + inicia hasta + termina */
+.cfg-dia-fila {
+    display: grid;
+    grid-template-columns: 90px 1fr 1fr 1fr;
+    align-items: center;
+    gap: 10px;
+}
+
+.cfg-dia-fila .campo-input {
+    min-width: 0;
+}
+
+.cfg-dia-encabezado {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-gris);
+}
+
+.cfg-dia-nombre {
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-texto);
+}
+
+.cfg-dia-nombre .cfg-numero-marca {
+    width: 24px;
+    height: 24px;
+    font-size: 0.8rem;
+}
+
+/* "Aplicar también a": casillas de los días en fila */
+.cfg-dia-copiar {
+    margin: 18px 0 0;
+    padding: 0;
+    border: none;
+}
+
+.cfg-dia-copiar legend {
+    padding: 0;
+    margin-bottom: 8px;
+}
+
+.cfg-dia-otros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cfg-dia-otros label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-borde);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.cfg-dia-otros label:has(input:checked) {
+    border-color: var(--color-naranja);
+    background-color: var(--color-naranja-claro);
+    color: #B34A07;
+}
+
+/* ==================================================
+   MÓDULO VEHÍCULOS
+   ================================================== */
+
+/* (El resumen por estado usa el componente .resumen de css/componentes.css) */
+
+/* La placa se escribe y se ve en mayúsculas */
+.cfg-placa {
+    text-transform: uppercase;
+}
+
+/* Pilotos asignados: uno por línea */
+.cfg-pilotos {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.85rem;
+}
+
+.cfg-pilotos small {
+    color: var(--color-gris);
+}
+
+/* ==================================================
+   MÓDULO PEDIDOS
+   ================================================== */
+
+/* Tarjetas una debajo de otra (las arma el JS) */
+.cfg-pilas {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Icono al lado del nombre en las tablas (actividades, categorías) */
+.cfg-icono-fila {
+    color: var(--color-naranja);
+}
+
+/* Casillas de la ventana genérica (ej. tiendas de una actividad) */
+.cfg-casillas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.cfg-casillas label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid var(--color-borde);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.cfg-casillas label:has(input:checked) {
+    border-color: var(--color-naranja);
+    background-color: var(--color-naranja-claro);
+    color: #B34A07;
+}
+
+/* Casilla sola "Sí / No" dentro de la ventana */
+.cfg-si-no {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 42px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+/* Ejemplo del cálculo en la ventana de tarifas */
+.cfg-vista-previa {
+    margin: 16px 0 0;
+    padding: 10px 14px;
+    background-color: var(--color-verde-claro);
+    border-left: 4px solid var(--color-verde);
+    border-radius: var(--radio);
+    font-size: 0.85rem;
+    color: var(--color-texto);
+}
+
+/* Código de respaldo: dos opciones grandes */
+.cfg-opcion {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 16px;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+    cursor: pointer;
+}
+
+.cfg-opcion:has(input:checked) {
+    border-color: var(--color-naranja);
+    background-color: var(--color-naranja-claro);
+}
+
+.cfg-opcion span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.9rem;
+}
+
+.cfg-opcion small {
+    color: var(--color-gris);
+}
+
+/* Pantallas chicas: "Marca N" arriba y las 3 horas debajo */
+@media (max-width: 560px) {
+    .cfg-dia-fila {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .cfg-dia-nombre {
+        grid-column: 1 / -1;
+    }
+
+    .cfg-dia-encabezado span:first-child {
+        display: none;
+    }
+}

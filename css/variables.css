@@ -1,0 +1,51 @@
+/* ==================================================
+   VARIABLES (colores, fuentes y medidas del proyecto)
+   ACACHETE LOGISTICS
+
+   Aquí se definen UNA sola vez los valores que se repiten.
+   Todos los demás CSS los usan con var(--nombre), ej.:
+       color: var(--color-naranja);
+
+   Para cambiar un color de la marca en TODO el sistema,
+   se cambia solo aquí.
+   ================================================== */
+
+:root {
+    /* ---------- Colores de la marca ---------- */
+    --color-fondo-oscuro:   #001C3B; /* azul de fondo: body, menú, pie, franja del login */
+    --color-azul-marino:    #07305C; /* bordes, etiquetas, avatar sin foto */
+    --color-azul:           #1258A6; /* enlaces, foco de los campos, iconos de editar */
+    --color-azul-claro:     #E8F2FC; /* fondos suaves: títulos de tabla, hover */
+    --color-naranja:        #F2660F; /* acción principal: botones, línea del login */
+    --color-naranja-oscuro: #D9570A; /* hover de los botones naranjas */
+    --color-naranja-claro:  #FDEBDD; /* etiqueta "Administrador" */
+
+    /* ---------- Neutros ---------- */
+    --color-blanco:       #FFFFFF;
+    --color-fondo:        #F6F9FC; /* fondo de las secciones y de los campos */
+    --color-texto:        #222B37; /* texto principal */
+    --color-gris:         #66707D; /* textos secundarios y de ayuda */
+    --color-placeholder:  #9AA3AE; /* texto de ejemplo dentro de los campos */
+    --color-borde:        #DDE3EA; /* bordes de campos, tarjetas y tablas */
+    --color-borde-suave:  #EEF1F5; /* líneas entre filas; fondo de campos desactivados */
+
+    /* ---------- Estados ---------- */
+    --color-verde:        #1E8449; /* éxito */
+    --color-verde-claro:  #E9F7EF;
+    --color-rojo:         #C0392B; /* error / eliminar */
+    --color-rojo-oscuro:  #A93226;
+    --color-rojo-claro:   #FDEDEC;
+
+    /* ---------- Fuentes ---------- */
+    --fuente-base:   'Segoe UI', Arial, sans-serif;
+    --fuente-codigo: Consolas, 'Courier New', monospace; /* usuarios, códigos */
+
+    /* ---------- Bordes redondeados ---------- */
+    --radio:        8px;  /* botones y campos */
+    --radio-grande: 12px; /* tarjetas y ventanas */
+
+    /* ---------- Sombras ---------- */
+    --sombra-tarjeta: 0 2px 8px rgba(0, 28, 59, 0.06);
+    --sombra-foco:    0 0 0 3px rgba(18, 88, 166, 0.15); /* anillo azul al escribir en un campo */
+    --sombra-boton:   0 4px 10px rgba(0, 0, 0, 0.15);    /* botón al pasar el mouse */
+}

@@ -1,0 +1,245 @@
+<!-- ==================================================
+     SECCIÓN: USUARIOS (administración)
+     Lista los usuarios de la tabla "usuarios" de Supabase y
+     permite crearlos, modificarlos y eliminarlos.
+     Roles: Administrador y Admin G1 (sin tienda, usuario simple),
+     Admin G2 (con región, usuario simple),
+     Empleado y Piloto (con tienda y usuario compuesto, ej. cen-001-jperez).
+     Administrador gestiona a todos; Admin G1 solo Empleados y Pilotos;
+     Admin G2 solo Empleados y Pilotos de SU región (y solo ve esos);
+     Admin G3 solo ve su tienda y crea Empleados que quedan pendientes
+     hasta que los apruebe G2 o superior;
+     Empleados y Pilotos solo ven la lista.
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/usuarios.css (clases "usr-")
+       Estilos comunes -> css/componentes.css (pagina, boton, tabla, campo, dialogo...)
+       Lógica          -> js/secciones/usuarios.js
+     Los ids empiezan con "usr" para no chocar con otras secciones.
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a index.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina">
+
+    <!-- ---------- Encabezado: título, buscador y botón "Nuevo" ---------- -->
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Usuarios</h2>
+            <p id="usrContador" class="pagina-subtitulo">Cargando usuarios...</p>
+        </div>
+
+        <div class="pagina-acciones">
+            <div class="buscador">
+                <i class="bi bi-search"></i>
+                <input id="usrBuscar" type="search" class="buscador-input"
+                       placeholder="Buscar por nombre, usuario, rol o tienda" aria-label="Buscar usuarios">
+            </div>
+            <button type="button" id="usrNuevo" class="boton boton-principal">
+                <i class="bi bi-person-plus"></i>
+                <span>Nuevo usuario</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ---------- Filtros: región, tienda y rol ----------
+         Las opciones las carga js/secciones/usuarios.js.
+         La lista de tiendas se ajusta a la región elegida. -->
+    <div class="filtros">
+        <select id="usrFiltroRegion" class="campo-input filtro" aria-label="Filtrar por región">
+            <option value="">Todas las regiones</option>
+        </select>
+        <select id="usrFiltroTienda" class="campo-input filtro" aria-label="Filtrar por tienda">
+            <option value="">Todas las tiendas</option>
+        </select>
+        <select id="usrFiltroRol" class="campo-input filtro" aria-label="Filtrar por rol">
+            <option value="">Todos los roles</option>
+        </select>
+        <!-- Solo aparece cuando hay algún filtro o búsqueda activa -->
+        <button type="button" id="usrLimpiarFiltros" class="boton boton-secundario boton-chico" hidden>
+            <i class="bi bi-x-circle"></i>
+            <span>Limpiar filtros</span>
+        </button>
+    </div>
+
+    <!-- Mensajes de "Usuario creado", errores, etc. (los pone el JS) -->
+    <p id="usrAviso" class="aviso" role="status"></p>
+
+    <!-- ---------- Tabla de usuarios ---------- -->
+    <div class="tabla-caja">
+        <table class="tabla usr-tabla">
+            <thead>
+                <tr>
+                    <th class="usr-col-foto" aria-label="Foto"></th>
+                    <th>Nombre</th>
+                    <th>Usuario</th>
+                    <th>Rol</th>
+                    <th>Tienda</th>
+                    <th>Vehículo</th>
+                    <th>Teléfono</th>
+                    <th>Permisos</th>
+                    <th class="tabla-col-acciones">Acciones</th>
+                </tr>
+            </thead>
+            <!-- Las filas las arma js/secciones/usuarios.js -->
+            <tbody id="usrCuerpo"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================================================
+     VENTANA: CREAR / MODIFICAR USUARIO
+     El mismo formulario sirve para crear y para modificar.
+     ================================================== -->
+<dialog id="usrDialogo" class="dialogo" aria-labelledby="usrDialogoTitulo">
+    <form id="usrForm" class="dialogo-form" novalidate>
+        <h3 id="usrDialogoTitulo" class="dialogo-titulo">Nuevo usuario</h3>
+
+        <div class="campos">
+            <!-- Foto: vista previa + elegir / quitar.
+                 El cambio se guarda al presionar "Guardar" (js/avatar.js). -->
+            <div class="campo-ancho usr-foto-campo">
+                <div id="usrFotoAvatar" class="avatar avatar-mediano" role="img" aria-label="Foto del usuario"></div>
+                <div class="usr-foto-controles">
+                    <span class="campo-etiqueta">Foto</span>
+                    <div class="usr-foto-botones">
+                        <button type="button" id="usrFotoElegir" class="boton boton-secundario boton-chico">
+                            <i class="bi bi-camera"></i>
+                            <span>Elegir foto</span>
+                        </button>
+                        <button type="button" id="usrFotoQuitar" class="boton boton-secundario boton-chico">
+                            <i class="bi bi-trash3"></i>
+                            <span>Quitar</span>
+                        </button>
+                    </div>
+                    <small class="campo-ayuda">JPG, PNG o WEBP. Máximo 2 MB.</small>
+                </div>
+                <input id="usrFotoArchivo" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+            </div>
+
+            <div class="campo campo-ancho">
+                <label for="usrNombre" class="campo-etiqueta">Nombre *</label>
+                <input id="usrNombre" type="text" class="campo-input" autocomplete="off" required>
+            </div>
+
+            <!-- Rol: define si lleva tienda y cómo se arma el usuario -->
+            <div class="campo">
+                <label for="usrRol" class="campo-etiqueta">Rol *</label>
+                <select id="usrRol" class="campo-input" required>
+                    <option value="empleado">Empleado</option>
+                    <option value="piloto">Piloto</option>
+                    <!-- Estas cuatro solo las ve el Administrador (el JS las quita para los demás) -->
+                    <option value="admin_g3">Admin G3 (tienda)</option>
+                    <option value="admin_g2">Admin G2 (región)</option>
+                    <option value="admin_g1">Admin G1 (todo el país)</option>
+                    <option value="administrador">Administrador</option>
+                </select>
+            </div>
+
+            <!-- Tienda: las opciones las carga el JS desde la tabla "tiendas".
+                 Se desactiva con Administrador / Admin G1 (no llevan tienda)
+                 y se reemplaza por "Región" con Admin G2. -->
+            <div id="usrCampoTienda" class="campo">
+                <label for="usrTienda" class="campo-etiqueta">Tienda <span id="usrTiendaObligatoria">*</span></label>
+                <select id="usrTienda" class="campo-input"></select>
+                <!-- Solo al cambiar de tienda a un piloto: qué va a pasar con sus rutas y pedidos -->
+                <small id="usrAvisoCambioTienda" class="campo-ayuda usr-aviso-tienda" hidden></small>
+            </div>
+
+            <!-- Región: solo aparece con el rol Admin G2 (las opciones vienen de la tabla "regiones") -->
+            <div id="usrCampoRegion" class="campo" hidden>
+                <label for="usrRegion" class="campo-etiqueta">Región *</label>
+                <select id="usrRegion" class="campo-input"></select>
+            </div>
+
+            <!-- Vehículo: solo aparece con el rol Piloto.
+                 Se elige uno existente o se registra uno nuevo (marca + placa). -->
+            <div id="usrCampoVehiculo" class="campo campo-ancho" hidden>
+                <label for="usrVehiculo" class="campo-etiqueta">Vehículo asignado</label>
+                <select id="usrVehiculo" class="campo-input"></select>
+
+                <!-- Aparece al elegir "Registrar vehículo nuevo..." -->
+                <div id="usrVehiculoNuevo" class="usr-vehiculo-nuevo" hidden>
+                    <input id="usrVehMarca" type="text" class="campo-input" placeholder="Marca (ej. Toyota)" autocomplete="off" aria-label="Marca del vehículo">
+                    <input id="usrVehPlaca" type="text" class="campo-input texto-codigo usr-placa" placeholder="Placa (ej. P123ABC)" autocomplete="off" aria-label="Placa del vehículo">
+                </div>
+                <small class="campo-ayuda">Opcional. Un vehículo puede estar asignado a varios pilotos.</small>
+            </div>
+
+            <!-- Piloto multitienda (sql/18): el G2 lo puede asignar a rutas de otras
+                 tiendas de la región (ej. un día a la semana). Solo para Pilotos. -->
+            <div id="usrCampoMultitienda" class="campo campo-ancho" hidden>
+                <label class="usr-casilla">
+                    <input id="usrMultitienda" type="checkbox">
+                    <span><strong>Piloto multitienda</strong> — puede cubrir rutas de otras tiendas de la región
+                    (nunca dos tiendas el mismo día). Su tienda base es la de arriba.</span>
+                </label>
+            </div>
+
+            <!-- Usuario: se escribe solo el nombre; el prefijo de la tienda
+                 (ej. "cen-001-") lo agrega el sistema -->
+            <div class="campo">
+                <label for="usrIdUsuario" class="campo-etiqueta">Usuario *</label>
+                <div class="campo-input usr-input-compuesto">
+                    <span id="usrPrefijo" class="usr-prefijo"></span>
+                    <input id="usrIdUsuario" type="text" class="usr-input-interno" autocomplete="off" required>
+                </div>
+                <small class="campo-ayuda">Inicia sesión como: <strong id="usrVistaPrevia" class="usr-vista-previa">—</strong></small>
+            </div>
+
+            <div class="campo">
+                <label for="usrClave" class="campo-etiqueta">Clave <span id="usrClaveObligatoria">*</span></label>
+                <input id="usrClave" type="password" class="campo-input" autocomplete="new-password">
+                <small id="usrClaveAyuda" class="campo-ayuda">Mínimo 4 caracteres.</small>
+            </div>
+
+            <div class="campo">
+                <label for="usrTelefono" class="campo-etiqueta">Teléfono</label>
+                <input id="usrTelefono" type="tel" class="campo-input" autocomplete="off">
+            </div>
+
+            <div class="campo">
+                <label for="usrPermisos" class="campo-etiqueta">Permisos</label>
+                <input id="usrPermisos" type="text" class="campo-input" autocomplete="off"
+                       placeholder="Ej. pedidos, rutas   ( * = todas )">
+                <small class="campo-ayuda">Secciones separadas por coma. Por ahora no se aplican.</small>
+            </div>
+        </div>
+
+        <!-- Error del formulario (ej. "Ese usuario ya existe") -->
+        <p id="usrFormError" class="form-error" role="alert"></p>
+
+        <div class="dialogo-botones">
+            <button type="button" id="usrCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="usrGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: REVISAR USUARIO PENDIENTE (creado por un Admin G3)
+     La abren el Administrador, Admin G1 o el Admin G2 de la región.
+     ================================================== -->
+<dialog id="usrRevisar" class="dialogo dialogo-chico" aria-labelledby="usrRevisarTitulo">
+    <h3 id="usrRevisarTitulo" class="dialogo-titulo">Aprobar usuario</h3>
+    <p id="usrRevisarTexto" class="dialogo-texto"></p>
+    <div class="dialogo-botones">
+        <button type="button" id="usrRevisarCerrar" class="boton boton-secundario">Cerrar</button>
+        <button type="button" id="usrRechazar" class="boton boton-peligro">Rechazar</button>
+        <button type="button" id="usrAprobar" class="boton boton-principal">Aprobar</button>
+    </div>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: CONFIRMAR ELIMINACIÓN
+     ================================================== -->
+<dialog id="usrConfirmar" class="dialogo dialogo-chico" aria-labelledby="usrConfirmarTitulo">
+    <h3 id="usrConfirmarTitulo" class="dialogo-titulo">Eliminar usuario</h3>
+    <p id="usrConfirmarTexto" class="dialogo-texto"></p>
+    <div class="dialogo-botones">
+        <button type="button" id="usrNoEliminar" class="boton boton-secundario">Cancelar</button>
+        <button type="button" id="usrSiEliminar" class="boton boton-peligro">Eliminar</button>
+    </div>
+</dialog>
