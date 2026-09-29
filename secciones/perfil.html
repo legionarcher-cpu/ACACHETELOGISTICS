@@ -1,0 +1,77 @@
+<!-- ==================================================
+     SECCIÓN: MI PERFIL
+     Cada usuario ve sus datos y cambia o quita su foto.
+     Se abre desde el menú del usuario (arriba a la derecha) -> "Mi perfil".
+     Todos los usuarios con sesión pueden verla (SECCIONES_LIBRES en js/sesion.js).
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/perfil.css (clases "prf-")
+       Estilos comunes -> css/componentes.css (pagina, tarjeta, boton, avatar, aviso...)
+       Lógica          -> js/secciones/perfil.js
+     Los ids empiezan con "prf".
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a index.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina">
+    <h2 class="pagina-titulo">Mi perfil</h2>
+
+    <section class="tarjeta prf-tarjeta">
+
+        <!-- ---------- Foto ---------- -->
+        <div class="prf-foto-zona">
+            <!-- La foto (o las iniciales) la pinta js/avatar.js -->
+            <div id="prfAvatar" class="avatar avatar-grande prf-avatar" role="img" aria-label="Foto de perfil"></div>
+
+            <!-- Selector de archivo oculto: lo abre el botón "Cambiar foto" -->
+            <input id="prfArchivo" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+
+            <div class="prf-foto-botones">
+                <button type="button" id="prfCambiar" class="boton boton-principal">
+                    <i class="bi bi-camera"></i>
+                    <span>Cambiar foto</span>
+                </button>
+                <button type="button" id="prfQuitar" class="boton boton-secundario prf-boton-quitar">
+                    <i class="bi bi-trash3"></i>
+                    <span>Quitar foto</span>
+                </button>
+            </div>
+
+            <p class="campo-ayuda prf-ayuda">JPG, PNG o WEBP. Máximo 2 MB.</p>
+
+            <!-- Mensajes de "Foto actualizada", errores, etc. -->
+            <p id="prfAviso" class="aviso" role="status"></p>
+        </div>
+
+        <!-- ---------- Datos (solo lectura; los modifica el administrador) ---------- -->
+        <dl class="prf-datos">
+            <div class="prf-dato">
+                <dt>Nombre</dt>
+                <dd id="prfNombre">—</dd>
+            </div>
+            <div class="prf-dato">
+                <dt>Usuario</dt>
+                <dd id="prfUsuario" class="texto-codigo">—</dd>
+            </div>
+            <div class="prf-dato">
+                <dt>Rol</dt>
+                <dd id="prfRol">—</dd>
+            </div>
+            <div class="prf-dato">
+                <dt>Tienda</dt>
+                <dd id="prfTienda">—</dd>
+            </div>
+            <div class="prf-dato">
+                <dt>Teléfono</dt>
+                <dd id="prfTelefono">—</dd>
+            </div>
+            <!-- Solo se muestra a los pilotos (lo decide js/secciones/perfil.js) -->
+            <div id="prfDatoVehiculo" class="prf-dato" hidden>
+                <dt>Vehículo asignado</dt>
+                <dd id="prfVehiculo">—</dd>
+            </div>
+        </dl>
+    </section>
+</div>

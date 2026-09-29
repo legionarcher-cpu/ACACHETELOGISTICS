@@ -1,0 +1,176 @@
+<!-- ==================================================
+     SECCIÓN: REPORTES
+     Reportes interactivos de pedidos (PROPUESTA-ESTRUCTURADA-V2.md, 31.10 y 31.11).
+     Se ven y se manejan aquí; exportar a Excel o PDF es opcional y exporta
+     exactamente lo que se está viendo (mismos filtros).
+
+     Filtros en cascada: Región -> Tienda -> Cliente / Empleado / Piloto,
+     más fechas (con atajos) y actividad. Según el rol vienen fijos:
+       Administrador y Admin G1 -> todo; exportan
+       Admin G2                 -> su región (fija); exporta
+       Admin G3                 -> su región y su tienda (fijas); SOLO VE, no exporta
+       Empleado y Piloto        -> sin acceso (js/sesion.js)
+
+     Librerías (gratuitas, desde CDN; se descargan solo al usarlas):
+       Chart.js (gráficas), SheetJS (Excel), jsPDF + AutoTable (PDF).
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/reportes.css (clases "rep-")
+       Estilos comunes -> css/componentes.css
+       Lógica          -> js/secciones/reportes.js
+     Los ids empiezan con "rep".
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a index.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina">
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Reportes</h2>
+            <p id="repSubtitulo" class="pagina-subtitulo">Pedidos, entregas, cobros y récord de clientes</p>
+        </div>
+        <!-- Solo G2 o superior -->
+        <div class="pagina-acciones" id="repExportar" hidden>
+            <button type="button" id="repExcel" class="boton boton-secundario">
+                <i class="bi bi-file-earmark-excel"></i>
+                <span>Excel</span>
+            </button>
+            <button type="button" id="repPdf" class="boton boton-principal">
+                <i class="bi bi-file-earmark-pdf"></i>
+                <span>PDF</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================================================
+         FILTROS (una sola fila arriba de todo; todo se recalcula con ellos)
+         ================================================== -->
+    <div class="tarjeta rep-filtros">
+        <div class="rep-cascada">
+            <div class="campo">
+                <label for="repRegion" class="campo-etiqueta"><span class="rep-paso">1</span> Región</label>
+                <select id="repRegion" class="campo-input"></select>
+            </div>
+            <i class="bi bi-chevron-right rep-flecha" aria-hidden="true"></i>
+            <div class="campo">
+                <label for="repTienda" class="campo-etiqueta"><span class="rep-paso">2</span> Tienda</label>
+                <select id="repTienda" class="campo-input"></select>
+            </div>
+            <i class="bi bi-chevron-right rep-flecha" aria-hidden="true"></i>
+            <div class="campo">
+                <label for="repTipo" class="campo-etiqueta"><span class="rep-paso">3</span> Ver por</label>
+                <div class="rep-doble">
+                    <select id="repTipo" class="campo-input">
+                        <option value="">Todos</option>
+                        <option value="cliente">Cliente</option>
+                        <option value="empleado">Empleado</option>
+                        <option value="piloto">Piloto</option>
+                    </select>
+                    <select id="repEntidad" class="campo-input" disabled aria-label="Cliente, empleado o piloto">
+                        <option value="">Elige primero la tienda</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="rep-fechas">
+            <div class="campo">
+                <label for="repDesde" class="campo-etiqueta">Desde</label>
+                <input id="repDesde" type="date" class="campo-input">
+            </div>
+            <div class="campo">
+                <label for="repHasta" class="campo-etiqueta">Hasta</label>
+                <input id="repHasta" type="date" class="campo-input">
+            </div>
+            <div class="rep-atajos" role="group" aria-label="Atajos de fecha">
+                <button type="button" class="boton boton-secundario boton-chico" data-atajo="hoy">Hoy</button>
+                <button type="button" class="boton boton-secundario boton-chico" data-atajo="semana">Esta semana</button>
+                <button type="button" class="boton boton-secundario boton-chico" data-atajo="mes">Este mes</button>
+                <button type="button" class="boton boton-secundario boton-chico" data-atajo="mes_anterior">Mes anterior</button>
+                <button type="button" class="boton boton-secundario boton-chico" data-atajo="anio">Este año</button>
+            </div>
+            <div class="campo">
+                <label for="repActividad" class="campo-etiqueta">Actividad</label>
+                <select id="repActividad" class="campo-input">
+                    <option value="">Todas</option>
+                </select>
+            </div>
+            <button type="button" id="repLimpiar" class="boton boton-secundario boton-chico rep-limpiar">
+                <i class="bi bi-x-circle"></i> <span>Limpiar</span>
+            </button>
+        </div>
+    </div>
+
+    <p id="repAviso" class="aviso" role="status"></p>
+    <p id="repNota" class="rep-nota" hidden></p>
+
+    <!-- Todo lo de abajo se oscurece un poco mientras se recalcula (sin saltos) -->
+    <div id="repContenido" class="rep-contenido">
+
+        <!-- ---------- Resumen (tarjetas de números) ---------- -->
+        <div id="repKpis" class="rep-kpis"></div>
+
+        <!-- ---------- Récord del cliente / rendimiento del empleado o piloto ---------- -->
+        <div id="repRecord" class="tarjeta rep-record" hidden>
+            <h3 id="repRecordTitulo" class="rep-titulo"></h3>
+            <dl id="repRecordDatos" class="rep-record-datos"></dl>
+        </div>
+
+        <!-- ---------- Gráficas (cada una con su tabla "Ver datos") ---------- -->
+        <div class="rep-graficas">
+            <figure class="tarjeta rep-grafica rep-ancha">
+                <figcaption class="rep-titulo" id="repTituloDias">Pedidos por día</figcaption>
+                <div class="rep-lienzo"><canvas id="repGrafDias" role="img" aria-label="Pedidos por día"></canvas></div>
+                <details class="rep-datos"><summary>Ver datos</summary><table class="tabla" id="repTablaDias"></table></details>
+            </figure>
+            <figure class="tarjeta rep-grafica">
+                <figcaption class="rep-titulo">Pedidos por estado</figcaption>
+                <div class="rep-lienzo"><canvas id="repGrafEstados" role="img" aria-label="Pedidos por estado"></canvas></div>
+                <details class="rep-datos"><summary>Ver datos</summary><table class="tabla" id="repTablaEstados"></table></details>
+            </figure>
+            <figure class="tarjeta rep-grafica">
+                <figcaption class="rep-titulo">Envíos cobrados por actividad</figcaption>
+                <div class="rep-lienzo"><canvas id="repGrafActividad" role="img" aria-label="Envíos cobrados por actividad"></canvas></div>
+                <details class="rep-datos"><summary>Ver datos</summary><table class="tabla" id="repTablaActividad"></table></details>
+            </figure>
+            <figure class="tarjeta rep-grafica">
+                <figcaption class="rep-titulo">Pedidos por piloto</figcaption>
+                <div class="rep-lienzo"><canvas id="repGrafPilotos" role="img" aria-label="Pedidos por piloto"></canvas></div>
+                <details class="rep-datos"><summary>Ver datos</summary><table class="tabla" id="repTablaPilotos"></table></details>
+            </figure>
+            <figure class="tarjeta rep-grafica">
+                <figcaption class="rep-titulo">Retrasos por motivo</figcaption>
+                <div class="rep-lienzo"><canvas id="repGrafRetrasos" role="img" aria-label="Retrasos por motivo"></canvas></div>
+                <p id="repSinRetrasos" class="rep-vacio" hidden>Sin retrasos registrados en este período.</p>
+                <details class="rep-datos"><summary>Ver datos</summary><table class="tabla" id="repTablaRetrasos"></table></details>
+            </figure>
+        </div>
+
+        <!-- ---------- Tabla detallada ---------- -->
+        <div class="tarjeta rep-detalle">
+            <div class="rep-detalle-cabecera">
+                <h3 class="rep-titulo">Pedidos del reporte</h3>
+                <div class="buscador">
+                    <i class="bi bi-search"></i>
+                    <input id="repBuscar" type="search" class="buscador-input" placeholder="Buscar en la tabla" aria-label="Buscar en la tabla">
+                </div>
+            </div>
+            <div class="tabla-caja">
+                <table class="tabla rep-tabla">
+                    <thead><tr id="repCabecera"></tr></thead>
+                    <tbody id="repCuerpo"></tbody>
+                </table>
+            </div>
+            <div class="rep-paginas">
+                <span id="repPaginaTexto"></span>
+                <div>
+                    <button type="button" id="repAnterior" class="boton boton-secundario boton-chico">Anterior</button>
+                    <button type="button" id="repSiguiente" class="boton boton-secundario boton-chico">Siguiente</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

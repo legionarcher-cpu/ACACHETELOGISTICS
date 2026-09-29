@@ -1,0 +1,174 @@
+<!-- ==================================================
+     SECCIÓN: CLIENTES
+     Base de datos de clientes (tablas "clientes" y "clientes_tiendas").
+     No está en el menú: se abre desde Tiendas ("Agregar clientes" o el
+     botón de clientes de cada tienda). Se puede abrir filtrada:
+       #clientes?tienda=3   -> clientes de la tienda con id 3
+       #clientes?nuevo=1    -> abre directamente el formulario "Nuevo cliente"
+
+     Quién ve y hace qué: ver la cabecera de js/secciones/clientes.js
+     (los Pilotos no tienen acceso; lo que hace un Empleado queda
+     pendiente de aprobación).
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/clientes.css (clases "cli-")
+       Estilos comunes -> css/componentes.css
+       Lógica          -> js/secciones/clientes.js
+     Los ids empiezan con "cli".
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a index.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina">
+
+    <!-- ---------- Encabezado: volver, título, buscador y "Nuevo cliente" ---------- -->
+    <div class="pagina-cabecera">
+        <div>
+            <a href="#tiendas" class="cli-volver"><i class="bi bi-arrow-left"></i> Tiendas</a>
+            <h2 class="pagina-titulo">Clientes</h2>
+            <p id="cliContador" class="pagina-subtitulo">Cargando clientes...</p>
+        </div>
+
+        <div class="pagina-acciones">
+            <div class="buscador">
+                <i class="bi bi-search"></i>
+                <input id="cliBuscar" type="search" class="buscador-input"
+                       placeholder="Buscar por nombre, teléfono o dirección" aria-label="Buscar clientes">
+            </div>
+            <button type="button" id="cliNuevo" class="boton boton-principal">
+                <i class="bi bi-person-plus"></i>
+                <span>Nuevo cliente</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ---------- Filtros: tienda y estado ---------- -->
+    <div class="filtros">
+        <select id="cliFiltroTienda" class="campo-input filtro" aria-label="Filtrar por tienda">
+            <option value="">Todas mis tiendas</option>
+        </select>
+        <select id="cliFiltroEstado" class="campo-input filtro" aria-label="Filtrar por estado">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendientes de aprobación</option>
+            <option value="aprobado">Aprobados</option>
+        </select>
+    </div>
+
+    <!-- Mensajes de "Cliente creado", "Solicitud enviada", errores (los pone el JS) -->
+    <p id="cliAviso" class="aviso" role="status"></p>
+
+    <!-- ---------- Tabla de clientes ---------- -->
+    <div class="tabla-caja">
+        <table class="tabla cli-tabla">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Teléfono</th>
+                    <th>Dirección</th>
+                    <th>Ubicación</th>
+                    <th>Tiendas</th>
+                    <th>Categoría</th>
+                    <th>Estado</th>
+                    <th class="tabla-col-acciones">Acciones</th>
+                </tr>
+            </thead>
+            <!-- Las filas las arma js/secciones/clientes.js -->
+            <tbody id="cliCuerpo"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================================================
+     VENTANA: CREAR / MODIFICAR CLIENTE
+     ================================================== -->
+<dialog id="cliDialogo" class="dialogo" aria-labelledby="cliDialogoTitulo">
+    <form id="cliForm" class="dialogo-form" novalidate>
+        <h3 id="cliDialogoTitulo" class="dialogo-titulo">Nuevo cliente</h3>
+
+        <!-- Aviso para Empleados: sus cambios quedan pendientes de aprobación -->
+        <p id="cliAvisoAprobacion" class="cli-nota" hidden>
+            <i class="bi bi-hourglass-split"></i>
+            Lo que guardes quedará <strong>pendiente de aprobación</strong> de un administrador.
+        </p>
+
+        <div class="campos">
+            <div class="campo">
+                <label for="cliNombre" class="campo-etiqueta">Nombre *</label>
+                <input id="cliNombre" type="text" class="campo-input" autocomplete="off" required>
+            </div>
+
+            <div class="campo">
+                <label for="cliApellidos" class="campo-etiqueta">Apellidos *</label>
+                <input id="cliApellidos" type="text" class="campo-input" autocomplete="off" required>
+            </div>
+
+            <div class="campo">
+                <label for="cliTelefono" class="campo-etiqueta">Teléfono *</label>
+                <input id="cliTelefono" type="tel" class="campo-input" autocomplete="off" required>
+            </div>
+
+            <div class="campo">
+                <label for="cliDireccion" class="campo-etiqueta">Dirección</label>
+                <input id="cliDireccion" type="text" class="campo-input" autocomplete="off">
+            </div>
+
+            <div class="campo campo-ancho">
+                <label for="cliUbicacion" class="campo-etiqueta">Ubicación</label>
+                <input id="cliUbicacion" type="text" class="campo-input" autocomplete="off"
+                       placeholder="Referencia o enlace de Google Maps (https://...)">
+                <small class="campo-ayuda">Más adelante se podrá agregar la ubicación enviada por WhatsApp.</small>
+            </div>
+
+            <!-- Tiendas del cliente (casillas). Solo para administradores;
+                 al Empleado se le asigna su tienda automáticamente. -->
+            <div id="cliCampoTiendas" class="campo campo-ancho">
+                <span class="campo-etiqueta">Tiendas que lo atienden *</span>
+                <div id="cliTiendas" class="cli-tiendas"></div>
+            </div>
+        </div>
+
+        <!-- Error del formulario -->
+        <p id="cliFormError" class="form-error" role="alert"></p>
+
+        <div class="dialogo-botones">
+            <button type="button" id="cliCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="cliGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: REVISAR SOLICITUD (aprobar o rechazar lo que pidió un Empleado)
+     ================================================== -->
+<dialog id="cliRevisar" class="dialogo" aria-labelledby="cliRevisarTitulo">
+    <div class="dialogo-form">
+        <h3 id="cliRevisarTitulo" class="dialogo-titulo">Revisar solicitud</h3>
+        <p id="cliRevisarTexto" class="dialogo-texto"></p>
+        <!-- Tabla "Dato | Actual | Propuesto" (solo para cambios) -->
+        <table id="cliRevisarCambios" class="tabla cli-cambios" hidden>
+            <thead>
+                <tr><th>Dato</th><th>Actual</th><th>Propuesto</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <div class="dialogo-botones">
+            <button type="button" id="cliRevisarCerrar" class="boton boton-secundario">Cerrar</button>
+            <button type="button" id="cliRechazar" class="boton boton-peligro">Rechazar</button>
+            <button type="button" id="cliAprobar" class="boton boton-principal">Aprobar</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: CONFIRMAR ELIMINACIÓN
+     ================================================== -->
+<dialog id="cliConfirmar" class="dialogo dialogo-chico" aria-labelledby="cliConfirmarTitulo">
+    <h3 id="cliConfirmarTitulo" class="dialogo-titulo">Eliminar cliente</h3>
+    <p id="cliConfirmarTexto" class="dialogo-texto"></p>
+    <div class="dialogo-botones">
+        <button type="button" id="cliNoEliminar" class="boton boton-secundario">Cancelar</button>
+        <button type="button" id="cliSiEliminar" class="boton boton-peligro">Eliminar</button>
+    </div>
+</dialog>

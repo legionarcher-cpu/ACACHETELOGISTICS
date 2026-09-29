@@ -1,0 +1,952 @@
+/* ==================================================
+   MARCO DEL INDEX (encabezado, menú lateral, cuerpo y pie)
+   ACACHETE LOGISTICS
+
+   Todo lo de index.html: estructura, textos y animaciones
+   juntos, agrupados por parte de la pantalla.
+   NO poner aquí estilos de las secciones: esos van en
+   css/secciones/<nombre>.css (o en css/componentes.css si
+   varias secciones los comparten).
+
+   ORGANIZACIÓN DE LOS CSS (orden de carga en index.html):
+     1. variables.css   -> colores, fuentes y medidas con nombre
+     2. base.css        -> reinicio y fuente general
+     3. animaciones.css -> @keyframes compartidos
+     4. componentes.css -> botones, tablas, formularios, ventanas...
+     5. index.css       -> este archivo (marco del index)
+     6. secciones/*.css -> cada sección (los carga js/pagina_inicial.js)
+   Si una misma propiedad aparece en dos archivos, gana el que
+   se carga después.
+   ================================================== */
+
+/* Estructura principal de la página en 3 filas:
+     encabezado (10% de la pantalla)
+     contenido  (todo el espacio restante)
+     pie        (10% de la pantalla)
+   Para cambiar la altura del encabezado o del pie,
+   modificar grid-template-rows. */
+body {
+    height: 100vh;
+    width: 100%;
+    display: grid;
+    background: var(--color-fondo-oscuro);
+    grid-template-areas:
+        "encabezado"
+        "contenido"
+        "pie";
+    grid-template-rows: 10vh 1fr 10vh;
+}
+
+/* ==================================================
+   ENCABEZADO
+   3 columnas: logo (20%) | títulos y fecha (60%) | usuario (20%)
+   ================================================== */
+
+.encabezado {
+    grid-area: encabezado;
+    background-color: var(--color-blanco);
+    display: grid;
+    height: 100%;
+    /* fr (no %) para que el gap no haga la página más ancha que la pantalla */
+    grid-template-columns: minmax(0, 20fr) minmax(0, 60fr) minmax(0, 20fr);
+    gap: 5px;
+    border: 1px groove var(--color-fondo-oscuro);
+    /* Sombra suave hacia abajo para separar el encabezado del contenido.
+       position + z-index hacen que la sombra quede encima del contenido. */
+    position: relative;
+    z-index: 2;
+    box-shadow: 0 2px 10px rgba(0, 28, 59, 0.18);
+}
+
+/* ---------- Logo ----------
+   Dos imágenes encimadas que se turnan cada 6 segundos (efecto cortina):
+   la 1 se "cierra" hacia la derecha y la 2 se "abre" desde la izquierda.
+   Para hacerlo más rápido o lento, cambiar "6s" en ambas
+   (deben tener el mismo tiempo para quedar sincronizadas). */
+
+.logo-slog {
+    width: 100%;
+    height: 100%;
+    position: relative; /* necesario para que las imágenes absolutas se ubiquen dentro */
+    background-color: var(--color-fondo-oscuro);
+    overflow: hidden;
+}
+
+/* Al pasar el mouse, el logo gira un poco (efecto 3D) */
+.logo-slog:hover {
+    animation: rotarHover 0.3s ease-in-out;
+}
+
+/* Estilo común de las dos imágenes del logo */
+.logo-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain; /* la imagen se ajusta sin recortarse */
+    border-radius: 15%;
+    border-style: ridge;
+}
+
+/* Imagen 1: logo con eslogan (queda encima) */
+.logo-img-1 {
+    background-image: url("../img/logo-web-slog.png");
+    z-index: 2;
+    animation: cortina1 6s infinite;
+}
+
+/* Imagen 2: logo solo (queda debajo) */
+.logo-img-2 {
+    background-image: url("../img/logo-los-patitos.png");
+    z-index: 1;
+    animation: cortina2 6s infinite;
+}
+
+/* clip-path: inset(arriba derecha abajo izquierda) recorta la imagen.
+   inset(0 0 0 0) = se ve completa. */
+@keyframes cortina1 {
+    0%, 45% {
+        clip-path: inset(0 0 0 0);    /* visible completa */
+    }
+    50%, 100% {
+        clip-path: inset(0 0 0 100%); /* se "cierra" desde la derecha */
+    }
+}
+
+@keyframes cortina2 {
+    0%, 45% {
+        clip-path: inset(0 100% 0 0); /* oculta, "cerrada" desde la izquierda */
+    }
+    50%, 95% {
+        clip-path: inset(0 0 0 0);    /* se despliega hasta quedar completa */
+    }
+    100% {
+        clip-path: inset(0 100% 0 0);
+    }
+}
+
+@keyframes rotarHover {
+    0%, 100% { transform: rotateY(0deg); }
+    50%      { transform: rotateY(8deg); } /* subir los grados = giro más marcado */
+}
+
+/* ---------- Zona central del encabezado ----------
+   3 columnas: icono (10%) | títulos (60%) | fecha (30%) */
+
+.cont-info {
+    display: grid;
+    background-color: var(--color-blanco);
+    height: 100%;
+    grid-template-columns: minmax(0, 10fr) minmax(0, 60fr) minmax(0, 30fr);
+    gap: 5px;
+}
+
+/* Contenedor del icono de seguridad */
+.icon-sec1 {
+    width: 100%;
+    height: 100%;
+    margin: 10%;
+}
+
+/* Icono de seguridad (candado). Para cambiarlo, reemplazar la imagen. */
+#log-sec {
+    height: 80%;
+    background-image: url("../img/logo-los-patitos.png");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+}
+
+/* Recuadro con el título y subtítulo del panel */
+.titulos-primordial {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border-radius: var(--radio);
+    border: 1px solid #E0E0E0;
+    padding: 8px 12px; /* para que el borde no quede pegado al texto */
+}
+
+/* "Panel de Control de Operaciones" */
+#titulo-panel {
+    margin: 0;
+    font-size: clamp(1.1rem, 2.2vw, 1.8rem);
+    font-weight: 600;
+    color: var(--color-texto);
+    letter-spacing: 0.5px;
+}
+
+/* "Gestión completa de pedidos, pilotos y transporte" */
+#subti-panel {
+    margin: 0;
+    margin-top: 4px; /* separación entre título y subtítulo */
+    font-size: clamp(0.85rem, 1.1vw, 1.1rem);
+    font-weight: 400;
+    color: var(--color-azul-marino);
+    text-align: center;
+}
+
+/* ---------- Fecha y hora ----------
+   Los textos los llena js/date.js cada segundo. */
+
+#fecha-primordial {
+    width: 98%;
+    height: 100%;
+    display: flex;
+    flex-direction: row; /* icono a la izquierda, textos a la derecha */
+    gap: 8px;
+    padding: 4px 10px;
+    min-width: 70px;
+    background-color: var(--color-blanco);
+    border: 4px solid var(--color-azul-marino);
+    border-radius: var(--radio);
+}
+
+/* Icono del calendario */
+#fecha-primordial i {
+    align-self: center;
+    font-size: 1.8em;
+    color: var(--color-azul-marino);
+}
+
+.containt-date {
+    width: 50%;
+    height: 100%;
+}
+
+.cal-textos {
+    display: flex;
+    flex-direction: column; /* mes-año, día y hora apilados */
+    align-items: center;
+}
+
+/* "SEP 2026" */
+.cal-mes-anio {
+    font-size: clamp(0.6rem, 0.9vw, 0.8rem);
+    font-weight: bold;
+    color: var(--color-azul-marino);
+    text-transform: uppercase;
+}
+
+/* Número del día (el más grande) */
+.cal-dia {
+    font-size: clamp(1.2rem, 2vw, 1.8rem);
+    font-weight: bold;
+    color: var(--color-texto);
+    line-height: 1;
+}
+
+/* Hora */
+.cal-hora {
+    font-size: clamp(0.65rem, 1vw, 0.85rem);
+    color: #555;
+}
+
+/* ---------- Usuario ----------
+   El abrir/cerrar del menú lo controla js/menu-usuario.js */
+
+.info-user {
+    position: relative; /* el menú desplegable se posiciona respecto a este bloque */
+    width: 100%;
+    background-color: var(--color-blanco);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radio);
+    border: 1px solid #E0E0E0;
+    padding: 2px;
+}
+
+/* Botón con avatar + nombre + flecha */
+.user-trigger {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 1px;
+}
+
+.user-trigger:hover {
+    background-color: rgba(0, 0, 0, 0.05); /* sombreado suave al pasar el mouse */
+}
+
+/* Foto del usuario. js/permisos.js (con js/avatar.js) pone la foto
+   como fondo, o las iniciales del nombre si no tiene foto. */
+.user-avatar {
+    width: 80px;
+    height: 80px;
+    flex-shrink: 0;
+    border-radius: 30%;
+    background-color: var(--color-azul-marino);
+    background-size: cover;       /* la foto llena el cuadro sin deformarse */
+    background-position: center;
+    display: flex;                /* centra las iniciales */
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--color-blanco);
+    letter-spacing: 1px;
+}
+
+/* Nombre del usuario junto al avatar */
+.user-nombre {
+    font-size: clamp(0.75rem, 1vw, 0.9rem);
+    font-weight: 500;
+    color: var(--color-texto);
+}
+
+/* Flecha ▾ del menú */
+.user-flecha {
+    font-size: 0.7rem;
+    color: #555;
+}
+
+/* Menú desplegable: oculto por defecto.
+   Se usa visibility (y no display: none) para que pueda aparecer
+   con un fundido y bajando un poco. */
+.user-menu {
+    visibility: hidden;
+    pointer-events: none; /* mientras está oculto no recibe clics */
+    position: absolute;
+    z-index: 10; /* por encima del contenido de las secciones */
+    top: 100%;   /* aparece justo debajo del bloque del usuario */
+    min-width: 160px;
+    padding: 6px 0;
+    background-color: var(--color-blanco);
+    border: 1px solid var(--color-azul-marino);
+    border-radius: 1px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    opacity: 0;
+    transform: translateY(-6px);
+    /* visibility se retrasa 0.18s al cerrar para que se vea el fundido */
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
+}
+
+/* js/menu-usuario.js agrega la clase "abierto" para mostrarlo */
+.user-menu.abierto {
+    visibility: visible;
+    pointer-events: auto;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s;
+}
+
+/* Opciones del menú (Mi perfil, Configuración) */
+.user-menu-item {
+    display: block;
+    padding: 8px 6px;
+    font-size: 0.85rem;
+    color: var(--color-naranja);
+    text-decoration: none; /* quita el subrayado de los enlaces */
+}
+
+.user-menu-item:hover {
+    background-color: var(--color-azul-claro);
+}
+
+/* "Cerrar sesión" en rojo oscuro para diferenciarlo */
+.user-menu-salir {
+    color: maroon;
+}
+
+/* Línea separadora antes de "Cerrar sesión" */
+.user-menu-divider {
+    border: none;
+    border-top: 1px solid var(--color-azul-marino);
+    margin: 2px 0;
+}
+
+/* ==================================================
+   NOTIFICACIONES (js/notificaciones.js)
+   Campana junto al usuario + lista desplegable + avisos emergentes
+   ================================================== */
+
+/* Deja un espacio entre la campana y el usuario */
+.info-user {
+    gap: 4px;
+}
+
+/* ---------- Campana ---------- */
+
+.noti-campana {
+    position: relative; /* para ubicar el número rojo */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    flex-shrink: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1.35rem;
+    color: var(--color-azul-marino);
+    transition: background-color 0.2s ease, transform 0.15s ease;
+}
+
+.noti-campana:hover {
+    background-color: var(--color-azul-claro);
+    transform: rotate(-12deg); /* pequeño "movimiento" de campana */
+}
+
+/* Número rojo de no leídas */
+.noti-contador {
+    display: block;
+    position: absolute;
+    top: 2px;
+    right: 0;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background-color: var(--color-rojo);
+    border: 2px solid var(--color-blanco);
+    font-size: 0.65rem;
+    font-weight: 700;
+    line-height: 14px;
+    color: var(--color-blanco);
+    text-align: center;
+    animation: aparecerBajando 0.25s ease-out;
+}
+
+/* ---------- Lista desplegable ---------- */
+
+.noti-panel {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 20; /* por encima del menú del usuario y de las secciones */
+    width: 340px;
+    max-width: calc(100vw - 24px);
+    background-color: var(--color-blanco);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+    box-shadow: 0 12px 32px rgba(0, 28, 59, 0.2);
+    overflow: hidden;
+    /* Oculta hasta que el JS le pone "abierto" (con fundido) */
+    visibility: hidden;
+    opacity: 0;
+    transform: translateY(-6px);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
+}
+
+.noti-panel.abierto {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s;
+}
+
+.noti-panel-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--color-borde-suave);
+}
+
+.noti-panel-titulo {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-texto);
+}
+
+.noti-marcar-todas {
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-azul);
+}
+
+.noti-marcar-todas:hover {
+    text-decoration: underline;
+}
+
+/* Lista con scroll si hay muchas */
+.noti-lista {
+    max-height: 380px;
+    overflow-y: auto;
+}
+
+.noti-vacio {
+    margin: 0;
+    padding: 28px 16px;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+    text-align: center;
+}
+
+/* Una notificación (es un botón para poder hacer clic) */
+.noti-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+    padding: 12px 14px;
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--color-borde-suave);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: background-color 0.15s ease;
+}
+
+.noti-item:hover {
+    background-color: var(--color-fondo);
+}
+
+/* No leída: fondo azul claro y punto a la izquierda del título */
+.noti-item.no-leida {
+    background-color: var(--color-azul-claro);
+}
+
+.noti-item.no-leida .noti-titulo::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 6px;
+    border-radius: 50%;
+    background-color: var(--color-azul);
+    vertical-align: middle;
+}
+
+/* Icono redondo según el tipo */
+.noti-icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    font-size: 1rem;
+}
+
+.noti-pendiente { background-color: var(--color-naranja-claro); color: #B34A07; }
+.noti-aprobado  { background-color: var(--color-verde-claro);   color: var(--color-verde); }
+.noti-rechazado { background-color: var(--color-rojo-claro);    color: var(--color-rojo); }
+.noti-info      { background-color: var(--color-azul-claro);    color: var(--color-azul); }
+
+.noti-textos {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.noti-titulo {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-texto);
+}
+
+.noti-mensaje {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+    line-height: 1.35;
+}
+
+.noti-fecha {
+    font-size: 0.7rem;
+    color: var(--color-placeholder);
+}
+
+/* ---------- Avisos emergentes (esquina inferior derecha) ---------- */
+
+.noti-avisos {
+    position: fixed;
+    right: 20px;
+    bottom: calc(10vh + 16px); /* justo encima del pie */
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 320px;
+    max-width: calc(100vw - 32px);
+    pointer-events: none; /* el contenedor no bloquea clics; los avisos sí */
+}
+
+.noti-aviso {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    background-color: var(--color-blanco);
+    border: 1px solid var(--color-borde);
+    border-left: 4px solid var(--color-naranja);
+    border-radius: var(--radio);
+    box-shadow: 0 10px 28px rgba(0, 28, 59, 0.22);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    pointer-events: auto;
+    animation: entrarAvisoNoti 0.3s ease-out;
+}
+
+@keyframes entrarAvisoNoti {
+    from {
+        opacity: 0;
+        transform: translateX(24px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ==================================================
+   CONTENIDO
+   2 columnas: menú lateral (15%) | cuerpo principal (85%)
+   Para hacer el menú más ancho o angosto, cambiar
+   grid-template-columns (en fr: reparten el ancho que queda después
+   del gap; con % el gap se sumaba y aparecía scroll en toda la página).
+   ================================================== */
+
+.contenido {
+    grid-area: contenido;
+    display: grid;
+    background-color: var(--color-blanco);
+    grid-template-columns: minmax(0, 15fr) minmax(0, 85fr);
+    gap: 5px;
+}
+
+/* ---------- Menú lateral ---------- */
+
+.menu-lateral {
+    height: 100%;
+    width: 100%;
+    display: block;
+    background-color: var(--color-fondo-oscuro);
+    padding: 12px 0;
+    /* Sombra hacia la derecha para separar el menú del cuerpo principal */
+    position: relative;
+    z-index: 1;
+    box-shadow: 2px 0 10px rgba(0, 28, 59, 0.25);
+}
+
+/* Lista sin viñetas, un ítem debajo de otro */
+.menu-lista {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Cada enlace: icono + texto en fila.
+   El borde izquierdo transparente reserva el espacio para el
+   borde naranja del hover (así el texto no "salta"). */
+.menu-item a {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 20px;
+    border-left: 3px solid transparent;
+    font-size: clamp(0.8rem, 1vw, 0.95rem);
+    color: var(--color-fondo);
+    text-decoration: none;
+    transition: background-color 0.2s ease, border-color 0.2s ease, padding-left 0.2s ease;
+}
+
+/* Iconos del menú un poco más grandes que el texto */
+.menu-item a i {
+    font-size: 1.1em;
+    transition: transform 0.2s ease;
+}
+
+/* Al pasar el mouse: fondo más claro, borde naranja y el texto se
+   corre un poco a la derecha (solo en horizontal, así los demás
+   ítems no "saltan"). Normal: 20px. Subir = desplazamiento mayor. */
+.menu-item a:hover {
+    background-color: rgba(255, 255, 255, 0.08);
+    border-left: 3px solid #F28C28;
+    padding-left: 26px;
+}
+
+.menu-item a:hover i {
+    transform: scale(1.15); /* el icono crece un poco */
+}
+
+/* Sección que se está viendo. La clase "activo" la pone js/pagina_inicial.js */
+.menu-item a.activo {
+    background-color: rgba(255, 255, 255, 0.12);
+    border-left: 3px solid var(--color-naranja);
+    font-weight: 600;
+}
+
+/* Entrada en cascada: js/menu-animado.js pone "oculto" al cargar y
+   luego la cambia por "visible" en cada ítem, uno tras otro. */
+.menu-item.oculto {
+    opacity: 0;
+    transform: translateX(-15px); /* empieza 15px a la izquierda */
+}
+
+.menu-item.visible {
+    opacity: 1;
+    transform: translateX(0);
+    transition: opacity 0.4s ease-out, transform 0.4s ease-out; /* 0.4s = duración de la entrada */
+}
+
+/* Sección sin permiso. La clase "bloqueado" la pone js/permisos.js.
+   Se ve gris, con candado a la derecha, y el hover no cambia nada. */
+.menu-item.bloqueado a {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.menu-item.bloqueado a:hover {
+    background-color: transparent;
+    border-left-color: transparent;
+    padding-left: 20px; /* igual al normal: no se desplaza */
+}
+
+.menu-item.bloqueado a:hover i {
+    transform: none;
+}
+
+.menu-item.bloqueado .candado {
+    margin-left: auto; /* empuja el candado al extremo derecho */
+    font-size: 0.85em;
+}
+
+/* ---------- Cuerpo principal (donde se cargan las secciones) ----------
+   js/pagina_inicial.js pone aquí el contenido de secciones/<nombre>.html
+   y usa estas clases para el cambio de sección:
+     1. "seccion-saliendo": el contenido actual se desvanece.
+     2. Se reemplaza el contenido.
+     3. "seccion-entrando": el nuevo contenido aparece subiendo.
+   IMPORTANTE: si se cambia la duración de la salida (0.15s),
+   cambiar también DURACION_SALIDA en js/pagina_inicial.js. */
+
+.cuerpo-principal {
+    width: 100%;
+    height: 100%;
+    overflow: auto; /* si la sección es más alta, aparece scroll solo aquí */
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.cuerpo-principal.seccion-saliendo {
+    opacity: 0;
+    transform: translateY(6px);
+}
+
+.cuerpo-principal.seccion-entrando {
+    animation: entradaSeccion 0.3s ease-out;
+}
+
+@keyframes entradaSeccion {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mensaje de "sin permiso" o "no se pudo cargar" dentro del cuerpo principal */
+.seccion-error {
+    margin: 40px 20px;
+    font-size: 1rem;
+    color: var(--color-gris);
+    text-align: center;
+}
+
+/* ==================================================
+   SIN SESIÓN (mientras se ve el login)
+   La clase "sin-sesion" va en <html> (la pone index.html al
+   cargar y js/permisos.js al iniciar/cerrar sesión).
+   Se ocultan el usuario del encabezado y los botones del pie,
+   porque sin sesión no hacen nada. visibility (en vez de
+   display: none) mantiene su espacio, así el encabezado y el
+   pie no cambian de tamaño al ingresar.
+   Para que se vean también sin sesión, borrar esta regla.
+   ================================================== */
+
+html.sin-sesion .user-trigger,
+html.sin-sesion .noti-campana,
+html.sin-sesion .pie-botones {
+    visibility: hidden;
+}
+
+/* ==================================================
+   SEGÚN EL ROL
+   <html data-rol="..."> lo pone index.html al cargar y
+   js/permisos.js al iniciar/cerrar sesión.
+   ================================================== */
+
+/* Pilotos: sin botones de acceso rápido en el pie (son acciones
+   administrativas). Su menú lo limita SECCIONES_POR_ROL en js/sesion.js. */
+html[data-rol="piloto"] .pie-botones {
+    visibility: hidden;
+}
+
+/* "Asignar Piloto" es solo de Admin G2 o superior (G3 y Empleado no lo ven).
+   "Cancelar pedido" y "Generar reporte" no los ve el Empleado.
+   Ver js/pagina_inicial.js ("Botones del pie"). */
+html[data-rol="admin_g3"] .pie .btn-piloto,
+html[data-rol="empleado"] .pie .btn-piloto,
+html[data-rol="empleado"] .pie .btn-del,
+html[data-rol="empleado"] .pie .btn-chart {
+    display: none;
+}
+
+/* ==================================================
+   PIE
+   3 bloques: espacio vacío | botones de acceso rápido | datos de la empresa
+   ================================================== */
+
+.pie {
+    grid-area: pie;
+    background-color: var(--color-fondo-oscuro);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 8px 12px;
+}
+
+/* Espacio vacío a la izquierda para que los botones queden centrados */
+.pie-spacer {
+    flex: 1;
+    min-width: 0;
+}
+
+.pie-botones {
+    display: flex;
+    flex-wrap: wrap; /* en pantallas pequeñas los botones bajan a otra línea */
+    justify-content: center;
+    gap: 10px;
+}
+
+/* ---------- Botones de acceso rápido ----------
+   Estilo común; el color de cada uno está abajo (.btn-crear, ...). */
+
+.acceso-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border: 1px solid #f5f5f5;
+    border-radius: 8%;
+    cursor: pointer;
+    font-family: Verdana, sans-serif;
+    font-size: clamp(0.7rem, 0.9vw, 0.85rem);
+    color: var(--color-blanco);
+    transition: filter 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.acceso-btn i {
+    font-size: 1.1em;
+    color: var(--color-blanco);
+}
+
+/* Al pasar el mouse: se agranda, se aclara, sube 2px y proyecta sombra.
+   Se agranda con transform: scale, que no mueve a los demás botones
+   (cambiar font-size o padding sí los empujaría).
+   scale(1.1) = 10% más grande. Subir el número = se agranda más. */
+.acceso-btn:hover {
+    filter: brightness(1.25);
+    transform: translateY(-2px) scale(1.1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+}
+
+/* Al hacer clic: se encoge un poco (sensación de "presionar") */
+.acceso-btn:active {
+    transform: translateY(0) scale(1.04);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+/* Crear Pedido - azul */
+.btn-crear {
+    background-color: #0c67c9;
+    border: 3px solid var(--color-blanco);
+}
+
+/* Cargar Pedidos - verde */
+/* Asignar Piloto - naranja */
+.btn-piloto {
+    background-color: #b44804;
+    border: 3px solid var(--color-blanco);
+}
+
+/* Reasignar horario - morado */
+.btn-hor {
+    background-color: #610669;
+    border: 3px solid var(--color-blanco);
+}
+
+/* Eliminar pedido - café */
+.btn-del {
+    background-color: #7e3504;
+    border: 3px solid var(--color-blanco);
+}
+
+/* Generar reporte - azul oscuro */
+/* Cargar Pedidos: verde azulado (el mismo de "En ruta"), en armonía con los demás.
+   Solo lo ven Admin G2 y Admin G3 */
+.btn-cargar {
+    background-color: #0E6B63;
+    border: 3px solid var(--color-blanco);
+}
+
+html:not([data-rol="admin_g2"]):not([data-rol="admin_g3"]) .pie .btn-cargar {
+    display: none;
+}
+
+/* Generar reporte: verde */
+.btn-chart {
+    background-color: #0a6902;
+    border: 3px solid var(--color-blanco);
+}
+
+/* Texto de derechos reservados (a la derecha) */
+.info-empresa {
+    flex: 1;
+    font-size: clamp(0.6rem, 0.8vw, 0.75rem);
+    color: var(--color-fondo);
+    text-align: right;
+}
+
+/* ==================================================
+   ACCESIBILIDAD: "reducir movimiento" del sistema operativo
+   (el logo y la cascada del menú se mantienen)
+   ================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .cuerpo-principal,
+    .cuerpo-principal.seccion-saliendo,
+    .user-menu {
+        transform: none;
+    }
+
+    .cuerpo-principal.seccion-entrando,
+    .noti-aviso,
+    .noti-contador {
+        animation: none;
+    }
+
+    .noti-campana:hover,
+    .noti-panel {
+        transform: none;
+    }
+}
