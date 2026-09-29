@@ -343,7 +343,7 @@ document.querySelectorAll('.menu-item a').forEach((a) => {
 //                        se borran). El Empleado no ve el botón.
 //   Generar reporte   -> sección Reportes (G3 solo ve; G2 o superior exporta).
 //                        El Empleado no ve el botón (no tiene acceso a Reportes).
-//   (Cargar Pedidos todavía no tiene función.)
+//   ("Cargar Pedidos" se eliminó del pie.)
 const BOTONES_PIE = {
     '.btn-crear': 'pedidos?nuevo=1',
     '.btn-piloto': 'rutas',

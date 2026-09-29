@@ -47,7 +47,8 @@ body {
     background-color: var(--color-blanco);
     display: grid;
     height: 100%;
-    grid-template-columns: 20% 60% 20%;
+    /* fr (no %) para que el gap no haga la página más ancha que la pantalla */
+    grid-template-columns: minmax(0, 20fr) minmax(0, 60fr) minmax(0, 20fr);
     gap: 5px;
     border: 1px groove var(--color-fondo-oscuro);
     /* Sombra suave hacia abajo para separar el encabezado del contenido.
@@ -139,7 +140,7 @@ body {
     display: grid;
     background-color: var(--color-blanco);
     height: 100%;
-    grid-template-columns: 10% 60% 30%;
+    grid-template-columns: minmax(0, 10fr) minmax(0, 60fr) minmax(0, 30fr);
     gap: 5px;
 }
 
@@ -614,14 +615,15 @@ body {
    CONTENIDO
    2 columnas: menú lateral (15%) | cuerpo principal (85%)
    Para hacer el menú más ancho o angosto, cambiar
-   grid-template-columns (las dos deben sumar 100%).
+   grid-template-columns (en fr: reparten el ancho que queda después
+   del gap; con % el gap se sumaba y aparecía scroll en toda la página).
    ================================================== */
 
 .contenido {
     grid-area: contenido;
     display: grid;
     background-color: var(--color-blanco);
-    grid-template-columns: 15% 85%;
+    grid-template-columns: minmax(0, 15fr) minmax(0, 85fr);
     gap: 5px;
 }
 
@@ -881,11 +883,6 @@ html[data-rol="empleado"] .pie .btn-chart {
 }
 
 /* Cargar Pedidos - verde */
-.btn-cargar {
-    background-color: #0a6902;
-    border: 3px solid var(--color-blanco);
-}
-
 /* Asignar Piloto - naranja */
 .btn-piloto {
     background-color: #b44804;
@@ -905,8 +902,20 @@ html[data-rol="empleado"] .pie .btn-chart {
 }
 
 /* Generar reporte - azul oscuro */
+/* Cargar Pedidos: verde azulado (el mismo de "En ruta"), en armonía con los demás.
+   Solo lo ven Admin G2 y Admin G3 */
+.btn-cargar {
+    background-color: #0E6B63;
+    border: 3px solid var(--color-blanco);
+}
+
+html:not([data-rol="admin_g2"]):not([data-rol="admin_g3"]) .pie .btn-cargar {
+    display: none;
+}
+
+/* Generar reporte: verde */
 .btn-chart {
-    background-color: var(--color-fondo-oscuro);
+    background-color: #0a6902;
     border: 3px solid var(--color-blanco);
 }
 
