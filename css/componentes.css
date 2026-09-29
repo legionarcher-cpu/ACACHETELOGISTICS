@@ -590,6 +590,69 @@
 }
 
 /* ==================================================
+   RESUMEN POR ESTADO (cuadros con un número; al presionar uno se filtra)
+   <div class="resumen">
+     <button class="resumen-item resumen-verde" data-estado="...">
+       <span class="resumen-numero">3</span>
+       <span class="resumen-texto">Disponibles</span>
+     </button>
+   </div>
+   Colores de la línea izquierda: resumen-verde, -azul, -naranja, -turquesa, -rosada, -gris.
+   .activo = el cuadro del filtro elegido. Lo usan Vehículos y Pedidos.
+   ================================================== */
+
+.resumen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+}
+
+.resumen-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 14px 18px;
+    background-color: var(--color-blanco);
+    border: 1px solid var(--color-borde);
+    border-left: 4px solid var(--color-azul-marino);
+    border-radius: var(--radio-grande);
+    box-shadow: var(--sombra-tarjeta);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.resumen-verde    { border-left-color: var(--color-verde); }
+.resumen-azul     { border-left-color: var(--color-azul); }
+.resumen-naranja  { border-left-color: var(--color-naranja); }
+.resumen-turquesa { border-left-color: #0E6B63; }
+.resumen-rosada   { border-left-color: #9D174D; }
+.resumen-gris     { border-left-color: var(--color-gris); }
+
+.resumen-item:hover {
+    box-shadow: 0 6px 18px rgba(0, 28, 59, 0.12);
+}
+
+.resumen-item.activo {
+    background-color: var(--color-azul-claro);
+}
+
+.resumen-numero {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--color-texto);
+    line-height: 1.1;
+}
+
+.resumen-texto {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-gris);
+}
+
+/* ==================================================
    VENTANAS (<dialog>, se abren con showModal())
    .dialogo-chico = ventana angosta (confirmaciones)
    ================================================== */

@@ -333,6 +333,15 @@ document.querySelectorAll('.menu-item a').forEach((a) => {
     });
 });
 
+// Botón "Crear Pedido" del pie: abre el formulario de pedido nuevo
+// (los demás botones del pie todavía no tienen función).
+const botonCrearPedido = document.querySelector('.pie .btn-crear');
+if (botonCrearPedido) {
+    botonCrearPedido.addEventListener('click', () => {
+        if (obtenerSesion() && tienePermiso('pedidos')) irA('pedidos?nuevo=1');
+    });
+}
+
 // Cada vez que cambia el # de la URL (clic en el menú, botón atrás/adelante),
 // se carga la sección correspondiente.
 window.addEventListener('hashchange', mostrarSeccionActual);

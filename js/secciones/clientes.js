@@ -30,7 +30,8 @@
        - Rechazar un cliente nuevo lo elimina.
        - Rechazar cambios los descarta.
      Notificaciones (js/notificaciones.js): lo que propone un Empleado avisa
-     a quienes aprueban; al aprobar/rechazar se avisa al Empleado.
+     SOLO al Admin G3 de su tienda (o al G2 de la región si la tienda no
+     tiene G3); al aprobar/rechazar se avisa al Empleado.
 
    PENDIENTE (Fase 2 - Pedidos): calificación 1 a 5 por pedido y
    categoría según el promedio: A ≥ 4.5, B ≥ 3.5, C ≥ 2.5, D < 2.5.
@@ -426,9 +427,10 @@ registrarSeccion('clientes', (zona) => {
                 const errorTienda = await sincronizarTiendas(data.id, [], [miTienda]);
                 if (errorTienda) return { error: errorTienda };
 
-                // Avisar a quienes aprueban (G3 de la tienda, G2 de la región, G1, Admin)
+                // Solicitud de tienda: se avisa SOLO al Admin G3 de la tienda
+                // (o al G2 de la región si no hay G3) - js/notificaciones.js
                 notificarPendiente({
-                    referenciaTipo: 'cliente', referenciaId: data.id, tiendaId: miTienda, incluirG3: true,
+                    referenciaTipo: 'cliente', referenciaId: data.id, tiendaId: miTienda, soloTienda: true,
                     titulo: 'Cliente nuevo por aprobar',
                     mensaje: `${sesion.nombre} agregó a ${datos.nombre} ${datos.apellidos} (tel. ${datos.telefono}).`,
                     enlace: `#clientes?tienda=${miTienda}`,
@@ -456,9 +458,9 @@ registrarSeccion('clientes', (zona) => {
                 .eq('id', editando.id);
             if (error) return { error };
 
-            // Avisar a quienes aprueban
+            // Solicitud de tienda: se avisa SOLO al Admin G3 de la tienda (o al G2 si no hay G3)
             notificarPendiente({
-                referenciaTipo: 'cliente', referenciaId: editando.id, tiendaId: miTienda, incluirG3: true,
+                referenciaTipo: 'cliente', referenciaId: editando.id, tiendaId: miTienda, soloTienda: true,
                 titulo: 'Cambios de cliente por aprobar',
                 mensaje: `${sesion.nombre} propuso cambios para ${editando.nombre} ${editando.apellidos} ` +
                     `(${Object.keys(cambios).map((c) => CLI_CAMPOS[c].toLowerCase()).join(', ')}).`,

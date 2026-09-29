@@ -1,0 +1,573 @@
+/* ==================================================
+   SECCIÓN: PEDIDOS
+   ACACHETE LOGISTICS
+
+   Solo lo PROPIO de secciones/pedidos.html. Lo común (página, tarjeta,
+   botones, avisos, tabla, formulario, filtros, resumen y ventanas) viene
+   de css/componentes.css. Las clases propias empiezan con "ped-".
+   ================================================== */
+
+/* Cada vista ocupa la página; el JS muestra solo una */
+.ped-vista {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* "← Pedidos" */
+.ped-volver {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-azul);
+    text-decoration: none;
+}
+
+.ped-volver:hover {
+    text-decoration: underline;
+}
+
+/* Nota azul (ej. falta ejecutar un SQL) */
+.ped-nota {
+    margin: 0;
+    padding: 10px 14px;
+    background-color: var(--color-azul-claro);
+    border-left: 4px solid var(--color-azul);
+    border-radius: var(--radio);
+    font-size: 0.85rem;
+    color: var(--color-azul-marino);
+}
+
+/* Casilla o radio con su texto al lado */
+.ped-si-no {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.ped-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 20px;
+    min-height: 42px;
+}
+
+.ped-mayus {
+    text-transform: uppercase;
+}
+
+/* ==================================================
+   LISTA
+   ================================================== */
+
+.ped-tabla {
+    min-width: 980px;
+}
+
+/* Código del pedido + actividad debajo */
+.ped-codigo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.ped-codigo strong {
+    font-family: var(--fuente-codigo, monospace);
+    color: var(--color-azul-marino);
+}
+
+.ped-codigo small,
+.ped-sub {
+    font-size: 0.78rem;
+    color: var(--color-gris);
+}
+
+/* Texto largo recortado (dirección) */
+.ped-corto {
+    display: block;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ==================================================
+   FORMULARIO
+   ================================================== */
+
+.ped-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.ped-bloque {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px 24px;
+}
+
+.ped-bloque-titulo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-texto);
+}
+
+/* Número del paso en un círculo */
+.ped-paso {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: var(--color-azul-marino);
+    font-size: 0.85rem;
+    color: var(--color-blanco);
+}
+
+/* Tarjetas para elegir la actividad */
+.ped-actividades {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 12px;
+}
+
+.ped-actividad {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 2px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.ped-actividad:hover {
+    border-color: var(--color-naranja);
+}
+
+.ped-actividad:has(input:checked) {
+    border-color: var(--color-naranja);
+    background-color: var(--color-naranja-claro);
+}
+
+.ped-actividad input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ped-actividad i {
+    font-size: 1.6rem;
+    color: #B34A07;
+}
+
+.ped-actividad span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-weight: 700;
+}
+
+.ped-actividad small {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+/* ---------- Filas de bultos / artículos ---------- */
+
+.ped-lista-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-azul-marino);
+}
+
+.ped-filas {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ped-fila {
+    display: grid;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Bulto: descripción | cant. | tamaño | peso | quitar */
+.ped-fila-bulto {
+    grid-template-columns: minmax(0, 2fr) 80px minmax(0, 1fr) 120px 40px;
+}
+
+/* Artículo: artículo | cant. | peso | quitar */
+.ped-fila-articulo {
+    grid-template-columns: minmax(0, 3fr) 80px 120px 40px;
+}
+
+.ped-fila .campo-input {
+    min-width: 0;
+}
+
+.ped-fila-encabezado {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-gris);
+}
+
+/* ---------- Casillas de mercadería (entregas de tienda) ---------- */
+
+.ped-casillas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.ped-casilla {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 2px solid var(--color-borde);
+    border-radius: 999px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+}
+
+.ped-casilla:has(input:checked) {
+    border-color: var(--color-naranja);
+    background-color: var(--color-naranja-claro);
+    color: #B34A07;
+}
+
+.ped-categorias-detalle {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Panel de una categoría marcada */
+.ped-categoria {
+    padding: 14px 16px;
+    border: 1px solid var(--color-borde);
+    border-left: 4px solid var(--color-naranja);
+    border-radius: var(--radio);
+    background-color: var(--color-fondo);
+}
+
+.ped-categoria-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+    font-weight: 700;
+}
+
+/* Conteo de abarrotes: 4 números + alcohol */
+.ped-conteo {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    align-items: end;
+    gap: 12px;
+}
+
+.ped-compra {
+    margin-top: 16px;
+}
+
+.ped-peso-total {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    padding: 10px 14px;
+    background-color: var(--color-azul-claro);
+    border-radius: var(--radio);
+    font-size: 0.95rem;
+    color: var(--color-azul-marino);
+}
+
+.ped-peso-nota {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+/* ---------- Cobro ---------- */
+
+.ped-desglose {
+    width: 100%;
+    max-width: 520px;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.ped-desglose td {
+    padding: 6px 0;
+    border-bottom: 1px dashed var(--color-borde);
+}
+
+.ped-desglose td:last-child {
+    text-align: right;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.ped-desglose tr.ped-desglose-total td {
+    border-bottom: none;
+    padding-top: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-azul-marino);
+}
+
+.ped-desglose small {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--color-gris);
+}
+
+.ped-total {
+    margin: 0;
+    font-size: 1.1rem;
+    color: var(--color-texto);
+}
+
+.ped-total strong {
+    font-size: 1.4rem;
+    color: #B34A07;
+}
+
+.ped-form-botones {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+/* ==================================================
+   DETALLE
+   ================================================== */
+
+.ped-detalle-titulo {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.ped-detalle-titulo .etiqueta {
+    font-size: 0.8rem;
+}
+
+.ped-detalle-rejilla {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    gap: 16px;
+    align-items: start;
+}
+
+.ped-ancho {
+    grid-column: 1 / -1;
+}
+
+/* Lista de datos "Etiqueta: valor" */
+.ped-datos {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 16px;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.ped-datos dt {
+    font-weight: 600;
+    color: var(--color-gris);
+}
+
+.ped-datos dd {
+    margin: 0;
+    color: var(--color-texto);
+    word-break: break-word;
+}
+
+/* Fotos de evidencia */
+.ped-fotos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.ped-fotos a img {
+    width: 110px;
+    height: 110px;
+    object-fit: cover;
+    border-radius: var(--radio);
+    border: 1px solid var(--color-borde);
+}
+
+.ped-foto-borrada {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 110px;
+    height: 110px;
+    padding: 8px;
+    border: 1px dashed var(--color-borde);
+    border-radius: var(--radio);
+    font-size: 0.75rem;
+    text-align: center;
+    color: var(--color-gris);
+}
+
+/* Línea de tiempo */
+.ped-linea {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ped-linea li {
+    position: relative;
+    padding: 0 0 16px 22px;
+    border-left: 2px solid var(--color-borde);
+    margin-left: 6px;
+    font-size: 0.88rem;
+}
+
+.ped-linea li:last-child {
+    border-left-color: transparent;
+    padding-bottom: 0;
+}
+
+/* Punto de cada evento */
+.ped-linea li::before {
+    content: "";
+    position: absolute;
+    left: -7px;
+    top: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background-color: var(--color-naranja);
+    border: 2px solid var(--color-blanco);
+    box-shadow: 0 0 0 1px var(--color-naranja);
+}
+
+.ped-linea time {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--color-gris);
+}
+
+.ped-linea strong {
+    color: var(--color-texto);
+}
+
+.ped-linea small {
+    display: block;
+    color: var(--color-gris);
+}
+
+/* ==================================================
+   VENTANAS
+   ================================================== */
+
+.ped-qr-dialogo {
+    width: min(440px, calc(100vw - 32px));
+}
+
+/* La tarjeta del QR se dibuja a 600 px y se muestra más chica */
+.ped-qr-canvas {
+    display: block;
+    width: 100%;
+    max-width: 320px;
+    height: auto;
+    margin: 0 auto;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+}
+
+.ped-qr-texto {
+    margin-top: 12px;
+    font-size: 0.85rem;
+    text-align: center;
+}
+
+.ped-qr-botones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+/* Botón verde de WhatsApp */
+.boton-whatsapp {
+    background-color: #25D366;
+    border: 1px solid #1EBE5A;
+    color: #FFFFFF;
+    text-decoration: none;
+}
+
+.boton-whatsapp:hover {
+    background-color: #1EBE5A;
+}
+
+.ped-accion-motivo {
+    margin-top: 14px;
+}
+
+.ped-textarea {
+    height: auto;
+    padding: 10px 12px;
+    resize: vertical;
+    font-family: inherit;
+}
+
+/* ==================================================
+   PANTALLAS CHICAS
+   ================================================== */
+
+@media (max-width: 640px) {
+    .ped-fila-bulto,
+    .ped-fila-articulo {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .ped-fila-bulto > :first-child,
+    .ped-fila-articulo > :first-child {
+        grid-column: 1 / -1;
+    }
+
+    .ped-fila-encabezado {
+        display: none;
+    }
+
+    .ped-bloque {
+        padding: 16px;
+    }
+}

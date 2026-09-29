@@ -21,9 +21,12 @@
        y al entrar si hay sin leer.
      - Revisa novedades cada 60 segundos y al cambiar de sección.
 
-   Quién aprueba qué (lo decide destinatariosAprobacion):
+   A quién se avisa (lo decide destinatariosAprobacion):
      usuario creado por un Admin G3 -> Administrador, Admin G1, Admin G2 de la región
-     cliente de un Empleado          -> los mismos + Admin G3 de la tienda
+     solicitud de tienda (cliente de un Empleado) -> SOLO el Admin G3 de la tienda
+       (si la tienda no tiene G3: el Admin G2 de la región). Así no se llena
+       de avisos a los administradores principales; ellos igual pueden aprobar
+       desde Clientes si entran.
 
    HTML: index.html (.noti-*) | Estilos: css/index.css (bloque "NOTIFICACIONES")
    Necesita: js/supabase.js (db) y js/sesion.js cargados antes.
@@ -52,37 +55,47 @@ const NOTI_TIPOS = {
    PARTE 1 - ENVIAR NOTIFICACIONES
    ================================================== */
 
-// Ids de los usuarios que pueden aprobar algo de una tienda.
-//   incluirG3 = true -> también el Admin G3 de esa tienda (para clientes)
-// No incluye al usuario conectado (no se avisa a sí mismo).
-async function destinatariosAprobacion(tiendaId, incluirG3 = false) {
-    const roles = ['administrador', 'admin_g1', 'admin_g2'];
-    if (incluirG3) roles.push('admin_g3');
-
-    const [{ data: aprobadores, error }, { data: tienda }] = await Promise.all([
-        db.from('usuarios').select('id, rol, region, tienda_id').in('rol', roles),
+// Ids de los usuarios a los que se avisa de una solicitud de una tienda.
+//   soloTienda = false -> Administrador, Admin G1 y Admin G2 de la región
+//                         (ej. un empleado creado por un Admin G3)
+//   soloTienda = true  -> SOLO el Admin G3 de esa tienda (ej. clientes de un
+//                         Empleado), para no llenar de avisos a los admins
+//                         principales. Si la tienda no tiene Admin G3, se avisa
+//                         al Admin G2 de la región para que no quede sin ver.
+// Solo usuarios aprobados. No incluye al usuario conectado.
+async function destinatariosAprobacion(tiendaId, soloTienda = false) {
+    const [{ data: candidatos, error }, { data: tienda }] = await Promise.all([
+        db.from('usuarios')
+            .select('id, rol, region, tienda_id, aprobado')
+            .in('rol', ['administrador', 'admin_g1', 'admin_g2', 'admin_g3']),
         db.from('tiendas').select('region').eq('id', tiendaId).maybeSingle(),
     ]);
     if (error) throw error;
 
     const region = tienda ? tienda.region : null;
     const yo = obtenerSesion();
+    const activos = (candidatos || [])
+        .filter((u) => u.aprobado !== false)
+        .filter((u) => !yo || u.id !== yo.id);
 
-    return (aprobadores || [])
-        .filter((u) =>
-            u.rol === 'administrador' || u.rol === 'admin_g1' ||
-            (u.rol === 'admin_g2' && u.region === region) ||
-            (u.rol === 'admin_g3' && u.tienda_id === tiendaId))
-        .filter((u) => !yo || u.id !== yo.id)
+    const g2DeLaRegion = activos.filter((u) => u.rol === 'admin_g2' && u.region === region);
+
+    if (soloTienda) {
+        const g3DeLaTienda = activos.filter((u) => u.rol === 'admin_g3' && u.tienda_id === tiendaId);
+        return (g3DeLaTienda.length ? g3DeLaTienda : g2DeLaRegion).map((u) => u.id);
+    }
+
+    return activos
+        .filter((u) => u.rol === 'administrador' || u.rol === 'admin_g1' || g2DeLaRegion.includes(u))
         .map((u) => u.id);
 }
 
-// Avisa a quienes deben aprobar algo.
+// Avisa a quienes deben aprobar algo (ver destinatariosAprobacion).
 // Ej.: notificarPendiente({ referenciaTipo: 'cliente', referenciaId: 5, tiendaId: 1,
-//        incluirG3: true, titulo: 'Cliente por aprobar', mensaje: '...', enlace: '#clientes?tienda=1' })
-async function notificarPendiente({ referenciaTipo, referenciaId, tiendaId, incluirG3 = false, titulo, mensaje, enlace }) {
+//        soloTienda: true, titulo: 'Cliente por aprobar', mensaje: '...', enlace: '#clientes?tienda=1' })
+async function notificarPendiente({ referenciaTipo, referenciaId, tiendaId, soloTienda = false, titulo, mensaje, enlace }) {
     try {
-        const ids = await destinatariosAprobacion(tiendaId, incluirG3);
+        const ids = await destinatariosAprobacion(tiendaId, soloTienda);
         if (ids.length === 0) return;
         const filas = ids.map((usuario_id) => ({
             usuario_id, tipo: 'pendiente', titulo, mensaje, enlace,

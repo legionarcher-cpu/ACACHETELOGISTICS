@@ -96,7 +96,8 @@ function cerrarSesion() {
 // Se usan para mostrar u ocultar acciones en las secciones.
 // ⚠ Solo controlan la página; la protección real llegará en la Fase 7.
 
-// Rol del usuario conectado ('administrador', 'admin_g1', 'empleado', 'piloto') o null
+// Rol del usuario conectado ('administrador', 'admin_g1', 'admin_g2', 'admin_g3',
+// 'empleado' o 'piloto') o null
 function rolActual() {
     const sesion = obtenerSesion();
     return sesion ? sesion.rol : null;
