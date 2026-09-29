@@ -1,0 +1,52 @@
+/* ==================================================
+   SECCIÓN: TIENDAS
+   ACACHETE LOGISTICS
+
+   Solo lo PROPIO de secciones/tiendas.html. Lo común (página,
+   buscador, botones, avisos, tabla, etiquetas, formulario y
+   ventanas) viene de css/componentes.css.
+   js/pagina_inicial.js activa este archivo solo mientras se ve
+   la sección. Las clases propias empiezan con "tnd-".
+   ================================================== */
+
+/* Debajo de este ancho aparece el scroll horizontal (7 columnas) */
+.tnd-tabla {
+    min-width: 820px;
+}
+
+/* Columna "Usuarios": angosta y centrada */
+.tabla th.tnd-col-numero,
+.tabla td.tnd-col-numero {
+    width: 90px;
+    text-align: center;
+}
+
+/* El título de cada región (fila que separa los grupos) es el componente
+   .tabla-grupo de css/componentes.css */
+
+/* ==================================================
+   FORMULARIO
+   ================================================== */
+
+/* "Código de la tienda: NOR-004" */
+.tnd-vista-previa {
+    font-family: var(--fuente-codigo);
+    font-size: 0.9rem;
+    color: var(--color-azul);
+}
+
+/* Advertencia naranja al cambiar el código de una tienda con usuarios:
+   "Los 2 usuarios pasarán de cen-001-… a nor-005-…" */
+.tnd-aviso-codigo {
+    margin: 8px 0 0;
+    padding: 8px 12px;
+    background-color: var(--color-naranja-claro);
+    border-left: 4px solid var(--color-naranja);
+    border-radius: var(--radio);
+    font-size: 0.8rem;
+    color: #B34A07;
+}
+
+.tnd-aviso-codigo[hidden] {
+    display: none;
+}
