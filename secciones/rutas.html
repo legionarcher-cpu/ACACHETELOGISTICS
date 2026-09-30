@@ -1,0 +1,155 @@
+<!-- ==================================================
+     SECCIÓN: RUTAS Y ASIGNACIONES
+     Tablas "rutas" y "rutas_pilotos" (sql/00 sección 7).
+
+     - Cada tienda tiene las RUTAS que necesite (Ruta 1, Ruta Norte...). Una
+       ruta puede ser solo de una actividad (ej. solo Encomiendas) o de todas.
+     - El Admin G2 (o superior) asigna el o los PILOTOS de cada ruta por un
+       DÍA o por toda la SEMANA. Se ve como un calendario semanal.
+     - Al registrar un pedido (#pedidos?nuevo=1) el empleado elige la ruta y
+       el piloto sale solo según esta asignación.
+
+     Quién hace qué: Administrador y Admin G1 en todas las tiendas; Admin G2
+     en las de su región. Admin G3 solo ve su tienda (sin cambiar).
+     Empleado y Piloto no tienen acceso (ven la ruta de cada pedido en Pedidos).
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/rutas.css (clases "rut-")
+       Estilos comunes -> css/componentes.css
+       Lógica          -> js/secciones/rutas.js
+     Los ids empiezan con "rut".
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a index.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina">
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Rutas y asignaciones</h2>
+            <p id="rutSubtitulo" class="pagina-subtitulo">Pilotos de cada ruta por día o por semana</p>
+        </div>
+        <div class="pagina-acciones">
+            <button type="button" id="rutNueva" class="boton boton-principal" hidden>
+                <i class="bi bi-plus-circle"></i>
+                <span>Nueva ruta</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Tienda y semana -->
+    <div class="filtros">
+        <select id="rutTienda" class="campo-input filtro" aria-label="Tienda"></select>
+        <div class="rut-semana">
+            <button type="button" id="rutAnterior" class="boton boton-secundario boton-chico" aria-label="Semana anterior">
+                <i class="bi bi-chevron-left"></i>
+            </button>
+            <input id="rutFecha" type="date" class="campo-input filtro" aria-label="Semana (elige cualquier día)">
+            <button type="button" id="rutSiguiente" class="boton boton-secundario boton-chico" aria-label="Semana siguiente">
+                <i class="bi bi-chevron-right"></i>
+            </button>
+            <button type="button" id="rutHoy" class="boton boton-secundario boton-chico">Esta semana</button>
+        </div>
+    </div>
+
+    <p id="rutAviso" class="aviso" role="status"></p>
+
+    <p id="rutFaltaSql" class="rut-nota" hidden>
+        <i class="bi bi-exclamation-triangle"></i>
+        Falta instalar la base de datos: <strong>sql/00_instalacion_completa.sql</strong>.
+    </p>
+    <p id="rutSoloVer" class="rut-nota" hidden>
+        <i class="bi bi-info-circle"></i>
+        Aquí ves qué piloto lleva cada ruta. Las rutas y los pilotos los asigna el Admin G2.
+    </p>
+
+    <!-- Calendario semanal: una fila por ruta, una columna por día -->
+    <div class="tabla-caja">
+        <table class="tabla rut-tabla">
+            <thead>
+                <tr id="rutCabecera"></tr>
+            </thead>
+            <tbody id="rutCuerpo"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================================================
+     VENTANA: CREAR / MODIFICAR RUTA
+     ================================================== -->
+<dialog id="rutRutaDialogo" class="dialogo" aria-labelledby="rutRutaTitulo">
+    <form id="rutRutaForm" class="dialogo-form" novalidate>
+        <h3 id="rutRutaTitulo" class="dialogo-titulo">Nueva ruta</h3>
+        <div class="campos">
+            <div class="campo">
+                <label for="rutNombre" class="campo-etiqueta">Nombre *</label>
+                <input id="rutNombre" type="text" class="campo-input" maxlength="40" placeholder="Ej. Ruta Norte">
+            </div>
+            <div class="campo">
+                <label for="rutActividad" class="campo-etiqueta">Actividad</label>
+                <select id="rutActividad" class="campo-input"></select>
+                <small class="campo-ayuda">Ej. solo Encomiendas o solo Entregas de tienda.</small>
+            </div>
+            <div class="campo">
+                <label for="rutOrden" class="campo-etiqueta">Orden</label>
+                <input id="rutOrden" type="number" min="0" step="1" class="campo-input" value="0">
+            </div>
+            <div class="campo">
+                <span class="campo-etiqueta">Estado</span>
+                <label class="rut-si-no"><input id="rutActiva" type="checkbox" checked> Activa (se puede elegir en los pedidos)</label>
+            </div>
+        </div>
+        <p id="rutRutaError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="rutRutaCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: ASIGNAR PILOTO A UNA RUTA (un día o la semana)
+     ================================================== -->
+<dialog id="rutAsignarDialogo" class="dialogo" aria-labelledby="rutAsignarTitulo">
+    <form id="rutAsignarForm" class="dialogo-form" novalidate>
+        <h3 id="rutAsignarTitulo" class="dialogo-titulo">Asignar piloto</h3>
+        <div class="campos">
+            <div class="campo campo-ancho">
+                <label for="rutPiloto" class="campo-etiqueta">Piloto *</label>
+                <select id="rutPiloto" class="campo-input"></select>
+            </div>
+            <div class="campo campo-ancho">
+                <span class="campo-etiqueta">¿Por cuánto tiempo? *</span>
+                <div class="rut-opciones">
+                    <label class="rut-si-no"><input type="radio" name="rutPeriodo" value="dia" checked> Un día</label>
+                    <label class="rut-si-no"><input type="radio" name="rutPeriodo" value="semana"> Toda la semana</label>
+                </div>
+            </div>
+            <div class="campo" id="rutDiaCaja">
+                <label for="rutDia" class="campo-etiqueta">Día *</label>
+                <select id="rutDia" class="campo-input"></select>
+            </div>
+        </div>
+        <p id="rutAsignarError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="rutAsignarCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" class="boton boton-principal">Asignar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: CONFIRMAR (quitar un piloto o eliminar una ruta)
+     ================================================== -->
+<dialog id="rutConfirmar" class="dialogo dialogo-chico" aria-labelledby="rutConfirmarTitulo">
+    <h3 id="rutConfirmarTitulo" class="dialogo-titulo">Confirmar</h3>
+    <p id="rutConfirmarTexto" class="dialogo-texto"></p>
+    <div class="dialogo-botones">
+        <button type="button" id="rutConfirmarNo" class="boton boton-secundario">Cancelar</button>
+        <!-- Solo al quitar un piloto asignado por varios días: quitar el período completo -->
+        <button type="button" id="rutConfirmarTodo" class="boton boton-secundario" hidden>Toda la semana</button>
+        <button type="button" id="rutConfirmarSi" class="boton boton-peligro">Confirmar</button>
+    </div>
+</dialog>

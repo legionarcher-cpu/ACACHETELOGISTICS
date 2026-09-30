@@ -1,0 +1,444 @@
+/* ==================================================
+   RESPONSIVE (tablet y celular)
+   ACACHETE LOGISTICS
+
+   Archivo aparte: NO modifica los CSS existentes. Solo agrega reglas
+   dentro de @media, así en computadora (más de 900px) todo se ve igual.
+   Se enlaza en index.html DESPUÉS de css/index.css, junto con
+   responsive/responsive.js (botón ☰ del menú).
+
+   Cortes:
+     ≤ 1200px -> laptop pequeña (ajustes finos)
+     ≤ 900px  -> tablet: menú lateral pasa a menú desplegable (☰)
+     ≤ 600px  -> celular: encabezado mínimo, botones del pie solo con icono
+     ≤ 420px  -> celular angosto: logos más chicos (siguen visibles)
+
+   IMPORTANTE: el CSS de cada sección (css/secciones/) se carga después
+   que este archivo. Por eso las reglas que tocan una sección empiezan con
+   "html body" (más específicas), para que ganen sin editar esos archivos.
+   ================================================== */
+
+/* El botón ☰ y el fondo oscuro del menú solo existen en pantallas chicas */
+.resp-menu-btn,
+.resp-fondo {
+    display: none;
+}
+
+/* ==================================================
+   ≤ 1200px: LAPTOP PEQUEÑA
+   ================================================== */
+
+@media (max-width: 1200px) {
+    /* Foto del usuario un poco más chica */
+    .user-avatar {
+        width: 60px;
+        height: 60px;
+        font-size: 1.3rem;
+    }
+
+    /* Botones del pie más juntos */
+    .pie-botones {
+        gap: 6px;
+    }
+
+    .acceso-btn {
+        padding: 5px 9px;
+    }
+}
+
+/* ==================================================
+   ≤ 900px: TABLET
+   ================================================== */
+
+@media (max-width: 900px) {
+    /* ---------- Estructura: alto real de la pantalla del celular ---------- */
+    body {
+        height: 100vh;
+        height: 100dvh; /* sin la barra del navegador del celular */
+        grid-template-rows: 64px minmax(0, 1fr) auto;
+    }
+
+    /* ---------- Encabezado: ☰ | logo | títulos | usuario ---------- */
+    .encabezado {
+        grid-template-columns: auto minmax(0, 110px) minmax(0, 1fr) auto;
+        align-items: stretch;
+        gap: 6px;
+    }
+
+    .resp-menu-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        padding: 0;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1.7rem;
+        color: var(--color-azul-marino);
+    }
+
+    .resp-menu-btn:hover {
+        background-color: var(--color-azul-claro);
+    }
+
+    html.sin-sesion .resp-menu-btn {
+        visibility: hidden;
+    }
+
+    /* Zona central: logo pequeño | títulos | fecha */
+    .cont-info {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
+    }
+
+    .icon-sec1 {
+        width: 44px;
+        height: 44px;
+        margin: 0;
+    }
+
+    #log-sec {
+        height: 100%;
+    }
+
+    .titulos-primordial {
+        padding: 4px 8px;
+        overflow: hidden;
+    }
+
+    #titulo-panel,
+    #subti-panel {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    #titulo-panel {
+        font-size: 1.1rem;
+    }
+
+    #subti-panel {
+        font-size: 0.75rem;
+    }
+
+    #fecha-primordial {
+        width: auto;
+        border-width: 2px;
+        padding: 2px 8px;
+    }
+
+    #fecha-primordial i {
+        font-size: 1.3em;
+    }
+
+    .containt-date {
+        width: auto;
+    }
+
+    /* Usuario compacto */
+    .info-user {
+        width: auto;
+        padding: 2px 4px;
+    }
+
+    .user-trigger {
+        gap: 6px;
+        padding: 4px;
+    }
+
+    .user-avatar {
+        width: 44px;
+        height: 44px;
+        font-size: 1rem;
+    }
+
+    /* Menús del usuario y notificaciones pegados al borde derecho */
+    .user-menu {
+        right: 0;
+    }
+
+    /* ---------- Menú lateral -> menú desplegable (☰) ----------
+       responsive.js agrega <html class="resp-menu-abierto"> al abrirlo. */
+    .contenido {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+    }
+
+    .menu-lateral {
+        position: fixed;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 60;
+        width: min(280px, 82vw);
+        height: auto;
+        padding-top: 16px;
+        overflow-y: auto;
+        transform: translateX(-105%);
+        transition: transform 0.25s ease;
+    }
+
+    html.resp-menu-abierto .menu-lateral {
+        transform: translateX(0);
+    }
+
+    .menu-item a {
+        padding: 14px 20px;
+        font-size: 0.95rem;
+    }
+
+    /* Fondo oscuro detrás del menú abierto (al tocarlo se cierra) */
+    .resp-fondo {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 55;
+        background-color: rgba(0, 28, 59, 0.5);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.25s ease, visibility 0s linear 0.25s;
+    }
+
+    html.resp-menu-abierto .resp-fondo {
+        opacity: 1;
+        visibility: visible;
+        transition: opacity 0.25s ease, visibility 0s;
+    }
+
+    /* ---------- Pie: botones centrados y derechos abajo ---------- */
+    .pie {
+        justify-content: center;
+        gap: 6px;
+        padding: 6px 8px;
+    }
+
+    .pie-spacer {
+        display: none;
+    }
+
+    .pie-botones {
+        width: 100%;
+    }
+
+    .info-empresa {
+        flex-basis: 100%;
+        text-align: center;
+        font-size: 0.65rem;
+    }
+
+    .info-empresa br {
+        display: none;
+    }
+
+    .info-empresa span + br + span::before {
+        content: " · ";
+    }
+
+    /* El piloto no tiene botones en el pie: que no ocupen espacio */
+    html[data-rol="piloto"] .pie-botones,
+    html.sin-sesion .pie-botones {
+        display: none;
+    }
+
+    /* Avisos emergentes encima del pie (que ya no mide 10vh) */
+    .noti-avisos {
+        right: 12px;
+        bottom: 96px;
+    }
+
+    /* ---------- Ventanas casi de pantalla completa ---------- */
+    .dialogo {
+        width: calc(100vw - 20px);
+        max-height: calc(100dvh - 20px);
+    }
+
+    /* ---------- Secciones ---------- */
+    html body .pagina {
+        padding: 16px;
+    }
+
+    /* Inicio: listas un poco más bajas para ver más secciones al bajar */
+    html body .ini-lista,
+    html body .ini-act-lista {
+        max-height: 280px;
+    }
+}
+
+/* ==================================================
+   ≤ 600px: CELULAR
+   ================================================== */
+
+@media (max-width: 600px) {
+    body {
+        grid-template-rows: 56px minmax(0, 1fr) auto;
+    }
+
+    /* El logo de la izquierda es una imagen ancha: se le da más ancho
+       que alto para que se distinga (el título baja a 2 líneas si falta espacio) */
+    .encabezado {
+        grid-template-columns: auto minmax(0, 96px) minmax(0, 1fr) auto;
+        gap: 4px;
+    }
+
+    .logo-img {
+        border-width: 1px;
+        border-radius: 8px;
+    }
+
+    .resp-menu-btn {
+        width: 40px;
+        font-size: 1.5rem;
+    }
+
+    /* Logo pequeño y título (sin subtítulo ni fecha) */
+    .cont-info {
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 4px;
+    }
+
+    .icon-sec1 {
+        width: 34px;
+        height: 34px;
+    }
+
+    #fecha-primordial,
+    #subti-panel {
+        display: none;
+    }
+
+    .titulos-primordial {
+        border: none;
+        padding: 0 2px;
+    }
+
+    /* El nombre no se corta con "…": baja a 2 líneas con letra más chica
+       que se ajusta al ancho de la pantalla */
+    #titulo-panel {
+        font-size: clamp(0.7rem, 3.4vw, 0.95rem);
+        line-height: 1.15;
+        letter-spacing: 0;
+        white-space: normal;
+        text-overflow: clip;
+        overflow-wrap: break-word;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+    }
+
+    /* Con imagen de encabezado (empresas/empresas.js): la imagen llena el recuadro */
+    .titulos-primordial.con-imagen #titulo-panel {
+        display: block;
+    }
+
+    /* Usuario: solo campana y foto */
+    .user-nombre,
+    .user-flecha {
+        display: none;
+    }
+
+    .info-user {
+        border: none;
+        gap: 0;
+    }
+
+    .noti-campana {
+        width: 36px;
+        height: 36px;
+        font-size: 1.15rem;
+    }
+
+    .user-avatar {
+        width: 36px;
+        height: 36px;
+        font-size: 0.85rem;
+    }
+
+    /* Pie: botones solo con icono (el nombre queda en el globo del
+       navegador y para lectores de pantalla, lo pone responsive.js) */
+    .pie-botones {
+        flex-wrap: nowrap;
+        justify-content: space-around;
+        gap: 4px;
+    }
+
+    .acceso-btn {
+        justify-content: center;
+        min-width: 44px;
+        height: 40px;
+        padding: 0 10px;
+        border-radius: 10px;
+    }
+
+    .acceso-btn span {
+        display: none;
+    }
+
+    .acceso-btn i {
+        font-size: 1.2rem;
+    }
+
+    /* Sin el agrandado del hover (en pantallas táctiles se queda "pegado") */
+    .acceso-btn:hover {
+        transform: none;
+    }
+
+    .info-empresa {
+        display: none;
+    }
+
+    .noti-avisos {
+        right: 8px;
+        left: 8px;
+        bottom: 64px;
+        width: auto;
+    }
+
+    /* ---------- Secciones ---------- */
+    html body .pagina {
+        padding: 12px;
+    }
+
+    /* Inicio: cada sección con menos relleno */
+    html body .ini-resumen {
+        padding: 10px;
+    }
+
+    html body .ini-mapa-cuerpo {
+        min-height: 0;
+    }
+
+    html body .ini-mapa {
+        min-height: 220px;
+    }
+}
+
+/* ==================================================
+   ≤ 420px: CELULAR ANGOSTO
+   ================================================== */
+
+@media (max-width: 420px) {
+    /* Logos más chicos (se mantienen visibles) */
+    .encabezado {
+        grid-template-columns: auto minmax(0, 84px) minmax(0, 1fr) auto;
+    }
+
+    .icon-sec1 {
+        width: 28px;
+        height: 28px;
+    }
+
+    .acceso-btn {
+        min-width: 40px;
+        padding: 0 8px;
+    }
+}
+
+/* Menú desplegable sin animación si el sistema pide "reducir movimiento" */
+@media (prefers-reduced-motion: reduce) {
+    .menu-lateral,
+    .resp-fondo {
+        transition: none;
+    }
+}

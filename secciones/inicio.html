@@ -1,0 +1,124 @@
+<!-- ==================================================
+     SECCIÓN: INICIO
+     Primera sección que se ve después de iniciar sesión.
+
+     4 secciones en una cuadrícula de 2 columnas (la izquierda el doble de
+     ancha) y 2 filas.
+       Sección 1: resumen de los pedidos de HOY según el rol
+                  (Piloto: los suyos | Empleado y G3: su tienda |
+                   G2: su región | Admin y G1: todos)
+       Sección 2: estadística de la SEMANA (lunes a domingo) del mismo alcance: tiempo promedio de
+                  despacho (recibido -> en ruta), en ruta (en ruta -> final) y
+                  total, y totales (entregados, con incidencia, rechazados,
+                  cancelados)
+       Sección 3: ubicación de pilotos (mapa pendiente de conectar) y lista de
+                  pilotos activos hoy (en ruta / con pedidos).
+       Sección 4: actividad reciente (ingresan, salen, terminan) con filtros
+                  de región, tienda y ruta según el rol.
+
+       ┌──────────────────────────┬───────────────┐
+       │ Sección 1 (#iniSeccion1) │ Sección 2     │
+       ├──────────────────────────┼───────────────┤
+       │ Sección 3 (#iniSeccion3) │ Sección 4     │
+       └──────────────────────────┴───────────────┘
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/inicio.css (clases "ini-")
+       Estilos comunes -> css/componentes.css
+       Lógica          -> js/secciones/inicio.js (crear cuando se necesite)
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a index.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="area-principal">
+    <!-- Sección 1: resumen de los pedidos de HOY según los permisos del rol
+         (lo arma js/secciones/inicio.js) -->
+    <section id="iniSeccion1" class="ini-seccion ini-resumen" aria-labelledby="iniResumenTitulo">
+        <h3 id="iniResumenTitulo" class="ini-titulo">Pedidos de hoy</h3>
+        <p id="iniResumenAlcance" class="ini-alcance"></p>
+        <!-- Cuadros de números: al presionar uno se filtra la lista -->
+        <div id="iniResumen" class="ini-numeros"></div>
+        <!-- Pedidos de hoy (filtrados por el cuadro elegido) -->
+        <div class="tabla-caja ini-lista">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Pedido</th>
+                        <th>Cliente</th>
+                        <th>Ruta</th>
+                        <th>Piloto</th>
+                        <th>Horario</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="iniPedidos"></tbody>
+            </table>
+        </div>
+    </section>
+    <!-- Sección 2: estadística de la tienda (HOY): tiempos promedio de despacho,
+         en ruta y total, y totales del día (lo arma js/secciones/inicio.js) -->
+    <section id="iniSeccion2" class="ini-seccion ini-resumen" aria-labelledby="iniEstadTitulo">
+        <h3 id="iniEstadTitulo" class="ini-titulo">Estadística de la semana</h3>
+        <p id="iniEstadAlcance" class="ini-alcance"></p>
+        <!-- Solo iconos: al posar el mouse dicen qué son y su valor; al presionar filtran -->
+        <div id="iniEstadIconos" class="ini-iconos" role="group" aria-label="Filtros de la estadística"></div>
+        <!-- Promedios de lo que se está viendo -->
+        <p id="iniEstadPromedios" class="ini-promedios"></p>
+        <!-- Tiempos de cada pedido -->
+        <div class="tabla-caja ini-lista">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Pedido</th>
+                        <th>Piloto</th>
+                        <th>Despacho</th>
+                        <th>En ruta</th>
+                        <th>Total</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="iniEstadPedidos"></tbody>
+            </table>
+        </div>
+    </section>
+    <!-- Sección 3: ubicación de los pilotos en tiempo real.
+         El mapa es GRATIS (Leaflet + OpenStreetMap, sin clave; se cambia con
+         INI_MAPA en js/secciones/inicio.js). Aún sin marcadores: faltan las
+         ubicaciones de la app del piloto. La lista "Pilotos activos" usa los pedidos de hoy. -->
+    <section id="iniSeccion3" class="ini-seccion ini-resumen" aria-labelledby="iniMapaTitulo">
+        <h3 id="iniMapaTitulo" class="ini-titulo ini-act-titulo">
+            <span class="ini-act-reloj" aria-hidden="true"><i class="bi bi-geo-alt"></i></span>
+            Ubicación en tiempo real de pilotos
+        </h3>
+        <div class="ini-mapa-cuerpo">
+            <!-- El mapa se dibuja aquí; lo de adentro se ve solo mientras carga -->
+            <div id="iniMapa" class="ini-mapa" aria-label="Mapa de pilotos">
+                <i class="bi bi-map" aria-hidden="true"></i>
+                <strong>Cargando mapa...</strong>
+                <span>Los pilotos aparecerán cuando su app comparta la ubicación.</span>
+            </div>
+            <div class="ini-mapa-pilotos">
+                <h4 class="ini-mapa-subtitulo">Pilotos activos</h4>
+                <ul id="iniMapaPilotos" class="ini-mapa-lista"></ul>
+            </div>
+        </div>
+    </section>
+    <!-- Sección 4: actividad reciente (pedidos que ingresan, salen o terminan HOY).
+         Filtros según el rol: Admin/G1 región + tienda + ruta | G2 tienda + ruta |
+         G3/Empleado ruta | Piloto sin filtros (solo los suyos). Se actualiza cada minuto. -->
+    <section id="iniSeccion4" class="ini-seccion ini-resumen" aria-labelledby="iniActTitulo">
+        <h3 id="iniActTitulo" class="ini-titulo ini-act-titulo">
+            <span class="ini-act-reloj" aria-hidden="true"><i class="bi bi-clock-history"></i></span>
+            Actividad reciente
+        </h3>
+        <div class="ini-act-filtros">
+            <select id="iniActRegion" class="ini-act-filtro" aria-label="Región" hidden></select>
+            <select id="iniActTienda" class="ini-act-filtro" aria-label="Tienda" hidden></select>
+            <select id="iniActRuta" class="ini-act-filtro" aria-label="Ruta" hidden></select>
+        </div>
+        <!-- Lista con scroll propio: nunca se sale del cuadro -->
+        <ol id="iniActividad" class="ini-act-lista" aria-live="polite"></ol>
+    </section>
+</div>

@@ -1,0 +1,544 @@
+/* ==================================================
+   SECCIÓN: INICIO
+   ACACHETE LOGISTICS
+
+   Solo lo PROPIO de secciones/inicio.html (clases "ini-"). Lo común viene
+   de css/componentes.css. js/pagina_inicial.js activa este archivo solo
+   mientras se ve la sección.
+   ================================================== */
+
+/* Cuadrícula principal del inicio: 4 secciones
+   2 columnas (la izquierda el doble de ancha que la derecha) y 2 filas
+   de igual altura. Para cambiar la distribución, modificar
+   grid-template-columns / grid-template-rows. */
+.area-principal {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 16px; /* separación entre las secciones */
+    min-height: 100%;
+}
+
+/* Cada sección (vacía por ahora) */
+.ini-seccion {
+    min-width: 0;
+    min-height: 200px;
+    background-color: var(--color-blanco);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+}
+
+/* ---------- Sección 1: resumen de pedidos de hoy ---------- */
+
+/* Tamaños de letra que se ajustan a la pantalla:
+   clamp(mínimo, según el ancho de la pantalla, máximo).
+   En pantallas chicas se usa el mínimo; en grandes, el máximo. */
+.ini-resumen {
+    --ini-letra-titulo: clamp(0.85rem, 0.6rem + 0.45vw, 1.1rem);
+    --ini-letra-texto:  clamp(0.68rem, 0.55rem + 0.25vw, 0.85rem);
+    --ini-letra-chica:  clamp(0.62rem, 0.5rem + 0.2vw, 0.78rem);
+    --ini-letra-numero: clamp(0.85rem, 0.6rem + 0.45vw, 1.15rem);
+}
+
+/* Todo compacto: la sección debe aguantar muchos pedidos */
+.ini-resumen {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    padding: 12px 14px;
+}
+
+.ini-titulo {
+    margin: 0;
+    font-size: var(--ini-letra-titulo);
+    font-weight: 700;
+    color: var(--color-texto);
+}
+
+/* "Tienda Central · Martes 29 de septiembre" */
+.ini-alcance {
+    margin: 0;
+    font-size: var(--ini-letra-chica);
+    color: var(--color-gris);
+}
+
+/* Los cuadros bajan a otra fila si no caben (nunca se cortan ni se enciman) */
+.ini-numeros {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(clamp(90px, 7vw, 125px), 1fr));
+    gap: 8px;
+}
+
+/* Cada cuadro es un botón que filtra la lista:
+   cuadrito con icono ARRIBA y, abajo, el texto y el número */
+.ini-numero {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    min-width: 0;
+    padding: 6px 8px;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+    background-color: var(--color-blanco);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.ini-numero:hover {
+    box-shadow: 0 4px 12px rgba(0, 28, 59, 0.1);
+}
+
+.ini-numero.activo {
+    border-color: var(--color-azul);
+    background-color: var(--color-azul-claro);
+}
+
+/* Cuadrito de color con el icono en blanco (el fondo es solo del cuadrito) */
+.ini-icono {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: clamp(20px, 1rem + 0.6vw, 28px);
+    height: clamp(20px, 1rem + 0.6vw, 28px);
+    border-radius: 6px;
+    background-color: var(--color-azul-marino);
+    color: var(--color-blanco);
+    font-size: clamp(0.7rem, 0.55rem + 0.3vw, 0.9rem);
+}
+
+.ini-numero-textos {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+/* Texto: puede ocupar dos líneas en vez de cortarse */
+.ini-numero-textos span {
+    font-size: var(--ini-letra-chica);
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--color-gris);
+    overflow-wrap: anywhere;
+}
+
+.ini-numero-textos strong {
+    font-size: var(--ini-letra-numero);
+    line-height: 1.15;
+    color: var(--color-texto);
+}
+
+/* Lista de pedidos: filas bajas, letra chica y desplazamiento propio
+   (el encabezado queda fijo arriba al bajar) */
+.ini-lista {
+    flex: 1;
+    min-height: 0;
+    max-height: 320px;
+    margin-top: 4px;
+    overflow-y: auto;
+}
+
+.ini-lista .tabla {
+    font-size: var(--ini-letra-texto);
+}
+
+.ini-lista .tabla th,
+.ini-lista .tabla td {
+    padding: 4px 8px;
+    white-space: nowrap;
+}
+
+.ini-lista .tabla th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    font-size: var(--ini-letra-chica);
+}
+
+.ini-lista .etiqueta {
+    padding: 1px 7px;
+    font-size: var(--ini-letra-chica);
+}
+
+.ini-lista a {
+    font-weight: 700;
+    color: var(--color-azul);
+    text-decoration: none;
+}
+
+/* ---------- Sección 2: solo iconos que filtran ---------- */
+
+.ini-iconos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+/* Botón = solo el cuadrito de color con el icono */
+.ini-icono-filtro {
+    position: relative;
+    padding: 3px;
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: none;
+    cursor: pointer;
+}
+
+.ini-icono-filtro.activo {
+    border-color: var(--color-azul);
+    background-color: var(--color-azul-claro);
+}
+
+/* Separador entre tiempos y totales */
+.ini-iconos-separador {
+    width: 1px;
+    align-self: stretch;
+    margin: 0 4px;
+    background-color: var(--color-borde);
+}
+
+/* Globo con la información al posar el mouse (o al enfocar con el teclado) */
+.ini-icono-filtro::after {
+    content: attr(data-info);
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 50%;
+    z-index: 5;
+    width: max-content;
+    max-width: 220px;
+    padding: 6px 9px;
+    border-radius: var(--radio);
+    background-color: var(--color-azul-marino);
+    font-size: var(--ini-letra-chica);
+    font-weight: 600;
+    line-height: 1.3;
+    text-align: left;
+    white-space: normal;
+    color: var(--color-blanco);
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%);
+    transition: opacity 0.15s ease;
+}
+
+.ini-icono-filtro:hover::after,
+.ini-icono-filtro:focus-visible::after {
+    opacity: 1;
+}
+
+/* "Promedio: despacho 35 min · en ruta 1 h · total 1 h 35 min" */
+.ini-promedios {
+    margin: 2px 0 0;
+    font-size: var(--ini-letra-chica);
+    color: var(--color-texto);
+}
+
+.ini-promedios strong {
+    color: var(--color-azul-marino);
+}
+
+/* La columna derecha es angosta: celdas más juntas y el piloto puede
+   bajar a dos líneas para que quepan las 6 columnas */
+#iniSeccion2 .ini-lista .tabla th,
+#iniSeccion2 .ini-lista .tabla td {
+    padding: 4px 5px;
+}
+
+#iniSeccion2 .ini-lista .tabla td {
+    font-size: var(--ini-letra-chica);
+}
+
+/* Día de entrega debajo del número de pedido */
+.ini-dia {
+    display: block;
+    font-size: 0.9em;
+    color: var(--color-gris);
+}
+
+#iniSeccion2 .ini-lista .tabla td:nth-child(2) {
+    white-space: normal;
+}
+
+.ini-icono-filtro.neutro .ini-icono { background-color: var(--color-gris); }
+.ini-icono-filtro.pendientes .ini-icono { background-color: var(--color-naranja); }
+.ini-icono-filtro.ruta .ini-icono       { background-color: #0E6B63; }
+.ini-icono-filtro.hechos .ini-icono     { background-color: var(--color-verde); }
+.ini-icono-filtro.fallidos .ini-icono   { background-color: #9D174D; }
+
+/* Color del cuadrito de cada grupo (Total usa el azul marino de arriba) */
+.ini-numero.pendientes .ini-icono { background-color: var(--color-naranja); }
+.ini-numero.ruta .ini-icono       { background-color: #0E6B63; }
+.ini-numero.hechos .ini-icono     { background-color: var(--color-verde); }
+.ini-numero.fallidos .ini-icono   { background-color: #9D174D; }
+
+/* ---------- Sección 3: ubicación de pilotos ---------- */
+
+/* Mapa a la izquierda y lista a la derecha (alto fijo: no se desborda) */
+.ini-mapa-cuerpo {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(150px, 14vw, 210px);
+    gap: 10px;
+    flex: 1;
+    min-height: 220px;
+    max-height: 340px;
+}
+
+/* Espacio reservado del mapa (cuadrícula suave tipo plano) */
+.ini-mapa {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 16px;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+    background-color: var(--color-azul-claro);
+    background-image:
+        linear-gradient(rgba(0, 28, 59, 0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 28, 59, 0.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+    text-align: center;
+    color: var(--color-azul-marino);
+}
+
+/* Con el mapa cargado (libre o Google): sin relleno ni cuadrícula.
+   position + z-index + isolation: las capas del mapa (z-index altos de Leaflet)
+   quedan DENTRO de la caja y no tapan los menús del encabezado ni las ventanas. */
+.ini-mapa.conectado {
+    display: block;
+    position: relative;
+    z-index: 0;
+    isolation: isolate;
+    padding: 0;
+    overflow: hidden;
+    background-image: none;
+    text-align: left;
+}
+
+/* Textos del cartel "Cargando mapa..." (no se aplican a los botones del mapa) */
+.ini-mapa:not(.conectado) .bi {
+    font-size: clamp(1.4rem, 1rem + 1vw, 2rem);
+    opacity: 0.6;
+}
+
+.ini-mapa:not(.conectado) strong {
+    font-size: var(--ini-letra-texto);
+}
+
+.ini-mapa:not(.conectado) span {
+    max-width: 280px;
+    font-size: var(--ini-letra-chica);
+    color: var(--color-gris);
+}
+
+.ini-mapa-pilotos {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+}
+
+.ini-mapa-subtitulo {
+    margin: 0 0 6px;
+    font-size: var(--ini-letra-texto);
+    color: var(--color-texto);
+}
+
+/* Lista con scroll propio */
+.ini-mapa-lista {
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-y: auto;
+}
+
+.ini-mapa-lista li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--color-borde);
+    font-size: var(--ini-letra-chica);
+}
+
+.ini-mapa-lista li:last-child {
+    border-bottom: 0;
+}
+
+/* Punto de color del estado */
+.ini-punto {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    margin-top: 4px;
+    border-radius: 50%;
+    background-color: var(--color-gris);
+}
+
+.ini-punto.ruta { background-color: #0E6B63; }
+.ini-punto.pendientes { background-color: var(--color-naranja); }
+
+.ini-mapa-lista strong {
+    display: block;
+    color: var(--color-texto);
+    overflow-wrap: anywhere;
+}
+
+.ini-mapa-lista small {
+    color: var(--color-gris);
+}
+
+.ini-mapa-lista small.ruta { color: #0E6B63; }
+.ini-mapa-lista small.pendientes { color: var(--color-naranja); }
+
+/* ---------- Sección 4: actividad reciente ---------- */
+
+.ini-act-titulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ini-act-reloj {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(20px, 1rem + 0.6vw, 26px);
+    height: clamp(20px, 1rem + 0.6vw, 26px);
+    border-radius: 50%;
+    background-color: var(--color-azul-marino);
+    color: var(--color-blanco);
+    font-size: var(--ini-letra-chica);
+}
+
+.ini-act-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.ini-act-filtros:not(:has(select:not([hidden]))) {
+    display: none;
+}
+
+.ini-act-filtro {
+    flex: 1 1 90px;
+    min-width: 0;
+    height: 28px;
+    padding: 0 6px;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+    background-color: var(--color-blanco);
+    font-family: inherit;
+    font-size: var(--ini-letra-chica);
+    color: var(--color-texto);
+}
+
+/* Lista con scroll propio (alto fijo: no empuja ni se sale del cuadro) */
+.ini-act-lista {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    max-height: 320px;
+    margin: 4px 0 0;
+    padding: 0 4px 0 0;
+    list-style: none;
+    overflow-y: auto;
+}
+
+.ini-act-item {
+    position: relative;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 6px 0;
+}
+
+/* Línea vertical que une los iconos */
+.ini-act-item:not(:last-child)::before {
+    content: "";
+    position: absolute;
+    top: 30px;
+    bottom: -6px;
+    left: calc(clamp(22px, 1rem + 0.7vw, 30px) / 2);
+    width: 2px;
+    background-color: var(--color-borde);
+}
+
+.ini-act-icono {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: clamp(22px, 1rem + 0.7vw, 30px);
+    height: clamp(22px, 1rem + 0.7vw, 30px);
+    border-radius: 50%;
+    background-color: var(--color-azul);
+    color: var(--color-blanco);
+    font-size: var(--ini-letra-chica);
+}
+
+.ini-act-textos {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ini-act-textos span {
+    font-size: var(--ini-letra-texto);
+    line-height: 1.3;
+    color: var(--color-texto);
+    overflow-wrap: anywhere;
+}
+
+.ini-act-textos a {
+    font-weight: 700;
+    color: var(--color-azul);
+    text-decoration: none;
+}
+
+.ini-act-textos small {
+    font-size: var(--ini-letra-chica);
+    color: var(--color-gris);
+}
+
+.ini-act-vacio {
+    padding: 12px 0;
+    font-size: var(--ini-letra-chica);
+    color: var(--color-gris);
+}
+
+.ini-act-icono.ingreso    { background-color: var(--color-azul); }
+.ini-act-icono.asignado   { background-color: var(--color-azul-marino); }
+.ini-act-icono.ruta       { background-color: #0E6B63; }
+.ini-act-icono.hechos     { background-color: var(--color-verde); }
+.ini-act-icono.incidencia { background-color: var(--color-naranja); }
+.ini-act-icono.fallidos   { background-color: #9D174D; }
+.ini-act-icono.neutro     { background-color: var(--color-gris); }
+
+/* Pantallas medianas y chicas: una columna */
+@media (max-width: 1000px) {
+    .area-principal {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto;
+    }
+
+    /* Mapa arriba y lista de pilotos abajo */
+    .ini-mapa-cuerpo {
+        grid-template-columns: 1fr;
+        max-height: none;
+    }
+
+    .ini-mapa-lista {
+        max-height: 180px;
+    }
+}

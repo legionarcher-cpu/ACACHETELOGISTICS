@@ -1,0 +1,336 @@
+/* ==================================================
+   SECCIÓN: REPORTES
+   ACACHETE LOGISTICS
+
+   Solo lo PROPIO de secciones/reportes.html (clases "rep-"). Lo común viene
+   de css/componentes.css. Los colores de las gráficas están en
+   js/secciones/reportes.js (REP_COLORES).
+   ================================================== */
+
+/* ---------- Filtros ---------- */
+
+/* Pestañas de actividad: el estilo viene de css/componentes.css (.pestanas) */
+
+.rep-filtros {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px 20px;
+}
+
+/* Región > Tienda > Ver por */
+.rep-cascada {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+}
+
+.rep-cascada .campo {
+    min-width: 200px;
+    flex: 1;
+}
+
+.rep-cascada .campo:last-child {
+    flex: 2;
+}
+
+.rep-flecha {
+    margin-bottom: 12px;
+    color: var(--color-gris);
+}
+
+/* Número del paso en un círculo */
+.rep-paso {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 4px;
+    border-radius: 50%;
+    background-color: var(--color-azul-marino);
+    font-size: 0.72rem;
+    color: var(--color-blanco);
+}
+
+.rep-doble {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 8px;
+}
+
+.rep-fechas {
+    display: flex;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--color-borde);
+}
+
+.rep-fechas .campo {
+    min-width: 150px;
+}
+
+.rep-atajos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.rep-atajos .boton.activo {
+    border-color: var(--color-naranja);
+    color: #B34A07;
+}
+
+.rep-limpiar {
+    margin-left: auto;
+    margin-bottom: 4px;
+}
+
+.rep-nota {
+    margin: 0;
+    padding: 10px 14px;
+    background-color: var(--color-azul-claro);
+    border-left: 4px solid var(--color-azul);
+    border-radius: var(--radio);
+    font-size: 0.85rem;
+    color: var(--color-azul-marino);
+}
+
+/* Mientras se recalcula: se ve lo anterior un poco transparente (sin saltos) */
+.rep-contenido {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: opacity 0.2s ease;
+}
+
+.rep-contenido.cargando {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* ---------- Tarjetas de números ---------- */
+
+.rep-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+}
+
+.rep-kpi {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 18px;
+    background-color: var(--color-blanco);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+    box-shadow: var(--sombra-tarjeta);
+}
+
+.rep-kpi-texto {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-gris);
+}
+
+/* Número grande: cifras proporcionales (no tabulares) */
+.rep-kpi-valor {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--color-texto);
+}
+
+.rep-kpi-detalle {
+    font-size: 0.78rem;
+    color: var(--color-gris);
+}
+
+/* ---------- Récord ---------- */
+
+.rep-record {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 20px;
+    border-left: 4px solid var(--color-naranja);
+}
+
+.rep-record-datos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px 20px;
+    margin: 0;
+}
+
+.rep-record-datos div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.rep-record-datos dt {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-gris);
+}
+
+.rep-record-datos dd {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-texto);
+}
+
+/* ---------- Gráficas ---------- */
+
+.rep-titulo {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-texto);
+}
+
+.rep-graficas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 16px;
+}
+
+.rep-grafica {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 18px 20px;
+}
+
+/* Gráfica que la actividad no usa (ej. "Bultos por tamaño" en Entregas de tienda) */
+.rep-grafica[hidden] {
+    display: none;
+}
+
+.rep-ancha {
+    grid-column: 1 / -1;
+}
+
+/* El alto incluye los textos del eje (sin scroll interno) */
+.rep-lienzo {
+    position: relative;
+    height: 260px;
+}
+
+.rep-vacio {
+    margin: 0;
+    padding: 30px 0;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+/* Tabla "Ver datos" de cada gráfica */
+.rep-datos summary {
+    width: fit-content;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-azul);
+    cursor: pointer;
+}
+
+.rep-datos .tabla {
+    margin-top: 8px;
+    font-size: 0.82rem;
+}
+
+.rep-datos td:last-child,
+.rep-datos th:last-child {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Tabla detallada ---------- */
+
+.rep-detalle {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 18px 20px;
+}
+
+.rep-detalle-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.rep-tabla {
+    min-width: 1100px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Encabezados que ordenan al hacer clic */
+.rep-tabla th button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-transform: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+}
+
+.rep-tabla td.rep-numero {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.rep-tabla a {
+    white-space: nowrap;
+    font-weight: 700;
+    color: var(--color-azul);
+    text-decoration: none;
+}
+
+.rep-tabla a:hover {
+    text-decoration: underline;
+}
+
+.rep-paginas {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+.rep-paginas div {
+    display: flex;
+    gap: 6px;
+}
+
+@media (max-width: 700px) {
+    .rep-graficas {
+        grid-template-columns: 1fr;
+    }
+
+    .rep-flecha {
+        display: none;
+    }
+
+    .rep-doble {
+        grid-template-columns: 1fr;
+    }
+}
