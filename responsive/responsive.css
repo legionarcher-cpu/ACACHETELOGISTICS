@@ -11,7 +11,7 @@
      ≤ 1200px -> laptop pequeña (ajustes finos)
      ≤ 900px  -> tablet: menú lateral pasa a menú desplegable (☰)
      ≤ 600px  -> celular: encabezado mínimo, botones del pie solo con icono
-     ≤ 420px  -> celular angosto: se oculta el logo
+     ≤ 420px  -> celular angosto: logos más chicos (siguen visibles)
 
    IMPORTANTE: el CSS de cada sección (css/secciones/) se carga después
    que este archivo. Por eso las reglas que tocan una sección empiezan con
@@ -86,13 +86,20 @@
         visibility: hidden;
     }
 
-    /* Zona central: solo los títulos y la fecha (sin el logo pequeño) */
+    /* Zona central: logo pequeño | títulos | fecha */
     .cont-info {
-        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        align-items: center;
     }
 
     .icon-sec1 {
-        display: none;
+        width: 44px;
+        height: 44px;
+        margin: 0;
+    }
+
+    #log-sec {
+        height: 100%;
     }
 
     .titulos-primordial {
@@ -277,9 +284,15 @@
         font-size: 1.5rem;
     }
 
-    /* Solo el título (sin subtítulo ni fecha) */
+    /* Logo pequeño y título (sin subtítulo ni fecha) */
     .cont-info {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: auto minmax(0, 1fr);
+        gap: 4px;
+    }
+
+    .icon-sec1 {
+        width: 34px;
+        height: 34px;
     }
 
     #fecha-primordial,
@@ -289,12 +302,22 @@
 
     .titulos-primordial {
         border: none;
-        padding: 0 4px;
+        padding: 0 2px;
     }
 
+    /* El nombre no se corta con "…": baja a 2 líneas con letra más chica
+       que se ajusta al ancho de la pantalla */
     #titulo-panel {
-        font-size: 0.95rem;
+        font-size: clamp(0.7rem, 3.4vw, 0.95rem);
+        line-height: 1.15;
         letter-spacing: 0;
+        white-space: normal;
+        text-overflow: clip;
+        overflow-wrap: break-word;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
     }
 
     /* Usuario: solo campana y foto */
@@ -384,12 +407,14 @@
    ================================================== */
 
 @media (max-width: 420px) {
+    /* Logos más chicos (se mantienen visibles) */
     .encabezado {
-        grid-template-columns: auto minmax(0, 1fr) auto;
+        grid-template-columns: auto minmax(0, 54px) minmax(0, 1fr) auto;
     }
 
-    .logo-slog {
-        display: none;
+    .icon-sec1 {
+        width: 28px;
+        height: 28px;
     }
 
     .acceso-btn {
