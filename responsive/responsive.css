@@ -274,9 +274,16 @@
         grid-template-rows: 56px minmax(0, 1fr) auto;
     }
 
+    /* El logo de la izquierda es una imagen ancha: se le da más ancho
+       que alto para que se distinga (el título baja a 2 líneas si falta espacio) */
     .encabezado {
-        grid-template-columns: auto minmax(0, 72px) minmax(0, 1fr) auto;
+        grid-template-columns: auto minmax(0, 96px) minmax(0, 1fr) auto;
         gap: 4px;
+    }
+
+    .logo-img {
+        border-width: 1px;
+        border-radius: 8px;
     }
 
     .resp-menu-btn {
@@ -409,7 +416,7 @@
 @media (max-width: 420px) {
     /* Logos más chicos (se mantienen visibles) */
     .encabezado {
-        grid-template-columns: auto minmax(0, 54px) minmax(0, 1fr) auto;
+        grid-template-columns: auto minmax(0, 84px) minmax(0, 1fr) auto;
     }
 
     .icon-sec1 {
