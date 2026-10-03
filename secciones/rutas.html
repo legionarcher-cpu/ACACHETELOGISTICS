@@ -74,6 +74,18 @@
             <tbody id="rutCuerpo"></tbody>
         </table>
     </div>
+
+    <!-- Validación del día (G2 o superior): QR de HOY de cada piloto de la tienda, con su nombre
+         y foto. La tienda lo escanea con "Escanear QR" (encabezado) al empezar el día; sin esa
+         validación el piloto no puede marcar. El piloto también lo ve en su Inicio. -->
+    <div id="rutQrCaja" class="tarjeta rut-qr" hidden>
+        <h3 class="rut-qr-titulo"><i class="bi bi-qr-code"></i> Validación del día: QR de cada piloto</h3>
+        <p class="campo-ayuda">
+            Dale a cada piloto su QR de hoy (también lo ve en su Inicio). La tienda lo escanea con
+            <strong>Escanear QR</strong> al empezar el día y confirma su foto; sin esa validación no puede marcar.
+        </p>
+        <ul id="rutQrPilotos" class="rut-qr-lista"></ul>
+    </div>
 </div>
 
 <!-- ==================================================

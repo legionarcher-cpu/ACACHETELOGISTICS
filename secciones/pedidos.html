@@ -3,7 +3,7 @@
      Pedidos por ACTIVIDAD (Encomiendas, Entregas de tienda...).
      Guía: docs/secciones/pedidos.md. Tablas: sql/00, secciones 6, 7 y 8.
      El formulario se arma según la ACTIVIDAD elegida: sus categorías de
-     mercadería y lo que usa (recolección, tamaños, compra, alcohol, bodega),
+     mercadería y lo que usa (punto de partida, tamaños, compra, alcohol, bodega),
      que se marca en Configuración -> Actividades.
 
      Tiene 3 vistas (solo se ve una a la vez), según la dirección:
@@ -88,10 +88,6 @@
             <select id="pedFiltroEstado" class="campo-input filtro" aria-label="Filtrar por estado">
                 <option value="">Todos los estados</option>
             </select>
-            <!-- Solo Administrador y Admin G1 -->
-            <label id="pedVerAnuladosCaja" class="ped-si-no" hidden>
-                <input id="pedVerAnulados" type="checkbox"> Ver anulados
-            </label>
         </div>
 
         <!-- Aviso del modo que abren los botones del pie
@@ -115,7 +111,7 @@
                         <th>Pedido</th>
                         <th>Cliente</th>
                         <th>Entrega</th>
-                        <th>Horario / ruta</th>
+                        <th>Slot / ruta</th>
                         <th>Piloto</th>
                         <th>Estado</th>
                         <!-- Cambia con la actividad: "Compra" si usa compra; si no, "Peso" -->
@@ -168,12 +164,35 @@
             <div class="tarjeta ped-bloque">
                 <h3 class="ped-bloque-titulo"><span class="ped-paso">2</span> Cliente</h3>
                 <div class="campos">
+                    <!-- Buscador de clientes de la tienda por TELÉFONO o CORREO (js/secciones/pedidos.js,
+                         "Buscar cliente"): al coincidir completo con un cliente se llenan solos sus datos;
+                         si coincide con varios o está incompleto, se muestran para tocar el correcto.
+                         Al elegir, el buscador se cambia por la ficha del cliente ("Cambiar" para buscar otro). -->
                     <div class="campo campo-ancho">
-                        <label for="pedBuscarCliente" class="campo-etiqueta">Buscar cliente de la tienda</label>
-                        <input id="pedBuscarCliente" type="search" class="campo-input" list="pedClientesLista" autocomplete="off"
-                               placeholder="Escribe nombre o teléfono y elige de la lista (o llena los datos abajo)">
-                        <datalist id="pedClientesLista"></datalist>
-                        <small id="pedClienteElegido" class="campo-ayuda"></small>
+                        <div id="pedClienteBuscarCaja" class="ped-cli-buscar">
+                            <label for="pedBuscarCliente" class="campo-etiqueta">Teléfono o correo del cliente</label>
+                            <div class="ped-cli-campo">
+                                <i class="bi bi-search" aria-hidden="true"></i>
+                                <input id="pedBuscarCliente" type="search" class="campo-input" autocomplete="off" enterkeyhint="search"
+                                       placeholder="Ej. 8888-1234 o ana@correo.com"
+                                       role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pedClientesResultados">
+                            </div>
+                            <p id="pedClientesEstado" class="ped-cli-estado" aria-live="polite"></p>
+                            <ul id="pedClientesResultados" class="ped-cli-resultados" role="listbox" aria-label="Clientes encontrados" hidden></ul>
+                        </div>
+
+                        <!-- Cliente elegido -->
+                        <div id="pedClienteElegido" class="ped-cli-elegido" hidden>
+                            <span class="ped-cli-avatar" aria-hidden="true"></span>
+                            <div class="ped-cli-datos">
+                                <strong class="ped-cli-nombre"></strong>
+                                <span class="ped-cli-contacto"></span>
+                                <small class="ped-cli-nota">Datos llenados desde Clientes. Puedes corregir el nombre o el teléfono solo para este pedido.</small>
+                            </div>
+                            <button type="button" id="pedClienteCambiar" class="boton boton-secundario boton-chico">
+                                <i class="bi bi-arrow-repeat"></i> <span>Cambiar</span>
+                            </button>
+                        </div>
                     </div>
                     <div class="campo">
                         <label for="pedClienteNombre" class="campo-etiqueta">Nombre del cliente *</label>
@@ -189,24 +208,25 @@
             <!-- ---------- 3. Entrega ---------- -->
             <div class="tarjeta ped-bloque">
                 <h3 class="ped-bloque-titulo"><span class="ped-paso">3</span> Entrega</h3>
+                <!-- Punto A -> punto B (js/mapa.js), igual que en el Cotizador: distancia por calle para el cobro por km.
+                     A = el punto de partida escrito o, si está vacío, la tienda. Si la actividad no usa punto de partida
+                     (Configuración -> Actividades), el campo A queda desactivado y A es siempre la tienda.
+                     B = la entrega. Se ubican solos al escribir la dirección; se pueden mover con clic o arrastrando. -->
                 <div class="campos">
-                    <div class="campo campo-ancho" id="pedCampoRecoleccion" hidden>
-                        <label for="pedRecoleccion" class="campo-etiqueta">Dirección de recolección</label>
-                        <input id="pedRecoleccion" type="text" class="campo-input" maxlength="200" autocomplete="off">
+                    <div class="campo">
+                        <label for="pedRecoleccion" class="campo-etiqueta" id="pedEtiquetaA">A · Punto de partida</label>
+                        <input id="pedRecoleccion" type="text" class="campo-input" maxlength="200" autocomplete="off"
+                               placeholder="Vacío = sale de la tienda">
                     </div>
-                    <div class="campo campo-ancho">
-                        <label for="pedDireccion" class="campo-etiqueta">Dirección de entrega *</label>
-                        <input id="pedDireccion" type="text" class="campo-input" maxlength="200" autocomplete="off">
+                    <div class="campo">
+                        <label for="pedDireccion" class="campo-etiqueta">B · Entrega *</label>
+                        <input id="pedDireccion" type="text" class="campo-input" maxlength="200" autocomplete="off"
+                               placeholder="Dirección, coordenadas o enlace de Google Maps">
                     </div>
 
-                    <!-- Mapa A -> B (js/mapa.js): distancia por calle para el cobro por km.
-                         A = la tienda (o la recolección, si la actividad la usa y se escribió); B = la entrega.
-                         Se ubican solos al escribir la dirección; se pueden mover con clic o arrastrando. -->
                     <div class="campo campo-ancho">
-                        <span class="campo-etiqueta">Ruta en el mapa (A → B)</span>
                         <div id="pedMapa"></div>
-                        <small class="campo-ayuda">Revisa que A y B estén bien puestos: la distancia se cobra si la tarifa tiene precio por km.
-                            También puedes pegar coordenadas o un enlace de Google Maps en la dirección.</small>
+                        <small class="campo-ayuda">Revisa que A y B estén bien puestos: la distancia se cobra si la tarifa tiene precio por km.</small>
                         <!-- Solo Administrador y Admin G1, cuando A es la tienda -->
                         <button type="button" id="pedGuardarUbicacionTienda" class="boton boton-secundario boton-chico ped-ubicacion-tienda" hidden>
                             <i class="bi bi-pin-map"></i> <span>Guardar A como ubicación de la tienda</span>
@@ -233,8 +253,16 @@
                         <label for="pedFecha" class="campo-etiqueta">Fecha de entrega *</label>
                         <input id="pedFecha" type="date" class="campo-input">
                     </div>
+                    <!-- Slot de despacho (Configuración -> Slots): lo elige el empleado y se
+                         confirma al marcar "Listo para despachar" -->
                     <div class="campo">
-                        <label for="pedMarca" class="campo-etiqueta">Horario</label>
+                        <label for="pedSlot" class="campo-etiqueta">Slot de despacho</label>
+                        <select id="pedSlot" class="campo-input"></select>
+                        <small class="campo-ayuda">Rango de horario en que se despacha. Se confirma al marcarlo listo.</small>
+                    </div>
+                    <!-- Horario del piloto (marca): SOLO lo ven el piloto y Admin G2 en adelante -->
+                    <div class="campo" id="pedCampoMarca" hidden>
+                        <label for="pedMarca" class="campo-etiqueta">Horario del piloto</label>
                         <select id="pedMarca" class="campo-input"></select>
                         <small class="campo-ayuda">Entre paréntesis: pedidos ocupados / máximo del horario.</small>
                     </div>
@@ -307,8 +335,10 @@
                         <span class="campo-etiqueta">El piloto cobra al entregar</span>
                         <div class="ped-opciones">
                             <label class="ped-si-no"><input id="pedCobrarEnvio" type="checkbox" checked> El envío</label>
-                            <label class="ped-si-no" id="pedCobrarCompraCaja" hidden><input id="pedCobrarCompra" type="checkbox"> La compra</label>
+                            <!-- Marcada por defecto: se desmarca si el cliente ya pagó la compra en línea -->
+                            <label class="ped-si-no" id="pedCobrarCompraCaja" hidden><input id="pedCobrarCompra" type="checkbox" checked> La compra</label>
                         </div>
+                        <small class="campo-ayuda">Desmarca lo que el cliente ya pagó en línea.</small>
                     </div>
                     <div class="campo">
                         <span class="campo-etiqueta">Forma de pago</span>
@@ -435,7 +465,7 @@
                 <input id="pedAsigFecha" type="date" class="campo-input">
             </div>
             <div class="campo">
-                <label for="pedAsigMarca" class="campo-etiqueta">Horario</label>
+                <label for="pedAsigMarca" class="campo-etiqueta">Horario del piloto</label>
                 <select id="pedAsigMarca" class="campo-input"></select>
             </div>
             <div class="campo campo-ancho" id="pedAsigRutaCaja" hidden>
@@ -460,7 +490,54 @@
 </dialog>
 
 <!-- ==================================================
-     VENTANA: CONFIRMAR UNA ACCIÓN (en ruta, entregado, cancelar, anular...)
+     VENTANA: LISTO PARA DESPACHAR (elegir / confirmar el slot)
+     ================================================== -->
+<dialog id="pedSlotDialogo" class="dialogo dialogo-chico" aria-labelledby="pedSlotTitulo">
+    <form id="pedSlotForm" novalidate>
+        <h3 id="pedSlotTitulo" class="dialogo-titulo">Listo para despachar</h3>
+        <p id="pedSlotTexto" class="dialogo-texto"></p>
+        <div class="campo">
+            <label for="pedSlotElegir" class="campo-etiqueta">Slot al que se carga *</label>
+            <select id="pedSlotElegir" class="campo-input"></select>
+            <small class="campo-ayuda">Entre paréntesis: pedidos que ya tiene ese slot en la tienda.</small>
+        </div>
+        <p id="pedSlotError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="pedSlotCancelar" class="boton boton-secundario">Volver</button>
+            <button type="submit" id="pedSlotSi" class="boton boton-principal">Listo para despachar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: APROBAR SALIDA DEL PEDIDO (escanear su QR)
+     Se abre DENTRO de cada pedido "Listo para despachar" (botón "Aprobar salida").
+     El despachador / empleado escanea con la cámara el QR que muestra el piloto
+     ("Recibido para ruta"); solo vale el QR de ESE pedido. Al leerlo, el pedido
+     queda "Cargado" con su hora. Sin cámara: se escribe el número del pedido.
+     ================================================== -->
+<dialog id="pedEscanerDialogo" class="dialogo ped-escaner-dialogo" aria-labelledby="pedEscanerTitulo">
+    <div class="dialogo-form">
+        <h3 id="pedEscanerTitulo" class="dialogo-titulo"><i class="bi bi-qr-code-scan"></i> Aprobar salida</h3>
+        <div class="ped-escaner-camara">
+            <video id="pedEscanerVideo" playsinline muted></video>
+            <span class="ped-escaner-marco" aria-hidden="true"></span>
+            <p id="pedEscanerSinCamara" class="ped-escaner-sin-camara" hidden></p>
+        </div>
+        <p id="pedEscanerEstado" class="ped-escaner-estado" aria-live="polite">Apunta la cámara al QR que muestra el piloto.</p>
+        <form id="pedEscanerManual" class="ped-escaner-manual" novalidate>
+            <input id="pedEscanerCodigo" type="text" class="campo-input ped-mayus" maxlength="30" autocomplete="off"
+                   placeholder="O escribe el número de pedido (P-000123)" aria-label="Número de pedido">
+            <button type="submit" class="boton boton-secundario">Cargar</button>
+        </form>
+        <div class="dialogo-botones">
+            <button type="button" id="pedEscanerCerrar" class="boton boton-secundario">Cerrar</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: CONFIRMAR UNA ACCIÓN (alistando, entregado, cancelar...)
      Motivo obligatorio u opcional según la acción.
      ================================================== -->
 <dialog id="pedAccionDialogo" class="dialogo dialogo-chico" aria-labelledby="pedAccionTitulo">

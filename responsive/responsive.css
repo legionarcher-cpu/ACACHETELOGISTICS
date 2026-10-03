@@ -3,9 +3,14 @@
    ACACHETE LOGISTICS
 
    Archivo aparte: NO modifica los CSS existentes. Solo agrega reglas
-   dentro de @media, así en computadora (más de 900px) todo se ve igual.
-   Se enlaza en index.html DESPUÉS de css/index.css, junto con
-   responsive/responsive.js (botón ☰ del menú).
+   dentro de @media. Se enlaza en index.html DESPUÉS de css/index.css,
+   junto con responsive/responsive.js (botón ☰ del menú).
+
+   Medidas en rem (ver css/base.css). En computadora 1rem crece con la
+   pantalla (15px en 1366x768 ... 18px en 1920x1080 ... 28px en 4K), así
+   que de 1366 a 4K NO hacen falta cortes: todo se escala junto.
+   En tablet y celular (≤ 900px) 1rem = 16px fijo: px de diseño / 16 = rem.
+   Los cortes de @media sí van en px (miden la ventana).
 
    Cortes:
      ≤ 1200px -> laptop pequeña (ajustes finos)
@@ -31,18 +36,18 @@
 @media (max-width: 1200px) {
     /* Foto del usuario un poco más chica */
     .user-avatar {
-        width: 60px;
-        height: 60px;
+        width: 3.333rem;
+        height: 3.333rem;
         font-size: 1.3rem;
     }
 
     /* Botones del pie más juntos */
     .pie-botones {
-        gap: 6px;
+        gap: 0.333rem;
     }
 
     .acceso-btn {
-        padding: 5px 9px;
+        padding: 0.278rem 0.5rem;
     }
 }
 
@@ -55,26 +60,26 @@
     body {
         height: 100vh;
         height: 100dvh; /* sin la barra del navegador del celular */
-        grid-template-rows: 64px minmax(0, 1fr) auto;
+        grid-template-rows: 4rem minmax(0, 1fr) auto;
     }
 
     /* ---------- Encabezado: ☰ | logo | títulos | usuario ---------- */
     .encabezado {
-        grid-template-columns: auto minmax(0, 110px) minmax(0, 1fr) auto;
+        grid-template-columns: auto minmax(0, 6.875rem) minmax(0, 1fr) auto;
         align-items: stretch;
-        gap: 6px;
+        gap: 0.375rem;
     }
 
     .resp-menu-btn {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 44px;
+        width: 2.75rem;
         padding: 0;
         background: none;
         border: none;
         cursor: pointer;
-        font-size: 1.7rem;
+        font-size: 1.488rem;
         color: var(--color-azul-marino);
     }
 
@@ -93,8 +98,8 @@
     }
 
     .icon-sec1 {
-        width: 44px;
-        height: 44px;
+        width: 2.75rem;
+        height: 2.75rem;
         margin: 0;
     }
 
@@ -103,7 +108,7 @@
     }
 
     .titulos-primordial {
-        padding: 4px 8px;
+        padding: 0.25rem 0.5rem;
         overflow: hidden;
     }
 
@@ -115,17 +120,17 @@
     }
 
     #titulo-panel {
-        font-size: 1.1rem;
+        font-size: 0.963rem;
     }
 
     #subti-panel {
-        font-size: 0.75rem;
+        font-size: 0.656rem;
     }
 
     #fecha-primordial {
         width: auto;
         border-width: 2px;
-        padding: 2px 8px;
+        padding: 2px 0.5rem;
     }
 
     #fecha-primordial i {
@@ -139,18 +144,18 @@
     /* Usuario compacto */
     .info-user {
         width: auto;
-        padding: 2px 4px;
+        padding: 2px 0.25rem;
     }
 
     .user-trigger {
-        gap: 6px;
-        padding: 4px;
+        gap: 0.375rem;
+        padding: 0.25rem;
     }
 
     .user-avatar {
-        width: 44px;
-        height: 44px;
-        font-size: 1rem;
+        width: 2.75rem;
+        height: 2.75rem;
+        font-size: 0.875rem;
     }
 
     /* Menús del usuario y notificaciones pegados al borde derecho */
@@ -171,9 +176,9 @@
         bottom: 0;
         left: 0;
         z-index: 60;
-        width: min(280px, 82vw);
+        width: min(17.5rem, 82vw);
         height: auto;
-        padding-top: 16px;
+        padding-top: 1rem;
         overflow-y: auto;
         transform: translateX(-105%);
         transition: transform 0.25s ease;
@@ -184,8 +189,8 @@
     }
 
     .menu-item a {
-        padding: 14px 20px;
-        font-size: 0.95rem;
+        padding: 0.875rem 1.25rem;
+        font-size: 0.831rem;
     }
 
     /* Fondo oscuro detrás del menú abierto (al tocarlo se cierra) */
@@ -209,14 +214,14 @@
     /* ---------- Pie: botones centrados y derechos abajo ---------- */
     .pie {
         justify-content: center;
-        gap: 6px;
-        padding: 6px 8px;
+        gap: 0.375rem;
+        min-height: 0; /* el alto mínimo de computadora (--alto-pie) sobra aquí */
+        padding: 0.375rem 0.5rem;
     }
 
     .pie-spacer {
         display: none;
     }
-
     .pie-botones {
         width: 100%;
     }
@@ -224,7 +229,7 @@
     .info-empresa {
         flex-basis: 100%;
         text-align: center;
-        font-size: 0.65rem;
+        font-size: 0.569rem;
     }
 
     .info-empresa br {
@@ -243,25 +248,25 @@
 
     /* Avisos emergentes encima del pie (que ya no mide 10vh) */
     .noti-avisos {
-        right: 12px;
-        bottom: 96px;
+        right: 0.75rem;
+        bottom: 6rem;
     }
 
     /* ---------- Ventanas casi de pantalla completa ---------- */
     .dialogo {
-        width: calc(100vw - 20px);
-        max-height: calc(100dvh - 20px);
+        width: calc(100vw - 1.25rem);
+        max-height: calc(100dvh - 1.25rem);
     }
 
     /* ---------- Secciones ---------- */
     html body .pagina {
-        padding: 16px;
+        padding: 1rem;
     }
 
     /* Inicio: listas un poco más bajas para ver más secciones al bajar */
     html body .ini-lista,
     html body .ini-act-lista {
-        max-height: 280px;
+        max-height: 17.5rem;
     }
 }
 
@@ -271,35 +276,35 @@
 
 @media (max-width: 600px) {
     body {
-        grid-template-rows: 56px minmax(0, 1fr) auto;
+        grid-template-rows: 3.5rem minmax(0, 1fr) auto;
     }
 
     /* El logo de la izquierda es una imagen ancha: se le da más ancho
        que alto para que se distinga (el título baja a 2 líneas si falta espacio) */
     .encabezado {
-        grid-template-columns: auto minmax(0, 96px) minmax(0, 1fr) auto;
-        gap: 4px;
+        grid-template-columns: auto minmax(0, 6rem) minmax(0, 1fr) auto;
+        gap: 0.25rem;
     }
 
     .logo-img {
         border-width: 1px;
-        border-radius: 8px;
+        border-radius: 0.5rem;
     }
 
     .resp-menu-btn {
-        width: 40px;
-        font-size: 1.5rem;
+        width: 2.5rem;
+        font-size: 1.312rem;
     }
 
     /* Logo pequeño y título (sin subtítulo ni fecha) */
     .cont-info {
         grid-template-columns: auto minmax(0, 1fr);
-        gap: 4px;
+        gap: 0.25rem;
     }
 
     .icon-sec1 {
-        width: 34px;
-        height: 34px;
+        width: 2.125rem;
+        height: 2.125rem;
     }
 
     #fecha-primordial,
@@ -315,7 +320,7 @@
     /* El nombre no se corta con "…": baja a 2 líneas con letra más chica
        que se ajusta al ancho de la pantalla */
     #titulo-panel {
-        font-size: clamp(0.7rem, 3.4vw, 0.95rem);
+        font-size: clamp(0.612rem, 3.4vw, 0.831rem);
         line-height: 1.15;
         letter-spacing: 0;
         white-space: normal;
@@ -344,15 +349,15 @@
     }
 
     .noti-campana {
-        width: 36px;
-        height: 36px;
-        font-size: 1.15rem;
+        width: 2.25rem;
+        height: 2.25rem;
+        font-size: 1.006rem;
     }
 
     .user-avatar {
-        width: 36px;
-        height: 36px;
-        font-size: 0.85rem;
+        width: 2.25rem;
+        height: 2.25rem;
+        font-size: 0.744rem;
     }
 
     /* Pie: botones solo con icono (el nombre queda en el globo del
@@ -360,15 +365,15 @@
     .pie-botones {
         flex-wrap: nowrap;
         justify-content: space-around;
-        gap: 4px;
+        gap: 0.25rem;
     }
 
     .acceso-btn {
         justify-content: center;
-        min-width: 44px;
-        height: 40px;
-        padding: 0 10px;
-        border-radius: 10px;
+        min-width: 2.75rem;
+        height: 2.5rem;
+        padding: 0 0.625rem;
+        border-radius: 0.625rem;
     }
 
     .acceso-btn span {
@@ -376,7 +381,7 @@
     }
 
     .acceso-btn i {
-        font-size: 1.2rem;
+        font-size: 1.05rem;
     }
 
     /* Sin el agrandado del hover (en pantallas táctiles se queda "pegado") */
@@ -389,20 +394,20 @@
     }
 
     .noti-avisos {
-        right: 8px;
-        left: 8px;
-        bottom: 64px;
+        right: 0.5rem;
+        left: 0.5rem;
+        bottom: 4rem;
         width: auto;
     }
 
     /* ---------- Secciones ---------- */
     html body .pagina {
-        padding: 12px;
+        padding: 0.75rem;
     }
 
     /* Inicio: cada sección con menos relleno */
     html body .ini-resumen {
-        padding: 10px;
+        padding: 0.625rem;
     }
 
     html body .ini-mapa-cuerpo {
@@ -410,7 +415,7 @@
     }
 
     html body .ini-mapa {
-        min-height: 220px;
+        min-height: 13.75rem;
     }
 }
 
@@ -421,17 +426,17 @@
 @media (max-width: 420px) {
     /* Logos más chicos (se mantienen visibles) */
     .encabezado {
-        grid-template-columns: auto minmax(0, 84px) minmax(0, 1fr) auto;
+        grid-template-columns: auto minmax(0, 5.25rem) minmax(0, 1fr) auto;
     }
 
     .icon-sec1 {
-        width: 28px;
-        height: 28px;
+        width: 1.75rem;
+        height: 1.75rem;
     }
 
     .acceso-btn {
-        min-width: 40px;
-        padding: 0 8px;
+        min-width: 2.5rem;
+        padding: 0 0.5rem;
     }
 }
 

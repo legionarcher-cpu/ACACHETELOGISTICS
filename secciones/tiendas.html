@@ -20,6 +20,14 @@
 
 <div class="pagina">
 
+    <!-- Pestañas: Tiendas | Clientes | Empresas (cada una es su sección; las mismas en
+         clientes.html y empresas.html). Empresas solo la ve el Desarrollador. -->
+    <nav class="pestanas" aria-label="Tiendas, clientes y empresas">
+        <a href="#tiendas" class="pestana activo" aria-current="page"><i class="bi bi-shop"></i> <span>Tiendas</span></a>
+        <a href="#clientes" class="pestana"><i class="bi bi-people"></i> <span>Clientes</span></a>
+        <a href="#empresas" class="pestana" data-solo-desarrollador><i class="bi bi-buildings"></i> <span>Empresas</span></a>
+    </nav>
+
     <!-- ---------- Encabezado: título, filtro de región, buscador y botón "Nueva" ---------- -->
     <div class="pagina-cabecera">
         <div>
@@ -39,12 +47,11 @@
                        placeholder="Buscar por código, nombre o dirección" aria-label="Buscar tiendas">
             </div>
 
-            <!-- Abre la sección Clientes con el formulario "Nuevo cliente"
-                 (los clientes de cada tienda se ven con el botón de cada fila) -->
-            <a href="#clientes?nuevo=1" id="tndAgregarClientes" class="boton boton-secundario">
-                <i class="bi bi-person-plus"></i>
-                <span>Agregar clientes</span>
-            </a>
+            <!-- Regiones de la empresa (Administrador y Admin G1) -->
+            <button type="button" id="tndRegiones" class="boton boton-secundario" hidden>
+                <i class="bi bi-map"></i>
+                <span>Regiones</span>
+            </button>
 
             <button type="button" id="tndNueva" class="boton boton-principal">
                 <i class="bi bi-shop"></i>
@@ -85,7 +92,7 @@
         <div class="campos">
             <!-- Región + número = código (ej. NOR + 004 = NOR-004).
                  Si el administrador lo cambia en una tienda existente, sus
-                 usuarios se renombran solos (ej. cen-001-jperez -> nor-004-jperez). -->
+                 usuarios se renombran solos solo si cambia la REGIÓN (ej. cenjperez01 -> norjperez01). -->
             <div class="campo">
                 <label for="tndRegion" class="campo-etiqueta">Región *</label>
                 <select id="tndRegion" class="campo-input" required></select>
@@ -137,6 +144,46 @@
             <button type="submit" id="tndGuardar" class="boton boton-principal">Guardar</button>
         </div>
     </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: REGIONES DE LA EMPRESA
+     Cada empresa tiene sus regiones (sql/01 bloque 16). El código (3 letras) es
+     el inicio del código de sus tiendas (CEN -> CEN-001) y no se repite entre empresas.
+     ================================================== -->
+<dialog id="tndRegDialogo" class="dialogo" aria-labelledby="tndRegTitulo">
+    <h3 id="tndRegTitulo" class="dialogo-titulo">Regiones</h3>
+    <p class="dialogo-texto">Agrupan las tiendas. El código de 3 letras es el inicio del código de cada tienda.</p>
+    <div class="tabla-caja">
+        <table class="tabla">
+            <thead>
+                <tr>
+                    <th>Código</th>
+                    <th>Nombre</th>
+                    <th class="tnd-col-numero">Tiendas</th>
+                    <th class="tabla-col-acciones">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tndRegLista"></tbody>
+        </table>
+    </div>
+    <form id="tndRegForm" class="tnd-reg-form" novalidate>
+        <div class="campo">
+            <label for="tndRegCodigo" class="campo-etiqueta">Código *</label>
+            <input id="tndRegCodigo" type="text" class="campo-input" maxlength="3" autocomplete="off" placeholder="NOR">
+        </div>
+        <div class="campo">
+            <label for="tndRegNombre" class="campo-etiqueta">Nombre *</label>
+            <input id="tndRegNombre" type="text" class="campo-input" maxlength="60" autocomplete="off" placeholder="Norte">
+        </div>
+        <button type="submit" id="tndRegGuardar" class="boton boton-principal">
+            <i class="bi bi-plus-lg"></i> <span>Agregar</span>
+        </button>
+    </form>
+    <p id="tndRegError" class="form-error" role="alert"></p>
+    <div class="dialogo-botones">
+        <button type="button" id="tndRegCerrar" class="boton boton-secundario">Cerrar</button>
+    </div>
 </dialog>
 
 <!-- ==================================================

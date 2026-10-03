@@ -16,7 +16,8 @@
      sql/00 sección 5):
        (En pantalla se dice "HORARIO"; en la base de datos se sigue llamando "marca".)
        - Cantidad de horarios del piloto (base 5) y pedidos máximos por horario (base 5).
-       - Horas predeterminadas de cada marca (ventana de inicio y hora de fin).
+       - Horas predeterminadas de cada marca: inicia desde (solo G2+), hora inicio (a tiempo hasta
+         aquí) y termina (marca tardía con justificación hasta aquí).
        - Horario por día de la semana (tablas horario_dias y marcas_dia):
          un día puede tener su propia cantidad
          de marcas y sus horas (ej. domingo con 1 marca); si no, usa la base.
@@ -85,6 +86,15 @@
             </span>
             <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
         </button>
+        <button type="button" class="cfg-modulo-tarjeta" data-modulo="slots">
+            <span class="cfg-modulo-icono"><i class="bi bi-calendar2-range"></i></span>
+            <span class="cfg-modulo-textos">
+                <span class="cfg-modulo-nombre">Slots</span>
+                <span class="cfg-modulo-descripcion">Rangos de horario de despacho que el empleado asigna a cada pedido.</span>
+                <span class="cfg-modulo-acceso">Administrador y Admin G1 (Admin G2 los ve)</span>
+            </span>
+            <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
+        </button>
         <button type="button" class="cfg-modulo-tarjeta" data-modulo="vehiculos">
             <span class="cfg-modulo-icono"><i class="bi bi-truck"></i></span>
             <span class="cfg-modulo-textos">
@@ -109,6 +119,16 @@
             <span class="cfg-modulo-textos">
                 <span class="cfg-modulo-nombre">Actividades</span>
                 <span class="cfg-modulo-descripcion">Servicios que ofrece la empresa (encomiendas, entregas de tienda...) y en qué tiendas.</span>
+                <span class="cfg-modulo-acceso">Solo Desarrollador</span>
+            </span>
+            <i class="bi bi-box-arrow-up-right cfg-modulo-flecha"></i>
+        </button>
+        <!-- Empresas: abre "Nueva empresa" en la pestaña Empresas de Tiendas (#empresas?nuevo=1) -->
+        <button type="button" class="cfg-modulo-tarjeta" data-modulo="empresas">
+            <span class="cfg-modulo-icono"><i class="bi bi-buildings"></i></span>
+            <span class="cfg-modulo-textos">
+                <span class="cfg-modulo-nombre">Empresas</span>
+                <span class="cfg-modulo-descripcion">Crear una empresa con su ID (01, 02...): entregas de tienda, encomiendas o las dos. Se guardan en Tiendas → Empresas.</span>
                 <span class="cfg-modulo-acceso">Solo Desarrollador</span>
             </span>
             <i class="bi bi-box-arrow-up-right cfg-modulo-flecha"></i>
@@ -177,7 +197,11 @@
             <div class="cfg-tarjeta-cabecera">
                 <div>
                     <h3 class="cfg-tarjeta-titulo">Horas de cada horario</h3>
-                    <p class="cfg-tarjeta-texto">Horas predeterminadas: ventana para iniciar el horario y hora en que termina.</p>
+                    <p class="cfg-tarjeta-texto">
+                        <strong>Inicia desde</strong>: desde cuándo el piloto puede marcar (solo lo ven G2 o superior) ·
+                        <strong>Hora inicio</strong>: hasta aquí la marca es a tiempo ·
+                        <strong>Termina</strong>: hasta aquí se acepta la marca tardía (el piloto escribe por qué).
+                    </p>
                 </div>
             </div>
             <div class="tabla-caja">
@@ -185,7 +209,8 @@
                     <thead>
                         <tr>
                             <th>Horario</th>
-                            <th>Inicia</th>
+                            <th>Inicia desde</th>
+                            <th>Hora inicio</th>
                             <th>Termina</th>
                             <th>Duración</th>
                             <th class="tabla-col-acciones" data-solo-general>Acciones</th>
@@ -252,6 +277,157 @@
                 </table>
             </div>
         </div>
+    </section>
+
+    <!-- ==================================================
+         MÓDULO: SLOTS (oculto hasta que se abre su tarjeta)
+         Rangos de horario de DESPACHO de los pedidos (distintos de las marcas
+         del piloto). Tablas slots_horario, slot_dias y slots_dia (sql/00,
+         sección 5; sql/01 bloque 12). Lógica: js/secciones/configuracion/slots.js
+         ================================================== -->
+    <section class="cfg-modulo" data-modulo="slots" hidden>
+        <div class="cfg-modulo-cabecera">
+            <a href="#configuracion" class="cfg-volver"><i class="bi bi-arrow-left"></i> Configuración</a>
+            <h3 class="cfg-modulo-titulo"><i class="bi bi-calendar2-range"></i> Slots</h3>
+        </div>
+
+        <p class="cfg-nota">
+            <i class="bi bi-info-circle"></i>
+            El <strong>slot</strong> es el rango de horario en que se despacha un pedido: el empleado lo elige
+            al registrarlo y lo confirma al marcarlo <strong>Listo para despachar</strong>. Es distinto del
+            <strong>horario (marca)</strong> del piloto, que solo ven el piloto y Admin G2 en adelante.
+        </p>
+        <p class="cfg-nota" data-nota-g2 hidden>
+            <i class="bi bi-eye"></i> Como Admin G2 puedes ver los slots; los cambia el Administrador o Admin G1.
+        </p>
+        <p id="cfgSlotFaltaSql" class="aviso visible error" hidden>
+            Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 12: slots).
+        </p>
+
+        <!-- ---------- 1. Cantidad de slots ---------- -->
+        <div class="tarjeta cfg-tarjeta">
+            <div class="cfg-tarjeta-cabecera">
+                <div>
+                    <h3 class="cfg-tarjeta-titulo">Valores base</h3>
+                    <p class="cfg-tarjeta-texto">Cuántos slots de despacho hay en el día.</p>
+                </div>
+            </div>
+            <form id="cfgSlotBaseForm" class="cfg-base" novalidate>
+                <div class="campo">
+                    <label for="cfgSlotCantidad" class="campo-etiqueta">Cantidad de slots</label>
+                    <input id="cfgSlotCantidad" type="number" min="1" max="24" step="1" class="campo-input cfg-numero">
+                    <small class="campo-ayuda">Slots del día (1 a 24). Los nuevos continúan después del último.</small>
+                </div>
+                <button type="submit" data-solo-general class="boton boton-principal cfg-guardar-base">
+                    <i class="bi bi-check2"></i>
+                    <span>Guardar</span>
+                </button>
+            </form>
+            <p id="cfgSlotBaseError" class="form-error"></p>
+        </div>
+
+        <!-- ---------- 2. Horas de cada slot ---------- -->
+        <div class="tarjeta cfg-tarjeta">
+            <div class="cfg-tarjeta-cabecera">
+                <div>
+                    <h3 class="cfg-tarjeta-titulo">Horas de cada slot</h3>
+                    <p class="cfg-tarjeta-texto">Horas predeterminadas: desde qué hora y hasta qué hora se despacha en cada slot.</p>
+                </div>
+            </div>
+            <div class="tabla-caja">
+                <table class="tabla cfg-tabla">
+                    <thead>
+                        <tr>
+                            <th>Slot</th>
+                            <th>Desde</th>
+                            <th>Hasta</th>
+                            <th>Duración</th>
+                            <th class="tabla-col-acciones" data-solo-general>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cfgSlots"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ---------- 3. Slots por día de la semana ---------- -->
+        <div class="tarjeta cfg-tarjeta">
+            <div class="cfg-tarjeta-cabecera">
+                <div>
+                    <h3 class="cfg-tarjeta-titulo">Slots por día</h3>
+                    <p class="cfg-tarjeta-texto">
+                        Deja preajustado un día distinto a la base (ej. sábado con 2 slots o domingo sin slots).
+                        Los días sin slots propios usan la <strong>base</strong>.
+                    </p>
+                </div>
+            </div>
+            <div class="tabla-caja">
+                <table class="tabla cfg-tabla">
+                    <thead>
+                        <tr>
+                            <th>Día</th>
+                            <th>Tipo</th>
+                            <th>Slots</th>
+                            <th>Horario</th>
+                            <th class="tabla-col-acciones" data-solo-general>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cfgSlotDias"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Ventana: modificar un slot base -->
+        <dialog id="cfgSlotDialogo" class="dialogo" aria-labelledby="cfgSlotTitulo">
+            <form id="cfgSlotForm" class="dialogo-form" novalidate>
+                <h3 id="cfgSlotTitulo" class="dialogo-titulo">Slot 1</h3>
+                <div class="campos">
+                    <div class="campo">
+                        <label for="cfgSlotInicio" class="campo-etiqueta">Desde *</label>
+                        <input id="cfgSlotInicio" type="time" class="campo-input" required>
+                    </div>
+                    <div class="campo">
+                        <label for="cfgSlotFin" class="campo-etiqueta">Hasta *</label>
+                        <input id="cfgSlotFin" type="time" class="campo-input" required>
+                    </div>
+                </div>
+                <p id="cfgSlotError" class="form-error" role="alert"></p>
+                <div class="dialogo-botones">
+                    <button type="button" data-cerrar class="boton boton-secundario">Cancelar</button>
+                    <button type="submit" class="boton boton-principal">Guardar</button>
+                </div>
+            </form>
+        </dialog>
+
+        <!-- Ventana: slots de un día (las filas las arma el JS según la cantidad) -->
+        <dialog id="cfgSlotDiaDialogo" class="dialogo cfg-dialogo-ancho" aria-labelledby="cfgSlotDiaTitulo">
+            <form id="cfgSlotDiaForm" class="dialogo-form" novalidate>
+                <h3 id="cfgSlotDiaTitulo" class="dialogo-titulo">Slots del lunes</h3>
+                <div class="campo cfg-dia-cantidad">
+                    <label for="cfgSlotDiaCantidad" class="campo-etiqueta">Cantidad de slots ese día *</label>
+                    <input id="cfgSlotDiaCantidad" type="number" min="0" max="24" step="1" class="campo-input cfg-numero">
+                    <small class="campo-ayuda">0 = sin slots (no se despacha). Los slots nuevos toman las horas de la base.</small>
+                </div>
+                <div class="cfg-dia-marcas">
+                    <div class="cfg-dia-fila cfg-slot-fila cfg-dia-encabezado" aria-hidden="true">
+                        <span>Slot</span><span>Desde</span><span>Hasta</span>
+                    </div>
+                    <div id="cfgSlotDiaFilas" class="cfg-dia-marcas"></div>
+                    <p id="cfgSlotDiaVacio" class="cfg-nota" hidden>
+                        <i class="bi bi-moon"></i> Sin slots: ese día no se despachan pedidos.
+                    </p>
+                </div>
+                <fieldset class="cfg-dia-copiar">
+                    <legend class="campo-etiqueta">Aplicar también a</legend>
+                    <div id="cfgSlotDiaOtros" class="cfg-dia-otros"></div>
+                </fieldset>
+                <p id="cfgSlotDiaError" class="form-error" role="alert"></p>
+                <div class="dialogo-botones">
+                    <button type="button" data-cerrar class="boton boton-secundario">Cancelar</button>
+                    <button type="submit" class="boton boton-principal">Guardar</button>
+                </div>
+            </form>
+        </dialog>
     </section>
 
     <!-- ==================================================
@@ -495,17 +671,18 @@
                 <input id="cfgInicioDesde" type="time" class="campo-input" required>
             </div>
             <div class="campo">
-                <label for="cfgInicioHasta" class="campo-etiqueta">Inicia hasta *</label>
+                <label for="cfgInicioHasta" class="campo-etiqueta">Hora inicio *</label>
                 <input id="cfgInicioHasta" type="time" class="campo-input" required>
             </div>
             <div class="campo">
-                <label for="cfgFin" class="campo-etiqueta">Termina a las *</label>
+                <label for="cfgFin" class="campo-etiqueta">Termina *</label>
                 <input id="cfgFin" type="time" class="campo-input" required>
             </div>
             <div class="campo-ancho">
                 <small class="campo-ayuda">
-                    Ej.: inicia de 07:00 a 07:30 y termina a las 09:00.
-                    La hora de término debe ser posterior a la ventana de inicio.
+                    Ej.: inicia desde 07:00, hora inicio 07:30, termina 09:00 → de 07:00 a 07:30 la marca es a
+                    tiempo; de 07:30 a 09:00 es <strong>tardía</strong> (el piloto escribe por qué); después ya no
+                    se puede marcar. "Inicia desde" solo lo ven G2 o superior.
                 </small>
             </div>
         </div>
@@ -535,7 +712,7 @@
         <!-- Encabezado + una fila por marca (las crea el JS) -->
         <div class="cfg-dia-marcas">
             <div class="cfg-dia-fila cfg-dia-encabezado" aria-hidden="true">
-                <span>Horario</span><span>Inicia desde</span><span>Inicia hasta</span><span>Termina</span>
+                <span>Horario</span><span>Inicia desde</span><span>Hora inicio</span><span>Termina</span>
             </div>
             <div id="cfgDiaMarcas"></div>
             <p id="cfgDiaVacio" class="cfg-nota" hidden>
@@ -669,7 +846,7 @@
             <fieldset class="campo campo-ancho cfg-act-usa">
                 <legend class="campo-etiqueta">Qué usa esta actividad en los pedidos</legend>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_bodega"> Recepción en bodega (estado "En bodega")</label>
-                <label class="cfg-si-no"><input type="checkbox" data-usa="usa_recoleccion"> Dirección de recolección</label>
+                <label class="cfg-si-no"><input type="checkbox" data-usa="usa_recoleccion"> Punto de partida</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_tamanos"> Tamaño de los bultos (S / M / L / XL)</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_compra"> Monto de la compra, envío gratis y cobrar la compra</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="permite_alcohol"> Puede llevar alcohol (el piloto confirma la mayoría de edad)</label>

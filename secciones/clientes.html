@@ -1,9 +1,12 @@
 <!-- ==================================================
      SECCIÓN: CLIENTES
      Base de datos de clientes (tablas "clientes" y "clientes_tiendas").
-     No está en el menú: se abre desde Tiendas ("Agregar clientes" o el
-     botón de clientes de cada tienda). Se puede abrir filtrada:
-       #clientes?tienda=3   -> clientes de la tienda con id 3
+     Un cliente puede ser de VARIAS tiendas (multitienda) y en cada una tiene
+     su ruta de entrega. Se abre con la pestaña "Clientes" de Tiendas o con los
+     botones de cada tienda (sus clientes / nuevo cliente en esa tienda).
+     También se agregan solos desde Nuevo pedido (con su dirección y ubicación).
+     Primero pide la región (si el usuario ve más de una). Se puede abrir filtrada:
+       #clientes?tienda=3   -> clientes de la tienda con id 3 (sin preguntar región)
        #clientes?nuevo=1    -> abre directamente el formulario "Nuevo cliente"
 
      Quién ve y hace qué: ver la cabecera de js/secciones/clientes.js
@@ -23,10 +26,15 @@
 
 <div class="pagina">
 
-    <!-- ---------- Encabezado: volver, título, buscador y "Nuevo cliente" ---------- -->
+    <!-- Pestañas: Tiendas | Clientes | Empresas (las mismas en tiendas.html) -->
+    <nav class="pestanas" aria-label="Tiendas, clientes y empresas">
+        <a href="#tiendas" class="pestana"><i class="bi bi-shop"></i> <span>Tiendas</span></a>
+        <a href="#clientes" class="pestana activo" aria-current="page"><i class="bi bi-people"></i> <span>Clientes</span></a>
+        <a href="#empresas" class="pestana" data-solo-desarrollador><i class="bi bi-buildings"></i> <span>Empresas</span></a>
+    </nav>
+
     <div class="pagina-cabecera">
         <div>
-            <a href="#tiendas" class="cli-volver"><i class="bi bi-arrow-left"></i> Tiendas</a>
             <h2 class="pagina-titulo">Clientes</h2>
             <p id="cliContador" class="pagina-subtitulo">Cargando clientes...</p>
         </div>
@@ -35,7 +43,7 @@
             <div class="buscador">
                 <i class="bi bi-search"></i>
                 <input id="cliBuscar" type="search" class="buscador-input"
-                       placeholder="Buscar por nombre, teléfono o dirección" aria-label="Buscar clientes">
+                       placeholder="Buscar por nombre, teléfono o correo" aria-label="Buscar clientes">
             </div>
             <button type="button" id="cliNuevo" class="boton boton-principal">
                 <i class="bi bi-person-plus"></i>
@@ -44,10 +52,25 @@
         </div>
     </div>
 
-    <!-- ---------- Filtros: tienda y estado ---------- -->
-    <div class="filtros">
+    <!-- ---------- Primero: ¿de qué región? ----------
+         Antes de la lista se elige la región (quien ve más de una). Los G2, G3 y
+         Empleados la tienen fija y pasan directo a la lista. -->
+    <div id="cliElegirRegion" class="tarjeta cli-elegir-region" hidden>
+        <h3 class="cli-elegir-titulo"><i class="bi bi-geo"></i> ¿De qué región son los clientes?</h3>
+        <div id="cliRegiones" class="cli-regiones"></div>
+    </div>
+
+    <!-- ---------- Filtros: región, tienda, ruta de entrega y estado ----------
+         Rutas: las de la tienda (sección Rutas y asignaciones) -->
+    <div class="filtros" id="cliFiltros">
+        <select id="cliFiltroRegion" class="campo-input filtro" aria-label="Filtrar por región">
+            <option value="">Todas las regiones</option>
+        </select>
         <select id="cliFiltroTienda" class="campo-input filtro" aria-label="Filtrar por tienda">
             <option value="">Todas mis tiendas</option>
+        </select>
+        <select id="cliFiltroRuta" class="campo-input filtro" aria-label="Filtrar por ruta de entrega" hidden>
+            <option value="">Todas las rutas</option>
         </select>
         <select id="cliFiltroEstado" class="campo-input filtro" aria-label="Filtrar por estado">
             <option value="">Todos los estados</option>
@@ -60,15 +83,16 @@
     <p id="cliAviso" class="aviso" role="status"></p>
 
     <!-- ---------- Tabla de clientes ---------- -->
-    <div class="tabla-caja">
+    <div class="tabla-caja" id="cliTablaCaja">
         <table class="tabla cli-tabla">
             <thead>
                 <tr>
                     <th>Cliente</th>
                     <th>Teléfono</th>
+                    <th>Correo</th>
                     <th>Dirección</th>
                     <th>Ubicación</th>
-                    <th>Tiendas</th>
+                    <th>Tiendas y rutas</th>
                     <th>Categoría</th>
                     <th>Estado</th>
                     <th class="tabla-col-acciones">Acciones</th>
@@ -100,16 +124,29 @@
             </div>
 
             <div class="campo">
-                <label for="cliApellidos" class="campo-etiqueta">Apellidos *</label>
-                <input id="cliApellidos" type="text" class="campo-input" autocomplete="off" required>
+                <label for="cliApellido1" class="campo-etiqueta">Primer apellido *</label>
+                <input id="cliApellido1" type="text" class="campo-input" autocomplete="off" maxlength="60" required>
+            </div>
+
+            <div class="campo">
+                <label for="cliApellido2" class="campo-etiqueta">Segundo apellido</label>
+                <input id="cliApellido2" type="text" class="campo-input" autocomplete="off" maxlength="60">
             </div>
 
             <div class="campo">
                 <label for="cliTelefono" class="campo-etiqueta">Teléfono *</label>
-                <input id="cliTelefono" type="tel" class="campo-input" autocomplete="off" required>
+                <input id="cliTelefono" type="tel" class="campo-input" autocomplete="off" inputmode="tel" maxlength="20" required>
             </div>
 
-            <div class="campo">
+            <!-- El correo no se repite entre clientes: sirve para encontrarlo al crear un pedido -->
+            <div class="campo campo-ancho">
+                <label for="cliCorreo" class="campo-etiqueta">Correo electrónico</label>
+                <input id="cliCorreo" type="email" class="campo-input" autocomplete="off" inputmode="email" maxlength="120"
+                       placeholder="nombre@correo.com">
+                <small class="campo-ayuda">Recomendado: con el correo o el teléfono se encuentra al cliente al crear un pedido.</small>
+            </div>
+
+            <div class="campo campo-ancho">
                 <label for="cliDireccion" class="campo-etiqueta">Dirección</label>
                 <input id="cliDireccion" type="text" class="campo-input" autocomplete="off">
             </div>
@@ -117,14 +154,14 @@
             <div class="campo campo-ancho">
                 <label for="cliUbicacion" class="campo-etiqueta">Ubicación</label>
                 <input id="cliUbicacion" type="text" class="campo-input" autocomplete="off"
-                       placeholder="Referencia o enlace de Google Maps (https://...)">
-                <small class="campo-ayuda">Más adelante se podrá agregar la ubicación enviada por WhatsApp.</small>
+                       placeholder="Coordenadas (9.93, -84.08), referencia o enlace de Google Maps">
+                <small class="campo-ayuda">Nuevo pedido la llena sola con el punto de entrega del mapa (y la usa la próxima vez).</small>
             </div>
 
-            <!-- Tiendas del cliente (casillas). Solo para administradores;
-                 al Empleado se le asigna su tienda automáticamente. -->
+            <!-- Tiendas del cliente (casillas; puede ser de varias = multitienda) y, en
+                 cada una, su ruta de entrega. Al Empleado se le asigna su tienda. -->
             <div id="cliCampoTiendas" class="campo campo-ancho">
-                <span class="campo-etiqueta">Tiendas que lo atienden *</span>
+                <span class="campo-etiqueta">Tiendas que lo atienden y ruta de entrega *</span>
                 <div id="cliTiendas" class="cli-tiendas"></div>
             </div>
         </div>

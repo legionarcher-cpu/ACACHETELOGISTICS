@@ -4,7 +4,9 @@
      permite crearlos, modificarlos y eliminarlos.
      Roles: Administrador y Admin G1 (sin tienda, usuario simple),
      Admin G2 (con región, usuario simple),
-     Empleado y Piloto (con tienda y usuario compuesto, ej. cen-001-jperez).
+     Empleado y Piloto (con tienda y usuario compuesto, ej. cenjperez01: región + nombre + empresa, sin la tienda).
+     Todos llevan al final el ID de su empresa (jperez01); el Desarrollador elige
+     la empresa por su ID al crear un Administrador o Admin G1.
      Administrador gestiona a todos; Admin G1 solo Empleados y Pilotos;
      Admin G2 solo Empleados y Pilotos de SU región (y solo ve esos);
      Admin G3 solo ve su tienda y crea Empleados que quedan pendientes
@@ -138,6 +140,15 @@
                 </select>
             </div>
 
+            <!-- Empresa (por su ID): solo la ve el Desarrollador al crear o modificar un
+                 Administrador o Admin G1. El ID va al final del usuario (jperez01).
+                 Los demás roles son de la empresa de su tienda o región (sql/01 bloque 16). -->
+            <div id="usrCampoEmpresa" class="campo" hidden>
+                <label for="usrEmpresa" class="campo-etiqueta">Empresa (ID) *</label>
+                <select id="usrEmpresa" class="campo-input"></select>
+                <small class="campo-ayuda">El ID de la empresa va al final del usuario.</small>
+            </div>
+
             <!-- Tienda: las opciones las carga el JS desde la tabla "tiendas".
                  Se desactiva con Administrador / Admin G1 (no llevan tienda)
                  y se reemplaza por "Región" con Admin G2. -->
@@ -155,13 +166,20 @@
             </div>
 
             <!-- Vehículo: solo aparece con el rol Piloto.
-                 Se elige uno existente o se registra uno nuevo (marca + placa). -->
+                 Se elige uno existente (agrupados por tipo) o se registra uno nuevo (tipo + marca + placa). -->
             <div id="usrCampoVehiculo" class="campo campo-ancho" hidden>
                 <label for="usrVehiculo" class="campo-etiqueta">Vehículo asignado</label>
                 <select id="usrVehiculo" class="campo-input"></select>
 
                 <!-- Aparece al elegir "Registrar vehículo nuevo..." -->
                 <div id="usrVehiculoNuevo" class="usr-vehiculo-nuevo" hidden>
+                    <select id="usrVehTipo" class="campo-input" aria-label="Tipo de vehículo">
+                        <option value="">Tipo de vehículo</option>
+                        <option value="camion">Camión</option>
+                        <option value="pickup">Pick-up</option>
+                        <option value="panel">Panel</option>
+                        <option value="moto">Moto</option>
+                    </select>
                     <input id="usrVehMarca" type="text" class="campo-input" placeholder="Marca (ej. Toyota)" autocomplete="off" aria-label="Marca del vehículo">
                     <input id="usrVehPlaca" type="text" class="campo-input texto-codigo usr-placa" placeholder="Placa (ej. P123ABC)" autocomplete="off" aria-label="Placa del vehículo">
                 </div>
@@ -178,13 +196,14 @@
                 </label>
             </div>
 
-            <!-- Usuario: se escribe solo el nombre; el prefijo de la tienda
-                 (ej. "cen-001-") lo agrega el sistema -->
+            <!-- Usuario: se escribe solo el nombre; la región de la tienda (ej. "cen")
+                 y el ID de la empresa al final (ej. "01") los agrega el sistema -->
             <div class="campo">
                 <label for="usrIdUsuario" class="campo-etiqueta">Usuario *</label>
                 <div class="campo-input usr-input-compuesto">
                     <span id="usrPrefijo" class="usr-prefijo"></span>
                     <input id="usrIdUsuario" type="text" class="usr-input-interno" autocomplete="off" required>
+                    <span id="usrSufijo" class="usr-prefijo usr-sufijo"></span>
                 </div>
                 <small class="campo-ayuda">Inicia sesión como: <strong id="usrVistaPrevia" class="usr-vista-previa">—</strong></small>
             </div>

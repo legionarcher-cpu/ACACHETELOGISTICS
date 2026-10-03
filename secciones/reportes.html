@@ -157,6 +157,13 @@
                 <p id="repSinRetrasos" class="rep-vacio" hidden>Sin retrasos registrados en este período.</p>
                 <details class="rep-datos"><summary>Ver datos</summary><table class="tabla" id="repTablaRetrasos"></table></details>
             </figure>
+            <!-- Cancelaciones con su motivo (los pedidos ya no se anulan: se cancelan con motivo) -->
+            <figure class="tarjeta rep-grafica">
+                <figcaption class="rep-titulo">Cancelaciones por motivo</figcaption>
+                <div class="rep-lienzo"><canvas id="repGrafCancelaciones" role="img" aria-label="Cancelaciones por motivo"></canvas></div>
+                <p id="repSinCancelaciones" class="rep-vacio" hidden>Sin pedidos cancelados en este período.</p>
+                <details class="rep-datos"><summary>Ver datos</summary><table class="tabla" id="repTablaCancelaciones"></table></details>
+            </figure>
         </div>
 
         <!-- ---------- Tabla detallada ---------- -->
