@@ -23,14 +23,16 @@
                                                     catálogo con su peso)
                             Calcula el envío con la tarifa (tienda > región > general),
                             el descuento (máx. 1), lo que cobra el piloto y el vuelto.
-                            Mapa A -> B (js/mapa.js, gratis): A = tienda o recolección,
-                            B = entrega; los km por calle se cobran si la tarifa tiene
+                            Mapa A -> B (js/mapa.js, gratis), igual que en el Cotizador:
+                            campos "A · Punto de partida" (vacío = la tienda; desactivado si la
+                            actividad no usa punto de partida) y "B · Entrega" juntos sobre el
+                            mapa; los km por calle se cobran si la tarifa tiene
                             precio por km (distancia_km + detalle.ruta con los puntos).
      #pedidos?id=15      -> DETALLE: datos, mercadería, cobro, entrega, línea de tiempo,
                             QR y acciones según el estado. (&qr=1 abre el QR al entrar)
 
    QUIÉN VE QUÉ (lo controla la página; la regla real llega en la Fase 7):
-     - Administrador y Admin G1: todos los pedidos. Anulan pedidos.
+     - Administrador y Admin G1: todos los pedidos.
      - Admin G2: pedidos de las tiendas de su región.
      - Admin G3 y Empleado: pedidos de su tienda.
      - Registran pedidos: todos menos el Piloto. El piloto sale de la ruta
@@ -38,13 +40,17 @@
      - ASIGNAR piloto y REASIGNAR horario / fecha / ruta: SOLO G2 o superior.
        Admin G3 y Empleado solo pueden SOLICITAR la reasignación (le llega al
        G2 de la región por la campana; el G2 la aplica o la rechaza).
-     - CANCELAR: Admin G3 o superior (el Empleado no).
-     - "Salió a entregar", "Entregado" y "No entregado": SOLO el Piloto del
-       pedido (desde aquí o, más adelante, desde su app).
-     - Piloto: solo SUS pedidos asignados.
+     - CANCELAR: Admin G3 o superior (el Empleado no). Ya no se anula.
+     - SLOT (rango de despacho, Configuración -> Slots): lo elige el empleado al
+       registrar y lo confirma al marcar "Listo para despachar". El HORARIO del
+       piloto (marca) solo lo ven el piloto y G2 o superior.
+     - DESPACHO (Empleado, G3 y superiores): "Alistando" -> "Listo para despachar"
+       (slot) -> "Aprobar salida": dentro del pedido, escanear el QR que muestra el piloto.
+     - PILOTO (solo sus pedidos): "Recibido para ruta" (abre el QR), "Saliendo a
+       ruta" (en Inicio), "Entregar ahora" (uno a la vez) y "Entregado" / "No entregado".
 
    REGLAS:
-     - Un pedido NUNCA se borra: se cancela (con motivo) o se anula (Admin/G1).
+     - Un pedido NUNCA se borra: se cancela (con motivo).
      - Cada cambio queda en la línea de tiempo (tabla pedido_historial).
      - El número de pedido lo pone la base de datos (automático) o lo escribe
        el empleado (manual), según Configuración -> Pedidos.
@@ -55,6 +61,8 @@
 
 // Librería para dibujar el QR (se descarga solo al abrir un QR)
 const PED_QR_LIBRERIA = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+// Librería GRATIS para LEER el QR con la cámara (se descarga solo al abrir "Aprobar salida")
+const PED_LECTOR_QR = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
 // Lo que va dentro del QR: prefijo + token del pedido (la app del piloto lo lee)
 const PED_QR_PREFIJO = 'ACACHETE-PEDIDO:';
 // Código de país para WhatsApp cuando el teléfono tiene 8 dígitos (Costa Rica = 506)
@@ -66,7 +74,12 @@ const PED_ESTADOS = {
     registrado:           { texto: 'Registrado',               color: 'etiqueta-gris' },
     recibido_bodega:      { texto: 'En bodega',                color: 'etiqueta-morada' },
     asignado:             { texto: 'Asignado',                 color: 'etiqueta-azul' },
+    alistando:            { texto: 'Alistando',                color: 'etiqueta-naranja' },
+    listo_despacho:       { texto: 'Listo para despachar',     color: 'etiqueta-azul' },
+    recibido_ruta:        { texto: 'Recibido para ruta',       color: 'etiqueta-morada' },
+    cargado:              { texto: 'Cargado',                  color: 'etiqueta-turquesa' },
     en_ruta:              { texto: 'En ruta',                  color: 'etiqueta-turquesa' },
+    en_entrega:           { texto: 'Entregando',               color: 'etiqueta-turquesa' },
     entregado:            { texto: 'Entregado',                color: 'etiqueta-verde' },
     entregado_incidencia: { texto: 'Entregado con incidencia', color: 'etiqueta-naranja' },
     no_entregado:         { texto: 'No entregado',             color: 'etiqueta-rosada' },
@@ -80,14 +93,33 @@ const PED_ESTADOS = {
 const PED_GRUPOS = [
     { id: 'pendientes',  texto: 'Pendientes',    color: 'resumen-gris',     estados: ['registrado', 'recibido_bodega', 'asignado', 'reprogramado'] },
     { id: 'bodega',      texto: 'En bodega',     color: 'resumen-azul',     estados: ['recibido_bodega'], uso: 'usa_bodega' },
-    { id: 'ruta',        texto: 'En ruta',       color: 'resumen-turquesa', estados: ['en_ruta'] },
+    { id: 'despacho',    texto: 'En despacho',   color: 'resumen-azul',     estados: ['alistando', 'listo_despacho', 'recibido_ruta', 'cargado'] },
+    { id: 'ruta',        texto: 'En ruta',       color: 'resumen-turquesa', estados: ['en_ruta', 'en_entrega'] },
     { id: 'entregados',  texto: 'Entregados',    color: 'resumen-verde',    estados: ['entregado', 'entregado_incidencia'] },
     { id: 'problemas',   texto: 'No entregados', color: 'resumen-rosada',   estados: ['no_entregado', 'devuelto'] },
     { id: 'cancelados',  texto: 'Cancelados',    color: 'resumen-naranja',  estados: ['cancelado'] },
 ];
 
+// Estados desde los que se puede empezar a alistar
+const PED_POR_ALISTAR = ['registrado', 'recibido_bodega', 'asignado', 'reprogramado'];
 // Estados en los que el pedido todavía no salió (se puede asignar o cancelar)
-const PED_ANTES_DE_SALIR = ['registrado', 'recibido_bodega', 'asignado', 'reprogramado'];
+const PED_ANTES_DE_SALIR = [...PED_POR_ALISTAR, 'alistando', 'listo_despacho', 'recibido_ruta', 'cargado'];
+
+// Descarga un script una sola vez (librerías gratis de jsDelivr)
+const pedScripts = new Map();
+function cargarScriptPed(url, global) {
+    if (window[global]) return Promise.resolve();
+    if (!pedScripts.has(url)) {
+        pedScripts.set(url, new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = url;
+            script.onload = () => resolve();
+            script.onerror = () => { pedScripts.delete(url); script.remove(); reject(new Error(`No se pudo descargar ${url}`)); };
+            document.head.appendChild(script);
+        }));
+    }
+    return pedScripts.get(url);
+}
 
 // Descarga la librería del QR una sola vez
 let pedPromesaQr = null;
@@ -124,7 +156,11 @@ registrarSeccion('pedidos', (zona) => {
     const puedeAsignar = esGeneral || !!regionG2;   // piloto, ruta y horario (fecha): G2 o superior
     const puedeSolicitar = esAdminG3() || esEmpleado; // G3 y Empleado solo SOLICITAN la reasignación
     const puedeCancelar = puedeGestionar && !esEmpleado; // el Empleado no cancela
-    const puedeAnular = esGeneral;
+    // Alistar, marcar listo para despachar (con su slot) y escanear el QR del piloto:
+    // Empleado, Admin G3 y superiores (todos menos el piloto)
+    const puedeDespachar = puedeGestionar;
+    // El horario del piloto (marca) solo lo ven el piloto y Admin G2 en adelante
+    const verMarca = esPiloto || puedeAsignar;
 
     // ==================================================
     // AYUDAS
@@ -320,6 +356,37 @@ registrarSeccion('pedidos', (zona) => {
         select.value = actual == null ? '' : String(actual);
     }
 
+    // ---------- Slots de despacho (Configuración -> Slots; slots_del_dia en sql/00) ----------
+    // Slots de una fecha con cuántos pedidos tiene ya cada uno en esa tienda (sin límite).
+    // Sin el bloque 12 de sql/01 la función no existe: se trabaja sin slots.
+    async function slotsConOcupacion(fecha, tiendaId, excluirId = null) {
+        if (!fecha) return [];
+        const [slots, ocupados] = await Promise.all([
+            db.rpc('slots_del_dia', { p_fecha: fecha }),
+            db.from('pedidos').select('id, slot_numero')
+                .eq('tienda_id', tiendaId || 0).eq('fecha_entrega', fecha).eq('anulado', false)
+                .neq('estado', 'cancelado').not('slot_numero', 'is', null),
+        ]);
+        if (slots.error) {
+            console.error('Error al cargar los slots (¿falta sql/01, bloque 12?):', slots.error);
+            return [];
+        }
+        const lista = ocupados.error ? [] : ocupados.data;
+        return slots.data.map((s) => ({ ...s, usados: lista.filter((p) => p.slot_numero === s.numero && p.id !== excluirId).length }));
+    }
+
+    // "Slot 2 · 10:00–12:00"
+    const textoSlot = (s) => `Slot ${s.numero} · ${hhmm(s.inicio)}–${hhmm(s.fin)}`;
+
+    // Llena un <select> de slots: "Slot 2 · 10:00–12:00 (3 pedidos)"
+    function llenarSlots(select, slots, actual = null, conVacio = true) {
+        select.replaceChildren();
+        if (conVacio) select.appendChild(new Option('Sin slot (se elige al marcarlo listo)', ''));
+        slots.forEach((s) => select.appendChild(new Option(`${textoSlot(s)} (${plural(s.usados, 'pedido', 'pedidos')})`, s.numero)));
+        if (!slots.length) select.appendChild(new Option('No hay slots ese día (Configuración → Slots)', '', false, false)).disabled = true;
+        select.value = actual != null && slots.some((s) => s.numero === actual) ? String(actual) : (conVacio || !slots[0] ? '' : String(slots[0].numero));
+    }
+
     // deRuta: ids de los pilotos de la ruta ese día (se marcan en la lista)
     function llenarPilotos(select, tiendaId, actual = null, deRuta = []) {
         select.replaceChildren(new Option(rutas.length ? 'Automático (el de la ruta)' : 'Sin piloto (se asigna después)', ''));
@@ -361,7 +428,6 @@ registrarSeccion('pedidos', (zona) => {
     const filtroFecha = $('#pedFiltroFecha');
     const filtroTienda = $('#pedFiltroTienda');
     const filtroEstado = $('#pedFiltroEstado');
-    const verAnulados = $('#pedVerAnulados');
     const filtroRuta = $('#pedFiltroRuta');
     const buscar = $('#pedBuscar');
     let pedidosCargados = []; // todas las actividades (para el número de cada pestaña)
@@ -472,7 +538,6 @@ registrarSeccion('pedidos', (zona) => {
             actividadLista, alCambiarActividadLista);
         $('#pedPestanas').hidden = actividades.length <= 1;
 
-        $('#pedVerAnuladosCaja').hidden = !puedeAnular;
         $('#pedNuevo').hidden = !puedeGestionar;
 
         // Cuadros del resumen
@@ -511,29 +576,48 @@ registrarSeccion('pedidos', (zona) => {
             $('#pedModoTexto').textContent = modo.texto();
             $('#pedModo').hidden = false;
         }
+
+        // Enlaces de los cuadros de Inicio: #pedidos?grupo=ruta (lista ya filtrada)
+        // y &fecha=todas (todas las fechas, ej. pedidos sin piloto)
+        const params = parametrosSeccion();
+        const grupo = params.get('grupo');
+        if (grupo && PED_GRUPOS.some((g) => g.id === grupo)) {
+            filtroEstado.value = `g:${grupo}`;
+            if (filtroEstado.value !== `g:${grupo}`) filtroEstado.value = ''; // grupo que la actividad no usa
+        }
+        if (params.get('fecha') === 'todas') filtroFecha.value = '';
+        // #pedidos?tienda=3 ("Hoy por tienda" de Inicio)
+        const tiendaPedida = params.get('tienda');
+        if (tiendaPedida && tiendas.some((t) => String(t.id) === tiendaPedida)) filtroTienda.value = tiendaPedida;
     }
 
     async function cargarLista() {
         $('#pedContador').textContent = 'Cargando pedidos...';
-        let q = db.from('pedidos').select(
-            'id, codigo, actividad, tienda_id, cliente_nombre, cliente_telefono, direccion_recoleccion, direccion_entrega, ' +
-            'fecha_entrega, marca_numero, piloto_id, estado, anulado, monto_compra, total_cobrar, peso_total_kg, lleva_alcohol, creado_en' +
-            (rutas.length ? ', ruta_id' : '')); // ruta_id existe solo si la base tiene rutas
+        const consulta = (conSlot) => {
+            let q = db.from('pedidos').select(
+                'id, codigo, actividad, tienda_id, cliente_nombre, cliente_telefono, direccion_recoleccion, direccion_entrega, ' +
+                'fecha_entrega, marca_numero, piloto_id, estado, anulado, monto_compra, total_cobrar, peso_total_kg, lleva_alcohol, creado_en' +
+                (conSlot ? ', slot_numero' : '') + // slot_numero: sql/01 bloque 12
+                (rutas.length ? ', ruta_id' : '')); // ruta_id existe solo si la base tiene rutas
 
-        // Alcance del rol
-        if (esPiloto) q = q.eq('piloto_id', sesion.id || 0);
-        else if (!esGeneral) q = q.in('tienda_id', tiendas.length ? tiendas.map((t) => t.id) : [0]);
+            // Alcance del rol
+            if (esPiloto) q = q.eq('piloto_id', sesion.id || 0);
+            else if (!esGeneral) q = q.in('tienda_id', tiendas.length ? tiendas.map((t) => t.id) : [0]);
 
-        // Se cargan todas las actividades de la empresa (para el número de cada
-        // pestaña); la lista muestra solo la de la pestaña (separarPorActividad)
-        if (actividades.length) q = q.in('actividad', actividades.map((a) => a.codigo));
-        if (filtroFecha.value) q = q.eq('fecha_entrega', filtroFecha.value);
-        if (filtroTienda.value) q = q.eq('tienda_id', Number(filtroTienda.value));
-        if (!verAnulados.checked) q = q.eq('anulado', false);
+            // Se cargan todas las actividades de la empresa (para el número de cada
+            // pestaña); la lista muestra solo la de la pestaña (separarPorActividad)
+            if (actividades.length) q = q.in('actividad', actividades.map((a) => a.codigo));
+            if (filtroFecha.value) q = q.eq('fecha_entrega', filtroFecha.value);
+            if (filtroTienda.value) q = q.eq('tienda_id', Number(filtroTienda.value));
+            q = q.eq('anulado', false); // los anulados de antes no se muestran (ya no se anula: se cancela)
 
-        const { data, error } = await q.order('fecha_entrega', { ascending: false })
-            .order('marca_numero', { ascending: true, nullsFirst: false })
-            .order('creado_en', { ascending: false }).limit(500);
+            q = q.order('fecha_entrega', { ascending: false });
+            if (conSlot) q = q.order('slot_numero', { ascending: true, nullsFirst: false });
+            return q.order('marca_numero', { ascending: true, nullsFirst: false })
+                .order('creado_en', { ascending: false }).limit(500);
+        };
+        let { data, error } = await consulta(true);
+        if (error && error.code === '42703') ({ data, error } = await consulta(false));
 
         if (error) {
             console.error('Error al cargar pedidos:', error);
@@ -685,7 +769,7 @@ registrarSeccion('pedidos', (zona) => {
                 const rec = document.createElement('small');
                 rec.className = 'ped-sub ped-corto';
                 rec.title = p.direccion_recoleccion;
-                rec.textContent = `Recoger en: ${p.direccion_recoleccion}`;
+                rec.textContent = `Punto de partida: ${p.direccion_recoleccion}`;
                 tdEntrega.appendChild(rec);
             }
             if (!filtroFecha.value) {
@@ -696,9 +780,12 @@ registrarSeccion('pedidos', (zona) => {
             }
             tr.appendChild(tdEntrega);
 
-            // Horario y ruta: "Horario 2 · Ruta 1"
-            tr.appendChild(crearCelda([p.marca_numero ? `Horario ${p.marca_numero}` : null, nombreRuta(p.ruta_id)]
-                .filter(Boolean).join(' · ') || null));
+            // Slot, horario del piloto (solo piloto y G2+) y ruta: "Slot 1 · Horario 2 · Ruta 1"
+            tr.appendChild(crearCelda([
+                p.slot_numero ? `Slot ${p.slot_numero}` : null,
+                verMarca && p.marca_numero ? `Horario ${p.marca_numero}` : null,
+                nombreRuta(p.ruta_id),
+            ].filter(Boolean).join(' · ') || null));
             tr.appendChild(crearCelda(esPiloto ? sesion.nombre : nombrePiloto(p.piloto_id)));
 
             const tdEstado = document.createElement('td');
@@ -733,7 +820,7 @@ registrarSeccion('pedidos', (zona) => {
         if (boton.dataset.modo) location.hash = `pedidos?id=${boton.dataset.id}&abrir=${boton.dataset.modo}`;
     });
 
-    [filtroFecha, filtroTienda, verAnulados].forEach((el) => el.addEventListener('change', cargarLista));
+    [filtroFecha, filtroTienda].forEach((el) => el.addEventListener('change', cargarLista));
     filtroEstado.addEventListener('change', dibujarLista);
     filtroRuta.addEventListener('change', dibujarLista);
     buscar.addEventListener('input', dibujarLista);
@@ -753,6 +840,7 @@ registrarSeccion('pedidos', (zona) => {
     const selTienda = $('#pedTienda');
     const cajaActividades = $('#pedActividades');
     const selMarca = $('#pedMarca');
+    const selSlot = $('#pedSlot');
     const selPiloto = $('#pedPiloto');
     const inputFecha = $('#pedFecha');
     const cajaCategorias = $('#pedCategorias');
@@ -762,8 +850,8 @@ registrarSeccion('pedidos', (zona) => {
     const formError = $('#pedFormError');
 
     // Datos del formulario
-    let clientes = [];     // clientes de la tienda elegida
-    let clienteId = null;  // cliente elegido de la lista (null = escrito a mano)
+    let clienteId = null;  // cliente elegido en el buscador (null = escrito a mano)
+    let clienteElegido = null; // su ficha (dirección y ubicación guardadas)
     let categorias = [];   // categorías de mercadería activas de TODAS las actividades de la empresa
     let catalogo = [];     // artículos frecuentes = pesos promedio (tabla articulos_catalogo)
     let tamanos = [];      // S / M / L / XL
@@ -796,6 +884,24 @@ registrarSeccion('pedidos', (zona) => {
     const tiendaForm = () => tiendaPorId(tiendaElegida()) || null;
     const textoTienda = () => { const t = tiendaForm() || {}; return t.direccion || ''; };
 
+    // Campo A (como en el Cotizador). Sin recolección en la actividad: desactivado, A = la tienda.
+    // Lo escrito se guarda aparte por si se vuelve a una actividad con recolección.
+    function actualizarCampoA() {
+        const conRecoleccion = usa('usa_recoleccion');
+        if (!conRecoleccion && inputRecoleccion.value) {
+            inputRecoleccion.dataset.guardado = inputRecoleccion.value;
+            inputRecoleccion.value = '';
+        } else if (conRecoleccion && inputRecoleccion.dataset.guardado) {
+            inputRecoleccion.value = inputRecoleccion.dataset.guardado;
+            delete inputRecoleccion.dataset.guardado;
+        }
+        inputRecoleccion.disabled = !conRecoleccion;
+        const t = tiendaForm();
+        const tienda = t ? `${t.codigo}${t.direccion ? ` · ${t.direccion}` : ''}` : 'la tienda';
+        inputRecoleccion.placeholder = conRecoleccion ? `Vacío = sale de la tienda (${tienda})` : `Sale de la tienda: ${tienda}`;
+        $('#pedEtiquetaA').textContent = conRecoleccion ? 'A · Punto de partida' : 'A · Tienda';
+    }
+
     function prepararMapa() {
         if (mapaRuta || typeof crearMapaRuta !== 'function') return;
         mapaRuta = crearMapaRuta($('#pedMapa'), {
@@ -816,7 +922,7 @@ registrarSeccion('pedidos', (zona) => {
     // Punto A según la tienda y la recolección
     async function actualizarPuntoA() {
         if (!mapaRuta) return;
-        mapaRuta.etiquetas(origenEsTienda() ? 'Tienda' : 'Recolección', 'Entrega');
+        mapaRuta.etiquetas(origenEsTienda() ? 'Tienda' : 'Punto de partida', 'Entrega');
         if (!origenEsTienda()) {
             await mapaRuta.ubicarA();
             return;
@@ -861,7 +967,7 @@ registrarSeccion('pedidos', (zona) => {
     // Si se eligió una sugerencia (entradaYaUbicada, js/mapa.js), el punto ya está puesto.
     inputRecoleccion.addEventListener('change', () => {
         if (entradaYaUbicada(inputRecoleccion)) {
-            if (mapaRuta) mapaRuta.etiquetas('Recolección', 'Entrega');
+            if (mapaRuta) mapaRuta.etiquetas('Punto de partida', 'Entrega');
             actualizarBotonUbicacionTienda();
             return;
         }
@@ -875,6 +981,8 @@ registrarSeccion('pedidos', (zona) => {
 
     async function abrirNuevo() {
         mostrarVista('pedNuevoVista');
+        // Mapa A -> B: se dibuja de una vez, haya o no tienda (la tienda pone luego el punto A)
+        prepararMapa();
         const columnasCat = 'id, actividad, nombre, tipo, icono, orden';
         const [catNueva, catA, tam, tar, des] = await Promise.all([
             db.from('categorias_mercaderia').select(`${columnasCat}, peso_referencia`).eq('activa', true).order('orden'),
@@ -903,7 +1011,9 @@ registrarSeccion('pedidos', (zona) => {
         // Tienda (G3, Empleado: la suya y bloqueada)
         tiendas.forEach((t) => selTienda.appendChild(new Option(`${t.codigo} · ${t.nombre}`, t.id)));
         if (!tiendas.length) {
-            formError.textContent = 'No tienes una tienda asignada para registrar pedidos.';
+            formError.textContent = esGeneral
+                ? 'Aún no hay tiendas registradas: crea una en Tiendas para poder registrar pedidos.'
+                : 'No tienes una tienda asignada para registrar pedidos.';
             $('#pedGuardar').disabled = true;
             return;
         }
@@ -918,9 +1028,8 @@ registrarSeccion('pedidos', (zona) => {
 
         // El piloto solo lo asigna G2 o superior (G3 y Empleado no ven el campo)
         selPiloto.closest('.campo').hidden = !puedeAsignar;
-
-        // Mapa A -> B (antes de elegir la tienda: la tienda pone el punto A)
-        prepararMapa();
+        // El horario del piloto (marca) solo lo eligen G2 o superior; el empleado elige el slot
+        $('#pedCampoMarca').hidden = !puedeAsignar;
 
         // Las casillas de mercadería se arman al elegir la actividad (llenarCategorias)
         await alCambiarTienda();
@@ -984,22 +1093,13 @@ registrarSeccion('pedidos', (zona) => {
 
         llenarPilotos(selPiloto, tiendaId);
 
-        // Clientes aprobados de la tienda
-        const { data, error } = await db.from('clientes')
-            .select('id, nombre, apellidos, telefono, direccion, ubicacion, clientes_tiendas!inner(tienda_id)')
-            .eq('clientes_tiendas.tienda_id', tiendaId).eq('aprobado', true).order('nombre');
-        clientes = error ? [] : data;
-        if (error) console.error('Error al cargar clientes:', error);
-        const listaClientes = $('#pedClientesLista');
-        listaClientes.replaceChildren();
-        clientes.forEach((c) => listaClientes.appendChild(new Option(textoCliente(c))));
+        // Clientes: se buscan en la base al escribir (ver "Buscar cliente"). Otra tienda = otra búsqueda
+        reiniciarBuscadorClientes();
 
         alCambiarActividad();
         actualizarPuntoA(); // A = la nueva tienda (si no hay recolección)
         await actualizarMarcas();
     }
-
-    const textoCliente = (c) => `${c.nombre} ${c.apellidos} · ${c.telefono}`;
 
     // ---------- Ruta: la lista depende de la tienda y la actividad ----------
     function actualizarRutas() {
@@ -1028,7 +1128,11 @@ registrarSeccion('pedidos', (zona) => {
 
     selRuta.addEventListener('change', actualizarPilotosRuta);
 
+    // Horarios del piloto (solo G2+) y slots de la fecha y tienda elegidas
     async function actualizarMarcas() {
+        const actualSlot = selSlot.value ? Number(selSlot.value) : null;
+        llenarSlots(selSlot, await slotsConOcupacion(inputFecha.value, tiendaElegida()), actualSlot);
+        if (!puedeAsignar) return;
         const actual = selMarca.value ? Number(selMarca.value) : null;
         marcasForm = inputFecha.value ? await marcasConOcupacion(inputFecha.value, tiendaElegida()) : [];
         llenarMarcas(selMarca, marcasForm, actual && marcasForm.some((m) => m.numero === actual && !m.llena) ? actual : null);
@@ -1037,8 +1141,8 @@ registrarSeccion('pedidos', (zona) => {
     // ---------- Actividad: muestra lo que usa (Configuración -> Actividades) ----------
     function alCambiarActividad() {
         llenarCategorias();
-        const recoleccionAntes = !$('#pedCampoRecoleccion').hidden && !!inputRecoleccion.value.trim();
-        $('#pedCampoRecoleccion').hidden = !usa('usa_recoleccion');
+        const recoleccionAntes = !inputRecoleccion.disabled && !!inputRecoleccion.value.trim();
+        actualizarCampoA();
         // Si cambia de dónde sale el pedido (tienda o recolección), se mueve el punto A
         if (mapaRuta && recoleccionAntes !== !origenEsTienda()) actualizarPuntoA();
         $('#pedCompraCaja').hidden = !usa('usa_compra');
@@ -1048,12 +1152,139 @@ registrarSeccion('pedidos', (zona) => {
         recalcular();
     }
 
-    // ---------- Cliente de la lista ----------
-    $('#pedBuscarCliente').addEventListener('input', (evento) => {
-        const c = clientes.find((x) => textoCliente(x) === evento.target.value);
+    // ---------- Buscar cliente (por TELÉFONO o CORREO) ----------
+    // El teléfono y el correo son la clave del cliente. Se busca en la base (no se cargan
+    // todos los clientes) entre los clientes APROBADOS de la tienda elegida:
+    //   - con letras o "@" -> por correo ("ana@", "ana@correo.com")
+    //   - solo números     -> por teléfono, sin importar guiones o espacios ("8888-1234")
+    // Si el teléfono (8+ dígitos) o el correo coinciden COMPLETOS con un solo cliente, se
+    // elige solo y se llenan sus datos. Si coinciden con varios (ej. un teléfono de familia)
+    // o todavía está incompleto, se muestran las tarjetas para tocar el correcto.
+    // Teclado: ↑ ↓ para moverse, Enter para elegir, Escape para cerrar.
+    const CLI_PAUSA = 250;   // ms sin escribir antes de buscar
+    const CLI_MAXIMO = 20;   // resultados que se muestran (más = "sigue escribiendo")
+    const inputBuscarCli = $('#pedBuscarCliente');
+    const listaCli = $('#pedClientesResultados');
+    const estadoCli = $('#pedClientesEstado');
+    let resultadosCli = [];
+    let marcadoCli = -1;
+    let esperaCli = null;
+    let turnoCli = 0;
+
+    const nombreCliente = (c) => [c.nombre, c.apellido1, c.apellido2].filter(Boolean).join(' ');
+    const inicialesCliente = (c) => `${(c.nombre || '?')[0]}${(c.apellido1 || '')[0] || ''}`.toUpperCase();
+
+    // ¿Escribió un correo (letras o @) o un teléfono (solo números)? -> { modo, valor }
+    function claveCliente(texto) {
+        const t = texto.trim();
+        return /[a-z@]/i.test(t)
+            ? { modo: 'correo', valor: t.toLowerCase() }
+            : { modo: 'telefono', valor: t.replace(/\D/g, '') };
+    }
+
+    // Mismo teléfono completo (8+ dígitos). Acepta el código de país de más o de menos (506)
+    function mismoTelefono(telefono, digitos) {
+        const t = String(telefono || '').replace(/\D/g, '');
+        const corto = Math.min(t.length, digitos.length);
+        return corto >= 8 && (t.endsWith(digitos) || digitos.endsWith(t));
+    }
+
+    // Devuelve { lista, exactos }: exactos = los que coinciden completos por correo o teléfono
+    async function buscarClientes(texto) {
+        const { modo, valor } = claveCliente(texto);
+        const patron = `%${valor.replace(/[%_\\]/g, '\\$&')}%`;
+        let q = db.from('clientes')
+            .select('id, nombre, apellido1, apellido2, telefono, correo, direccion, ubicacion, clientes_tiendas!inner(tienda_id)')
+            .eq('clientes_tiendas.tienda_id', tiendaElegida()).eq('aprobado', true);
+        // "busqueda" lleva el teléfono solo en dígitos (sql/01 bloque 11)
+        q = modo === 'correo' ? q.ilike('correo', patron) : q.ilike('busqueda', patron);
+        const { data, error } = await q.order('nombre').order('apellido1').limit(CLI_MAXIMO + 1);
+        if (error) throw error;
+
+        const exacto = (c) => (modo === 'correo'
+            ? (c.correo || '').toLowerCase() === valor
+            : mismoTelefono(c.telefono, valor));
+        const exactos = data.filter(exacto);
+        return { modo, valor, exactos, lista: data.sort((a, b) => exacto(b) - exacto(a)) };
+    }
+
+    function mostrarEstadoCli(texto) {
+        estadoCli.textContent = texto;
+        estadoCli.hidden = !texto;
+    }
+
+    function cerrarResultadosCli() {
+        listaCli.hidden = true;
+        listaCli.replaceChildren();
+        marcadoCli = -1;
+        inputBuscarCli.setAttribute('aria-expanded', 'false');
+        inputBuscarCli.removeAttribute('aria-activedescendant');
+    }
+
+    function pintarResultadosCli(lista, mensaje) {
+        resultadosCli = lista;
+        marcadoCli = -1;
+        listaCli.replaceChildren();
+        lista.forEach((c, i) => {
+            const li = document.createElement('li');
+            li.id = `pedCliOpcion${i}`;
+            li.className = 'ped-cli-opcion';
+            li.setAttribute('role', 'option');
+            li.dataset.i = i;
+            const avatar = document.createElement('span');
+            avatar.className = 'ped-cli-avatar';
+            avatar.textContent = inicialesCliente(c);
+            const datos = document.createElement('span');
+            datos.className = 'ped-cli-datos';
+            const nombre = document.createElement('strong');
+            nombre.className = 'ped-cli-nombre';
+            nombre.textContent = nombreCliente(c);
+            const contacto = document.createElement('span');
+            contacto.className = 'ped-cli-contacto';
+            contacto.append(...lineaContacto(c));
+            datos.append(nombre, contacto);
+            if (c.direccion) {
+                const dir = document.createElement('small');
+                dir.className = 'ped-cli-direccion';
+                dir.textContent = c.direccion;
+                datos.appendChild(dir);
+            }
+            li.append(avatar, datos);
+            listaCli.appendChild(li);
+        });
+        listaCli.hidden = !lista.length;
+        inputBuscarCli.setAttribute('aria-expanded', String(!!lista.length));
+
+        mostrarEstadoCli(mensaje);
+        if (lista.length === 1) marcarCli(0);
+    }
+
+    // Teléfono y correo con icono: [<i> 8888-1234] [<i> ana@correo.com]
+    function lineaContacto(c) {
+        return [['bi-telephone', c.telefono], ['bi-envelope', c.correo]].filter(([, v]) => v).map(([icono, valor]) => {
+            const s = document.createElement('span');
+            const i = document.createElement('i');
+            i.className = `bi ${icono}`;
+            i.setAttribute('aria-hidden', 'true');
+            s.append(i, ` ${valor}`);
+            return s;
+        });
+    }
+
+    function marcarCli(i) {
+        const items = listaCli.querySelectorAll('.ped-cli-opcion');
+        if (!items.length) return;
+        marcadoCli = (i + items.length) % items.length;
+        items.forEach((li, j) => li.classList.toggle('activo', j === marcadoCli));
+        items[marcadoCli].scrollIntoView({ block: 'nearest' });
+        inputBuscarCli.setAttribute('aria-activedescendant', items[marcadoCli].id);
+    }
+
+    function elegirCliente(c) {
         if (!c) return;
         clienteId = c.id;
-        $('#pedClienteNombre').value = `${c.nombre} ${c.apellidos}`;
+        clienteElegido = c;
+        $('#pedClienteNombre').value = nombreCliente(c);
         $('#pedClienteTelefono').value = c.telefono;
         const direccionVacia = !inputDireccion.value;
         if (c.direccion && direccionVacia) inputDireccion.value = c.direccion;
@@ -1063,7 +1294,102 @@ registrarSeccion('pedidos', (zona) => {
             if (punto) mapaRuta.ponerB(punto);
             else if (c.direccion) mapaRuta.ubicarB();
         }
-        $('#pedClienteElegido').textContent = `✔ Cliente de la base: ${c.nombre} ${c.apellidos}. Puedes corregir los datos para este pedido.`;
+        // Ficha del cliente en lugar del buscador
+        const ficha = $('#pedClienteElegido');
+        ficha.querySelector('.ped-cli-avatar').textContent = inicialesCliente(c);
+        ficha.querySelector('.ped-cli-nombre').textContent = nombreCliente(c);
+        ficha.querySelector('.ped-cli-contacto').replaceChildren(...lineaContacto(c));
+        ficha.hidden = false;
+        $('#pedClienteBuscarCaja').hidden = true;
+        cerrarResultadosCli();
+        recalcular();
+    }
+
+    // Vuelve al buscador vacío (botón "Cambiar" o al cambiar de tienda)
+    function reiniciarBuscadorClientes(enfocar = false) {
+        clearTimeout(esperaCli);
+        turnoCli++;
+        clienteId = null;
+        clienteElegido = null;
+        inputBuscarCli.value = '';
+        cerrarResultadosCli();
+        mostrarEstadoCli('');
+        $('#pedClienteElegido').hidden = true;
+        $('#pedClienteBuscarCaja').hidden = false;
+        if (enfocar) inputBuscarCli.focus();
+    }
+
+    $('#pedClienteCambiar').addEventListener('click', () => reiniciarBuscadorClientes(true));
+
+    // Qué hacer con lo encontrado (ver "Buscar cliente")
+    function resolverBusquedaCli({ modo, valor, exactos, lista }) {
+        const dato = modo === 'correo' ? 'correo' : 'teléfono';
+        // Coincidencia completa con un solo cliente: se elige solo y se llenan sus datos
+        if (exactos.length === 1) {
+            elegirCliente(exactos[0]);
+            return;
+        }
+        if (exactos.length > 1) {
+            pintarResultadosCli(exactos, `Este ${dato} lo tienen ${exactos.length} clientes: toca el correcto.`);
+            return;
+        }
+        if (lista.length) {
+            pintarResultadosCli(lista.slice(0, CLI_MAXIMO), lista.length > CLI_MAXIMO
+                ? `Hay más de ${CLI_MAXIMO} coincidencias: sigue escribiendo el ${dato}.`
+                : `Escribe el ${dato} completo para llenar los datos, o toca el cliente.`);
+            return;
+        }
+        // Sin cliente: el teléfono completo ya queda escrito en el formulario
+        const inputTel = $('#pedClienteTelefono');
+        const telefonoCompleto = modo === 'telefono' && valor.length >= 8;
+        if (telefonoCompleto && !inputTel.value.trim()) inputTel.value = inputBuscarCli.value.trim();
+        pintarResultadosCli([], telefonoCompleto
+            ? 'No hay un cliente con ese teléfono en esta tienda: escribe el nombre abajo (el teléfono ya quedó puesto).'
+            : `No hay un cliente con ese ${dato} en esta tienda. Revisa lo escrito o llena los datos abajo.`);
+    }
+
+    inputBuscarCli.addEventListener('input', () => {
+        clearTimeout(esperaCli);
+        const texto = inputBuscarCli.value.trim();
+        const { modo, valor } = claveCliente(texto);
+        // Mínimo 3 caracteres del correo o 3 dígitos del teléfono
+        if (valor.length < 3) {
+            turnoCli++;
+            cerrarResultadosCli();
+            mostrarEstadoCli(texto && modo === 'telefono' && !valor ? 'Escribe un teléfono (números) o un correo.' : '');
+            return;
+        }
+        esperaCli = setTimeout(async () => {
+            const mio = ++turnoCli;
+            mostrarEstadoCli('Buscando...');
+            try {
+                const resultado = await buscarClientes(texto);
+                if (mio !== turnoCli) return; // ya escribió otra cosa
+                resolverBusquedaCli(resultado);
+            } catch (error) {
+                if (mio !== turnoCli) return;
+                console.error('Error al buscar clientes:', error);
+                cerrarResultadosCli();
+                mostrarEstadoCli(error.code === '42703'
+                    ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 11: clientes).'
+                    : 'No se pudo buscar. Revisa la conexión.');
+            }
+        }, CLI_PAUSA);
+    });
+
+    inputBuscarCli.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') e.preventDefault(); // Enter nunca envía el formulario desde aquí
+        if (listaCli.hidden) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); marcarCli(marcadoCli + 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); marcarCli(marcadoCli - 1); }
+        else if (e.key === 'Enter' && marcadoCli >= 0) elegirCliente(resultadosCli[marcadoCli]);
+        else if (e.key === 'Escape') { e.preventDefault(); cerrarResultadosCli(); }
+    });
+
+    // click (no mousedown): la lista no es flotante, así en celular se puede deslizar sin elegir
+    listaCli.addEventListener('click', (e) => {
+        const li = e.target.closest('.ped-cli-opcion');
+        if (li) elegirCliente(resultadosCli[Number(li.dataset.i)]);
     });
 
     // ---------- Quién recibe ----------
@@ -1539,6 +1865,9 @@ registrarSeccion('pedidos', (zona) => {
             if (m.tipo === 'conteo' && m.conteo.cajas + m.conteo.bolsas + m.conteo.hieleras <= 0) {
                 return fallo(`${nombre}: escribe cuántas cajas, bolsas o hieleras lleva.`);
             }
+            if (m.tipo === 'conteo' && ['cajas', 'bolsas', 'hieleras'].some((k) => !Number.isInteger(m.conteo[k]))) {
+                return fallo(`${nombre}: las cajas, bolsas y hieleras deben ser números enteros.`);
+            }
             if (m.tipo === 'documento' && !entero(m.documentos.cantidad)) {
                 return fallo(`${nombre}: la cantidad debe ser un número entero de 1 o más.`);
             }
@@ -1572,13 +1901,18 @@ registrarSeccion('pedidos', (zona) => {
                     ...base, descripcion: b.descripcion || m.categoria.nombre, cantidad: b.cantidad, tamano: b.tamano, peso_kg: b.peso,
                 }));
             } else if (m.tipo === 'conteo') {
-                // Una fila con el resumen del conteo y el peso aproximado total
-                const partes = [['cajas', 'caja', 'cajas'], ['bolsas', 'bolsa', 'bolsas'], ['hieleras', 'hielera', 'hieleras']]
-                    .filter(([k]) => m.conteo[k] > 0).map(([k, s, p]) => plural(m.conteo[k], s, p));
-                filas.push({
-                    pedido_id: pedidoId, categoria_id: m.categoria.id, categoria: m.categoria.nombre,
-                    descripcion: partes.join(', ') + (m.conteo.alcohol ? ' (con alcohol)' : ''), cantidad: 1, peso_kg: m.conteo.peso,
-                });
+                // Una fila por tipo con la cantidad que se eligió (Cajas 5, Bolsas 2...), así el
+                // detalle y los reportes muestran lo mismo que se registró. El peso del conteo es
+                // aproximado y total: se reparte por igual entre las piezas (peso c/u promedio).
+                const tipos = [['cajas', 'Cajas'], ['bolsas', 'Bolsas'], ['hieleras', 'Hieleras']].filter(([k]) => m.conteo[k] > 0);
+                const piezas = tipos.reduce((s, [k]) => s + m.conteo[k], 0);
+                const alcohol = m.conteo.alcohol ? ' (con alcohol)' : '';
+                if (!piezas) {
+                    filas.push({ ...base, descripcion: m.categoria.nombre + alcohol, cantidad: 1, peso_kg: m.conteo.peso });
+                } else {
+                    const pesoUno = Math.round((m.conteo.peso / piezas) * 100) / 100;
+                    tipos.forEach(([k, nombre]) => filas.push({ ...base, descripcion: nombre + alcohol, cantidad: m.conteo[k], peso_kg: pesoUno }));
+                }
             } else {
                 m.articulos.forEach((a) => filas.push({
                     pedido_id: pedidoId, categoria_id: m.categoria.id, categoria: m.categoria.nombre,
@@ -1587,6 +1921,73 @@ registrarSeccion('pedidos', (zona) => {
             }
         });
         return filas;
+    }
+
+    // ---------- Cliente del pedido en Clientes ----------
+    // "Ana María Pérez Solís" -> { nombre: 'Ana María', apellido1: 'Pérez', apellido2: 'Solís' }
+    // (3+ palabras: nombre + 2 apellidos; 2: nombre + apellido; 1: apellido "-")
+    function partesNombre(texto) {
+        const p = texto.trim().split(/\s+/).filter(Boolean);
+        if (p.length < 2) return { nombre: p[0] || '', apellido1: '-', apellido2: null };
+        if (p.length === 2) return { nombre: p[0], apellido1: p[1], apellido2: null };
+        return { nombre: p.slice(0, p.length - 2).join(' '), apellido1: p[p.length - 2], apellido2: p[p.length - 1] };
+    }
+
+    // Punto B del mapa como texto "9.934512, -84.087654" (lo lee puntoDeTexto, js/mapa.js)
+    function textoPuntoEntrega() {
+        const b = mapaRuta ? mapaRuta.puntos().b : null;
+        return b ? `${Number(b.lat).toFixed(6)}, ${Number(b.lng).toFixed(6)}` : null;
+    }
+
+    // Cliente que no se eligió del buscador: si ya existe en la empresa con ese
+    // teléfono se usa ese (y se agrega a esta tienda); si no, se crea en Clientes
+    // con su dirección y su punto de entrega (aprobado: lo registró la tienda).
+    // Devuelve el id o null (el pedido se registra igual, sin cliente enlazado).
+    async function clienteDesdePedido(tiendaId, rutaId) {
+        const telefono = $('#pedClienteTelefono').value.trim();
+        const digitos = telefono.replace(/\D/g, '');
+        if (digitos.length < 8) return null;
+        let id = null;
+        const buscado = await db.from('clientes').select('id, telefono, clientes_tiendas(tienda_id)')
+            .ilike('busqueda', `%${digitos.slice(-8)}%`).limit(10);
+        const existente = (buscado.data || []).find((c) => mismoTelefono(c.telefono, digitos));
+        if (existente) {
+            id = existente.id;
+            if ((existente.clientes_tiendas || []).some((ct) => ct.tienda_id === tiendaId)) return id;
+        } else {
+            const nombre = partesNombre($('#pedClienteNombre').value);
+            const ins = await db.from('clientes').insert({
+                nombre: nombre.nombre, apellido1: nombre.apellido1, apellido2: nombre.apellido2, telefono,
+                direccion: inputDireccion.value.trim() || null, ubicacion: textoPuntoEntrega(), aprobado: true,
+            }).select('id').single();
+            if (ins.error) {
+                console.error('Error al agregar el cliente desde el pedido:', ins.error);
+                return null;
+            }
+            id = ins.data.id;
+        }
+        const relacion = { cliente_id: id, tienda_id: tiendaId };
+        if (rutaId) relacion.ruta_id = rutaId;
+        let rel = await db.from('clientes_tiendas').insert(relacion);
+        if (rel.error && relacion.ruta_id && ['42703', 'PGRST204'].includes(rel.error.code)) { // sin sql/01 bloque 16
+            delete relacion.ruta_id;
+            rel = await db.from('clientes_tiendas').insert(relacion);
+        }
+        if (rel.error && rel.error.code !== '23505') console.error('Error al enlazar el cliente con la tienda:', rel.error);
+        return id;
+    }
+
+    // Cliente elegido del buscador sin dirección o sin ubicación: se le guardan las del
+    // pedido (así la próxima vez el mapa ya sale con su punto). No se cambia lo que ya tiene.
+    async function completarUbicacionCliente() {
+        const c = clienteElegido;
+        if (!c) return;
+        const cambios = {};
+        if (!c.direccion && inputDireccion.value.trim()) cambios.direccion = inputDireccion.value.trim();
+        if (!c.ubicacion && textoPuntoEntrega()) cambios.ubicacion = textoPuntoEntrega();
+        if (!Object.keys(cambios).length) return;
+        const { error } = await db.from('clientes').update(cambios).eq('id', c.id);
+        if (error) console.error('Error al guardar la ubicación del cliente:', error);
     }
 
     form.addEventListener('submit', async (evento) => {
@@ -1642,7 +2043,8 @@ registrarSeccion('pedidos', (zona) => {
             recibe_nombre: autorizado ? $('#pedRecibeNombre').value.trim() : null,
             recibe_telefono: autorizado ? ($('#pedRecibeTelefono').value.trim() || null) : null,
             fecha_entrega: inputFecha.value,
-            marca_numero: selMarca.value ? Number(selMarca.value) : null,
+            marca_numero: puedeAsignar && selMarca.value ? Number(selMarca.value) : null,
+            ...(selSlot.value ? { slot_numero: Number(selSlot.value) } : {}), // slot de despacho (sql/01 bloque 12)
             piloto_id: pilotoId,
             peso_total_kg: c.peso,
             lleva_alcohol: llevaAlcohol(),
@@ -1678,6 +2080,13 @@ registrarSeccion('pedidos', (zona) => {
 
         const boton = $('#pedGuardar');
         boton.disabled = true;
+        // Cliente escrito a mano (no elegido del buscador): se agrega solo a Clientes
+        if (!clienteId) {
+            clienteId = await clienteDesdePedido(tiendaId, rutaId);
+            pedido.cliente_id = clienteId;
+        } else {
+            await completarUbicacionCliente();
+        }
         const { data, error } = await db.from('pedidos').insert(pedido).select('id, codigo').single();
         if (error) {
             boton.disabled = false;
@@ -1707,6 +2116,22 @@ registrarSeccion('pedidos', (zona) => {
         } else {
             sessionStorage.setItem('ped_aviso', `Pedido ${data.codigo} registrado.`);
         }
+
+        // Avisos (js/notificaciones.js): sin piloto -> el G2 debe asignarlo; con piloto -> al piloto
+        const enlace = `#pedidos?id=${data.id}`;
+        if (!pilotoId) {
+            await avisar({
+                tiendaId, a: ['g2'], tipo: 'pendiente', enlace, referenciaTipo: 'pedido_asignar', referenciaId: data.id,
+                titulo: 'Pedido nuevo sin piloto',
+                mensaje: `${nombreTienda(tiendaId)} registró el pedido ${data.codigo} para el ${fechaCorta(inputFecha.value)}. Asígnale piloto y horario.`,
+            });
+        } else {
+            await avisar({
+                usuarios: [pilotoId], enlace, referenciaTipo: 'pedido', referenciaId: data.id,
+                titulo: 'Nuevo pedido asignado',
+                mensaje: `Tienes el pedido ${data.codigo} (${nombreTienda(tiendaId)}) para el ${fechaCorta(inputFecha.value)}.`,
+            });
+        }
         location.hash = `pedidos?id=${data.id}&qr=1`;
     });
 
@@ -1717,6 +2142,7 @@ registrarSeccion('pedidos', (zona) => {
     let pedido = null;       // pedido abierto
     let articulosDet = [];
     let marcasDet = [];      // marcas de su fecha (para mostrar las horas)
+    let slotsDet = [];       // slots de su fecha
     let solicitud = null;    // solicitud de reasignación pendiente (evento del historial) o null
 
     // La última solicitud de reasignación sigue pendiente si después no hubo
@@ -1742,15 +2168,17 @@ registrarSeccion('pedidos', (zona) => {
         }
         pedido = data;
 
-        const [art, his, ent, evi, marcas] = await Promise.all([
+        const [art, his, ent, evi, marcas, slots] = await Promise.all([
             db.from('pedido_articulos').select('categoria, descripcion, cantidad, tamano, peso_kg').eq('pedido_id', id).order('id'),
             db.from('pedido_historial').select('evento, estado_anterior, estado_nuevo, detalle, usuario_id, usuario_nombre, creado_en').eq('pedido_id', id).order('creado_en'),
             db.from('pedido_entregas').select('*').eq('pedido_id', id).maybeSingle(),
             db.from('pedido_evidencias').select('tipo, url, creado_en, eliminada_en').eq('pedido_id', id).order('creado_en'),
             db.rpc('marcas_del_dia', { p_fecha: data.fecha_entrega }),
+            db.rpc('slots_del_dia', { p_fecha: data.fecha_entrega }),
         ]);
         articulosDet = art.data || [];
         marcasDet = marcas.data || [];
+        slotsDet = slots.data || [];
         solicitud = solicitudPendiente(his.data || []);
 
         dibujarDetalle();
@@ -1767,9 +2195,13 @@ registrarSeccion('pedidos', (zona) => {
             sessionStorage.removeItem('ped_aviso');
             aviso.mostrar(pendiente);
         }
-        if (abrirQr && puedeGestionar) abrirVentanaQr();
+        if (abrirQr && puedeVerQr(pedido)) abrirVentanaQr();
         if (abrir) abrirDesdePie(abrir);
     }
+
+    // El QR lo ven quienes gestionan pedidos y, mientras espera que lo escaneen
+    // ("Recibido para ruta"), el piloto del pedido para mostrarlo al despachador
+    const puedeVerQr = (p) => puedeGestionar || (esSuPiloto(p) && p.estado === 'recibido_ruta');
 
     // Botones del pie: abre la ventana de reasignar o de cancelar del pedido
     function abrirDesdePie(abrir) {
@@ -1801,10 +2233,20 @@ registrarSeccion('pedidos', (zona) => {
         dl.append(dt, dd);
     }
 
+    function textoSlotDet(p) {
+        if (!p.slot_numero) return 'Sin slot';
+        const s = slotsDet.find((x) => x.numero === p.slot_numero);
+        return s ? textoSlot(s) : `Slot ${p.slot_numero}`;
+    }
+
     function textoMarca(p) {
         if (!p.marca_numero) return 'Sin horario';
         const m = marcasDet.find((x) => x.numero === p.marca_numero);
-        return m ? `Horario ${m.numero} · ${hhmm(m.inicio_desde)} a ${hhmm(m.inicio_hasta)}, termina ${hhmm(m.fin)}` : `Horario ${p.marca_numero}`;
+        if (!m) return `Horario ${p.marca_numero}`;
+        // "Inicia desde" solo lo ven G2 o superior; el piloto ve la hora de inicio y el término
+        return puedeAsignar
+            ? `Horario ${m.numero} · inicia desde ${hhmm(m.inicio_desde)}, hora de inicio ${hhmm(m.inicio_hasta)}, termina ${hhmm(m.fin)}`
+            : `Horario ${m.numero} · hora de inicio ${hhmm(m.inicio_hasta)}, termina ${hhmm(m.fin)}`;
     }
 
     function dibujarDetalle() {
@@ -1818,7 +2260,7 @@ registrarSeccion('pedidos', (zona) => {
         dl.replaceChildren();
         dato(dl, 'Cliente', p.cliente_nombre);
         dato(dl, 'Teléfono', p.cliente_telefono);
-        dato(dl, 'Recolección', p.direccion_recoleccion);
+        dato(dl, 'Punto de partida', p.direccion_recoleccion);
         dato(dl, 'Entrega en', p.direccion_entrega);
         // Ruta del mapa (A -> B): distancia y enlaces para navegar (Google Maps / Waze)
         const ruta = (p.detalle || {}).ruta;
@@ -1835,7 +2277,7 @@ registrarSeccion('pedidos', (zona) => {
                 a.textContent = texto;
                 caja.appendChild(a);
             });
-            dato(dl, ruta.origen === 'recoleccion' ? 'Ruta (recolección → entrega)' : 'Ruta (tienda → entrega)', caja);
+            dato(dl, ruta.origen === 'recoleccion' ? 'Ruta (punto de partida → entrega)' : 'Ruta (tienda → entrega)', caja);
         } else if (p.distancia_km != null) {
             dato(dl, 'Distancia', `${p.distancia_km} km`);
         }
@@ -1843,7 +2285,8 @@ registrarSeccion('pedidos', (zona) => {
             ? `${p.recibe_nombre} (autorizado)${p.recibe_telefono ? ` · ${p.recibe_telefono}` : ''}`
             : 'El mismo cliente');
         dato(dl, 'Fecha', fechaCorta(p.fecha_entrega));
-        dato(dl, 'Horario', textoMarca(p));
+        dato(dl, 'Slot de despacho', textoSlotDet(p));
+        if (verMarca) dato(dl, 'Horario del piloto', textoMarca(p));
         dato(dl, 'Ruta', nombreRuta(p.ruta_id));
         dato(dl, 'Piloto', esPiloto ? sesion.nombre : (nombrePiloto(p.piloto_id) || 'Sin asignar'));
         dato(dl, 'Peso total', kilos(p.peso_total_kg));
@@ -1960,7 +2403,8 @@ registrarSeccion('pedidos', (zona) => {
         estado: 'Cambio de estado',
         asignado: 'Asignación',
         reprogramado: 'Reprogramado',
-        escaneo: 'QR escaneado',
+        escaneo: 'QR escaneado (cargado)',
+        salida: 'Saliendo a ruta',
         correccion: 'Corrección',
         anulado: 'Pedido anulado',
         solicitud_reasignacion: 'Solicitud de reasignación',
@@ -1993,7 +2437,8 @@ registrarSeccion('pedidos', (zona) => {
             const d = e.detalle || {};
             const partes = [];
             if (d.fecha) partes.push(`Fecha ${fechaCorta(d.fecha)}`);
-            if (d.marca) partes.push(`Horario ${d.marca}`);
+            if (d.slot) partes.push(`Slot ${d.slot}`);
+            if (d.marca && verMarca) partes.push(`Horario ${d.marca}`);
             if (d.ruta) partes.push(`Ruta: ${d.ruta}`);
             if (d.piloto) partes.push(`Piloto: ${d.piloto}`);
             if (d.motivo) partes.push(`Motivo: ${d.motivo}`);
@@ -2012,33 +2457,51 @@ registrarSeccion('pedidos', (zona) => {
     //   quien()  -> qué roles ven el botón
     //   estados  -> en qué estados aparece | si(p) -> condición extra
     //   nuevo    -> estado al que pasa     | motivo -> 'requerido' / 'opcional'
+    //
+    //   FLUJO DE DESPACHO (sql/00 sección 8; la hora de cada paso la guarda la base):
+    //     Alistando -> Listo para despachar (elige el slot) -> [piloto] Recibido para ruta
+    //     (muestra el QR) -> [despachador] escanea el QR = Cargado -> [piloto, en Inicio]
+    //     Saliendo a ruta = En ruta -> [piloto] Entregar ahora (UNO a la vez) -> Entregado /
+    //     No entregado. Ya no se anula: solo se cancela (con motivo, para los reportes).
     const esSuPiloto = (p) => esPiloto && p.piloto_id === sesion.id;
     const PED_ACCIONES = [
-        { id: 'qr', texto: 'QR', icono: 'bi-qr-code', clase: 'boton-secundario', siempre: true, quien: () => puedeGestionar },
+        { id: 'qr', texto: 'QR', icono: 'bi-qr-code', clase: 'boton-secundario', siempre: true, quien: () => true, si: (p) => puedeVerQr(p) },
         { id: 'bodega', texto: 'Recibido en bodega', icono: 'bi-building-check', estados: ['registrado'], quien: () => puedeGestionar,
           si: (p) => actividadPorCodigo(p.actividad).usa_bodega, nuevo: 'recibido_bodega' },
+        // Despacho: Empleado, Admin G3 y superiores
+        { id: 'alistar', texto: 'Alistando', icono: 'bi-box2', estados: PED_POR_ALISTAR, quien: () => puedeDespachar, nuevo: 'alistando',
+          ayuda: 'Empieza a preparar el pedido. Cuando esté listo, márcalo "Listo para despachar".' },
+        { id: 'listo', texto: 'Listo para despachar', icono: 'bi-box-seam', estados: ['alistando'], quien: () => puedeDespachar },
+        // Aprobación de salida de ESTE pedido: se escanea el QR que muestra el piloto.
+        // Visible desde "Listo para despachar"; se habilita cuando el piloto lo recibe.
+        { id: 'escanear', texto: 'Aprobar salida (escanear QR)', icono: 'bi-qr-code-scan', estados: ['listo_despacho', 'recibido_ruta'],
+          quien: () => puedeDespachar, bloqueado: (p) => (p.estado === 'listo_despacho'
+              ? 'Se habilita cuando el piloto marque "Recibido para ruta" y muestre el QR.' : '') },
         // Piloto y horario: SOLO G2 o superior
-        { id: 'asignar', texto: 'Asignar piloto y horario', icono: 'bi-person-check', estados: PED_ANTES_DE_SALIR, quien: () => puedeAsignar },
+        { id: 'asignar', texto: 'Asignar piloto y horario', icono: 'bi-person-check', clase: 'boton-secundario', estados: PED_ANTES_DE_SALIR, quien: () => puedeAsignar },
         // El Admin G3 solo lo pide (si no hay otra solicitud pendiente)
         { id: 'solicitar', texto: 'Solicitar reasignación', icono: 'bi-calendar2-week', clase: 'boton-secundario',
           estados: [...PED_ANTES_DE_SALIR, 'no_entregado'], quien: () => puedeSolicitar, si: () => !solicitud },
-        // Entrega: SOLO el piloto del pedido
-        { id: 'ruta', texto: 'Salí a entregar', icono: 'bi-truck', estados: ['asignado', 'reprogramado'], quien: () => esPiloto,
-          si: esSuPiloto, nuevo: 'en_ruta' },
-        { id: 'entregado', texto: 'Entregado', icono: 'bi-check2-circle', estados: ['en_ruta'], quien: () => esPiloto, si: esSuPiloto,
+        // Piloto del pedido: recibe el pedido para la ruta y muestra su QR al despachador
+        { id: 'recibir', texto: 'Recibido para ruta', icono: 'bi-hand-thumbs-up', estados: ['listo_despacho'], quien: () => esPiloto,
+          si: esSuPiloto, nuevo: 'recibido_ruta',
+          ayuda: 'Se abrirá el QR del pedido: muéstraselo al despachador para que lo escanee y quede cargado.' },
+        // Ya en ruta: marca cuál entrega AHORA (uno a la vez) y luego lo cierra
+        { id: 'entregar_ahora', texto: 'Entregar ahora', icono: 'bi-geo-alt', estados: ['en_ruta'], quien: () => esPiloto, si: esSuPiloto,
+          nuevo: 'en_entrega', ayuda: 'Hasta que lo marques entregado o no entregado no podrás empezar otro pedido.' },
+        { id: 'entregado', texto: 'Entregado', icono: 'bi-check2-circle', estados: ['en_entrega'], quien: () => esPiloto, si: esSuPiloto,
           nuevo: 'entregado', motivo: 'opcional',
           ayuda: 'Confirma que entregaste el pedido. (Más adelante se hará desde la app con el QR y la foto.)' },
-        { id: 'no_entregado', texto: 'No entregado', icono: 'bi-x-circle', estados: ['en_ruta'], quien: () => esPiloto, si: esSuPiloto,
+        { id: 'no_entregado', texto: 'No entregado', icono: 'bi-x-circle', estados: ['en_entrega'], quien: () => esPiloto, si: esSuPiloto,
           nuevo: 'no_entregado', motivo: 'requerido' },
         { id: 'reprogramar', texto: 'Reprogramar', icono: 'bi-calendar-event', estados: ['no_entregado'], quien: () => puedeAsignar },
         { id: 'devuelto', texto: 'Devuelto', icono: 'bi-arrow-return-left', estados: ['no_entregado'], quien: () => puedeCancelar,
           nuevo: 'devuelto', motivo: 'requerido' },
-        // Cancelar: Admin G3 o superior (el Empleado no)
-        { id: 'cancelar', texto: 'Cancelar pedido', icono: 'bi-slash-circle', clase: 'boton-peligro', estados: PED_ANTES_DE_SALIR,
-          quien: () => puedeCancelar, nuevo: 'cancelado', motivo: 'requerido' },
-        { id: 'anular', texto: 'Anular', icono: 'bi-trash3', clase: 'boton-peligro', quien: () => puedeAnular,
-          estados: ['registrado', 'recibido_bodega', 'asignado', 'reprogramado', 'no_entregado', 'devuelto', 'cancelado'], motivo: 'requerido',
-          ayuda: 'Para pedidos registrados por error. El pedido no se borra: queda oculto de las listas y en la auditoría.' },
+        // Cancelar: Admin G3 o superior (el Empleado no). El motivo sale en Reportes.
+        // También un "No entregado" (el G2 decide: reprogramar o cancelar según el motivo del piloto).
+        { id: 'cancelar', texto: 'Cancelar pedido', icono: 'bi-slash-circle', clase: 'boton-peligro', estados: [...PED_ANTES_DE_SALIR, 'no_entregado'],
+          quien: () => puedeCancelar, nuevo: 'cancelado', motivo: 'requerido',
+          ayuda: 'El pedido no se borra: queda cancelado con su motivo (se ve en Reportes).' },
     ];
 
     // Acción de la ventana de confirmación para rechazar una solicitud (G2 o superior)
@@ -2053,7 +2516,7 @@ registrarSeccion('pedidos', (zona) => {
         const p = pedido;
         PED_ACCIONES.forEach((a) => {
             if (!a.quien()) return;
-            const disponible = a.siempre || (!p.anulado && a.estados.includes(p.estado) && (!a.si || a.si(p)));
+            const disponible = a.siempre ? (!a.si || a.si(p)) : (!p.anulado && a.estados.includes(p.estado) && (!a.si || a.si(p)));
             if (!disponible) return;
             const b = document.createElement('button');
             b.type = 'button';
@@ -2061,6 +2524,9 @@ registrarSeccion('pedidos', (zona) => {
             b.dataset.accionPedido = a.id;
             b.innerHTML = `<i class="bi ${a.icono}"></i> <span></span>`;
             b.querySelector('span').textContent = a.texto;
+            // Se ve pero todavía no se puede usar (el motivo queda en el globo)
+            const motivo = a.bloqueado ? a.bloqueado(p) : '';
+            if (motivo) { b.disabled = true; b.title = motivo; }
             caja.appendChild(b);
         });
     }
@@ -2071,6 +2537,8 @@ registrarSeccion('pedidos', (zona) => {
         const accion = PED_ACCIONES.find((a) => a.id === b.dataset.accionPedido);
         if (!accion.quien()) return;
         if (accion.id === 'qr') abrirVentanaQr();
+        else if (accion.id === 'listo') abrirListo();
+        else if (accion.id === 'escanear') abrirEscaner();
         else if (accion.id === 'asignar') abrirAsignar('asignar');
         else if (accion.id === 'reprogramar') abrirAsignar('reprogramar');
         else if (accion.id === 'solicitar') abrirAsignar('solicitar');
@@ -2193,12 +2661,6 @@ registrarSeccion('pedidos', (zona) => {
             // Rechazar la solicitud de reasignación del Admin G3 (no cambia el pedido)
             resultado = (await registrarEvento(pedido.id, 'solicitud_rechazada', { detalle: { motivo } })).error || null;
             if (!resultado) await cerrarSolicitud(false, motivo);
-        } else if (accion.id === 'anular') {
-            // Anular: no cambia el estado; se marca y queda en la auditoría
-            const upd = await db.from('pedidos')
-                .update({ anulado: true, motivo_cancelacion: motivo, actualizado_en: new Date().toISOString() })
-                .eq('id', pedido.id).select('id');
-            resultado = upd.error || (await registrarEvento(pedido.id, 'anulado', { antes: pedido.estado, detalle: { motivo } })).error;
         } else {
             const cambios = accion.nuevo === 'cancelado' ? { motivo_cancelacion: motivo } : {};
             resultado = await cambiarEstado(accion.nuevo, cambios, motivo ? (accion.motivo === 'requerido' ? { motivo } : { nota: motivo }) : {});
@@ -2219,12 +2681,101 @@ registrarSeccion('pedidos', (zona) => {
         dlgAccion.close();
         if (resultado) {
             console.error(`Error en la acción ${accion.id}:`, resultado);
-            aviso.mostrar(resultado.mensajePropio || 'No se pudo completar la acción. Intenta de nuevo.', 'error');
+            aviso.mostrar(resultado.mensajePropio
+                // Índice pedidos_un_en_entrega: ya tiene otro pedido "Entregando"
+                || (resultado.code === '23505' && accion.id === 'entregar_ahora'
+                    ? 'Primero marca como entregado (o no entregado) el pedido que estás entregando.'
+                    : resultado.code === '23514' ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 12: despacho).'
+                        : 'No se pudo completar la acción. Intenta de nuevo.'), 'error');
         } else {
-            aviso.mostrar(accion.id === 'anular' ? `Pedido ${pedido.codigo} anulado.`
-                : accion.id === 'rechazar_solicitud' ? 'Solicitud rechazada; se avisó a quien la pidió.'
-                    : `Pedido ${pedido.codigo}: ${(PED_ESTADOS[accion.nuevo] || {}).texto}.`);
+            aviso.mostrar(accion.id === 'rechazar_solicitud' ? 'Solicitud rechazada; se avisó a quien la pidió.'
+                : `Pedido ${pedido.codigo}: ${(PED_ESTADOS[accion.nuevo] || {}).texto}.`);
         }
+        if (!resultado) await avisosDeAccion(accion.id, motivo);
+        // "Recibido para ruta": se abre el QR para que el despachador lo escanee
+        if (!resultado && accion.id === 'recibir') abrirDetalle(pedido.id, true);
+        else recargarDetalle();
+    });
+
+    // ---------- Avisos de las acciones (js/notificaciones.js) ----------
+    //   Piloto "Recibido para ruta" -> G3 de la tienda: aprobar la salida (pendiente)
+    //   Piloto "No entregado"       -> G2: reprogramar o cancelar (pendiente) + G3 (info)
+    //   Cancelar / Devuelto         -> si lo hace G2+: G3 + piloto | si lo hace la tienda: G2 + piloto
+    // Los pendientes que ya no aplican se cierran (resolverPendientes).
+    async function avisosDeAccion(accionId, motivo = '') {
+        const p = pedido;
+        const enlace = `#pedidos?id=${p.id}`;
+        const tienda = nombreTienda(p.tienda_id);
+        const quien = sesion.nombre || 'Alguien';
+        if (accionId === 'recibir') {
+            await avisar({
+                tiendaId: p.tienda_id, a: ['g3'], tipo: 'pendiente', enlace, referenciaTipo: 'pedido_salida', referenciaId: p.id,
+                titulo: 'Aprobar salida de un pedido',
+                mensaje: `${quien} recibió el pedido ${p.codigo} para ruta. Ábrelo y escanea su QR para aprobar la salida.`,
+            });
+        } else if (accionId === 'no_entregado') {
+            await avisar({
+                tiendaId: p.tienda_id, a: ['g2'], tipo: 'pendiente', enlace, referenciaTipo: 'pedido_no_entregado', referenciaId: p.id,
+                titulo: 'Pedido no entregado: reprogramar o cancelar',
+                mensaje: `${quien} no entregó el pedido ${p.codigo} (${tienda}). Motivo: ${motivo}. Revísalo y reprográmalo o cancélalo.`,
+            });
+            await avisar({
+                tiendaId: p.tienda_id, a: ['g3'], enlace, referenciaTipo: 'pedido', referenciaId: p.id,
+                titulo: 'Pedido no entregado',
+                mensaje: `El pedido ${p.codigo} no se entregó. Motivo: ${motivo}. El Admin G2 lo reprogramará o cancelará.`,
+            });
+        } else if (accionId === 'cancelar' || accionId === 'devuelto') {
+            await Promise.all(['pedido_no_entregado', 'pedido_asignar', 'pedido_salida', 'pedido_reasignacion']
+                .map((tipo) => resolverPendientes(tipo, p.id)));
+            const texto = accionId === 'cancelar' ? 'cancelado' : 'devuelto';
+            await avisar({
+                tiendaId: p.tienda_id, a: puedeAsignar ? ['g3'] : ['g2'], usuarios: [p.piloto_id], enlace,
+                referenciaTipo: 'pedido', referenciaId: p.id, tipo: 'rechazado',
+                titulo: `Pedido ${texto}`,
+                mensaje: `${quien} marcó el pedido ${p.codigo} (${tienda}) como ${texto}. Motivo: ${motivo}.`,
+            });
+        }
+    }
+
+    // ---------- Listo para despachar: elegir o confirmar el slot ----------
+    const dlgSlot = $('#pedSlotDialogo');
+
+    async function abrirListo() {
+        if (!puedeDespachar || pedido.estado !== 'alistando') return;
+        $('#pedSlotError').textContent = '';
+        $('#pedSlotTexto').textContent = `El pedido ${pedido.codigo} pasará a "Listo para despachar". Confirma el slot al que se va a cargar.`;
+        const slots = await slotsConOcupacion(pedido.fecha_entrega, pedido.tienda_id, pedido.id);
+        llenarSlots($('#pedSlotElegir'), slots, pedido.slot_numero, false);
+        $('#pedSlotSi').disabled = !slots.length;
+        if (!slots.length) $('#pedSlotError').textContent = 'No hay slots para la fecha de este pedido. Revisa Configuración → Slots.';
+        dlgSlot.showModal();
+    }
+
+    $('#pedSlotCancelar').addEventListener('click', () => dlgSlot.close());
+
+    $('#pedSlotForm').addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        const slot = Number($('#pedSlotElegir').value);
+        if (!slot) {
+            $('#pedSlotError').textContent = 'Elige el slot.';
+            return;
+        }
+        $('#pedSlotSi').disabled = true;
+        const resultado = await cambiarEstado('listo_despacho', { slot_numero: slot }, { slot });
+        $('#pedSlotSi').disabled = false;
+        if (resultado) {
+            console.error('Error al marcar listo para despachar:', resultado);
+            $('#pedSlotError').textContent = resultado.mensajePropio || 'No se pudo guardar. Intenta de nuevo.';
+            return;
+        }
+        dlgSlot.close();
+        aviso.mostrar(`Pedido ${pedido.codigo}: listo para despachar en el slot ${slot}.`);
+        // Aviso al piloto: que lo reciba para la ruta (js/notificaciones.js)
+        await avisar({
+            usuarios: [pedido.piloto_id], enlace: `#pedidos?id=${pedido.id}`, referenciaTipo: 'pedido', referenciaId: pedido.id,
+            titulo: 'Pedido listo para despachar',
+            mensaje: `El pedido ${pedido.codigo} (${nombreTienda(pedido.tienda_id)}) está listo en el slot ${slot}. Márcalo "Recibido para ruta" y muestra el QR.`,
+        });
         recargarDetalle();
     });
 
@@ -2241,7 +2792,7 @@ registrarSeccion('pedidos', (zona) => {
     const TITULOS_ASIG = {
         asignar: 'Asignar piloto y horario',
         reprogramar: 'Reprogramar entrega',
-        solicitar: 'Solicitar reasignación de horario',
+        solicitar: 'Solicitar reasignación de fecha',
         aplicar: 'Aplicar la reasignación solicitada',
     };
 
@@ -2253,6 +2804,8 @@ registrarSeccion('pedidos', (zona) => {
         $('#pedAsigPilotoCaja').hidden = modo === 'solicitar'; // quien solicita no elige piloto ni ruta
         $('#pedAsigRutaCaja').hidden = modo === 'solicitar' || !rutas.length;
         $('#pedAsigMotivoCaja').hidden = !['reprogramar', 'solicitar'].includes(modo);
+        // G3 y Empleado no ven el horario del piloto: solo piden otra fecha
+        $('#pedAsigMarca').closest('.campo').hidden = !verMarca;
         $('#pedAsigMotivo').value = '';
         $('#pedAsignarError').textContent = '';
 
@@ -2300,7 +2853,7 @@ registrarSeccion('pedidos', (zona) => {
         const modo = modoAsig;
         if (modo === 'solicitar' ? !puedeSolicitar : !puedeAsignar) return;
         const fecha = $('#pedAsigFecha').value;
-        const marca = $('#pedAsigMarca').value ? Number($('#pedAsigMarca').value) : null;
+        const marca = verMarca && $('#pedAsigMarca').value ? Number($('#pedAsigMarca').value) : null;
         const ruta = rutas.length && $('#pedAsigRuta').value ? Number($('#pedAsigRuta').value) : null;
         const pilotoManual = $('#pedAsigPiloto').value ? Number($('#pedAsigPiloto').value) : null;
         const motivo = $('#pedAsigMotivo').value.trim();
@@ -2364,6 +2917,34 @@ registrarSeccion('pedidos', (zona) => {
         // Cualquier asignación cierra la solicitud pendiente del G3 (se le avisa)
         if (!fallo && solicitud) await cerrarSolicitud(true);
 
+        // Avisos (js/notificaciones.js)
+        if (!fallo) {
+            const enlace = `#pedidos?id=${pedido.id}`;
+            if (piloto) await resolverPendientes('pedido_asignar', pedido.id); // ya tiene piloto
+            if (reprograma) {
+                // El "No entregado" que avisó el piloto ya se resolvió: la tienda y el piloto lo saben
+                await resolverPendientes('pedido_no_entregado', pedido.id);
+                await avisar({
+                    tiendaId: pedido.tienda_id, a: ['g3'], usuarios: [piloto], enlace, referenciaTipo: 'pedido', referenciaId: pedido.id,
+                    tipo: 'aprobado', titulo: 'Pedido reprogramado',
+                    mensaje: `El pedido ${pedido.codigo} se reprogramó para el ${fechaCorta(fecha)}${motivoFinal ? `. ${motivoFinal}` : ''}.`,
+                });
+            } else if (piloto && piloto !== pedido.piloto_id) {
+                await avisar({
+                    usuarios: [piloto], enlace, referenciaTipo: 'pedido', referenciaId: pedido.id,
+                    titulo: 'Nuevo pedido asignado',
+                    mensaje: `Tienes el pedido ${pedido.codigo} (${nombreTienda(pedido.tienda_id)}) para el ${fechaCorta(fecha)}.`,
+                });
+            }
+            // Al piloto que ya no lo tiene, se le avisa
+            if (pedido.piloto_id && piloto !== pedido.piloto_id) {
+                await avisar({
+                    usuarios: [pedido.piloto_id], enlace: '#inicio', referenciaTipo: 'pedido', referenciaId: pedido.id,
+                    titulo: 'Pedido reasignado', mensaje: `El pedido ${pedido.codigo} ya no está en tu ruta.`,
+                });
+            }
+        }
+
         dlgAsignar.close();
         if (fallo) {
             console.error('Error al asignar:', fallo);
@@ -2425,16 +3006,20 @@ registrarSeccion('pedidos', (zona) => {
         y += 44;
         ctx.font = '22px Arial, sans-serif';
         ctx.fillStyle = '#4B5563';
-        ctx.fillText(`Código de entrega: ${p.codigo_respaldo}`, ancho / 2, y);
-        if (p.codigo_telefono && p.codigo_telefono !== p.codigo_respaldo) {
-            y += 30;
-            ctx.font = '18px Arial, sans-serif';
-            ctx.fillText('(o los últimos 4 dígitos de tu teléfono)', ancho / 2, y);
+        // El código de entrega lo da el CLIENTE al recibir: el piloto no lo ve (solo muestra el QR al despachador)
+        if (!esPiloto) {
+            ctx.fillText(`Código de entrega: ${p.codigo_respaldo}`, ancho / 2, y);
+            if (p.codigo_telefono && p.codigo_telefono !== p.codigo_respaldo) {
+                y += 30;
+                ctx.font = '18px Arial, sans-serif';
+                ctx.fillText('(o los últimos 4 dígitos de tu teléfono)', ancho / 2, y);
+            }
         }
         y += 40;
         ctx.font = '18px Arial, sans-serif';
         ctx.fillStyle = '#6B7280';
-        ctx.fillText('Muestra este QR a quien te entrega el pedido.', ancho / 2, Math.min(y, alto - 20));
+        ctx.fillText(esPiloto ? 'Muestra este QR al despachador para aprobar la salida.' : 'Muestra este QR a quien te entrega el pedido.',
+            ancho / 2, Math.min(y, alto - 20));
     }
 
     // Teléfono para WhatsApp: solo dígitos y con código de país si tiene 8
@@ -2464,7 +3049,11 @@ registrarSeccion('pedidos', (zona) => {
             aviso.mostrar('No se pudo generar el QR (revisa la conexión a internet).', 'error');
             return;
         }
-        $('#pedQrTexto').textContent = 'Envíale esta imagen al cliente (o que le tome una foto) para que la reenvíe a quien recibe.';
+        // Piloto ("Recibido para ruta"): lo muestra al despachador para que lo escanee
+        $('#pedQrTexto').textContent = esPiloto
+            ? 'Muéstrale este QR al despachador: al escanearlo, el pedido queda cargado en tu ruta.'
+            : 'Envíale esta imagen al cliente (o que le tome una foto) para que la reenvíe a quien recibe.';
+        $('#pedQrWhatsapp').hidden = esPiloto;
         $('#pedQrWhatsapp').href = `https://wa.me/${telefonoWhatsapp(p.cliente_telefono)}?text=${encodeURIComponent(mensajeCliente(p))}`;
 
         // "Compartir" solo si el navegador puede compartir archivos (celulares)
@@ -2489,6 +3078,186 @@ registrarSeccion('pedidos', (zona) => {
         a.click();
     });
     $('#pedQrCerrar').addEventListener('click', () => dlgQr.close());
+
+    // ==================================================
+    // APROBAR SALIDA (Empleado, Admin G3 y superiores) — DENTRO de cada pedido
+    // El piloto marca "Recibido para ruta" y muestra el QR; en el detalle de ESE
+    // pedido se presiona "Aprobar salida" y se escanea con la cámara (librería
+    // gratis jsQR). Solo vale el QR de ese pedido: el pedido pasa a "Cargado" y la
+    // base guarda la hora (cargado_en) y quién lo aprobó. Esas horas alimentan el
+    // cronómetro del slot (vista slots_carga). Sin cámara (o sin https) se escribe
+    // el número del pedido.
+    // ==================================================
+
+    const dlgEscaner = $('#pedEscanerDialogo');
+    const video = $('#pedEscanerVideo');
+    const estadoEscaner = $('#pedEscanerEstado');
+    let camara = null;          // MediaStream abierto
+    let lazoEscaner = null;     // requestAnimationFrame en curso
+    let ultimoLeido = { texto: '', hora: 0 }; // para no procesar el mismo QR varias veces seguidas
+    let procesando = false;
+    let aprobado = false;       // true cuando se aprobó la salida (se recarga el detalle al cerrar)
+
+    function mostrarEstadoEscaner(texto, tipo = '') {
+        estadoEscaner.textContent = texto;
+        estadoEscaner.className = `ped-escaner-estado${tipo ? ` ${tipo}` : ''}`;
+    }
+
+    async function abrirEscaner() {
+        if (!puedeDespachar || !pedido || pedido.estado !== 'recibido_ruta') return;
+        aprobado = false;
+        ultimoLeido = { texto: '', hora: 0 };
+        $('#pedEscanerTitulo').lastChild.textContent = ` Aprobar salida del pedido ${pedido.codigo}`;
+        $('#pedEscanerCodigo').value = '';
+        mostrarEstadoEscaner(`Apunta la cámara al QR del pedido ${pedido.codigo} que muestra el piloto.`);
+        dlgEscaner.showModal();
+        await encenderCamara();
+    }
+
+    async function encenderCamara() {
+        const sinCamara = $('#pedEscanerSinCamara');
+        sinCamara.hidden = true;
+        video.hidden = false;
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            mostrarSinCamara('La cámara solo funciona si la página se abre con https (o en localhost). Escribe el número del pedido abajo.');
+            return;
+        }
+        try {
+            await cargarScriptPed(PED_LECTOR_QR, 'jsQR');
+            camara = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+            if (!dlgEscaner.open) { apagarCamara(); return; } // se cerró mientras pedía permiso
+            video.srcObject = camara;
+            await video.play();
+            leerCuadro();
+        } catch (e) {
+            console.error('No se pudo abrir la cámara:', e);
+            mostrarSinCamara(e && e.name === 'NotAllowedError'
+                ? 'No hay permiso para usar la cámara. Actívalo en el navegador o escribe el número del pedido.'
+                : 'No se pudo abrir la cámara. Escribe el número del pedido abajo.');
+        }
+    }
+
+    function mostrarSinCamara(texto) {
+        video.hidden = true;
+        const caja = $('#pedEscanerSinCamara');
+        caja.textContent = texto;
+        caja.hidden = false;
+    }
+
+    function apagarCamara() {
+        if (lazoEscaner) cancelAnimationFrame(lazoEscaner);
+        lazoEscaner = null;
+        if (camara) camara.getTracks().forEach((t) => t.stop());
+        camara = null;
+        video.srcObject = null;
+    }
+
+    // Lee el cuadro actual del video y busca un QR (unas 60 veces por segundo)
+    const lienzoLector = document.createElement('canvas');
+    function leerCuadro() {
+        if (!camara) return;
+        if (video.readyState === video.HAVE_ENOUGH_DATA && !procesando) {
+            const ancho = video.videoWidth;
+            const alto = video.videoHeight;
+            lienzoLector.width = ancho;
+            lienzoLector.height = alto;
+            const ctx = lienzoLector.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(video, 0, 0, ancho, alto);
+            const codigo = window.jsQR(ctx.getImageData(0, 0, ancho, alto).data, ancho, alto, { inversionAttempts: 'dontInvert' });
+            const ahora = Date.now();
+            if (codigo && codigo.data && !(codigo.data === ultimoLeido.texto && ahora - ultimoLeido.hora < 4000)) {
+                ultimoLeido = { texto: codigo.data, hora: ahora };
+                if (codigo.data.startsWith(PED_QR_PREFIJO)) cargarPedido({ token: codigo.data.slice(PED_QR_PREFIJO.length) });
+                else mostrarEstadoEscaner('Ese QR no es de un pedido de ACACHETE.', 'error');
+            }
+        }
+        lazoEscaner = requestAnimationFrame(leerCuadro);
+    }
+
+    // Carga un pedido por su token (QR) o por su número (escrito a mano)
+    async function cargarPedido({ token = null, codigo = null }) {
+        procesando = true;
+        mostrarEstadoEscaner('Revisando el pedido...');
+        try {
+            let q = db.from('pedidos').select('id, codigo, estado, tienda_id, piloto_id, slot_numero, fecha_entrega, anulado');
+            q = token ? q.eq('token_qr', token) : q.eq('codigo', codigo);
+            const { data: p, error } = await q.maybeSingle();
+            if (error) throw error;
+            if (!p || p.anulado || !tiendaPorId(p.tienda_id)) {
+                mostrarEstadoEscaner(codigo ? `No se encontró el pedido ${codigo} en tus tiendas.` : 'No se encontró ese pedido en tus tiendas.', 'error');
+                return;
+            }
+            // Es la aprobación de salida de ESTE pedido: el QR de otro no sirve
+            if (p.id !== pedido.id) {
+                mostrarEstadoEscaner(`Ese QR es del pedido ${p.codigo}, no del ${pedido.codigo}. Ábrelo y apruébalo desde su propio detalle.`, 'error');
+                return;
+            }
+            if (p.estado === 'cargado') {
+                mostrarEstadoEscaner(`El pedido ${p.codigo} ya estaba cargado.`, 'ok');
+                return;
+            }
+            if (p.estado !== 'recibido_ruta') {
+                mostrarEstadoEscaner(p.estado === 'listo_despacho'
+                    ? `El piloto aún no marcó "Recibido para ruta" en el pedido ${p.codigo}.`
+                    : `El pedido ${p.codigo} está "${(PED_ESTADOS[p.estado] || {}).texto || p.estado}": no se puede cargar.`, 'error');
+                return;
+            }
+            // Solo si sigue "Recibido para ruta" (si otro ya lo escaneó, no se repite)
+            const upd = await db.from('pedidos')
+                .update({ estado: 'cargado', cargado_por: sesion.id || null, actualizado_en: new Date().toISOString() })
+                .eq('id', p.id).eq('estado', 'recibido_ruta').select('id');
+            if (upd.error) throw upd.error;
+            if (!upd.data.length) {
+                mostrarEstadoEscaner(`El pedido ${p.codigo} ya lo cargó otra persona.`, 'ok');
+                return;
+            }
+            await registrarEvento(p.id, 'escaneo', { antes: 'recibido_ruta', despues: 'cargado', detalle: { slot: p.slot_numero } });
+
+            // Cómo va el slot: cuántos de sus pedidos ya están cargados
+            let avance = '';
+            if (p.slot_numero) {
+                const { data: delSlot } = await db.from('pedidos').select('estado')
+                    .eq('tienda_id', p.tienda_id).eq('fecha_entrega', p.fecha_entrega).eq('slot_numero', p.slot_numero)
+                    .eq('anulado', false).neq('estado', 'cancelado');
+                if (delSlot) {
+                    const listos = delSlot.filter((x) => ['cargado', 'en_ruta', 'en_entrega', 'entregado', 'entregado_incidencia', 'no_entregado', 'devuelto'].includes(x.estado)).length;
+                    avance = ` · Slot ${p.slot_numero}: ${listos} de ${delSlot.length} cargados`;
+                }
+            }
+            aprobado = true;
+            apagarCamara();
+            // El aviso "aprobar salida" ya se cumplió; al piloto se le confirma la carga
+            resolverPendientes('pedido_salida', p.id);
+            avisar({
+                usuarios: [p.piloto_id], enlace: `#pedidos?id=${p.id}`, referenciaTipo: 'pedido', referenciaId: p.id, tipo: 'aprobado',
+                titulo: 'Salida aprobada', mensaje: `El pedido ${p.codigo} quedó cargado en tu ruta.`,
+            });
+            mostrarEstadoEscaner(`✔ Salida aprobada: pedido ${p.codigo} cargado${avance}.`, 'ok');
+            if (navigator.vibrate) navigator.vibrate(120);
+            setTimeout(() => { if (dlgEscaner.open) dlgEscaner.close(); }, 1800);
+        } catch (e) {
+            console.error('Error al cargar el pedido escaneado:', e);
+            mostrarEstadoEscaner(e && e.code === '23514'
+                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 12: despacho).'
+                : 'No se pudo cargar. Revisa la conexión e intenta de nuevo.', 'error');
+        } finally {
+            procesando = false;
+        }
+    }
+
+    $('#pedEscanerManual').addEventListener('submit', (evento) => {
+        evento.preventDefault();
+        const codigo = $('#pedEscanerCodigo').value.trim().toUpperCase();
+        if (!codigo) return;
+        $('#pedEscanerCodigo').value = '';
+        cargarPedido({ codigo });
+    });
+    $('#pedEscanerCerrar').addEventListener('click', () => dlgEscaner.close());
+    // Al cerrar (botón, Escape...) se apaga la cámara y, si se aprobó, se recarga el pedido
+    dlgEscaner.addEventListener('close', () => {
+        apagarCamara();
+        if (aprobado && pedido) recargarDetalle();
+    });
 
     // ==================================================
     // ARRANQUE Y LIMPIEZA
@@ -2517,7 +3286,8 @@ registrarSeccion('pedidos', (zona) => {
 
     return () => {
         aviso.limpiar();
-        [dlgQr, dlgAsignar, dlgAccion].forEach((d) => { if (d.open) d.close(); });
+        apagarCamara();
+        [dlgQr, dlgAsignar, dlgAccion, dlgSlot, dlgEscaner].forEach((d) => { if (d.open) d.close(); });
         if (mapaRuta) mapaRuta.destruir();
     };
 });

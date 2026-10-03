@@ -121,6 +121,10 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
     const calcularEnvio = (t, pesoKg, montoCompra = 0, km = 0) => calcularEnvioTarifa(
         { ...t, envio_gratis_desde: t.envio_gratis_desde === '' ? null : t.envio_gratis_desde }, pesoKg, montoCompra, km).envio;
 
+    // ¿A alguna actividad de la empresa le falta su tarifa general? (cada empresa tiene las suyas)
+    const faltaTarifaGeneral = () => actividades.some((a) =>
+        !((filas && filas.tarifas) || []).some((t) => t.actividad === a.codigo && !t.region && !t.tienda_id));
+
     // ¿La base ya tiene tarifas.km_incluidos? (sql/01, bloque 10). Las tarifas se leen con '*'.
     const tieneKmIncluidos = () => ((filas && filas.tarifas) || []).some((f) => 'km_incluidos' in f);
 
@@ -212,10 +216,12 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
                 { nombre: 'actividad', etiqueta: 'Actividad', tipo: 'opciones', requerido: true, soloAlCrear: true,
                   opciones: () => actividades.map((a) => [a.codigo, a.nombre]) },
                 { nombre: 'alcance', etiqueta: 'Aplica a', tipo: 'opciones', requerido: true, soloAlCrear: true, virtual: true,
-                  // La general ya existe (una por actividad): al crear solo región o tienda
+                  // La general es una por actividad: al crear se ofrece solo si a alguna
+                  // actividad de la empresa le falta (ej. empresa nueva sin tarifas copiadas)
                   opciones: (f) => (f && !f.region && !f.tienda_id)
                       ? [['general', 'General (todas las tiendas)']]
-                      : [['region', 'Una región'], ['tienda', 'Una tienda']],
+                      : [...(!f && esGeneral && faltaTarifaGeneral() ? [['general', 'General (todas las tiendas)']] : []),
+                          ['region', 'Una región'], ['tienda', 'Una tienda']],
                   valorInicial: (f) => (f.tienda_id ? 'tienda' : f.region ? 'region' : 'general') },
                 { nombre: 'region', etiqueta: 'Región', tipo: 'opciones', requerido: true, soloAlCrear: true,
                   opciones: () => regionesMias().map((r) => [r.codigo, `${r.nombre} (${r.codigo})`]),
@@ -391,7 +397,9 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
             ],
             preparar: (v) => ({ categoria_id: Number(v.categoria_id), nombre: v.nombre, peso_kg: v.peso_kg, orden: v.orden || 0, activo: v.activo }),
             // Solo los de categorías de actividades de la empresa
-            visible: (f) => { const c = categoriaPorId(f.categoria_id); return !c || deLaEmpresa(c); },
+            // (las categorías ya vienen solo de la empresa activa: un artículo sin su
+            //  categoría en la lista es de otra empresa y no se muestra)
+            visible: (f) => { const c = categoriaPorId(f.categoria_id); return !!c && deLaEmpresa(c); },
             duplicado: 'Ese artículo ya existe en esa categoría.',
             textoEliminar: (f) => `¿Eliminar "${f.nombre}" del catálogo? Los pedidos que ya lo usaron no cambian. (Para ocultarlo sin borrarlo, desactívalo.)`,
             puedeCrear: soloGeneral,

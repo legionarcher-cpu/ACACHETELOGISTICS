@@ -17,7 +17,7 @@
      envío = cargo fijo + mínimo + max(0, peso total - kg incluidos) × precio por kg
              + km × precio por km - descuento
 
-   RUTA A -> B (js/mapa.js, gratis): A = la recolección escrita o, si está vacía,
+   RUTA A -> B (js/mapa.js, gratis): A = el punto de partida escrito o, si está vacío,
    la tienda; B = la entrega. Se ubican solos al escribir la dirección y se
    pueden mover con un clic o arrastrándolos. Los km son POR CALLE.
 
@@ -83,7 +83,7 @@ registrarSeccion('cotizador', (zona) => {
     // ==================================================
 
     async function cargar() {
-        // lat / lng de la tienda (punto A cuando no hay recolección). Sin el
+        // lat / lng de la tienda (punto A cuando no hay punto de partida). Sin el
         // bloque 9 de sql/01 no existen: se leen las columnas de antes.
         const consultaTiendas = (columnas) => {
             let q = db.from('tiendas').select(columnas).order('codigo');
@@ -181,10 +181,10 @@ registrarSeccion('cotizador', (zona) => {
         });
     }
 
-    // A = la recolección escrita, o la tienda (sus coordenadas guardadas o su dirección)
+    // A = el punto de partida escrito, o la tienda (sus coordenadas guardadas o su dirección)
     async function actualizarPuntoA() {
         if (!mapaRuta) return;
-        mapaRuta.etiquetas(origenEsTienda() ? 'Tienda' : 'Recolección', 'Entrega');
+        mapaRuta.etiquetas(origenEsTienda() ? 'Tienda' : 'Punto de partida', 'Entrega');
         if (!origenEsTienda()) { await mapaRuta.ubicarA(); return; }
         const t = tiendaConDatos();
         if (t && t.lat != null && t.lng != null) await mapaRuta.ponerA({ lat: Number(t.lat), lng: Number(t.lng) });
@@ -195,7 +195,7 @@ registrarSeccion('cotizador', (zona) => {
     // Si se eligió una sugerencia (entradaYaUbicada, js/mapa.js), el punto ya está puesto
     inOrigen.addEventListener('change', () => {
         if (entradaYaUbicada(inOrigen)) {
-            if (mapaRuta) mapaRuta.etiquetas('Recolección', 'Entrega');
+            if (mapaRuta) mapaRuta.etiquetas('Punto de partida', 'Entrega');
             return;
         }
         actualizarPuntoA();
@@ -407,7 +407,7 @@ registrarSeccion('cotizador', (zona) => {
         textoCotizacion = [
             `Cotización de envío – ${EMPRESA.nombre || ''}`.trim(),
             `Encomienda: ${plural(unidades, 'bulto', 'bultos')}, ${kilos(peso)}`,
-            ...(inOrigen.value.trim() ? [`Recolección: ${inOrigen.value.trim()}`] : []),
+            ...(inOrigen.value.trim() ? [`Punto de partida: ${inOrigen.value.trim()}`] : []),
             ...(inDestino.value.trim() ? [`Entrega: ${inDestino.value.trim()}`] : []),
             ...(rutaCot ? [`Distancia: ${rutaCot.km} km${rutaCot.aproximada ? ' (aproximada)' : ''}`] : []),
             ...detalle,

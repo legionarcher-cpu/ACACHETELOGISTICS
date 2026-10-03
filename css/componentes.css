@@ -21,11 +21,13 @@
 
 .pagina {
     min-height: 100%;
-    padding: 24px 28px;
+    max-width: var(--ancho-max-pagina); /* centrada en monitores ultra anchos */
+    margin-inline: auto;
+    padding: 1.333rem 1.556rem;
     background-color: var(--color-fondo);
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 0.889rem;
 }
 
 /* Fila superior: título a la izquierda, acciones a la derecha */
@@ -34,7 +36,7 @@
     align-items: flex-end;
     justify-content: space-between;
     flex-wrap: wrap; /* en pantallas angostas las acciones bajan */
-    gap: 16px;
+    gap: 0.889rem;
 }
 
 .pagina-titulo {
@@ -45,7 +47,7 @@
 }
 
 .pagina-subtitulo {
-    margin: 4px 0 0;
+    margin: 0.222rem 0 0;
     font-size: 0.9rem;
     color: var(--color-gris);
 }
@@ -54,12 +56,12 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 0.667rem;
 }
 
 /* Caja blanca con borde y sombra suave */
 .tarjeta {
-    padding: 28px;
+    padding: 1.556rem;
     background-color: var(--color-blanco);
     border: 1px solid var(--color-borde);
     border-radius: var(--radio-grande);
@@ -73,11 +75,11 @@
 .buscador {
     display: flex;
     align-items: center;
-    gap: 8px;
-    width: 300px; /* ancho del buscador */
+    gap: 0.444rem;
+    width: 16.667rem; /* ancho del buscador */
     max-width: 100%;
-    height: 40px;
-    padding: 0 12px;
+    height: 2.222rem;
+    padding: 0 0.667rem;
     background-color: var(--color-blanco);
     border: 1px solid var(--color-borde);
     border-radius: var(--radio);
@@ -115,9 +117,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    height: 40px;
-    padding: 0 16px;
+    gap: 0.444rem;
+    height: 2.222rem;
+    padding: 0 0.889rem;
     border: 1px solid transparent;
     border-radius: var(--radio);
     cursor: pointer;
@@ -142,8 +144,8 @@
 }
 
 .boton-chico {
-    height: 34px;
-    padding: 0 12px;
+    height: 1.889rem;
+    padding: 0 0.667rem;
 }
 
 /* Naranja: acción principal (Nuevo, Guardar) */
@@ -185,8 +187,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 34px;
-    height: 34px;
+    width: 1.889rem;
+    height: 1.889rem;
     padding: 0;
     background: none;
     border: 1px solid transparent;
@@ -251,9 +253,9 @@
 .aviso {
     display: none;
     margin: 0;
-    padding: 10px 14px;
+    padding: 0.556rem 0.778rem;
     border-radius: var(--radio);
-    border-left: 4px solid;
+    border-left: 0.222rem solid;
     font-size: 0.9rem;
 }
 
@@ -283,7 +285,7 @@
 .tabla-caja {
     background-color: var(--color-blanco);
     border: 1px solid var(--color-borde);
-    border-radius: 10px;
+    border-radius: 0.556rem;
     overflow-x: auto;
     box-shadow: var(--sombra-tarjeta);
 }
@@ -295,7 +297,7 @@
 
 .tabla th,
 .tabla td {
-    padding: 12px 16px;
+    padding: 0.667rem 0.889rem;
     border-bottom: 1px solid var(--color-borde-suave);
     vertical-align: middle;
 }
@@ -332,7 +334,7 @@
 
 /* Columna de acciones: angosta y alineada a la derecha */
 .tabla-col-acciones {
-    width: 110px;
+    width: 6.111rem;
     white-space: nowrap;
 }
 
@@ -345,12 +347,12 @@
 .tabla-botones {
     display: flex;
     justify-content: flex-end;
-    gap: 6px;
+    gap: 0.333rem;
 }
 
 /* Mensaje "Aún no hay registros" */
 .tabla td.tabla-vacio {
-    padding: 32px 16px;
+    padding: 1.778rem 0.889rem;
     color: var(--color-gris);
     text-align: center;
 }
@@ -361,8 +363,8 @@
    La usan Tiendas (por región) y Pilotos (por tienda). */
 
 .tabla .tabla-grupo th {
-    padding-top: 10px;
-    padding-bottom: 10px;
+    padding-top: 0.556rem;
+    padding-bottom: 0.556rem;
     background-color: var(--color-fondo);
     border-top: 1px solid var(--color-borde);
 }
@@ -374,7 +376,7 @@
 
 /* Código al lado del título (ej. "NOR") */
 .tabla-grupo-codigo {
-    margin-left: 6px;
+    margin-left: 0.333rem;
     font-family: var(--fuente-codigo);
     color: var(--color-gris);
 }
@@ -409,7 +411,7 @@
 /* Etiqueta en forma de píldora (ej. el rol en la tabla de usuarios) */
 .etiqueta {
     display: inline-block;
-    padding: 3px 10px;
+    padding: 0.167rem 0.556rem;
     border-radius: 999px;
     white-space: nowrap;
     font-size: 0.8rem;
@@ -471,22 +473,22 @@
 }
 
 .avatar-chico {
-    width: 34px;
-    height: 34px;
+    width: 1.889rem;
+    height: 1.889rem;
     font-size: 0.75rem;
 }
 
 .avatar-mediano {
-    width: 72px;
-    height: 72px;
+    width: 4rem;
+    height: 4rem;
     font-size: 1.3rem;
 }
 
 .avatar-grande {
-    width: 160px;
-    height: 160px;
-    border: 4px solid var(--color-blanco);
-    box-shadow: 0 0 0 2px var(--color-borde), 0 6px 16px rgba(0, 28, 59, 0.15);
+    width: 8.889rem;
+    height: 8.889rem;
+    border: 0.222rem solid var(--color-blanco);
+    box-shadow: 0 0 0 2px var(--color-borde), 0 0.333rem 0.889rem rgba(0, 28, 59, 0.15);
     font-size: 3rem;
     letter-spacing: 2px;
 }
@@ -504,7 +506,7 @@
 .campos {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    gap: 0.889rem;
 }
 
 .campo-ancho {
@@ -514,7 +516,7 @@
 .campo {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 0.333rem;
 }
 
 .campo-etiqueta {
@@ -524,8 +526,8 @@
 }
 
 .campo-input {
-    height: 42px;
-    padding: 0 12px;
+    height: 2.333rem;
+    padding: 0 0.667rem;
     background-color: var(--color-fondo);
     border: 1px solid var(--color-borde);
     border-radius: var(--radio);
@@ -562,7 +564,7 @@
    para que los botones no "salten" al aparecer el mensaje */
 .form-error {
     min-height: 1.2em;
-    margin: 16px 0 0;
+    margin: 0.889rem 0 0;
     font-size: 0.85rem;
     color: var(--color-rojo);
 }
@@ -579,13 +581,13 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
+    gap: 0.667rem;
 }
 
 /* Misma altura que el buscador y fondo blanco */
 .filtro {
-    height: 40px;
-    min-width: 180px;
+    height: 2.222rem;
+    min-width: 10rem;
     background-color: var(--color-blanco);
 }
 
@@ -600,7 +602,7 @@
 .pestanas {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 0.222rem;
     border-bottom: 2px solid var(--color-borde);
 }
 
@@ -611,12 +613,12 @@
 .pestana {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.444rem;
     margin-bottom: -2px; /* la línea de la pestaña elegida tapa la línea de abajo */
-    padding: 10px 16px;
+    padding: 0.556rem 0.889rem;
     background: none;
     border: none;
-    border-bottom: 3px solid transparent;
+    border-bottom: 0.167rem solid transparent;
     font-family: inherit;
     font-size: 0.92rem;
     font-weight: 600;
@@ -636,8 +638,8 @@
 
 /* Número a la derecha del texto (ej. cuántos pedidos hay) */
 .pestana-cuenta {
-    min-width: 22px;
-    padding: 1px 8px;
+    min-width: 1.222rem;
+    padding: 1px 0.444rem;
     border-radius: 999px;
     background-color: var(--color-borde-suave);
     font-size: 0.75rem;
@@ -654,6 +656,24 @@
     color: #B34A07;
 }
 
+/* Pestañas que son enlaces a otra sección (Tiendas | Clientes | Empresas) */
+a.pestana {
+    text-decoration: none;
+}
+
+a.pestana[hidden] {
+    display: none;
+}
+
+/* Solo para el Desarrollador (ej. pestaña Empresas). El rol lo pone js/permisos.js */
+html:not([data-rol="desarrollador"]) [data-solo-desarrollador] {
+    display: none !important;
+}
+
+.pestanas + .pagina-cabecera {
+    margin-top: 0.889rem;
+}
+
 /* ==================================================
    MAPA "PUNTO A -> PUNTO B" (lo arma crearMapaRuta() de js/mapa.js)
    Lo usan Pedidos y Cotizador. Barra (Ubicar A / Ubicar B / clic pone),
@@ -663,20 +683,20 @@
 .mapa-ruta {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.444rem;
 }
 
 .mapa-ruta-barra {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 0.444rem;
 }
 
 .mapa-ruta-clic {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.333rem;
     margin-left: auto;
     font-size: 0.8rem;
     color: var(--color-gris);
@@ -685,7 +705,7 @@
 .mapa-ruta-lado {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 0.222rem;
     cursor: pointer;
 }
 
@@ -693,8 +713,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 22px;
-    height: 22px;
+    width: 1.222rem;
+    height: 1.222rem;
     border-radius: 50%;
     font-size: 0.75rem;
     color: var(--color-blanco);
@@ -704,7 +724,7 @@
 .mapa-ruta-lado-b b { background-color: var(--color-naranja); }
 
 .mapa-ruta-opciones {
-    height: 36px;
+    height: 2rem;
     font-size: 0.82rem;
 }
 
@@ -717,7 +737,7 @@
     position: relative;
     z-index: 0;
     isolation: isolate;
-    height: 280px;
+    height: 15.556rem;
     border: 1px solid var(--color-borde);
     border-radius: var(--radio);
     overflow: hidden;
@@ -729,12 +749,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 1.556rem;
+    height: 1.556rem;
     border: 2px solid var(--color-blanco);
     border-radius: 50% 50% 50% 0;
     transform: rotate(-45deg);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 2px 0.333rem rgba(0, 0, 0, 0.35);
     font-weight: 700;
     font-size: 0.8rem;
     color: var(--color-blanco);
@@ -764,7 +784,7 @@
 
 /* "Ampliar mapa": más alto (para poner los puntos con el dedo) */
 .mapa-ruta-grande .mapa-ruta-mapa {
-    height: min(70vh, 560px);
+    height: min(70vh, 31.111rem);
 }
 
 .mapa-ruta-mapa {
@@ -784,15 +804,15 @@
     left: 0;
     right: 0;
     z-index: 30;
-    max-height: 260px;
+    max-height: 14.444rem;
     margin: 0;
-    padding: 4px 0;
+    padding: 0.222rem 0;
     overflow-y: auto;
     list-style: none;
     background-color: var(--color-blanco);
     border: 1px solid var(--color-borde);
     border-radius: var(--radio);
-    box-shadow: 0 10px 24px rgba(0, 28, 59, 0.18);
+    box-shadow: 0 0.556rem 1.333rem rgba(0, 28, 59, 0.18);
 }
 
 .mapa-sugerencias[hidden] {
@@ -803,7 +823,7 @@
     display: flex;
     flex-direction: column;
     gap: 1px;
-    padding: 8px 12px;
+    padding: 0.444rem 0.667rem;
     cursor: pointer;
 }
 
@@ -857,7 +877,7 @@
 
     .mapa-ruta-barra .boton {
         width: 100%;
-        min-height: 40px;
+        min-height: 2.5rem;
         white-space: normal;
         line-height: 1.15;
     }
@@ -865,7 +885,7 @@
     .mapa-ruta-clic {
         grid-column: 1 / -1;
         justify-content: center;
-        padding: 6px 0;
+        padding: 0.375rem 0;
         font-size: 0.85rem;
     }
 
@@ -876,13 +896,13 @@
 
     /* Botones A / B más fáciles de tocar */
     .mapa-ruta-lado b {
-        width: 30px;
-        height: 30px;
+        width: 1.875rem;
+        height: 1.875rem;
         font-size: 0.85rem;
     }
 
     .mapa-ruta-mapa {
-        height: 240px;
+        height: 15rem;
     }
 
     .mapa-ruta-grande .mapa-ruta-mapa {
@@ -899,7 +919,7 @@
     }
 
     .mapa-sugerencias li {
-        padding: 10px 12px; /* más espacio para el dedo */
+        padding: 0.625rem 0.75rem; /* más espacio para el dedo */
     }
 }
 
@@ -917,8 +937,8 @@
 
 .resumen {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(7.778rem, 1fr));
+    gap: 0.667rem;
 }
 
 .resumen-item {
@@ -926,10 +946,10 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 2px;
-    padding: 14px 18px;
+    padding: 0.778rem 1rem;
     background-color: var(--color-blanco);
     border: 1px solid var(--color-borde);
-    border-left: 4px solid var(--color-azul-marino);
+    border-left: 0.222rem solid var(--color-azul-marino);
     border-radius: var(--radio-grande);
     box-shadow: var(--sombra-tarjeta);
     font-family: inherit;
@@ -949,9 +969,10 @@
 .resumen-turquesa { border-left-color: #0E6B63; }
 .resumen-rosada   { border-left-color: #9D174D; }
 .resumen-gris     { border-left-color: var(--color-gris); }
+.resumen-morada   { border-left-color: #6D28D9; }
 
 .resumen-item:hover {
-    box-shadow: 0 6px 18px rgba(0, 28, 59, 0.12);
+    box-shadow: 0 0.333rem 1rem rgba(0, 28, 59, 0.12);
 }
 
 .resumen-item.activo {
@@ -977,19 +998,19 @@
    ================================================== */
 
 .dialogo {
-    width: min(560px, calc(100vw - 32px)); /* ancho de la ventana */
-    max-height: calc(100vh - 32px);
+    width: min(31.111rem, calc(100vw - 1.778rem)); /* ancho de la ventana */
+    max-height: calc(100vh - 1.778rem);
     overflow-y: auto; /* si no cabe en pantallas bajas, aparece scroll dentro */
     padding: 0;
     border: none;
     border-radius: var(--radio-grande);
     background-color: var(--color-blanco);
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 1.111rem 2.778rem rgba(0, 0, 0, 0.3);
 }
 
 .dialogo-chico {
-    width: min(420px, calc(100vw - 32px));
-    padding: 24px;
+    width: min(23.333rem, calc(100vw - 1.778rem));
+    padding: 1.333rem;
 }
 
 /* Aparece creciendo; el fondo oscuro con un fundido */
@@ -1007,11 +1028,11 @@
 
 /* Formulario dentro de la ventana */
 .dialogo-form {
-    padding: 24px;
+    padding: 1.333rem;
 }
 
 .dialogo-titulo {
-    margin: 0 0 20px;
+    margin: 0 0 1.111rem;
     font-size: 1.2rem;
     font-weight: 600;
     color: var(--color-texto);
@@ -1028,8 +1049,8 @@
 .dialogo-botones {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
-    margin-top: 20px;
+    gap: 0.556rem;
+    margin-top: 1.111rem;
 }
 
 /* ==================================================
@@ -1038,7 +1059,7 @@
 
 @media (max-width: 600px) {
     .pagina {
-        padding: 16px;
+        padding: 1rem;
     }
 
     .campos {
@@ -1051,6 +1072,197 @@
 
     .filtro {
         flex: 1 1 100%; /* cada filtro a lo ancho */
+    }
+}
+
+/* ==================================================
+   QR (js/qr.js): lector con la cámara, QR para ver / imprimir,
+   ficha del piloto validado y ventana con la información del pedido
+   ================================================== */
+
+.qr-dialogo {
+    width: min(32rem, calc(100vw - 1.25rem));
+}
+
+.qr-camara {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--radio-grande);
+    background-color: var(--color-fondo-oscuro);
+}
+
+.qr-camara[hidden] {
+    display: none;
+}
+
+.qr-camara video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.qr-marco {
+    position: absolute;
+    inset: 18%;
+    border: 0.188rem solid rgba(255, 255, 255, 0.9);
+    border-radius: var(--radio-grande);
+    box-shadow: 0 0 0 100vmax rgba(0, 28, 59, 0.35);
+    pointer-events: none;
+}
+
+.qr-sin-camara {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 1.25rem;
+    font-size: 0.9rem;
+    text-align: center;
+    color: var(--color-blanco);
+    background-color: var(--color-fondo-oscuro);
+}
+
+.qr-estado {
+    margin: 0.75rem 0 0;
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--radio);
+    background-color: var(--color-fondo);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-texto);
+}
+
+.qr-estado:empty {
+    display: none;
+}
+
+.qr-estado.ok    { background-color: var(--color-verde-claro); color: var(--color-verde); }
+.qr-estado.error { background-color: var(--color-rojo-claro);  color: var(--color-rojo); }
+
+/* Ficha del piloto validado: foto grande y nombre */
+.qr-ficha {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    text-align: center;
+}
+
+.qr-ficha-nombre {
+    font-size: 1.2rem;
+    color: var(--color-texto);
+}
+
+.qr-ficha-tienda {
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+/* Marca tardía: "¿Por qué llegas tarde?" dentro del lector */
+.qr-justificar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.qr-justificar .campo-input {
+    height: auto;
+    padding: 0.5rem 0.75rem;
+    resize: vertical;
+}
+
+/* QR para ver, descargar o imprimir */
+.qr-ver {
+    text-align: center;
+}
+
+.qr-subtitulo {
+    margin: -0.5rem 0 0.75rem;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+.qr-persona {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.05rem;
+}
+
+.qr-persona[hidden] {
+    display: none;
+}
+
+.qr-lienzo {
+    display: block;
+    width: min(18rem, 100%);
+    height: auto;
+    margin: 0 auto;
+    image-rendering: pixelated;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.qr-nota {
+    margin: 0.75rem 0 0;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+/* Ventana con la información del pedido (al escanear su QR) */
+.qr-pedido-titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.qr-datos {
+    display: grid;
+    grid-template-columns: minmax(7rem, auto) 1fr;
+    gap: 0.375rem 0.75rem;
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.qr-datos dt {
+    font-weight: 600;
+    color: var(--color-gris);
+}
+
+.qr-datos dd {
+    margin: 0;
+    color: var(--color-texto);
+    overflow-wrap: anywhere;
+}
+
+.qr-mercaderia-titulo {
+    margin: 1rem 0 0.375rem;
+    font-size: 0.95rem;
+}
+
+.qr-mercaderia {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 600px) {
+    .qr-datos {
+        grid-template-columns: 1fr;
+        gap: 0.125rem;
+    }
+
+    .qr-datos dd {
+        margin-bottom: 0.375rem;
     }
 }
 

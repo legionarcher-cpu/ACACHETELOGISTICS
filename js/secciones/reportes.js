@@ -15,7 +15,7 @@
                           por tienda", columna "Compra"
        permite_alcohol -> tarjeta y columna "Alcohol"
        usa_bodega      -> tarjeta "En bodega"
-       usa_recoleccion -> tarjeta y columna "Recolección"
+       usa_recoleccion -> tarjeta y columna "Punto de partida"
        usa_tamanos     -> gráfica "Bultos por tamaño"
        sin compra      -> tarjeta "Peso transportado" y columna "Bultos"
      Para agregar algo propio de una actividad: TARJETAS_ACTIVIDAD,
@@ -40,12 +40,8 @@
    Librerías gratuitas desde CDN, se descargan solo al usarlas.
    ================================================== */
 
-const REP_LIBRERIAS = {
-    chart: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
-    xlsx: 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
-    jspdf: 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
-    autotable: 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
-};
+// Direcciones de las librerías y cargarLibreria(): js/componentes.js (también las usa Inicio)
+const REP_LIBRERIAS = LIBRERIAS;
 
 // Colores de las gráficas (paleta de referencia validada; una serie = un color)
 const REP_COLORES = {
@@ -60,28 +56,16 @@ const REP_MONEDA_PDF = 'CRC ';  // el PDF no tiene el símbolo ₡ en su letra e
 
 const REP_ESTADOS = [
     ['registrado', 'Registrado'], ['recibido_bodega', 'En bodega'], ['asignado', 'Asignado'],
-    ['reprogramado', 'Reprogramado'], ['en_ruta', 'En ruta'], ['entregado', 'Entregado'],
+    ['reprogramado', 'Reprogramado'], ['alistando', 'Alistando'], ['listo_despacho', 'Listo para despachar'],
+    ['recibido_ruta', 'Recibido para ruta'], ['cargado', 'Cargado'], ['en_ruta', 'En ruta'], ['en_entrega', 'Entregando'],
+    ['entregado', 'Entregado'],
     ['entregado_incidencia', 'Entregado con incidencia'], ['no_entregado', 'No entregado'],
     ['devuelto', 'Devuelto'], ['cancelado', 'Cancelado'],
 ];
 const REP_TEXTO_ESTADO = Object.fromEntries(REP_ESTADOS);
 const REP_ENTREGADOS = ['entregado', 'entregado_incidencia'];
-const REP_PENDIENTES = ['registrado', 'recibido_bodega', 'asignado', 'reprogramado', 'en_ruta'];
-
-// Descarga una librería una sola vez
-const repScripts = new Map();
-function cargarLibreria(url) {
-    if (!repScripts.has(url)) {
-        repScripts.set(url, new Promise((resolve, reject) => {
-            const s = document.createElement('script');
-            s.src = url;
-            s.onload = () => resolve();
-            s.onerror = () => { repScripts.delete(url); s.remove(); reject(new Error(`No se pudo descargar ${url}`)); };
-            document.head.appendChild(s);
-        }));
-    }
-    return repScripts.get(url);
-}
+const REP_PENDIENTES = ['registrado', 'recibido_bodega', 'asignado', 'reprogramado', 'alistando', 'listo_despacho',
+    'recibido_ruta', 'cargado', 'en_ruta', 'en_entrega'];
 
 registrarSeccion('reportes', (zona) => {
 
@@ -92,7 +76,10 @@ registrarSeccion('reportes', (zona) => {
     const esGeneral = esAdministrador() || esAdminG1();
     const regionG2 = esAdminG2() ? regionActual() : null;
     const esG3 = esAdminG3();
-    const puedeExportar = esGeneral || !!regionG2; // G3 solo ve
+    // Piloto: SOLO sus pedidos y solo de los últimos 7 días (hoy y los 6 anteriores)
+    const esPiloto = rolActual() === 'piloto';
+    const REP_DIAS_PILOTO = 7;
+    const puedeExportar = esGeneral || !!regionG2 || esPiloto; // G3 solo ve; el piloto exporta lo suyo
 
     // ---------- Elementos ----------
     const selRegion = $('#repRegion');
@@ -153,6 +140,17 @@ registrarSeccion('reportes', (zona) => {
         inDesde.value = aTexto(desde);
         inHasta.value = aTexto(hasta);
         marcarAtajo(tipo);
+    }
+
+    // Piloto: las fechas solo pueden estar dentro de los últimos 7 días
+    function limitarFechasPiloto() {
+        if (!esPiloto) return;
+        const d = new Date();
+        const minimo = aTexto(new Date(d.getFullYear(), d.getMonth(), d.getDate() - (REP_DIAS_PILOTO - 1)));
+        const maximo = hoy();
+        [inDesde, inHasta].forEach((i) => { i.min = minimo; i.max = maximo; });
+        if (!inDesde.value || inDesde.value < minimo || inDesde.value > maximo) inDesde.value = minimo;
+        if (!inHasta.value || inHasta.value > maximo || inHasta.value < minimo) inHasta.value = maximo;
     }
 
     function marcarAtajo(tipo) {
@@ -267,13 +265,22 @@ registrarSeccion('reportes', (zona) => {
         if (q.get('desde') && q.get('hasta')) {
             inDesde.value = q.get('desde');
             inHasta.value = q.get('hasta');
-        } else {
+        } else if (!esPiloto) {
             atajo('mes');
+        }
+        // Piloto: sin región / tienda / "ver por" ni atajos; solo fechas de los últimos 7 días
+        if (esPiloto) {
+            zona.querySelector('.rep-cascada').hidden = true;
+            zona.querySelector('.rep-atajos').hidden = true;
+            $('#repLimpiar').hidden = true;
+            $('#repSubtitulo').textContent = `Tus pedidos de los últimos ${REP_DIAS_PILOTO} días: entregas, tiempos y cobros`;
+            limitarFechasPiloto();
         }
         return null;
     }
 
     async function cargar(entidadDeseada = selEntidad.value) {
+        limitarFechasPiloto();
         if (inDesde.value > inHasta.value) {
             aviso.mostrar('La fecha "Desde" no puede ser después de "Hasta".', 'error');
             return;
@@ -282,7 +289,7 @@ registrarSeccion('reportes', (zona) => {
 
         let q = db.from('pedidos').select(
             'id, codigo, actividad, tienda_id, cliente_id, cliente_nombre, cliente_telefono, direccion_recoleccion, ' +
-            'fecha_entrega, marca_numero, piloto_id, creado_por, estado, costo_envio, monto_compra, cobrar_compra, ' +
+            'fecha_entrega, marca_numero, piloto_id, creado_por, estado, motivo_cancelacion, costo_envio, monto_compra, cobrar_compra, ' +
             'total_cobrar, peso_total_kg, lleva_alcohol, envio_gratis:costo_desglose->envio_gratis, creado_en, ' +
             'pedido_articulos(categoria, cantidad, tamano), ' +
             'pedido_entregas(satisfecho, hubo_retraso, mercaderia_buena, motivos_retraso(nombre))')
@@ -291,9 +298,10 @@ registrarSeccion('reportes', (zona) => {
         // Solo la actividad de la pestaña (nunca revueltas)
         if (actividad) q = q.eq('actividad', actividad.codigo);
 
-        // Alcance: tienda elegida, o las tiendas visibles de la región elegida
+        // Alcance: el piloto, solo sus pedidos; los demás, la tienda elegida o las de la región elegida
         const ids = tiendas.filter((t) => (!selRegion.value || t.region === selRegion.value)).map((t) => t.id);
-        if (selTienda.value) q = q.eq('tienda_id', Number(selTienda.value));
+        if (esPiloto) q = q.eq('piloto_id', (obtenerSesion() || {}).id || 0);
+        else if (selTienda.value) q = q.eq('tienda_id', Number(selTienda.value));
         else if (!esGeneral || selRegion.value) q = q.in('tienda_id', ids.length ? ids : [0]);
 
         const { data, error } = await q.order('fecha_entrega', { ascending: false }).limit(5000);
@@ -447,7 +455,7 @@ registrarSeccion('reportes', (zona) => {
         { si: () => usa('usa_bodega'),
           tarjeta: (r) => ['En bodega', String(r.enBodega), 'esperando piloto'] },
         { si: () => usa('usa_recoleccion'),
-          tarjeta: (r) => ['Con recolección', String(r.conRecoleccion), `${porcentaje(r.conRecoleccion, r.noCancelados)} de los pedidos`] },
+          tarjeta: (r) => ['Con punto de partida', String(r.conRecoleccion), `${porcentaje(r.conRecoleccion, r.noCancelados)} de los pedidos`] },
     ];
 
     // Las tarjetas (se reutilizan en Excel y PDF): comunes + las de la actividad
@@ -584,6 +592,14 @@ registrarSeccion('reportes', (zona) => {
                     return e && e.hubo_retraso ? ((e.motivos_retraso && e.motivos_retraso.nombre) || 'Sin motivo') : null;
                 }).sort((a, b) => b[1] - a[1]),
             },
+            // Cuántos se cancelan y por qué (motivo escrito al cancelar; se agrupan textos iguales)
+            cancelaciones: {
+                titulo: 'Cancelaciones por motivo', columnas: ['Motivo', 'Cancelados'],
+                filas: contar(pedidos.filter((p) => p.estado === 'cancelado'), (p) => {
+                    const m = (p.motivo_cancelacion || '').trim();
+                    return m ? m.charAt(0).toUpperCase() + m.slice(1) : 'Sin motivo';
+                }).sort((a, b) => b[1] - a[1]).slice(0, 15),
+            },
         };
         if (extra) datosGraficas.extra = extra;
 
@@ -595,6 +611,9 @@ registrarSeccion('reportes', (zona) => {
         tablaDatos('#repTablaRetrasos', datosGraficas.retrasos);
         $('#repSinRetrasos').hidden = datosGraficas.retrasos.filas.length > 0;
         $('#repGrafRetrasos').parentElement.hidden = !datosGraficas.retrasos.filas.length;
+        tablaDatos('#repTablaCancelaciones', datosGraficas.cancelaciones);
+        $('#repSinCancelaciones').hidden = datosGraficas.cancelaciones.filas.length > 0;
+        $('#repGrafCancelaciones').parentElement.hidden = !datosGraficas.cancelaciones.filas.length;
         $('#repFiguraExtra').hidden = !extra;
         if (extra) {
             $('#repTituloExtra').textContent = extra.titulo;
@@ -614,6 +633,7 @@ registrarSeccion('reportes', (zona) => {
         grafica('repGrafCategorias', datosGraficas.categorias, true);
         grafica('repGrafPilotos', datosGraficas.pilotos, true);
         if (datosGraficas.retrasos.filas.length) grafica('repGrafRetrasos', datosGraficas.retrasos, true);
+        if (datosGraficas.cancelaciones.filas.length) grafica('repGrafCancelaciones', datosGraficas.cancelaciones, true);
         if (extra) grafica('repGrafExtra', extra, true);
         else if (graficas.repGrafExtra) { graficas.repGrafExtra.destroy(); delete graficas.repGrafExtra; }
     }
@@ -694,7 +714,7 @@ registrarSeccion('reportes', (zona) => {
         { id: 'tienda', texto: 'Tienda', valor: (p) => nombreTienda(p.tienda_id) },
         { id: 'cliente', texto: 'Cliente', valor: (p) => p.cliente_nombre },
         { id: 'telefono', texto: 'Teléfono', valor: (p) => p.cliente_telefono },
-        { id: 'recoleccion', texto: 'Recolección', valor: (p) => p.direccion_recoleccion || '', si: () => usa('usa_recoleccion') },
+        { id: 'recoleccion', texto: 'Punto de partida', valor: (p) => p.direccion_recoleccion || '', si: () => usa('usa_recoleccion') },
         { id: 'piloto', texto: 'Piloto', valor: (p) => (p.piloto_id ? nombres[p.piloto_id] || '' : '') },
         { id: 'estado', texto: 'Estado', valor: (p) => REP_TEXTO_ESTADO[p.estado] || p.estado },
         { id: 'envio', texto: 'Envío', valor: (p) => Number(p.costo_envio || 0), ver: (p) => dinero(p.costo_envio), numero: true },
@@ -890,7 +910,7 @@ registrarSeccion('reportes', (zona) => {
         }
 
         // Gráficas (imágenes de los canvas), dos por fila
-        const lienzos = ['repGrafDias', 'repGrafEstados', 'repGrafCategorias', 'repGrafExtra', 'repGrafPilotos', 'repGrafRetrasos']
+        const lienzos = ['repGrafDias', 'repGrafEstados', 'repGrafCategorias', 'repGrafExtra', 'repGrafPilotos', 'repGrafRetrasos', 'repGrafCancelaciones']
             .filter((id) => {
                 const lienzo = zona.querySelector(`#${id}`);
                 return graficas[id] && !lienzo.parentElement.hidden && !lienzo.closest('figure').hidden;

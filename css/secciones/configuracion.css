@@ -14,16 +14,16 @@
 /* Tarjetas en columnas que se acomodan al ancho */
 .cfg-inicio {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fill, minmax(15.556rem, 1fr));
+    gap: 0.889rem;
 }
 
 /* Una tarjeta = un botón que abre su módulo */
 .cfg-modulo-tarjeta {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 18px 20px;
+    gap: 0.778rem;
+    padding: 1rem 1.111rem;
     background-color: var(--color-blanco);
     border: 1px solid var(--color-borde);
     border-radius: var(--radio-grande);
@@ -36,7 +36,7 @@
 
 .cfg-modulo-tarjeta:hover {
     border-color: var(--color-naranja);
-    box-shadow: 0 6px 18px rgba(0, 28, 59, 0.12);
+    box-shadow: 0 0.333rem 1rem rgba(0, 28, 59, 0.12);
     transform: translateY(-2px);
 }
 
@@ -44,8 +44,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 48px;
+    width: 2.667rem;
+    height: 2.667rem;
     flex-shrink: 0;
     border-radius: var(--radio-grande);
     background-color: var(--color-naranja-claro);
@@ -56,7 +56,7 @@
 .cfg-modulo-textos {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 0.167rem;
     flex: 1;
     min-width: 0;
 }
@@ -87,7 +87,7 @@
 }
 
 .cfg-modulo-tarjeta:hover .cfg-modulo-flecha {
-    transform: translateX(3px);
+    transform: translateX(0.167rem);
     color: var(--color-naranja);
 }
 
@@ -98,20 +98,20 @@
 .cfg-modulo {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 0.889rem;
 }
 
 .cfg-modulo-cabecera {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0.222rem;
 }
 
 /* "← Configuración" */
 .cfg-volver {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 0.333rem;
     width: fit-content;
     font-size: 0.85rem;
     font-weight: 600;
@@ -126,7 +126,7 @@
 .cfg-modulo-titulo {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.444rem;
     margin: 0;
     font-size: 1.2rem;
     font-weight: 700;
@@ -143,16 +143,16 @@
 /* Nota azul (ej. "No hay opciones de configuración para tu rol") */
 .cfg-nota {
     margin: 0;
-    padding: 10px 14px;
+    padding: 0.556rem 0.778rem;
     background-color: var(--color-azul-claro);
-    border-left: 4px solid var(--color-azul);
+    border-left: 0.222rem solid var(--color-azul);
     border-radius: var(--radio);
     font-size: 0.85rem;
     color: var(--color-azul-marino);
 }
 
 .cfg-nota i {
-    margin-right: 6px;
+    margin-right: 0.333rem;
 }
 
 /* ==================================================
@@ -162,8 +162,8 @@
 .cfg-tarjeta {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 20px 24px;
+    gap: 0.889rem;
+    padding: 1.111rem 1.333rem;
 }
 
 .cfg-tarjeta-cabecera {
@@ -171,7 +171,7 @@
     align-items: flex-start;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 0.667rem;
 }
 
 .cfg-tarjeta-titulo {
@@ -182,7 +182,7 @@
 }
 
 .cfg-tarjeta-texto {
-    margin: 4px 0 0;
+    margin: 0.222rem 0 0;
     font-size: 0.85rem;
     color: var(--color-gris);
 }
@@ -193,16 +193,16 @@
     display: flex;
     align-items: flex-start;
     flex-wrap: wrap;
-    gap: 16px 24px;
+    gap: 0.889rem 1.333rem;
 }
 
 .cfg-base .campo {
-    width: 240px;
+    width: 13.333rem;
 }
 
 /* El botón queda alineado con los campos (debajo de la etiqueta) */
 .cfg-guardar-base {
-    margin-top: 24px;
+    margin-top: 1.333rem;
 }
 
 /* Campos numéricos: más angostos y el número grande */
@@ -214,7 +214,7 @@
 /* ---------- Tablas del módulo ---------- */
 
 .cfg-tabla {
-    min-width: 560px;
+    min-width: 31.111rem;
 }
 
 /* Número de marca en un círculo naranja */
@@ -222,9 +222,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
-    margin-right: 8px;
+    width: 1.556rem;
+    height: 1.556rem;
+    margin-right: 0.444rem;
     border-radius: 50%;
     background-color: var(--color-naranja-claro);
     font-weight: 700;
@@ -249,7 +249,7 @@
 
 /* La ventana del día es más ancha: 4 columnas por marca */
 .cfg-dialogo-ancho {
-    width: min(640px, calc(100vw - 32px));
+    width: min(35.556rem, calc(100vw - 1.778rem));
 }
 
 /* ---------- Ventana flotante de un módulo (ej. Actividades) ----------
@@ -258,8 +258,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 6px;
+    gap: 0.667rem;
+    margin-bottom: 0.333rem;
 }
 
 .cfg-ventana-cabecera .dialogo-titulo {
@@ -268,7 +268,7 @@
 
 /* La tabla deja aire bajo el texto de la ventana */
 #cfgActDialogo .tabla-caja {
-    margin-top: 14px;
+    margin-top: 0.778rem;
 }
 
 /* Descripción chica debajo del nombre de la actividad */
@@ -285,21 +285,21 @@
     flex-direction: column;
     gap: 2px;
     margin: 0;
-    padding: 10px 12px;
+    padding: 0.556rem 0.667rem;
     border: 1px solid var(--color-borde);
     border-radius: var(--radio);
 }
 
 .cfg-act-usa .cfg-si-no {
     height: auto;
-    padding: 4px 0;
+    padding: 0.222rem 0;
 }
 
 /* ---------- Calculadora de precios (Python) ---------- */
 .cfg-calc-controles {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(12.778rem, 1fr));
+    gap: 0.667rem;
     align-items: end;
 }
 
@@ -312,16 +312,16 @@
 .cfg-calc-grupo {
     display: flex;
     align-items: flex-end;
-    gap: 8px;
+    gap: 0.444rem;
     min-width: 0;
     margin: 0;
-    padding: 8px 10px 10px;
+    padding: 0.444rem 0.556rem 0.556rem;
     border: 1px solid var(--color-borde);
     border-radius: var(--radio);
 }
 
 .cfg-calc-grupo legend {
-    padding: 0 4px;
+    padding: 0 0.222rem;
     font-size: 0.8rem;
     font-weight: 700;
     color: var(--color-azul-marino);
@@ -330,7 +330,7 @@
 .cfg-calc-grupo label {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 0.222rem;
     flex: 1;
     min-width: 0;
     font-size: 0.75rem;
@@ -340,11 +340,11 @@
 .cfg-calc-grupo .campo-input {
     width: 100%;
     min-width: 0;
-    height: 38px;
+    height: 2.111rem;
 }
 
 .cfg-calc-unidad {
-    padding-bottom: 10px;
+    padding-bottom: 0.556rem;
     font-size: 0.8rem;
     color: var(--color-gris);
 }
@@ -355,7 +355,7 @@
 }
 
 .cfg-calc-estado {
-    margin: 12px 0 0;
+    margin: 0.667rem 0 0;
     font-size: 0.85rem;
     color: var(--color-gris);
 }
@@ -365,8 +365,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 10px;
-    margin-top: 16px;
+    gap: 0.556rem;
+    margin-top: 0.889rem;
     font-size: 0.9rem;
     color: var(--color-azul-marino);
 }
@@ -378,18 +378,18 @@
 .cfg-calc-historial {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    margin-top: 10px;
+    gap: 0.778rem;
+    margin-top: 0.556rem;
 }
 
 /* Un cálculo: cabecera, la tarifa en palabras y la tabla */
 .cfg-calc-resultado {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    padding: 14px 16px;
+    gap: 0.667rem;
+    padding: 0.778rem 0.889rem;
     border: 1px solid var(--color-borde);
-    border-left: 4px solid var(--color-naranja);
+    border-left: 0.222rem solid var(--color-naranja);
     border-radius: var(--radio-grande);
     background-color: var(--color-blanco);
     animation: aparecerBajando 0.25s ease-out;
@@ -399,7 +399,7 @@
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 10px;
+    gap: 0.556rem;
 }
 
 .cfg-calc-resultado-cabecera div {
@@ -457,7 +457,7 @@
 
 /* Línea "Más de 3 kg: se suma ₡500 por cada kg adicional" */
 .cfg-calc-tabla tr.cfg-calc-separador td {
-    padding: 8px 16px;
+    padding: 0.444rem 0.889rem;
     background-color: var(--color-naranja-claro);
     font-size: 0.82rem;
     font-weight: 700;
@@ -467,27 +467,32 @@
 
 
 .cfg-dia-cantidad {
-    max-width: 260px;
-    margin-bottom: 18px;
+    max-width: 14.444rem;
+    margin-bottom: 1rem;
 }
 
 .cfg-dia-marcas,
 #cfgDiaMarcas {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.444rem;
 }
 
 /* Una fila = "Marca N" + inicia desde + inicia hasta + termina */
 .cfg-dia-fila {
     display: grid;
-    grid-template-columns: 90px 1fr 1fr 1fr;
+    grid-template-columns: 5rem 1fr 1fr 1fr;
     align-items: center;
-    gap: 10px;
+    gap: 0.556rem;
 }
 
 .cfg-dia-fila .campo-input {
     min-width: 0;
+}
+
+/* Slots: "Slot N" + desde + hasta (una columna menos que las marcas) */
+.cfg-dia-fila.cfg-slot-fila {
+    grid-template-columns: 5rem 1fr 1fr;
 }
 
 .cfg-dia-encabezado {
@@ -505,34 +510,34 @@
 }
 
 .cfg-dia-nombre .cfg-numero-marca {
-    width: 24px;
-    height: 24px;
+    width: 1.333rem;
+    height: 1.333rem;
     font-size: 0.8rem;
 }
 
 /* "Aplicar también a": casillas de los días en fila */
 .cfg-dia-copiar {
-    margin: 18px 0 0;
+    margin: 1rem 0 0;
     padding: 0;
     border: none;
 }
 
 .cfg-dia-copiar legend {
     padding: 0;
-    margin-bottom: 8px;
+    margin-bottom: 0.444rem;
 }
 
 .cfg-dia-otros {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 0.444rem;
 }
 
 .cfg-dia-otros label {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: 0.333rem;
+    padding: 0.333rem 0.667rem;
     border: 1px solid var(--color-borde);
     border-radius: 999px;
     font-size: 0.85rem;
@@ -577,7 +582,7 @@
 .cfg-pilas {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 0.889rem;
 }
 
 /* Icono al lado del nombre en las tablas (actividades, categorías) */
@@ -589,16 +594,16 @@
 .cfg-casillas {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    max-height: 180px;
+    gap: 0.444rem;
+    max-height: 10rem;
     overflow-y: auto;
 }
 
 .cfg-casillas label {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: 0.333rem;
+    padding: 0.333rem 0.667rem;
     border: 1px solid var(--color-borde);
     border-radius: 999px;
     font-size: 0.85rem;
@@ -616,18 +621,18 @@
 .cfg-si-no {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    height: 42px;
+    gap: 0.444rem;
+    height: 2.333rem;
     font-size: 0.9rem;
     cursor: pointer;
 }
 
 /* Ejemplo del cálculo en la ventana de tarifas */
 .cfg-vista-previa {
-    margin: 16px 0 0;
-    padding: 10px 14px;
+    margin: 0.889rem 0 0;
+    padding: 0.556rem 0.778rem;
     background-color: var(--color-verde-claro);
-    border-left: 4px solid var(--color-verde);
+    border-left: 0.222rem solid var(--color-verde);
     border-radius: var(--radio);
     font-size: 0.85rem;
     line-height: 1.6;
@@ -639,8 +644,8 @@
 .cfg-opcion {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 12px 16px;
+    gap: 0.556rem;
+    padding: 0.667rem 0.889rem;
     border: 1px solid var(--color-borde);
     border-radius: var(--radio-grande);
     cursor: pointer;
@@ -666,6 +671,10 @@
 @media (max-width: 560px) {
     .cfg-dia-fila {
         grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .cfg-dia-fila.cfg-slot-fila {
+        grid-template-columns: 1fr 1fr;
     }
 
     .cfg-dia-nombre {

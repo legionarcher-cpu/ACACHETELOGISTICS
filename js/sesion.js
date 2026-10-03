@@ -42,7 +42,7 @@ const SECCIONES_LIBRES = ['inicio', 'perfil'];
 // Si un rol NO aparece aquí, puede abrir todas.
 // Para restringir otro rol, agregar una línea, ej.:  empleado: ['pedidos'],
 const SECCIONES_POR_ROL = {
-    piloto: ['inicio', 'pedidos'], // sus funciones se asignarán más adelante
+    piloto: ['inicio', 'pedidos', 'reportes'], // Reportes: solo sus pedidos de los últimos 7 días
 };
 
 // Secciones BLOQUEADAS según el rol: puede abrir todo MENOS estas
@@ -50,10 +50,12 @@ const SECCIONES_POR_ROL = {
 // lo que NO puede ver. Ej.:  empleado: ['usuarios', 'reportes'],
 const SECCIONES_BLOQUEADAS_POR_ROL = {
     empleado: ['usuarios', 'pilotos', 'reportes', 'rutas'], // sin Usuarios, Pilotos, Reportes ni Rutas
+    admin_g3: ['usuarios', 'configuracion'],                 // sin Usuarios ni Configuración
 };
 
 // Guarda los datos del usuario:
-//   { id, usuario, nombre, rol, tienda: { id, codigo, nombre } | null, region, permisos, foto_url }
+//   { id, usuario, nombre, rol, tienda: { id, codigo, nombre } | null, region, permisos, foto_url,
+//     empresa: { id, codigo, nombre, actividades } | null }
 //   rol: 'desarrollador' | 'administrador' | 'admin_g1' | 'admin_g2' | 'admin_g3' | 'empleado' | 'piloto'
 //   tienda: admin_g3, empleado y piloto (null para los demás)
 //   region: solo admin_g2 (ej. 'NOR'; null para los demás)
@@ -81,6 +83,35 @@ function cerrarSesion() {
     } catch {
         // nada que borrar
     }
+}
+
+// ---------- Empresa (sql/01 bloque 16) ----------
+// sesion.empresa = { id, codigo, nombre, actividades } o null si la base todavía
+// no tiene empresas. Cada usuario trabaja con la suya; el Desarrollador elige con
+// cuál en el menú del usuario (js/menu-usuario.js) o en Tiendas -> Empresas.
+// js/supabase.js filtra por esta empresa todo lo que lee y la pone en lo que crea.
+function empresaActual() {
+    const sesion = obtenerSesion();
+    return sesion && sesion.empresa ? sesion.empresa : null;
+}
+
+function empresaActivaId() {
+    const empresa = empresaActual();
+    return empresa ? empresa.id : null;
+}
+
+// Solo lo que la sesión necesita de una fila de la tabla empresas
+function datosEmpresaSesion(empresa) {
+    return empresa
+        ? { id: empresa.id, codigo: empresa.codigo || null, nombre: empresa.nombre, actividades: empresa.actividades || [] }
+        : null;
+}
+
+// Cambia la empresa activa (Desarrollador, o al modificar la propia) y conserva lo demás
+function cambiarEmpresaActiva(empresa) {
+    const sesion = obtenerSesion();
+    if (!sesion) return;
+    guardarSesion({ ...sesion, empresa: datosEmpresaSesion(empresa) });
 }
 
 // ---------- Roles ----------
@@ -152,6 +183,9 @@ function tienePermiso(seccion) {
     const sesion = obtenerSesion();
     if (!sesion) return false;
     if (SECCIONES_LIBRES.includes(seccion)) return true;
+
+    // Empresas (pestaña de Tiendas): solo el Desarrollador
+    if (seccion === 'empresas') return sesion.rol === 'desarrollador';
 
     const delRol = SECCIONES_POR_ROL[sesion.rol];
     if (delRol) return delRol.includes(seccion);

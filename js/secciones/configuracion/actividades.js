@@ -14,7 +14,7 @@
        Una actividad ACTIVA queda disponible en TODAS las tiendas (no se
        elige por tienda).
        Lo que usa cada actividad decide qué partes muestra el formulario
-       de Pedidos (bodega, recolección, tamaños, compra, alcohol).
+       de Pedidos (bodega, punto de partida, tamaños, compra, alcohol).
        (No se agregan ni se eliminan desde aquí.)
 
    Solo el Desarrollador (esDesarrollador, js/sesion.js); el Administrador no la ve.
@@ -27,7 +27,7 @@
 // Lo que puede usar una actividad (columnas usa_* de la tabla actividades) y su texto corto
 const ACT_USOS = {
     usa_bodega:      'Bodega',
-    usa_recoleccion: 'Recolección',
+    usa_recoleccion: 'Punto de partida',
     usa_tamanos:     'Tamaños',
     usa_compra:      'Compra',
     permite_alcohol: 'Alcohol',

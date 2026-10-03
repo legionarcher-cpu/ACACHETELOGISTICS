@@ -43,11 +43,19 @@
     --fuente-codigo: Consolas, 'Courier New', monospace; /* usuarios, códigos */
 
     /* ---------- Bordes redondeados ---------- */
-    --radio:        8px;  /* botones y campos */
-    --radio-grande: 12px; /* tarjetas y ventanas */
+    --radio:        0.444rem; /* botones y campos (8px en 1920x1080) */
+    --radio-grande: 0.667rem; /* tarjetas y ventanas (12px) */
+
+    /* ---------- Marco de la página (computadora) ----------
+       En rem: crecen o se achican con la pantalla (ver css/base.css).
+       Tablet y celular tienen los suyos en responsive/responsive.css. */
+    --alto-encabezado:  5.25rem;                 /* 95px en 1920x1080 */
+    --alto-pie:         5.25rem;                 /* alto mínimo; crece si los botones bajan de línea */
+    --ancho-menu:       clamp(12rem, 15vw, 17rem); /* menú lateral: 15% con mínimo y máximo */
+    --ancho-max-pagina: 110rem;                  /* en monitores ultra anchos la sección se centra */
 
     /* ---------- Sombras ---------- */
-    --sombra-tarjeta: 0 2px 8px rgba(0, 28, 59, 0.06);
-    --sombra-foco:    0 0 0 3px rgba(18, 88, 166, 0.15); /* anillo azul al escribir en un campo */
-    --sombra-boton:   0 4px 10px rgba(0, 0, 0, 0.15);    /* botón al pasar el mouse */
+    --sombra-tarjeta: 0 2px 0.444rem rgba(0, 28, 59, 0.06);
+    --sombra-foco:    0 0 0 0.167rem rgba(18, 88, 166, 0.15); /* anillo azul al escribir en un campo */
+    --sombra-boton:   0 0.222rem 0.556rem rgba(0, 0, 0, 0.15);    /* botón al pasar el mouse */
 }

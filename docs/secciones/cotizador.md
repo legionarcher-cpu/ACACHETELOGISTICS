@@ -12,7 +12,7 @@ Configuración:
 
 1. **Tienda:** decide la tarifa (tienda > región > general). Admin y G1 pueden elegir "Tarifa general";
    el G2, "Tarifa de la región". G3 y Empleado usan la de su tienda.
-2. **Ruta A → B** (mapa gratis, `js/mapa.js`): A = la recolección escrita o, si está vacía, la tienda;
+2. **Ruta A → B** (mapa gratis, `js/mapa.js`): A = el punto de partida escrito o, si está vacío, la tienda;
    B = la entrega. **Mientras se escribe aparecen sugerencias** (primero las de la zona que se ve en el
    mapa); al elegir una, el punto se pone solo. También se corrigen con clic o arrastrando. Si la tarifa
    tiene **precio por km**, los km por calle se suman al precio (la tabla rápida es solo por peso).

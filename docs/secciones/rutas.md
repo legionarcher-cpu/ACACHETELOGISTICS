@@ -25,6 +25,14 @@ Uso en Pedidos: al registrar se elige la ruta y el piloto sale solo según esta 
 
 G3: su tienda, solo ver. Empleado y Piloto: sin acceso (ven su ruta del día en Pedidos).
 
+## Validación del día (QR de cada piloto)
+
+Debajo del calendario (Administrador, G1 y G2): los pilotos de la tienda con su foto, si la tienda ya los
+validó hoy y el botón **QR de hoy** (`qr_piloto_dia`): QR con su nombre y foto para descargar o imprimir. Solo
+sirve ese día. La tienda lo escanea con **Escanear QR** (encabezado) al empezar el día, ve su nombre y foto
+para confirmar que es él (`validar_piloto`), y desde ese momento el piloto puede marcar sus horarios. El
+piloto también lo ve en su Inicio ("Mi QR del día").
+
 ## Reglas relacionadas
 
 - Una asignación dura como máximo 31 días (regla de la base de datos).

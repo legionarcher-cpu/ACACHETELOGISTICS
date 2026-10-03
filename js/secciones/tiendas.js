@@ -8,7 +8,8 @@
      - Crear:     "Nueva tienda" -> región + número -> código (ej. NOR-004).
                   Al elegir la región se sugiere el siguiente número libre.
      - Modificar: lápiz -> todo, incluido el código. Si el código cambia,
-                  sus usuarios se renombran solos (cen-001-jperez -> nor-004-jperez)
+                  sus usuarios se renombran solos solo si cambia la región
+                  (cenjperez01 -> norjperez01; llevan la región, no la tienda)
                   con la función cambiar_codigo_tienda (sql/00, sección 3).
      - Eliminar:  basurero -> confirmación. Solo si NO tiene usuarios
                   (primero hay que moverlos a otra tienda desde Usuarios).
@@ -22,9 +23,11 @@
      - Empleado: SOLO VER (no aparece "Nueva tienda" ni modificar/eliminar).
      - Piloto: no entra a Tiendas (SECCIONES_POR_ROL en js/sesion.js).
 
-   Clientes: el botón "Agregar clientes" y el botón de personas de cada
-   fila abren la sección Clientes (js/secciones/clientes.js). Cada rol
-   solo ve los clientes de su alcance.
+   Clientes: pestaña "Clientes" arriba (secciones/tiendas.html), el botón
+   de personas de cada fila (sus clientes) y el de "Nuevo cliente" de cada fila
+   (abre el formulario con esa tienda marcada) llevan a js/secciones/clientes.js.
+   Cada rol solo ve los clientes de su alcance.
+   Empresas: tercera pestaña, solo el Desarrollador (js/secciones/empresas.js).
      ⚠ Esto lo controla la página; la protección real en la base de datos
        llega en la Fase 7 (Supabase Auth).
 
@@ -33,7 +36,8 @@
        región (sql/00, sección 1).
      - Una tienda con usuarios no se puede eliminar (la base de datos lo
        impide). Se puede marcar como "Inactiva".
-     - Las regiones se administran en Supabase (tabla "regiones").
+     - Regiones: botón "Regiones" (Administrador y Admin G1). Cada empresa
+       tiene las suyas (sql/01 bloque 16); el código no se repite entre empresas.
 
    Más adelante (según PROPUESTA-ESTRUCTURADA-V2.md) cada tienda se
    enlazará con sus pedidos, solicitudes de transporte y reportes.
@@ -200,7 +204,11 @@ registrarSeccion('tiendas', (zona) => {
         //   eliminar              -> solo Administrador
         const botones = [];
         if (puedeVerClientesDe(t)) {
+            // QR de marcas del mes (js/qr.js): se imprime y los pilotos lo escanean al llegar
+            botones.push(crearBotonIcono('qr', t.id, 'bi-qr-code', `QR de marcas del mes de ${t.codigo}`));
             botones.push(crearBotonIcono('ver', t.id, 'bi-people', `Clientes de ${t.codigo}`));
+            // Nuevo cliente ya marcado en esta tienda (#clientes?tienda=ID&nuevo=1)
+            botones.push(crearBotonIcono('cliente', t.id, 'bi-person-plus', `Nuevo cliente en ${t.codigo}`));
         }
         if (puedeModificar) {
             botones.push(crearBotonIcono('editar', t.id, 'bi-pencil', `Modificar ${t.nombre}`));
@@ -271,9 +279,33 @@ registrarSeccion('tiendas', (zona) => {
 
         // Clientes de la tienda: abre la sección Clientes filtrada (#clientes?tienda=ID)
         if (boton.dataset.accion === 'ver' && puedeVerClientesDe(tienda)) location.hash = `clientes?tienda=${tienda.id}`;
+        if (boton.dataset.accion === 'cliente' && puedeVerClientesDe(tienda)) location.hash = `clientes?tienda=${tienda.id}&nuevo=1`;
+        if (boton.dataset.accion === 'qr' && puedeVerClientesDe(tienda)) mostrarQrMarcas(tienda);
         if (boton.dataset.accion === 'editar' && puedeModificar) abrirFormulario(tienda);
         if (boton.dataset.accion === 'eliminar' && admin) pedirConfirmacion(tienda);
     });
+
+    // QR de marcas del mes de una tienda (sql: qr_marca_mes). Cambia solo el día 1 de cada mes:
+    // el del mes anterior deja de servir. Los pilotos lo escanean al llegar ("Escanear QR")
+    async function mostrarQrMarcas(t) {
+        const { data, error } = await db.rpc('qr_marca_mes', { p_tienda: t.id });
+        if (error) {
+            console.error('Error al obtener el QR de marcas:', error);
+            aviso.mostrar(error.code === 'PGRST202' || error.code === '42883'
+                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 14: QR).'
+                : 'No se pudo obtener el QR de marcas.', 'error');
+            return;
+        }
+        const mes = new Date().toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
+        mostrarQrEnVentana({ // js/qr.js
+            titulo: `QR de marcas · ${t.codigo}`,
+            subtitulo: `${t.nombre} · válido en ${mes}`,
+            texto: data,
+            nota: 'Imprímelo y déjalo visible en la tienda: el piloto lo escanea al llegar para marcar su horario. ' +
+                'Cambia cada mes; el día 1 imprime el nuevo.',
+            archivo: `qr-marcas-${t.codigo}-${new Date().toISOString().slice(0, 7)}`,
+        });
+    }
 
     // ==================================================
     // CÓDIGO DE LA TIENDA (región + número)
@@ -306,12 +338,13 @@ registrarSeccion('tiendas', (zona) => {
         vistaPrevia.textContent = codigo || '—';
 
         const usuariosTienda = editando ? cantidadUsuarios(editando) : 0;
-        const cambia = editando && codigo && codigo !== editando.codigo;
+        // Los usuarios llevan la REGIÓN (cenjperez01), no la tienda: solo cambian si cambia la región
+        const cambia = editando && codigo && prefijoUsuario(codigo) !== prefijoUsuario(editando.codigo);
         avisoCodigo.hidden = !(cambia && usuariosTienda > 0);
         if (!avisoCodigo.hidden) {
             avisoCodigo.textContent =
                 `Al guardar, ${plural(usuariosTienda, 'el usuario', 'los usuarios')} de esta tienda cambiará` +
-                `${usuariosTienda === 1 ? '' : 'n'} de ${editando.codigo.toLowerCase()}-… a ${codigo.toLowerCase()}-… ` +
+                `${usuariosTienda === 1 ? '' : 'n'} de ${prefijoUsuario(editando.codigo)}… a ${prefijoUsuario(codigo)}… ` +
                 `y deberá${usuariosTienda === 1 ? '' : 'n'} iniciar sesión con el usuario nuevo.`;
         }
     }
@@ -515,6 +548,114 @@ registrarSeccion('tiendas', (zona) => {
     });
 
     // ==================================================
+    // REGIONES DE LA EMPRESA (Administrador y Admin G1; sql/01 bloque 16)
+    // Las regiones se leen y se crean en la empresa activa (js/supabase.js).
+    // Una región con tiendas no se elimina (la base lo impide).
+    // ==================================================
+
+    const dlgRegiones = $('#tndRegDialogo');
+    const errorReg = $('#tndRegError');
+    const botonRegiones = $('#tndRegiones');
+    botonRegiones.hidden = !puedeModificar;
+
+    function dibujarRegiones() {
+        const cuerpo = $('#tndRegLista');
+        cuerpo.replaceChildren();
+        if (!regiones.length) {
+            cuerpo.appendChild(crearFilaVacia('Esta empresa todavía no tiene regiones: agrega la primera.', 4));
+            return;
+        }
+        regiones.forEach((r) => {
+            const tr = document.createElement('tr');
+            const enUso = tiendas.filter((t) => t.region === r.codigo).length;
+            tr.appendChild(crearCelda(r.codigo, 'texto-codigo'));
+            tr.appendChild(crearCelda(r.nombre));
+            tr.appendChild(crearCelda(enUso, 'tnd-col-numero'));
+            tr.appendChild(crearCeldaAcciones(
+                crearBotonIcono('editar', r.codigo, 'bi-pencil', `Cambiar el nombre de ${r.nombre}`),
+                crearBotonIcono('eliminar', r.codigo, 'bi-trash3',
+                    enUso ? 'No se puede eliminar: tiene tiendas.' : `Eliminar ${r.nombre}`, enUso > 0)));
+            cuerpo.appendChild(tr);
+        });
+    }
+
+    async function recargarRegiones() {
+        filtroRegion.querySelectorAll('option:not([value=""])').forEach((o) => o.remove());
+        await cargarRegiones();
+        dibujarRegiones();
+        dibujarTabla();
+    }
+
+    botonRegiones.addEventListener('click', () => {
+        errorReg.textContent = '';
+        $('#tndRegForm').reset();
+        dibujarRegiones();
+        dlgRegiones.showModal();
+        $('#tndRegCodigo').focus();
+    });
+    $('#tndRegCerrar').addEventListener('click', () => dlgRegiones.close());
+    $('#tndRegCodigo').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
+
+    $('#tndRegForm').addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        errorReg.textContent = '';
+        const codigo = $('#tndRegCodigo').value.trim();
+        const nombre = $('#tndRegNombre').value.trim();
+        if (!/^[A-Z]{3}$/.test(codigo)) {
+            errorReg.textContent = 'El código son 3 letras (ej. NOR).';
+            $('#tndRegCodigo').focus();
+            return;
+        }
+        if (!nombre) {
+            errorReg.textContent = 'Escribe el nombre de la región.';
+            $('#tndRegNombre').focus();
+            return;
+        }
+        const { error } = await db.from('regiones').insert({ codigo, nombre });
+        if (error) {
+            console.error('Error al crear la región:', error);
+            errorReg.textContent = error.code === '23505'
+                ? 'Ese código ya existe (en esta u otra empresa). Usa otro.'
+                : error.code === '42501' ? 'Falta ejecutar sql/01 (bloque 16) para crear regiones desde aquí.'
+                : 'No se pudo guardar la región.';
+            return;
+        }
+        $('#tndRegForm').reset();
+        aviso.mostrar(`Región ${codigo} creada.`);
+        recargarRegiones();
+    });
+
+    $('#tndRegLista').addEventListener('click', async (evento) => {
+        const boton = evento.target.closest('button[data-accion]');
+        if (!boton || boton.disabled) return;
+        const region = regiones.find((r) => r.codigo === boton.dataset.id);
+        if (!region) return;
+        errorReg.textContent = '';
+        if (boton.dataset.accion === 'editar') {
+            const nombre = (prompt(`Nombre de la región ${region.codigo}:`, region.nombre) || '').trim();
+            if (!nombre || nombre === region.nombre) return;
+            const { error } = await db.from('regiones').update({ nombre }).eq('codigo', region.codigo);
+            if (error) {
+                console.error('Error al modificar la región:', error);
+                errorReg.textContent = 'No se pudo cambiar el nombre.';
+                return;
+            }
+        }
+        if (boton.dataset.accion === 'eliminar') {
+            if (!confirm(`¿Eliminar la región ${region.nombre} (${region.codigo})?`)) return;
+            const { error } = await db.from('regiones').delete().eq('codigo', region.codigo);
+            if (error) {
+                console.error('Error al eliminar la región:', error);
+                errorReg.textContent = error.code === '23503'
+                    ? 'No se puede eliminar: tiene tiendas o usuarios (Admin G2).'
+                    : 'No se pudo eliminar la región.';
+                return;
+            }
+        }
+        recargarRegiones();
+    });
+
+    // ==================================================
     // ARRANQUE Y LIMPIEZA
     // ==================================================
 
@@ -526,5 +667,6 @@ registrarSeccion('tiendas', (zona) => {
         aviso.limpiar();
         if (dialogo.open) dialogo.close();
         if (confirmar.open) confirmar.close();
+        if (dlgRegiones.open) dlgRegiones.close();
     };
 });

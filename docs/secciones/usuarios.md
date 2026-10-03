@@ -9,7 +9,8 @@
 
 - Lista con rol y tienda (buscador). Crear, modificar, eliminar.
 - **Foto:** elegir o quitar (se aplica al guardar; `js/avatar.js`).
-- **Vehículo** (solo pilotos): elegir uno o registrar uno nuevo (marca + placa) desde el formulario.
+- **Vehículo** (solo pilotos): la lista se agrupa por tipo (Camión, Pick-up, Panel, Moto, Sin tipo) y cada uno
+  dice "placa · marca · tipo"; o registrar uno nuevo (**tipo** obligatorio + marca + placa) desde el formulario.
 - **Piloto multitienda:** el G2 lo puede asignar a rutas de otras tiendas de su región.
 - **Cambio de tienda de un piloto** (no multitienda): se quitan sus asignaciones de rutas futuras en la
   tienda anterior, sus pedidos pendientes allá quedan sin piloto (queda en la línea de tiempo) y se
@@ -17,12 +18,28 @@
 
 ## Usuario (cómo inicia sesión)
 
-**Hoy:** usuario compuesto. En el formulario se escribe `jperez`; al guardar se agrega el código de la
-tienda: `cen-001-jperez` (G3, Empleado, Piloto). Administrador, G1 y G2: solo `jperez`.
-Siempre en minúsculas y sin espacios.
+Usuario compuesto **con el ID de su empresa al final** (sql/01 bloque 16, [empresas.md](empresas.md)).
+En el formulario se escribe `jperez`; al guardar se agrega:
 
-**Aprobado para cambiar (opción C):** usar el número interno de la tienda, que nunca cambia:
-`t4-jperez`. Ver [12-pendientes.md](../12-pendientes.md).
+| Rol | Se guarda | Ejemplo (empresa `01`) |
+|---|---|---|
+| Administrador, G1, G2 | nombre + ID de la empresa | `jperez01` |
+| G3, Empleado, Piloto | región de su tienda + nombre + ID (sin la tienda) | `cenjperez01` |
+
+Sin el número de la tienda: si cambia de sucursal dentro de la región, o es multisucursal, su usuario no
+cambia. Dos "jperez" en la misma región chocan: al segundo se le pone otro nombre (ej. `jperez2` →
+`cenjperez201`); la página avisa "Ese usuario ya existe".
+
+El campo muestra el prefijo de la tienda en gris y el ID de la empresa al final; abajo, "Inicia sesión
+como". Siempre en minúsculas y sin espacios. `admin` y `desar` no cambian.
+
+## Empresa del usuario
+
+- La lista solo muestra los usuarios de la **empresa activa** (`js/supabase.js`).
+- **Administrador / Admin G1 creados por el Desarrollador:** campo **Empresa (ID)** con las empresas
+  ("01 · Empresa principal", "02 · ..."). Se liga a la elegida y el usuario sale con su ID (`jperez02`). Si
+  es otra empresa, el aviso dice que para verlo hay que cambiarse a ella en el menú del usuario.
+- Los demás roles quedan en la empresa de su tienda o región. Un Administrador crea en la suya.
 
 ## Quién puede qué
 
@@ -49,4 +66,5 @@ Aprobar → puede iniciar sesión; rechazar → el usuario se elimina. Se avisa 
 |---|---|
 | Nombres de los roles en pantalla | `USR_ROLES` (y `PRF_ROLES` en perfil.js) |
 | Columnas que se leen | `USR_COLUMNAS` |
-| Cómo se arma el usuario compuesto | Función que agrega el prefijo al guardar (buscar "prefijo" en `usuarios.js`) |
+| Cómo se arma el usuario compuesto | `usuarioCompuesto()` y `usuarioSinPrefijo()` en `js/componentes.js`; en la sección, `usuarioDelFormulario()` |
+| Qué roles eligen empresa | `USR_ROLES_CON_EMPRESA` |

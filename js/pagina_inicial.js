@@ -164,6 +164,7 @@ let limpiezaActual = null;
 // resalta en el menú la sección "madre" (ej. Clientes se abre desde Tiendas).
 const SECCION_DEL_MENU = {
     clientes: 'tiendas',
+    empresas: 'tiendas', // pestaña Empresas (solo Desarrollador)
 };
 
 function marcarActivo(nombre) {
@@ -228,6 +229,7 @@ let cargaActual = 0;
 async function cargarSeccion(nombre) {
     const id = ++cargaActual;
     marcarActivo(nombre);
+    mostrarBotonCotizar(); // la empresa activa puede haber cambiado (login o menú del usuario)
 
     // Si ya hay algo en pantalla, primero se desvanece (en paralelo con la descarga).
     // La primera vez que abre la página no hay nada que desvanecer.
@@ -356,9 +358,13 @@ const BOTONES_PIE = {
     '.btn-cotizar': 'cotizador',
 };
 
-// El Cotizador solo aparece si la empresa realiza Encomiendas
-const botonCotizar = document.querySelector('.pie .btn-cotizar');
-if (botonCotizar) botonCotizar.hidden = !empresaTieneActividad('encomiendas');
+// El Cotizador solo aparece si la empresa (la de la sesión) realiza Encomiendas.
+// Se revisa al cargar cada sección: cambia al iniciar sesión o al cambiar de empresa.
+function mostrarBotonCotizar() {
+    const boton = document.querySelector('.pie .btn-cotizar');
+    if (boton) boton.hidden = !empresaTieneActividad('encomiendas');
+}
+mostrarBotonCotizar();
 Object.entries(BOTONES_PIE).forEach(([selector, destino]) => {
     const boton = document.querySelector(`.pie ${selector}`);
     if (!boton) return;

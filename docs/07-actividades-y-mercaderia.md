@@ -3,19 +3,25 @@
 ## Tres niveles
 
 ```
-Empresa (empresas/empresas.js)  ──► qué ACTIVIDADES realiza
-Actividad (tabla actividades)   ──► qué USA en el pedido + sus CATEGORÍAS + su TARIFA
-Categoría (categorias_mercaderia) ──► qué se registra (conteo, artículos, bultos, documentos)
+Empresa (tabla empresas, ID "01")  ──► qué ACTIVIDADES realiza (una o varias: multifunción)
+Actividad (tabla actividades)      ──► qué USA en el pedido (igual para todas las empresas)
+Empresa + actividad                ──► sus CATEGORÍAS (con artículos y pesos), su TARIFA y sus DESCUENTOS
+Categoría (categorias_mercaderia)  ──► qué se registra (conteo, artículos, bultos, documentos)
 ```
+
+Desde el bloque 16 de sql/01 (empresas internas, ver [secciones/empresas.md](secciones/empresas.md)) cada
+empresa tiene **su propia** mercadería, tarifas y descuentos, y solo ve los de las actividades que realiza.
+Una empresa nueva puede copiar los de la empresa activa al crearse.
 
 ## Actividades actuales
 
 | Código | Nombre | Qué usa |
 |---|---|---|
 | `tienda` | Entregas de tienda (supermercado) | Compra (monto, envío gratis, cobrar la compra), alcohol |
-| `encomiendas` | Encomiendas | Bodega ("Recibido en bodega"), recolección, tamaños S/M/L/XL |
+| `encomiendas` | Encomiendas | Bodega ("Recibido en bodega"), punto de partida, tamaños S/M/L/XL |
 
-- **Qué realiza la empresa:** `empresas.js` → `actividades`. Las demás no aparecen en ningún lado.
+- **Qué realiza la empresa:** Tiendas → Empresas (casillas de actividades de cada empresa interna; si la
+  base no tiene empresas, `empresas.js` → `actividades`). Las demás no aparecen en ningún lado.
 - **Qué usa cada una:** Configuración → Actividades (ventana, **solo Desarrollador**).
 - **Tiendas:** una actividad **activa** queda disponible en **todas** las tiendas (no se elige por tienda).
 - Las rutas pueden ser de una sola actividad; tarifas y descuentos son por actividad.
@@ -27,7 +33,7 @@ Categoría (categorias_mercaderia) ──► qué se registra (conteo, artículo
 | Uso | Efecto en el formulario de Pedidos |
 |---|---|
 | `usa_bodega` | Estado inicial "En bodega" si no hay piloto; botón "Recibido en bodega" |
-| `usa_recoleccion` | Campo "Dirección de recolección" |
+| `usa_recoleccion` | Campo "A · Punto de partida" del mapa A → B se puede escribir (si no, queda desactivado y A es la tienda) |
 | `usa_tamanos` | Columna de tamaño en los bultos |
 | `usa_compra` | "Monto de la compra", aviso de envío gratis, "el piloto cobra la compra" |
 | `permite_alcohol` | Casilla "Lleva alcohol" en abarrotes; el piloto confirma mayoría de edad al entregar |
@@ -66,7 +72,7 @@ total a cobrar = envío (si lo cobra el piloto) + compra (si lo cobra el piloto)
 
 - **Tarifa que aplica:** la de la tienda; si no hay, la de la región; si no, la general (una por actividad).
 - **Precio por km:** los km salen del mapa A → B del pedido y del cotizador (gratis: OpenStreetMap +
-  OSRM, `js/mapa.js`). A = la tienda (o la recolección en Encomiendas, si se escribió); B = la entrega.
+  OSRM, `js/mapa.js`). A = la tienda (o el punto de partida en Encomiendas, si se escribió); B = la entrega.
   Si la tarifa tiene precio por km, el pedido no se guarda sin A y B ubicados. 0 = no se cobra distancia.
 - Cada pedido guarda una copia de la tarifa y del cálculo (`costo_desglose`).
 - **La tarifa en palabras:** al crear o modificar una tarifa, abajo del formulario se lee la regla

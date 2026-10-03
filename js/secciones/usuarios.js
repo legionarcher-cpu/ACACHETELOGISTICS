@@ -9,17 +9,24 @@
      - Eliminar:  icono del basurero -> ventana de confirmación -> delete.
      - Foto:      en el formulario, "Elegir foto" / "Quitar". Se aplica al
                   presionar Guardar. Funciones en js/avatar.js (bucket "avatares").
-     - Vehículo:  solo para Pilotos. Se elige uno de la tabla "vehiculos" o se
-                  registra uno nuevo (marca + placa) desde el mismo formulario
+     - Vehículo:  solo para Pilotos. Se elige uno de la tabla "vehiculos" (agrupados
+                  por tipo: camión, pick-up, panel, moto) o se registra uno nuevo
+                  (tipo + marca + placa) desde el mismo formulario
                   (sql/00, sección 2).
 
-   Roles (ver PROPUESTA-ESTRUCTURADA-V2.md, sección 13.1):
-     administrador -> sin tienda. Usuario simple: "admin"
-     admin_g1      -> sin tienda (todo el país). Usuario simple: "jlopez"
-     admin_g2      -> sin tienda, con REGIÓN. Usuario simple: "mruiz"
-     admin_g3      -> con tienda (admin local). Usuario compuesto: "cen-001-mlopez"
-     empleado      -> con tienda. Usuario compuesto: "cen-001-jperez"
-     piloto        -> con tienda. Usuario compuesto: "cen-001-lgarcia"
+   Roles (ver PROPUESTA-ESTRUCTURADA-V2.md, sección 13.1). Todos llevan al final
+   el ID de su EMPRESA ("01", sql/01 bloque 16):
+     administrador -> sin tienda. Usuario: "jperez01" ("admin" no cambia)
+     admin_g1      -> sin tienda (todo el país). Usuario: "jlopez01"
+     admin_g2      -> sin tienda, con REGIÓN. Usuario: "mruiz01"
+     admin_g3      -> con tienda (admin local). Usuario compuesto: "cenmlopez01"
+     empleado      -> con tienda. Usuario compuesto: "cenjperez01"
+     piloto        -> con tienda. Usuario compuesto: "cenlgarcia01"
+
+   Empresa: cada usuario es de UNA empresa y solo ve los de su empresa (filtro de
+   js/supabase.js). Al crear o modificar un Administrador o Admin G1, el
+   Desarrollador elige la empresa por su ID (campo "Empresa"); los demás roles
+   quedan en la empresa de su tienda o región. Un Administrador crea en la suya.
 
    Quién puede qué en esta sección (según el rol del usuario conectado):
      administrador -> crear, modificar y eliminar a cualquiera (cualquier rol).
@@ -42,8 +49,9 @@
      aprueban; al aprobar/rechazar se avisa al Admin G3 que lo creó.
      ⚠ Lo controla la página; la regla real llega en la Fase 7.
 
-   Usuario compuesto: en el formulario se escribe solo "jperez"; el
-   prefijo de la tienda ("cen-001-") lo agrega este archivo al guardar.
+   Usuario compuesto: en el formulario se escribe solo "jperez"; el prefijo
+   de la región de su tienda ("cen", sin el número de la tienda) y el ID de la empresa ("01") los agrega este archivo
+   al guardar (usuarioCompuesto, js/componentes.js).
    La lista de tiendas se lee de la tabla "tiendas" (solo lectura aquí).
 
    Reglas:
@@ -70,11 +78,14 @@
 // "solicitante:usuarios!solicitado_por(nombre)" = quién creó un usuario pendiente.
 const USR_COLUMNAS = 'id, nombre, id_usuario, telefono, rol, tienda_id, region, vehiculo_id, permisos, foto_url, ' +
     'aprobado, solicitado_por, solicitado_en, ' +
-    'tiendas(codigo, nombre, region), regiones(nombre), vehiculos(placa, marca), ' +
+    'tiendas(codigo, nombre, region), regiones(nombre), vehiculos(placa, marca, tipo), ' +
     'solicitante:usuarios!solicitado_por(nombre)';
 
 // Valor especial del selector de vehículo para registrar uno nuevo
 const USR_VEHICULO_NUEVO = 'nuevo';
+
+// Tipos de vehículo (los mismos de Configuración -> Vehículos y de la regla vehiculos_tipo_valido)
+const USR_TIPOS_VEHICULO = { camion: 'Camión', pickup: 'Pick-up', panel: 'Panel', moto: 'Moto' };
 
 // Nombre para mostrar de cada rol (el valor guardado es la clave)
 const USR_ROLES = {
@@ -96,8 +107,11 @@ const USR_COLOR_ROL = {
     piloto: 'etiqueta-verde',
 };
 
-// Roles que NO llevan tienda (usuario simple, sin prefijo)
+// Roles que NO llevan tienda (usuario sin prefijo de tienda: "jperez01")
 const USR_ROLES_SIN_TIENDA = ['administrador', 'admin_g1', 'admin_g2'];
+
+// Roles a los que el Desarrollador les elige la empresa (los demás la toman de su tienda o región)
+const USR_ROLES_CON_EMPRESA = ['administrador', 'admin_g1'];
 
 // Roles de "personal" que Admin G1 y Admin G2 pueden crear, modificar y eliminar.
 // Los roles de administración solo los asigna el Administrador.
@@ -137,6 +151,7 @@ registrarSeccion('usuarios', (zona) => {
         tienda:     $('#usrTienda'),
         region:     $('#usrRegion'),
         vehiculo:   $('#usrVehiculo'),
+        vehTipo:    $('#usrVehTipo'),
         vehMarca:   $('#usrVehMarca'),
         vehPlaca:   $('#usrVehPlaca'),
         id_usuario: $('#usrIdUsuario'),
@@ -145,7 +160,10 @@ registrarSeccion('usuarios', (zona) => {
         permisos:   $('#usrPermisos'),
     };
     const prefijo           = $('#usrPrefijo');
+    const sufijo            = $('#usrSufijo');
     const vistaPrevia       = $('#usrVistaPrevia');
+    const campoEmpresa      = $('#usrCampoEmpresa');
+    const selEmpresa        = $('#usrEmpresa');
     const tiendaObligatoria = $('#usrTiendaObligatoria');
     const campoTienda       = $('#usrCampoTienda');
     const campoRegion       = $('#usrCampoRegion');
@@ -177,6 +195,7 @@ registrarSeccion('usuarios', (zona) => {
     let vehiculoPorRegistrar = null; // { marca, placa } si en el formulario se registra un vehículo nuevo
     let usuarioEditando = null;      // usuario tal como estaba antes de modificarlo
     let hayMultitienda = false;      // true si existe la columna multitienda
+    let empresas = [];               // solo el Desarrollador: [{ id, codigo, nombre, activa }]
 
     // Foto en el formulario (se aplica al guardar)
     let fotoActual = null;   // enlace de la foto que ya tiene el usuario
@@ -297,20 +316,43 @@ registrarSeccion('usuarios', (zona) => {
         actualizarFiltroTiendas(); // el filtro de tiendas usa la misma lista
     }
 
-    // Vehículos para el selector del piloto:
-    //   "Sin vehículo" + cada vehículo ("P123ABC · Toyota") + "Registrar vehículo nuevo..."
+    // Vehículos para el selector del piloto, agrupados por tipo:
+    //   "Sin vehículo" + Camión / Pick-up / Panel / Moto / Sin tipo ("P123ABC · Toyota · Camión")
+    //   + "Registrar vehículo nuevo..."
     async function cargarVehiculos() {
-        const { data, error } = await db.from('vehiculos').select('id, placa, marca').order('placa');
+        let { data, error } = await db.from('vehiculos').select('id, placa, marca, tipo').order('placa');
+        if (error && error.code === '42703') ({ data, error } = await db.from('vehiculos').select('id, placa, marca').order('placa')); // base sin "tipo"
         if (error) {
             console.error('Error al cargar vehículos:', error);
             return;
         }
         const elegido = campos.vehiculo.value; // se conserva la opción elegida al recargar
         campos.vehiculo.replaceChildren(new Option('Sin vehículo', ''));
-        data.forEach((v) => campos.vehiculo.appendChild(new Option(`${v.placa} · ${v.marca}`, v.id)));
+        [...Object.keys(USR_TIPOS_VEHICULO), null].forEach((tipo) => {
+            const delTipo = data.filter((v) => (tipo ? v.tipo === tipo : !USR_TIPOS_VEHICULO[v.tipo]));
+            if (!delTipo.length) return;
+            const grupo = document.createElement('optgroup');
+            grupo.label = tipo ? USR_TIPOS_VEHICULO[tipo] : 'Sin tipo';
+            delTipo.forEach((v) => grupo.appendChild(new Option(textoUnVehiculo(v), v.id)));
+            campos.vehiculo.appendChild(grupo);
+        });
         campos.vehiculo.appendChild(new Option('➕ Registrar vehículo nuevo...', USR_VEHICULO_NUEVO));
         campos.vehiculo.value = elegido;
     }
+
+    // Empresas (solo el Desarrollador): para elegir la de un Administrador o Admin G1
+    // por su ID. Sin el bloque 16 de sql/01 no hay empresas y el campo no aparece.
+    async function cargarEmpresas() {
+        if (!esDesarrollador()) return;
+        const { data, error } = await db.from('empresas').select('id, codigo, nombre, activa').order('codigo');
+        if (error) return;
+        empresas = data;
+        selEmpresa.replaceChildren(...empresas.map((e) =>
+            new Option(`${e.codigo} · ${e.nombre}${e.activa ? '' : ' (inactiva)'}`, e.id)));
+    }
+
+    // "P123ABC · Toyota · Camión"
+    const textoUnVehiculo = (v) => [v.placa, v.marca, USR_TIPOS_VEHICULO[v.tipo]].filter(Boolean).join(' · ');
 
     // Regiones: para el filtro de la cabecera y para el selector del
     // formulario al crear un Admin G2 (eso solo lo hace el Administrador)
@@ -399,7 +441,7 @@ registrarSeccion('usuarios', (zona) => {
 
     // Texto de la columna Vehículo (solo pilotos): "P123ABC · Toyota"
     function textoVehiculo(u) {
-        return u.vehiculos ? `${u.vehiculos.placa} · ${u.vehiculos.marca}` : '—';
+        return u.vehiculos ? textoUnVehiculo(u.vehiculos) : '—';
     }
 
     // Texto de la columna Tienda (para el Admin G2 muestra su región)
@@ -497,7 +539,9 @@ registrarSeccion('usuarios', (zona) => {
         contador.textContent = (filtrando
             ? `${visibles.length} de ${plural(usuarios.length, 'usuario', 'usuarios')}`
             : plural(usuarios.length, 'usuario registrado', 'usuarios registrados')) +
-            (pendientes ? ` · ${plural(pendientes, 'pendiente', 'pendientes')} de aprobación` : '');
+            (pendientes ? ` · ${plural(pendientes, 'pendiente', 'pendientes')} de aprobación` : '') +
+            // Solo el Desarrollador ve de qué empresa son (los demás solo conocen la suya)
+            (esDesarrollador() && empresaActual() ? ` · empresa ${empresaActual().codigo || ''} ${empresaActual().nombre}` : '');
         $('#usrLimpiarFiltros').hidden = !filtrando;
     }
 
@@ -586,38 +630,51 @@ registrarSeccion('usuarios', (zona) => {
     });
 
     // ==================================================
-    // USUARIO COMPUESTO (prefijo de tienda)
+    // USUARIO COMPUESTO (prefijo de tienda + ID de la empresa al final)
+    // prefijoUsuario, usuarioCompuesto y usuarioSinPrefijo: js/componentes.js
     // ==================================================
 
-    // Prefijo de una tienda: "CEN-001" -> "cen-001-"
+    // Región de la tienda: "CEN-001" -> "cen"
     function prefijoDeTienda(tiendaId) {
         const tienda = tiendas.find((t) => t.id === Number(tiendaId));
-        return tienda ? `${tienda.codigo.toLowerCase()}-` : '';
+        return tienda ? prefijoUsuario(tienda.codigo) : '';
     }
 
-    // Quita el prefijo de la tienda para mostrar solo "jperez" en el formulario
-    function usuarioSinPrefijo(u) {
-        const pref = u.tiendas ? `${u.tiendas.codigo.toLowerCase()}-` : '';
-        return pref && u.id_usuario.startsWith(pref) ? u.id_usuario.slice(pref.length) : u.id_usuario;
-    }
+    // Quita la tienda y el ID de la empresa para mostrar solo "jperez" en el formulario
+    // (la lista es de la empresa activa: su ID es el de la sesión)
+    const quitarPrefijo = (u) => usuarioSinPrefijo(u.id_usuario, u.tiendas ? u.tiendas.codigo : null);
 
     // ¿El rol elegido en el formulario va sin tienda? (Administrador / Admin G1 / Admin G2)
     const rolSinTienda = () => USR_ROLES_SIN_TIENDA.includes(campos.rol.value);
 
-    // Usuario final que se guarda (y con el que se inicia sesión)
-    function usuarioCompuesto() {
+    // ¿El Desarrollador elige la empresa? (Administrador y Admin G1, si hay empresas)
+    const eligeEmpresa = () => esDesarrollador() && empresas.length > 0 && USR_ROLES_CON_EMPRESA.includes(campos.rol.value);
+
+    // Empresa a la que queda ligado el usuario: la elegida (Desarrollador) o la activa
+    function empresaDelUsuario() {
+        if (eligeEmpresa()) return empresas.find((e) => String(e.id) === selEmpresa.value) || empresaActual();
+        return empresaActual();
+    }
+
+    // Usuario final que se guarda (y con el que se inicia sesión):
+    //   Administrador / G1 / G2 -> "jperez" + "01"  |  tienda -> "cen" + "jperez" + "01"
+    function usuarioDelFormulario() {
+        // Usuarios protegidos: no cambian de nombre
+        if (usuarioEditando && ['admin', 'desar'].includes(usuarioEditando.id_usuario)) return usuarioEditando.id_usuario;
         const base = campos.id_usuario.value.trim().toLowerCase();
-        if (rolSinTienda()) return base;
-        return prefijoDeTienda(campos.tienda.value) + base;
+        const tienda = rolSinTienda() ? null : (tiendas.find((t) => t.id === Number(campos.tienda.value)) || {}).codigo;
+        return usuarioCompuesto(base, tienda || null, codigoEmpresa(empresaDelUsuario()));
     }
 
     // Ajusta el formulario al rol elegido:
-    //   Administrador / Admin G1 -> sin tienda (desactivada) y sin prefijo
-    //   Admin G2                 -> "Región" en lugar de "Tienda", sin prefijo
-    //   Empleado / Piloto        -> tienda obligatoria y prefijo "cen-001-"
+    //   Administrador / Admin G1 -> sin tienda (desactivada); el Desarrollador elige la empresa
+    //   Admin G2                 -> "Región" en lugar de "Tienda"
+    //   Empleado / Piloto        -> tienda obligatoria y prefijo de su región "cen"
+    //   Todos: el ID de la empresa al final ("01")
     function ajustarSegunRol() {
         const sinTienda = rolSinTienda();
         const esRolG2 = campos.rol.value === 'admin_g2';
+        campoEmpresa.hidden = !eligeEmpresa();
 
         campos.tienda.disabled = sinTienda;
         tiendaObligatoria.hidden = sinTienda;
@@ -668,11 +725,12 @@ registrarSeccion('usuarios', (zona) => {
 
     casillaMultitienda.addEventListener('change', actualizarAvisoTienda);
 
-    // Muestra marca + placa solo si se eligió "Registrar vehículo nuevo..."
+    // Muestra tipo + marca + placa solo si se eligió "Registrar vehículo nuevo..."
     function mostrarVehiculoNuevo() {
         const nuevo = campos.vehiculo.value === USR_VEHICULO_NUEVO;
         vehiculoNuevo.hidden = !nuevo;
         if (!nuevo) {
+            campos.vehTipo.value = '';
             campos.vehMarca.value = '';
             campos.vehPlaca.value = '';
         }
@@ -680,18 +738,21 @@ registrarSeccion('usuarios', (zona) => {
 
     campos.vehiculo.addEventListener('change', () => {
         mostrarVehiculoNuevo();
-        if (campos.vehiculo.value === USR_VEHICULO_NUEVO) campos.vehMarca.focus();
+        if (campos.vehiculo.value === USR_VEHICULO_NUEVO) campos.vehTipo.focus();
     });
 
     // Placa: "p 123 abc" -> "P123ABC" (mayúsculas, sin espacios)
     const normalizarPlaca = (texto) => texto.toUpperCase().replace(/\s+/g, '');
 
     function actualizarVistaPrevia() {
-        prefijo.textContent = rolSinTienda() ? '' : (prefijoDeTienda(campos.tienda.value) || 'tienda-');
-        vistaPrevia.textContent = campos.id_usuario.value.trim() ? usuarioCompuesto() : '—';
+        const protegido = usuarioEditando && ['admin', 'desar'].includes(usuarioEditando.id_usuario);
+        prefijo.textContent = protegido || rolSinTienda() ? '' : (prefijoDeTienda(campos.tienda.value) || 'región');
+        sufijo.textContent = protegido ? '' : codigoEmpresa(empresaDelUsuario());
+        vistaPrevia.textContent = campos.id_usuario.value.trim() ? usuarioDelFormulario() : '—';
     }
 
     campos.rol.addEventListener('change', ajustarSegunRol);
+    selEmpresa.addEventListener('change', actualizarVistaPrevia);
     campos.tienda.addEventListener('change', () => { actualizarVistaPrevia(); actualizarAvisoTienda(); });
     campos.id_usuario.addEventListener('input', actualizarVistaPrevia);
 
@@ -777,6 +838,10 @@ registrarSeccion('usuarios', (zona) => {
         errorForm.textContent = '';
 
         tituloForm.textContent = usuario ? 'Modificar usuario' : 'Nuevo usuario';
+        // Empresa: la activa (la lista es de esa empresa). El Desarrollador la puede
+        // cambiar para un Administrador o Admin G1 (campo "Empresa").
+        if (empresaActual()) selEmpresa.value = String(empresaActual().id);
+        if (esDesarrollador() && empresaActual()) tituloForm.textContent += ` · empresa ${empresaActual().codigo || ''} ${empresaActual().nombre}`;
         claveObligatoria.hidden = !!usuario;
         claveAyuda.textContent = usuario
             ? 'Déjala vacía para conservar la clave actual.'
@@ -789,7 +854,7 @@ registrarSeccion('usuarios', (zona) => {
             campos.region.value     = usuario.region || '';
             campos.vehiculo.value   = usuario.vehiculo_id || '';
             casillaMultitienda.checked = !!usuario.multitienda;
-            campos.id_usuario.value = usuarioSinPrefijo(usuario);
+            campos.id_usuario.value = quitarPrefijo(usuario);
             campos.telefono.value   = usuario.telefono || '';
             campos.permisos.value   = (usuario.permisos || []).join(', ');
         }
@@ -880,14 +945,16 @@ registrarSeccion('usuarios', (zona) => {
         let vehiculoId = null;
         if (rol === 'piloto') {
             if (campos.vehiculo.value === USR_VEHICULO_NUEVO) {
+                const tipo = campos.vehTipo.value;
                 const marca = campos.vehMarca.value.trim();
                 const placa = normalizarPlaca(campos.vehPlaca.value);
+                if (!tipo) return fallo('Elige el tipo de vehículo (camión, pick-up, panel o moto).', campos.vehTipo);
                 if (!marca) return fallo('Escribe la marca del vehículo.', campos.vehMarca);
                 if (!placa) return fallo('Escribe la placa del vehículo.', campos.vehPlaca);
                 if (!/^[A-Z0-9-]+$/.test(placa)) {
                     return fallo('La placa solo puede tener letras, números y guion.', campos.vehPlaca);
                 }
-                vehiculoPorRegistrar = { marca, placa }; // se crea al guardar
+                vehiculoPorRegistrar = { tipo, marca, placa }; // se crea al guardar
             } else if (campos.vehiculo.value) {
                 vehiculoId = Number(campos.vehiculo.value);
             }
@@ -908,10 +975,17 @@ registrarSeccion('usuarios', (zona) => {
             tienda_id: USR_ROLES_SIN_TIENDA.includes(rol) ? null : tiendaId,
             region: rol === 'admin_g2' ? region : null,
             vehiculo_id: vehiculoId, // si es nuevo, se completa al guardar
-            id_usuario: usuarioCompuesto(),
+            id_usuario: usuarioDelFormulario(),
             telefono: telefono || null,
             permisos,
         };
+        // Empresa elegida por el Desarrollador (Administrador / Admin G1). Los demás:
+        // la empresa activa (js/supabase.js) o la de su tienda o región (la base la corrige).
+        if (eligeEmpresa()) {
+            const empresa = empresaDelUsuario();
+            if (!empresa) return fallo('Elige la empresa.', selEmpresa);
+            datos.empresa_id = empresa.id;
+        }
         if (clave) datos.clave = clave; // si está vacía (al modificar), no se cambia
         if (hayMultitienda) datos.multitienda = rol === 'piloto' && casillaMultitienda.checked;
         return datos;
@@ -925,7 +999,8 @@ registrarSeccion('usuarios', (zona) => {
 
     // Traduce los errores de la base de datos a mensajes entendibles
     function mensajeDeError(error) {
-        if (error.code === '23505') return 'Ese usuario ya existe. Elige otro.';                  // unique
+        // unique: en una tienda el usuario lleva la región, no la tienda: otro "jperez" de la región lo choca
+        if (error.code === '23505') return 'Ese usuario ya existe (puede ser de otra tienda de la región). Elige otro, ej. agrega un número: jperez2.';
         if (error.code === '23514') return 'Los datos no cumplen las reglas de rol y tienda.';     // check
         if (error.code === '23503') return 'La tienda elegida ya no existe. Recarga la página.';   // foreign key
         if (error.code === 'P0001') return error.message;  // trigger proteger_admin (usuario admin protegido)
@@ -1005,8 +1080,9 @@ registrarSeccion('usuarios', (zona) => {
         }
 
         // Admin G3 creó un empleado pendiente: avisar a quienes lo aprueban
-        // (Administrador, Admin G1 y Admin G2 de la región) - js/notificaciones.js
-        if (datos.aprobado === false) {
+        // (Administrador, Admin G1 y Admin G2 de la región) - js/notificaciones.js.
+        // Solo al CREARLO (si lo corrige mientras sigue pendiente, no se repite el aviso).
+        if (datos.aprobado === false && !editandoId) {
             const tienda = tiendas.find((t) => t.id === datos.tienda_id);
             notificarPendiente({
                 referenciaTipo: 'usuario', referenciaId: usuarioId, tiendaId: datos.tienda_id,
@@ -1053,10 +1129,16 @@ registrarSeccion('usuarios', (zona) => {
             ? ` Se quitaron ${plural(liberado.rutas, 'asignación', 'asignaciones')} de rutas y ` +
               `${plural(liberado.pedidos, 'pedido quedó', 'pedidos quedaron')} sin piloto (se avisó al G2).`
             : '';
+        // Ligado a otra empresa (Desarrollador): no sale en esta lista
+        const otra = datos.empresa_id && empresaActual() && datos.empresa_id !== empresaActual().id
+            ? empresas.find((e) => e.id === datos.empresa_id) : null;
+        const notaEmpresa = otra
+            ? ` Quedó en la empresa ${otra.codigo} · ${otra.nombre}: para verlo, cámbiate a esa empresa en tu menú.`
+            : '';
         if (errorFoto) {
             mostrarAviso(`Usuario "${datos.id_usuario}" ${accion}, pero la foto no: ${errorFoto}`, 'error');
         } else {
-            mostrarAviso(`Usuario "${datos.id_usuario}" ${accion}.${notaPiloto}${notaAprobacion}${notaRutas}`);
+            mostrarAviso(`Usuario "${datos.id_usuario}" ${accion}.${notaPiloto}${notaAprobacion}${notaRutas}${notaEmpresa}`);
         }
         cargarUsuarios();
     });
@@ -1102,7 +1184,7 @@ registrarSeccion('usuarios', (zona) => {
         const [ped, act] = await Promise.all([
             db.from('pedidos').select('id, codigo, tienda_id, actividad, estado')
                 .eq('piloto_id', pilotoId).eq('anulado', false)
-                .in('estado', ['registrado', 'recibido_bodega', 'asignado', 'reprogramado']),
+                .in('estado', ['registrado', 'recibido_bodega', 'asignado', 'reprogramado', 'alistando', 'listo_despacho']),
             db.from('actividades').select('codigo, usa_bodega'),
         ]);
         if (ped.error) return resultado; // sin tabla de pedidos: nada más que hacer
@@ -1192,7 +1274,7 @@ registrarSeccion('usuarios', (zona) => {
 
     // Primero regiones y tiendas (las usan los filtros y el formulario),
     // luego los usuarios
-    Promise.all([cargarRegiones(), cargarTiendas()]).then(() => {
+    Promise.all([cargarRegiones(), cargarTiendas(), cargarEmpresas()]).then(() => {
         actualizarFiltroTiendas();
         cargarUsuarios();
     });

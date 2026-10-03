@@ -211,6 +211,11 @@ registrarSeccion('configuracion', (zona) => {
             permitido: () => puedeRegional, // G2 entra, pero solo cambia lo de su región
             abrir: () => cargarTodo(),
         },
+        // Slots de despacho (js/secciones/configuracion/slots.js). G2 solo los ve.
+        slots: {
+            permitido: () => puedeRegional,
+            abrir: () => abrirModuloExterno('slots'),
+        },
         vehiculos: {
             permitido: () => puedeRegional,
             abrir: () => cargarVehiculos(),
@@ -225,6 +230,13 @@ registrarSeccion('configuracion', (zona) => {
             ventana: true, // se abre encima de las tarjetas, sin cambiar de página
             permitido: () => esDesarrollador(),
             abrir: () => abrirVentanaExterna('actividades'),
+        },
+        // Empresas: la lista vive en Tiendas -> Empresas (js/secciones/empresas.js);
+        // esta tarjeta abre ahí "Nueva empresa". SOLO el Desarrollador.
+        empresas: {
+            ventana: true,
+            permitido: () => esDesarrollador(),
+            abrir: () => { location.hash = 'empresas?nuevo=1'; },
         },
     };
 
@@ -339,6 +351,8 @@ registrarSeccion('configuracion', (zona) => {
         ajustes = ajus.data;
         regiones = reg.data;
         tiendas = tie.data;
+        // Solo los ajustes de las regiones y tiendas de la empresa activa (sql/01 bloque 16)
+        ajustes = ajustes.filter((a) => regiones.some((r) => r.codigo === a.region) || tiendas.some((t) => t.id === a.tienda_id));
 
         // Admin G2: solo su región, las tiendas de su región y sus ajustes
         if (regionG2) {
@@ -449,7 +463,7 @@ registrarSeccion('configuracion', (zona) => {
     function dibujarMarcas() {
         cuerpoMarcas.replaceChildren();
         if (marcas.length === 0) {
-            cuerpoMarcas.appendChild(crearFilaVacia('No hay horarios. Indica la cantidad en "Valores base".', puedeModificar ? 5 : 4));
+            cuerpoMarcas.appendChild(crearFilaVacia('No hay horarios. Indica la cantidad en "Valores base".', puedeModificar ? 6 : 5));
             return;
         }
 
@@ -463,7 +477,8 @@ registrarSeccion('configuracion', (zona) => {
             tdNumero.append(circulo, `Horario ${m.numero}`);
             tr.appendChild(tdNumero);
 
-            tr.appendChild(crearCelda(`${hhmm(m.inicio_desde)} a ${hhmm(m.inicio_hasta)}`, 'texto-codigo'));
+            tr.appendChild(crearCelda(hhmm(m.inicio_desde), 'texto-codigo'));
+            tr.appendChild(crearCelda(hhmm(m.inicio_hasta), 'texto-codigo'));
             tr.appendChild(crearCelda(hhmm(m.fin), 'texto-codigo'));
             tr.appendChild(crearCelda(textoDuracion(aMinutos(m.fin) - aMinutos(m.inicio_desde))));
 
@@ -509,11 +524,11 @@ registrarSeccion('configuracion', (zona) => {
             return;
         }
         if (aMinutos(hasta) < aMinutos(desde)) {
-            marcaError.textContent = '"Inicia hasta" no puede ser antes de "Inicia desde".';
+            marcaError.textContent = 'La "Hora inicio" no puede ser antes de "Inicia desde".';
             return;
         }
         if (aMinutos(fin) <= aMinutos(hasta)) {
-            marcaError.textContent = 'La hora de término debe ser después de la ventana de inicio.';
+            marcaError.textContent = '"Termina" debe ser después de la "Hora inicio".';
             return;
         }
 
@@ -527,7 +542,7 @@ registrarSeccion('configuracion', (zona) => {
             return;
         }
         marcaDialogo.close();
-        aviso.mostrar(`Horario ${editandoMarca.numero}: inicia de ${desde} a ${hasta} y termina a las ${fin}.`);
+        aviso.mostrar(`Horario ${editandoMarca.numero}: se puede marcar desde las ${desde}, hora de inicio ${hasta}, termina a las ${fin}.`);
         cargarTodo();
     });
 
@@ -617,7 +632,7 @@ registrarSeccion('configuracion', (zona) => {
         nombre.append(circulo, `Horario ${numero}`);
         fila.appendChild(nombre);
 
-        [['desde', 'Inicia desde'], ['hasta', 'Inicia hasta'], ['fin', 'Termina']].forEach(([campo, texto]) => {
+        [['desde', 'Inicia desde'], ['hasta', 'Hora inicio'], ['fin', 'Termina']].forEach(([campo, texto]) => {
             const input = document.createElement('input');
             input.type = 'time';
             input.className = 'campo-input';
@@ -720,11 +735,11 @@ registrarSeccion('configuracion', (zona) => {
                 return;
             }
             if (aMinutos(hasta) < aMinutos(desde)) {
-                diaError.textContent = `Horario ${n}:"Inicia hasta" no puede ser antes de "Inicia desde".`;
+                diaError.textContent = `Horario ${n}: la "Hora inicio" no puede ser antes de "Inicia desde".`;
                 return;
             }
             if (aMinutos(fin) <= aMinutos(hasta)) {
-                diaError.textContent = `Horario ${n}:la hora de término debe ser después de la ventana de inicio.`;
+                diaError.textContent = `Horario ${n}: "Termina" debe ser después de la "Hora inicio".`;
                 return;
             }
             if (i > 0 && aMinutos(desde) < aMinutos(filas[i - 1].fin)) {

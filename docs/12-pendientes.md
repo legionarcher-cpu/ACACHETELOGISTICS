@@ -1,6 +1,12 @@
 # 12. Cambios aprobados, pendientes y decisiones abiertas
 
-Última actualización: 2026-09-30.
+Última actualización: 2026-10-02.
+
+> **2026-10-02 · empresas internas (sql/01 bloque 16):** el usuario pasó a ser `cenjperez01` (región +
+> nombre + ID de la empresa, **sin la tienda**: cambiar de sucursal en la región no lo cambia) y `jperez01`
+> para Administrador, G1 y G2. Esto **resuelve la "opción C"** (cambio 4), que ya no hace falta. Hechos también: guardar como
+> cliente al que se escribe a mano en un pedido (con su ubicación) y administrar las regiones desde la
+> página (Tiendas → Regiones). Registro completo: [13-cambios.md](13-cambios.md).
 
 ## A. Cambios aprobados (por hacer, en este orden)
 
@@ -9,7 +15,7 @@
 | 1 | **Optimización de mantenimiento** | Ayudas comunes en un solo archivo (dinero, kilos, fechas, confirmar, avisos de "falta SQL"); dividir `pedidos.js`, `configuracion.js` y `usuarios.js` por partes; quitar el código de transición ("si la base no tiene tal tabla o columna...", posible cuando todas las bases tengan `sql/01`) | No |
 | 2 | **Consultas por jerarquía de permisos** | Una sola función de "alcance del usuario" que usan todas las consultas y reportes: Admin/G1 todo, G2 su región, G3/Empleado su tienda, Piloto sus pedidos | No (la versión definitiva es la Fase 7) |
 | 3 | **Colores a variables sin cambio visual** | Los ~90 colores escritos a mano pasan a variables **con el mismo valor**. Si algún caso cambiara la estética, se deja como está. Animaciones y transiciones no se tocan | No |
-| 4 | **Usuario: opción C** | El usuario deja de llevar el código de la tienda (`cen-001-inavarro`) y usa el número interno de la tienda, que nunca cambia: `t4-inavarro`. Administradores, G1 y G2 siguen con su usuario simple | **Sí** |
+| 4 | ~~**Usuario: opción C**~~ **Resuelto** (sql/01 bloques 16 y 17) | El usuario ya no lleva la tienda: `cenjperez01` (región + nombre + empresa). Solo cambia si la tienda cambia de región | Hecho |
 | 5 | **Un solo catálogo de artículos** | Línea blanca, Electrónica, etc. existen una vez con su peso promedio, compartido por todas las actividades; el peso sigue siendo modificable en cada pedido | **Sí** |
 | 6 | **Normalización sencilla** | Abarrotes como filas (cajas, bolsas, hieleras) y no repetido en `detalle`; estados del pedido en una sola definición; quitar la columna `permisos`; unir horario base y horario por día | **Sí** |
 | 7 | **Pilotos en tabla propia** | Vehículo y multitienda pasan a una tabla `pilotos` (uno a uno con `usuarios`) | **Sí** |
@@ -60,8 +66,9 @@ tablas (Table Editor → Export) antes de cada script que cambie datos.
 ## D. Pendientes de funcionalidad
 
 - Horarios: que el piloto registre sus marcas y que Pedidos respete el máximo por marca en todos los casos.
-- Clientes: calificación 1–5 por pedido y categoría A/B/C/D; aviso de cliente repetido (mismo teléfono);
-  ubicación por WhatsApp; guardar como cliente al que se escribe a mano en un pedido.
+- Clientes: calificación 1–5 por pedido y categoría A/B/C/D; aviso de cliente repetido (mismo teléfono; el
+  correo repetido ya se bloquea);
+  ubicación por WhatsApp. (Hecho 2026-10-02: el cliente escrito a mano en un pedido se guarda solo en Clientes.)
 - Pedidos: corregir datos de un pedido registrado (evento `correccion`); borrado automático de fotos a los 12 meses.
 - **App del piloto** (compañero): escanear QR (`ACACHETE-PEDIDO:<token_qr>`) o validar código, cierre de
   entrega, fotos, ubicación en tiempo real para el mapa de Inicio (el mapa gratis ya está puesto:
@@ -70,9 +77,11 @@ tablas (Table Editor → Export) antes de cada script que cambie datos.
 - Botón "Cargar Pedidos": importar pedidos (Excel u otra app).
 - Precio por km: **hecho en prueba** con servicios gratis (Nominatim + OSRM, `js/mapa.js`) en Pedidos y
   Cotizador. Pendiente: evaluar si los servidores públicos alcanzan con el uso real (si no, OSRM propio o
-  un proveedor de pago, cambiando `MAPA_SERVICIOS`); cargar la ubicación de cada tienda; que Clientes
-  guarde las coordenadas de la entrega para no buscarlas de nuevo.
-- Reemplazar las regiones de ejemplo por las reales.
+  un proveedor de pago, cambiando `MAPA_SERVICIOS`); cargar la ubicación de cada tienda. (Hecho: Clientes
+  guarda las coordenadas de la entrega y Nuevo pedido las usa.)
+- Reemplazar las regiones de ejemplo por las reales (ahora desde Tiendas → Regiones).
+- Empresas internas: reglas reales en la base (Fase 7) para que una empresa no pueda leer otra aunque
+  alguien cambie la página; marcadores de los pilotos en el mapa de Inicio cuando la app comparta el GPS.
 
 ## E. Decisiones abiertas
 

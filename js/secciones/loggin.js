@@ -31,22 +31,38 @@ const DURACION_SALIDA_LOGIN = 250;
 // - El id_usuario NO distingue mayúsculas ("Admin" = "admin"): la página
 //   de usuarios lo guarda siempre en minúsculas y aquí se compara igual.
 // - Un usuario con aprobado = false (creado por un Admin G3) no puede entrar.
-// - Admin G3, empleados y pilotos escriben el usuario compuesto (ej. cen-001-jperez);
-//   Administrador, Admin G1 y Admin G2 solo su usuario (ej. admin, jlopez).
+// - Todos llevan al final el ID de su empresa (sql/01 bloques 16 y 17):
+//   Admin G3, empleados y pilotos: región + usuario + empresa (ej. cenjperez01);
+//   Administrador, Admin G1 y Admin G2: usuario + empresa (ej. jlopez01).
+//   "admin" y "desar" no cambian.
 // - La clave SÍ distingue mayúsculas.
 //
 // ⚠ VERSIÓN RÁPIDA: la clave se compara tal cual está guardada.
 // En la versión segura esto se reemplaza por Supabase Auth.
 async function validarCredenciales(usuario, clave) {
-    const { data, error } = await db
-        .from('usuarios')
-        // la clave NO se trae; "tiendas(...)" trae los datos de su tienda
-        .select('id, id_usuario, nombre, rol, region, aprobado, permisos, foto_url, tiendas(id, codigo, nombre)')
+    // la clave NO se trae; "tiendas(...)" trae los datos de su tienda y
+    // "empresas(...)" los de su empresa (sql/01 bloque 16)
+    const columnas = 'id, id_usuario, nombre, rol, region, aprobado, permisos, foto_url, tiendas(id, codigo, nombre)';
+    const consulta = (extra) => db.from('usuarios')
+        .select(columnas + extra)
         .eq('id_usuario', usuario.toLowerCase())
         .eq('clave', clave)
         .maybeSingle(); // una fila o null
 
+    let { data, error } = await consulta(', empresas(id, codigo, nombre, actividades, activa)');
+    if (error && ['42703', 'PGRST200', 'PGRST205'].includes(error.code)) {
+        ({ data, error } = await consulta('')); // base sin empresas: como antes
+    }
     if (error) throw error;
+    if (!data) return null;
+
+    // El Desarrollador no es de ninguna empresa: empieza con la primera activa
+    // (la cambia en el menú del usuario)
+    if (data.rol === 'desarrollador' && data.empresas === null) {
+        const { data: primera } = await db.from('empresas')
+            .select('id, codigo, nombre, actividades, activa').eq('activa', true).order('codigo').limit(1).maybeSingle();
+        data.empresas = primera || null;
+    }
     return data;
 }
 
@@ -141,6 +157,14 @@ registrarSeccion('loggin', (zona) => {
             return;
         }
 
+        // Empresa desactivada por el Desarrollador (Tiendas -> Empresas)
+        if (encontrado.empresas && encontrado.empresas.activa === false && encontrado.rol !== 'desarrollador') {
+            botonIngresar.disabled = false;
+            botonIngresar.textContent = 'Ingresar';
+            mostrarError('Tu empresa está inactiva. Consulta con el administrador del sistema.');
+            return;
+        }
+
         // Se guardan los datos del usuario (sin la clave) en la sesión.
         // rol y tienda sirven para saber qué puede hacer y de qué tienda es
         // (ej. mostrar solo los pedidos de su tienda).
@@ -153,6 +177,7 @@ registrarSeccion('loggin', (zona) => {
             region: encontrado.region || null,      // solo Admin G2 (ej. 'NOR')
             permisos: encontrado.permisos || [],
             foto_url: encontrado.foto_url || null,  // foto del encabezado (js/avatar.js)
+            empresa: datosEmpresaSesion(encontrado.empresas), // { id, codigo, nombre, actividades } (js/sesion.js)
         });
 
         botonIngresar.textContent = 'Ingresando...';

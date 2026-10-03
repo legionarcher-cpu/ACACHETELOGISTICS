@@ -22,7 +22,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 24px 16px;
+    padding: 1.333rem 0.889rem;
     background:
         radial-gradient(circle at 20% 15%, rgba(18, 88, 166, 0.35), transparent 45%),
         radial-gradient(circle at 85% 90%, rgba(242, 102, 15, 0.12), transparent 40%),
@@ -32,11 +32,11 @@
 /* Agrupa el cuadro y el texto de abajo. Entra subiendo al abrir. */
 .login-contenedor {
     width: 100%;
-    max-width: 400px; /* ancho máximo del cuadro. Subir = cuadro más ancho */
+    max-width: 22.222rem; /* ancho máximo del cuadro. Subir = cuadro más ancho */
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 16px;
+    gap: 0.889rem;
     animation: entradaLogin 0.5s ease-out;
 }
 
@@ -49,7 +49,7 @@
 @keyframes entradaLogin {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(1.111rem);
     }
     to {
         opacity: 1;
@@ -60,7 +60,7 @@
 @keyframes salidaLogin {
     to {
         opacity: 0;
-        transform: translateY(-12px) scale(0.98);
+        transform: translateY(-0.667rem) scale(0.98);
     }
 }
 
@@ -73,7 +73,7 @@
     background-color: var(--color-blanco);
     border-radius: var(--radio-grande);
     overflow: hidden; /* para que la franja del logo respete las esquinas redondeadas */
-    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 1.111rem 2.5rem rgba(0, 0, 0, 0.35);
 }
 
 /* Sacudida cuando el usuario o la contraseña son incorrectos
@@ -85,8 +85,8 @@
 /* Franja superior azul con el logo (el logo tiene fondo azul) */
 .login-cabecera {
     background-color: var(--color-fondo-oscuro);
-    padding: 20px 28px;
-    border-bottom: 4px solid var(--color-naranja); /* línea naranja de la marca */
+    padding: 1.111rem 1.556rem;
+    border-bottom: 0.222rem solid var(--color-naranja); /* línea naranja de la marca */
 }
 
 .login-logo {
@@ -97,7 +97,7 @@
 
 /* Parte blanca con el formulario */
 .login-cuerpo {
-    padding: 28px 32px 32px;
+    padding: 1.556rem 1.778rem 1.778rem;
 }
 
 /* "Iniciar sesión" */
@@ -111,7 +111,7 @@
 
 /* "Panel de Control de Operaciones" */
 .login-subtitulo {
-    margin: 4px 0 24px;
+    margin: 0.222rem 0 1.333rem;
     font-size: 0.9rem;
     color: var(--color-gris);
 }
@@ -123,13 +123,13 @@
 .login-form {
     display: flex;
     flex-direction: column;
-    gap: 16px; /* separación entre los campos */
+    gap: 0.889rem; /* separación entre los campos */
 }
 
 .login-campo {
     display: flex;
     flex-direction: column;
-    gap: 6px; /* separación entre la etiqueta y la caja */
+    gap: 0.333rem; /* separación entre la etiqueta y la caja */
 }
 
 /* "Usuario" / "Contraseña" */
@@ -143,9 +143,9 @@
 .login-input-caja {
     display: flex;
     align-items: center;
-    gap: 10px;
-    height: 46px;
-    padding: 0 12px;
+    gap: 0.556rem;
+    height: 2.556rem;
+    padding: 0 0.667rem;
     background-color: var(--color-fondo);
     border: 1px solid var(--color-borde);
     border-radius: var(--radio);
@@ -162,7 +162,7 @@
 /* Cuando hay error (la clase la pone js/secciones/loggin.js) */
 .login-input-caja.con-error {
     border-color: var(--color-rojo);
-    box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.12);
+    box-shadow: 0 0 0 0.167rem rgba(192, 57, 43, 0.12);
 }
 
 /* Iconos de persona y candado: grises, y azules al escribir */
@@ -199,12 +199,12 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 1.778rem;
+    height: 1.778rem;
     padding: 0;
     background: none;
     border: none;
-    border-radius: 6px;
+    border-radius: 0.333rem;
     cursor: pointer;
     font-size: 1.05rem;
     color: var(--color-gris);
@@ -218,7 +218,7 @@
    espacio para que el botón no "salte" cuando aparece */
 .login-error {
     min-height: 1.2em;
-    margin: -4px 0 0;
+    margin: -0.222rem 0 0;
     font-size: 0.85rem;
     color: var(--color-rojo);
 }
@@ -228,7 +228,7 @@
    ================================================== */
 
 .login-boton {
-    height: 48px;
+    height: 2.667rem;
     background-color: var(--color-naranja);
     border: none;
     border-radius: var(--radio);
@@ -248,7 +248,7 @@
 /* Sube un poco al pasar el mouse (igual que los botones del pie) */
 .login-boton:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 6px 14px rgba(242, 102, 15, 0.35);
+    box-shadow: 0 0.333rem 0.778rem rgba(242, 102, 15, 0.35);
 }
 
 .login-boton:active:not(:disabled) {
@@ -257,7 +257,7 @@
 }
 
 .login-boton:focus-visible {
-    outline: 3px solid rgba(242, 102, 15, 0.4);
+    outline: 0.167rem solid rgba(242, 102, 15, 0.4);
     outline-offset: 2px;
 }
 

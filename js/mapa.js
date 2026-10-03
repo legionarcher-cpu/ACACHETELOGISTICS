@@ -293,7 +293,7 @@ function enlacesNavegacion(a, b) {
 // MAPA "PUNTO A -> PUNTO B"
 // Uso:
 //   const mapa = crearMapaRuta(zona.querySelector('#miCaja'), {
-//       etiquetaA: 'Recolección', etiquetaB: 'Entrega',
+//       etiquetaA: 'Punto de partida', etiquetaB: 'Entrega',
 //       textoA: () => inputA.value,   // qué buscar al presionar "Ubicar A"
 //       textoB: () => inputB.value,
 //       entradaA: inputA, entradaB: inputB, // (opcional) sugerencias mientras se escribe

@@ -42,6 +42,60 @@ document.getElementById('btnCerrarSesion').addEventListener('click', (evento) =>
     mostrarSeccionActual(); // js/pagina_inicial.js -> como no hay sesión, muestra el login
 });
 
+// ---------- Empresa (sql/01 bloque 16) ----------
+// Muestra la empresa del usuario ("01 · Empresa principal"). El Desarrollador la
+// cambia con el selector: se guarda en la sesión (js/sesion.js) y se recarga la
+// sección, que ya lee solo lo de esa empresa (js/supabase.js).
+const cajaEmpresa = document.getElementById('userEmpresa');
+const selEmpresa = document.getElementById('userEmpresaElegir');
+const nombreEmpresaMenu = (e) => (e.codigo ? `${e.codigo} · ${e.nombre}` : e.nombre);
+
+async function pintarEmpresaMenu() {
+    const empresa = typeof empresaActual === 'function' ? empresaActual() : null;
+    cajaEmpresa.hidden = !empresa;
+    if (!empresa) return;
+    const texto = document.getElementById('userEmpresaNombre');
+    texto.textContent = nombreEmpresaMenu(empresa);
+    const puedeCambiar = esDesarrollador();
+    texto.hidden = puedeCambiar;
+    selEmpresa.hidden = !puedeCambiar;
+    if (!puedeCambiar) return;
+    const { data, error } = await db.from('empresas').select('id, codigo, nombre, actividades, activa').order('codigo');
+    if (error) return;
+    selEmpresa.replaceChildren(...data.map((e) => new Option(e.activa ? nombreEmpresaMenu(e) : `${nombreEmpresaMenu(e)} (inactiva)`, e.id)));
+    selEmpresa.value = String(empresa.id);
+    selEmpresa.empresas = data;
+}
+
+trigger.addEventListener('click', () => {
+    if (menu.classList.contains('abierto')) pintarEmpresaMenu();
+});
+
+selEmpresa.addEventListener('change', () => {
+    const elegida = (selEmpresa.empresas || []).find((e) => String(e.id) === selEmpresa.value);
+    if (!elegida) return;
+    cambiarEmpresaActiva(elegida); // js/sesion.js
+    menu.classList.remove('abierto');
+    mostrarSeccionActual();        // js/pagina_inicial.js: la sección se recarga con la otra empresa
+});
+
+// Sesión iniciada antes de existir las empresas (o sin el ID): se completa una vez
+(async () => {
+    const sesion = obtenerSesion();
+    if (!sesion || ('empresa' in sesion && (!sesion.empresa || 'codigo' in sesion.empresa))) return;
+    const { data, error } = await db.from('usuarios')
+        .select('rol, empresas(id, codigo, nombre, actividades, activa)').eq('id', sesion.id).maybeSingle();
+    if (error || !data) return; // base sin empresas: sigue como antes
+    let empresa = data.empresas;
+    if (!empresa && data.rol === 'desarrollador') {
+        const r = await db.from('empresas').select('id, codigo, nombre, actividades, activa')
+            .eq('activa', true).order('codigo').limit(1).maybeSingle();
+        empresa = r.data || null;
+    }
+    cambiarEmpresaActiva(empresa);
+    if (empresa) mostrarSeccionActual();
+})();
+
 // NOTA: "Mi perfil" (#perfil) y "Configuración" (#configuracion) son enlaces
 // con #, así que los carga js/pagina_inicial.js como cualquier sección.
 // Para que funcionen hay que crear secciones/perfil.html y secciones/configuracion.html.

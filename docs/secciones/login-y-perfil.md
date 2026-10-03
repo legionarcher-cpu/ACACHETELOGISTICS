@@ -13,6 +13,9 @@
   mayúsculas). Trae los datos sin la clave.
 - Mensaje genérico "Usuario o contraseña incorrectos" (no da pistas de qué usuarios existen).
 - Usuario con `aprobado = false` (creado por un G3): no puede entrar.
+- Usuario con el ID de su empresa al final (`cenjperez01`, `jperez01`; sql/01 bloques 16 y 17). Trae también su
+  **empresa** (`empresas(...)`) y la guarda en la sesión; si la empresa está **inactiva**, no entra. El
+  Desarrollador (sin empresa) entra con la primera activa.
 - Al entrar: `guardarSesion(...)`, `aplicarPermisos()`, animación del menú y abre la sección pedida
   en el `#` (si tiene permiso) o Inicio.
 - El logo de la franja es el de ACACHETE (marca de la casa, `img/logo-web-slog.png`).

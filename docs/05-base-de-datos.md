@@ -17,7 +17,13 @@ Hay **solo dos** scripts:
 Secciones de `00` (los comentarios del código las citan como "sql/00, sección N"):
 1 regiones y tiendas · 2 vehículos · 3 usuarios y roles · 4 clientes y notificaciones ·
 5 configuración y horarios · 6 actividades y configuración de pedidos · 7 rutas · 8 pedidos ·
-9 vehículo "en uso" automático · 10 acceso desde la web · 11 archivos (fotos).
+9 vehículo "en uso" automático · 10 acceso desde la web · 11 archivos (fotos) ·
+12 **empresas internas** (= bloque 16 de `01`).
+
+Bloques de `01`: 1 a 15 (ver su cabecera) y **16 · empresas internas** (2026-10-02): tabla `empresas`,
+`empresa_id` en las tablas de cada empresa, usuarios con el ID de la empresa (⚠ **renombra una sola vez**
+a los usuarios que ya existían: `cen-001-jperez` → `cenjperez01`; avisarles), regiones editables desde
+la página y ruta de entrega del cliente por tienda.
 
 **Regla para cambios de estructura** (no crear archivos nuevos):
 1. Agregar el cambio en su sección de `00_instalacion_completa.sql` (para las bases nuevas).
@@ -27,6 +33,12 @@ Secciones de `00` (los comentarios del código las citan como "sql/00, sección 
 
 Nunca crear columnas a mano en el Table Editor.
 
+**Vaciar una base (empezar de cero):** `herramientas/vaciar_base_datos.sql` borra **todos** los
+registros (también la configuración) y reinicia los contadores, sin tocar la estructura. Después se
+ejecuta `01_actualizacion_base_existente.sql` (pone las tablas al día) y luego `00_instalacion_completa.sql`
+(vuelve a cargar los valores de fábrica). Las fotos de
+Storage se borran a mano (Storage → `avatares` / `evidencias`). No se puede deshacer.
+
 Si la página dice "Falta instalar la base de datos", falta `00`; si dice "Falta ejecutar
 sql/01_actualizacion_base_existente.sql", falta la actualización.
 
@@ -34,8 +46,20 @@ sql/01_actualizacion_base_existente.sql", falta la actualización.
 
 ### Organización
 
-**`regiones`** — zonas del país. `codigo` (3 letras MAYÚSCULAS, ej. `NOR`), `nombre`.
-Solo lectura desde la página; se editan en Supabase.
+**`empresas`** (sql/01 bloque 16) — empresas internas: `id`, `codigo` (ID de 2 números, `01`, único; va al
+final de sus usuarios), `nombre` (único), `actividades` (`{tienda,encomiendas}`, al menos una), `activa`
+(inactiva = sus usuarios no entran), `creado_en`. La primera es la "Empresa principal" (`01`).
+**`empresa_id`** (obligatorio) en `regiones`, `tiendas`, `clientes`, `rutas`, `vehiculos`, `pedidos`,
+`categorias_mercaderia`, `tarifas` y `descuentos`; en `usuarios` es obligatorio salvo para el Desarrollador.
+Valor por defecto: `empresa_principal()`. Triggers: pedidos y rutas toman la de su tienda; tiendas y
+descuentos la de su región; tarifas la de su tienda o región; usuarios la de su tienda o región
+(Administrador y G1, la que se elige). Funciones: `usuario_base`, `usuario_completo`,
+`usuario_libre` (agrega un número si el usuario ya existe), `cambiar_codigo_empresa` (cambia el ID y renombra
+a sus usuarios). Bloque 17: usuarios de tienda con la región y sin el número de la tienda. La página filtra sola por la empresa
+activa (`js/supabase.js`, ver [secciones/empresas.md](secciones/empresas.md)).
+
+**`regiones`** — zonas del país. `codigo` (3 letras MAYÚSCULAS, ej. `NOR`, único en todo el sistema),
+`nombre`, `empresa_id`. Se administran en Tiendas → Regiones (Administrador y G1).
 
 **`tiendas`** — `id`, `codigo` (único, `AAA-000`, las 3 letras = región), `region`, `nombre`,
 `direccion`, `telefono`, `estado` (`activa` | `inactiva`), `lat`, `lng` (ubicación en el mapa: punto A
@@ -47,7 +71,8 @@ de sus entregas; la guardan Administrador y G1 desde el formulario de Pedidos; s
 |---|---|
 | `id` | Número interno |
 | `nombre`, `telefono` | Datos de la persona |
-| `id_usuario` | Con lo que inicia sesión (único, minúsculas). Hoy `cen-001-jperez` para G3/Empleado/Piloto |
+| `id_usuario` | Con lo que inicia sesión (único, minúsculas). Lleva el ID de la empresa al final: `cenjperez01` (G3/Empleado/Piloto: región + nombre, sin la tienda), `jperez01` (Administrador/G1/G2) |
+| `empresa_id` | Su empresa interna (null solo el Desarrollador) |
 | `clave` | Contraseña (⚠ sin cifrar hasta la Fase 7) |
 | `rol` | `administrador`, `admin_g1`, `admin_g2`, `admin_g3`, `empleado`, `piloto` |
 | `tienda_id` | Su tienda (obligatoria para G3, Empleado y Piloto) |
@@ -66,9 +91,14 @@ elimina ni cambia de usuario o rol (trigger `proteger_admin`).
 según los pedidos activos del piloto (función `recalcular_estado_vehiculo` + triggers); `mantenimiento`
 no se toca.
 
-**`clientes`** — `nombre`, `apellidos`, `telefono`, `direccion`, `ubicacion`, y aprobación
-(`aprobado`, `cambios_pendientes`, `solicitado_por`, `solicitado_en`).
-**`clientes_tiendas`** — qué tiendas atienden a cada cliente (muchos a muchos).
+**`clientes`** — `nombre`, `apellido1`, `apellido2` (opcional), `telefono`, `correo` (opcional, **no se
+repite dentro de la empresa**), `direccion`, `ubicacion` (texto, enlace o coordenadas `lat, lng`: Nuevo pedido
+guarda el punto de entrega), `empresa_id`, y aprobación (`aprobado`, `cambios_pendientes`, `solicitado_por`,
+`solicitado_en`). Calculadas por la base (no se escriben): `apellidos` (= apellido1 + apellido2) y
+`busqueda` (nombre, apellidos, correo y teléfono en dígitos, minúsculas y sin tildes; la usa el buscador de
+clientes de Pedidos). sql/01 bloque 11.
+**`clientes_tiendas`** — qué tiendas atienden a cada cliente (muchos a muchos) y `ruta_id`: su **ruta de
+entrega** en esa tienda (sql/01 bloque 16).
 
 **`notificaciones`** — un aviso para un usuario: `tipo` (`pendiente`, `aprobado`, `rechazado`, `info`),
 `titulo`, `mensaje`, `enlace` (ej. `#usuarios`), `referencia_tipo`/`referencia_id`, `leida`.
@@ -78,12 +108,42 @@ no se toca.
 | Tabla | Qué guarda |
 |---|---|
 | `configuracion` | Valores generales clave → valor (JSON): `cantidad_marcas`, `pedidos_por_marca`, `numero_pedido` (`automatico`/`manual`), `codigo_respaldo` (lista: `aleatorio`, `telefono`) |
-| `marcas_horario` | Horarios base: `numero`, `inicio_desde`, `inicio_hasta`, `fin` |
+| `marcas_horario` | Horarios base: `numero`, `inicio_desde` ("Inicia desde", solo G2+), `inicio_hasta` ("Hora inicio": a tiempo hasta aquí), `fin` ("Termina": límite de la marca tardía) |
 | `horario_dias` + `marcas_dia` | Días con horario propio (1 = lunes ... 7 = domingo; 0 marcas = descanso) |
 | `capacidad_marcas` | Pedidos por horario distintos para una región **o** una tienda |
 
 Función `marcas_del_dia(fecha)`: horarios que aplican a una fecha (los del día o los de la base).
-Prioridad de la capacidad: tienda > región > base.
+Prioridad de la capacidad: tienda > región > base. La **marca** (horario del piloto) solo la ven el piloto y
+Admin G2 en adelante.
+
+### Marcas del piloto y QR (sql/01 bloques 13 y 14)
+
+| Tabla | Qué guarda |
+|---|---|
+| `marcas_piloto` | Cada marca, lo mínimo (~60 bytes): `piloto_id`, `fecha`, `numero` (horario), `marcado_en`, `a_tiempo`, `justificacion` (solo si fue tardía, máx. 200). Lo de meses anteriores se borra solo |
+| `qr_marcas` | Código del **QR de marcas** de cada tienda, uno por mes (`tienda_id`, `mes`, `codigo`). Sin acceso directo desde la página |
+| `pilotos_dia` | **QR del día** de cada piloto (`token`) y su validación en tienda (`validado_en`, `validado_por`) |
+
+| Función | Qué hace |
+|---|---|
+| `ahora_local()` | Fecha y hora de Costa Rica (cambiar aquí si la empresa está en otra zona) |
+| `qr_marca_mes(tienda)` | Texto del QR de marcas del mes (`ACACHETE-MARCA:<tienda>:<código>`); lo crea si falta |
+| `qr_piloto_dia(piloto)` | Texto del QR del día del piloto (`ACACHETE-PILOTO:<token>`) |
+| `validar_piloto(token, usuario)` | La tienda escanea el QR del día: lo valida y devuelve nombre, foto y tienda |
+| `marcar_por_qr(piloto, qr, justificacion)` | El piloto escanea el QR de marcas: revisa que sea el del mes y que esté validado hoy, y marca el horario abierto ("inicia desde" → "termina"; a tiempo hasta la "hora inicio"). Si es tardía y no trae justificación responde `JUSTIFICAR:…` y la app pide el motivo |
+
+Ninguno de los QR lleva datos personales: solo un código que la base reconoce. El QR del pedido es
+`ACACHETE-PEDIDO:<token_qr>`.
+
+### Slots (rango de horario de despacho del pedido; sql/01 bloque 12)
+
+| Tabla | Qué guarda |
+|---|---|
+| `configuracion` | `cantidad_slots` |
+| `slots_horario` | Slots base: `numero`, `inicio`, `fin` |
+| `slot_dias` + `slots_dia` | Días con slots propios (0 = no se despacha) |
+
+Función `slots_del_dia(fecha)`: slots que aplican a una fecha. Sin límite de pedidos por slot.
 
 ### Configuración de pedidos
 
@@ -97,6 +157,11 @@ Prioridad de la capacidad: tienda > región > base.
 | `tarifas` | Por actividad y alcance (general, región o tienda): `cargo_fijo`, `minimo`, `kg_incluidos`, `precio_kg`, `precio_km` (futuro), `envio_gratis_desde` |
 | `descuentos` | `nombre`, `tipo` (`porcentaje`/`monto`), `valor`, `actividad` y `region` (vacío = todas), `activo` |
 | `motivos_retraso` | Lista para el cierre de entrega |
+
+**Por empresa** (sql/01 bloque 16): `categorias_mercaderia` (nombre único por empresa y actividad), sus
+`articulos_catalogo`, `tarifas` (una general por empresa y actividad) y `descuentos`. **Compartidos**:
+`actividades` (qué hace cada empresa está en `empresas.actividades`), `tamanos_bulto`, `motivos_retraso`,
+horarios, slots y `configuracion`.
 
 ### Rutas
 
@@ -113,18 +178,27 @@ Prioridad de la capacidad: tienda > región > base.
 | Cliente (copia) | `cliente_id`, `cliente_nombre`, `cliente_telefono` |
 | Direcciones | `direccion_recoleccion`, `direccion_entrega`, `distancia_km` (km por calle de A a B, del mapa) |
 | Quién recibe | `recibe_tipo` (`cliente`/`autorizado`), `recibe_nombre`, `recibe_telefono` |
-| Planificación | `fecha_entrega`, `marca_numero` (horario), `piloto_id` |
+| Planificación | `fecha_entrega`, `slot_numero` (slot de despacho), `marca_numero` (horario del piloto), `piloto_id` |
 | Mercadería | `peso_total_kg`, `lleva_alcohol`, `detalle` (JSON: categorías, conteo de abarrotes, documentos y `ruta`: `{ origen, a: {lat,lng}, b: {lat,lng}, km, minutos, aproximada }`) |
 | Cobro | `monto_compra`, `cobrar_compra`, `costo_envio`, `descuento_id`, `costo_desglose` (JSON: copia de la tarifa y el cálculo), `total_cobrar`, `forma_pago`, `paga_con`, `vuelto` |
-| Estado | `estado`, `anulado`, `motivo_cancelacion`, `notas` |
+| Estado | `estado`, `anulado` (ya no se usa: se cancela), `motivo_cancelacion`, `notas` |
 | Auditoría | `creado_por`, `creado_en`, `actualizado_en` |
+| Hora de cada paso (las pone el trigger `pedidos_tiempos`) | `alistando_en`, `listo_en`, `recibido_ruta_en`, `cargado_en` (+ `cargado_por`: quién escaneó), `salida_en`, `entregando_en`, `finalizado_en` |
 
-Estados: `registrado`, `recibido_bodega`, `asignado`, `en_ruta`, `entregado`, `entregado_incidencia`,
-`no_entregado`, `reprogramado`, `devuelto`, `cancelado`.
+Estados: `registrado`, `recibido_bodega`, `asignado` (ya tiene piloto), `alistando`, `listo_despacho`,
+`recibido_ruta`, `cargado`, `en_ruta`, `en_entrega`, `entregado`, `entregado_incidencia`, `no_entregado`,
+`reprogramado`, `devuelto`, `cancelado`. Solo **un** pedido `en_entrega` por piloto (índice `pedidos_un_en_entrega`).
+
+**Calculador interno** (no se ve en pantalla; para estadísticas futuras):
+- Vista `pedidos_tiempos`: minutos de cada pedido — `min_hasta_listo` (creado → listo para despachar),
+  `min_espera_alistar`, `min_alistando`, `min_espera_carga`, `min_cargado_a_salida`, `min_en_ruta`,
+  `min_ultimo_tramo`, `min_total`.
+- Vista `slots_carga`: por tienda + fecha + slot — pedidos, cargados, `completo`, primer y último escaneo,
+  primera salida, `min_carga` (primer escaneo → "Saliendo a ruta") y `min_carga_todos` (primer → último escaneo).
 
 | Tabla | Qué guarda |
 |---|---|
-| `pedido_articulos` | Cada línea: `categoria_id`, `categoria` (copia del nombre), `descripcion`, `cantidad`, `tamano`, `peso_kg` (**de cada uno**) |
+| `pedido_articulos` | Cada línea: `categoria_id`, `categoria` (copia del nombre), `descripcion`, `cantidad`, `tamano`, `peso_kg` (**de cada uno**). Abarrotes (conteo): una línea por tipo (`Cajas` 5, `Bolsas` 2...) con el peso aproximado repartido por pieza |
 | `pedido_historial` | Línea de tiempo: `evento`, `estado_anterior`, `estado_nuevo`, `detalle` (JSON), usuario, fecha (solo agregar) |
 | `pedido_entregas` | Cierre de entrega (app del piloto): validado con QR o código, quién recibió, satisfecho, mercadería buena, retraso y motivo, mayoría de edad, ubicación |
 | `pedido_evidencias` | Fotos (Storage `evidencias`): `tipo` (`entrega`, `mal_estado`, `retraso`, `recepcion`); `eliminada_en` cuando se borra la foto a los 12 meses |

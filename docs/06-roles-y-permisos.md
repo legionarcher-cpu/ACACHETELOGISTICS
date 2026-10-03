@@ -2,15 +2,19 @@
 
 ## Los 6 roles
 
-| Rol (`rol`) | Quién es | Tienda / región | Usuario (hoy) |
+| Rol (`rol`) | Quién es | Tienda / región | Usuario (empresa `01`) |
 |---|---|---|---|
-| `desarrollador` | **Por encima de todo** (dueño del sistema). Puede todo lo del Administrador; **nadie lo ve** en Usuarios ni en avisos; solo se crea por SQL | Ninguna | `desar` |
-| `administrador` | Controla todo en la empresa que usa el sistema | Ninguna | `admin` |
-| `admin_g1` | Administración de todo el país | Ninguna | `jlopez` |
-| `admin_g2` | Administración de **una región** | Región | `mruiz` |
-| `admin_g3` | Administrador local de **una tienda** | Tienda | `cen-001-mlopez` |
-| `empleado` | Usuario de una tienda: registra y sigue pedidos | Tienda | `cen-001-jperez` |
-| `piloto` | Conductor: entrega sus pedidos | Tienda (base) | `cen-001-lgarcia` |
+| `desarrollador` | **Por encima de todo** (dueño del sistema). Puede todo lo del Administrador; **nadie lo ve** en Usuarios ni en avisos; solo se crea por SQL. **Único que ve y crea empresas** y cambia de empresa | Ninguna (ninguna empresa) | `desar` |
+| `administrador` | Controla todo en **su empresa** | Ninguna | `admin` / `jperez01` |
+| `admin_g1` | Administración de todo el país (de su empresa) | Ninguna | `jlopez01` |
+| `admin_g2` | Administración de **una región** | Región | `mruiz01` |
+| `admin_g3` | Administrador local de **una tienda** | Tienda | `cenmlopez01` |
+| `empleado` | Usuario de una tienda: registra y sigue pedidos | Tienda | `cenjperez01` |
+| `piloto` | Conductor: entrega sus pedidos | Tienda (base) | `cenlgarcia01` |
+
+Cada usuario es de **una empresa interna** y todo lo que ve es de esa empresa (ver
+[secciones/empresas.md](secciones/empresas.md)). El ID de la empresa va al final del usuario. Los de tienda llevan la **región** de su tienda,
+no la tienda: cambiar de sucursal en la región no cambia su usuario.
 
 ## Jerarquía de lo que se ve (en todas las secciones)
 
@@ -30,29 +34,41 @@
 | Pilotos | ✔ | ✔ | ✔ | ✔ | 🔒 | 🔒 |
 | Rutas y asignaciones | ✔ | ✔ | ✔ | Ver | 🔒 | 🔒 |
 | Tiendas / Clientes | ✔ | ✔ | ✔ | ✔ | ✔ | 🔒 |
-| Reportes | ✔ | ✔ | ✔ | Ver | 🔒 | 🔒 |
-| Usuarios | ✔ | ✔ | ✔ | ✔ | 🔒 | 🔒 |
-| Configuración | Todo | Casi todo | Parte | — | — | — |
+| Reportes | ✔ | ✔ | ✔ | Ver | 🔒 | Sus pedidos (7 días) |
+| Usuarios | ✔ | ✔ | ✔ | 🔒 | 🔒 | 🔒 |
+| Configuración | Todo | Casi todo | Parte | 🔒 | 🔒 | 🔒 |
+| Tiendas → Empresas | Solo Desarrollador | — | — | — | — | — |
 
-🔒 = candado en el menú (`js/sesion.js`: `SECCIONES_POR_ROL`, `SECCIONES_BLOQUEADAS_POR_ROL`).
+🔒 = candado en el menú (`js/sesion.js`: `SECCIONES_POR_ROL`, `SECCIONES_BLOQUEADAS_POR_ROL`). La opción
+"Configuración" del menú del usuario también se oculta a quien no tiene permiso (`js/permisos.js`).
 
 ## Qué puede hacer cada uno (resumen)
 
 | Qué | Admin | G1 | G2 | G3 | Empleado | Piloto |
 |---|---|---|---|---|---|---|
 | Asignar roles de administración | ✔ | — | — | — | — | — |
-| Crear/modificar/eliminar Empleados y Pilotos | ✔ | ✔ | Su región | Crea Empleados (pendientes) | — | — |
-| Aprobar usuarios creados por G3 | ✔ | ✔ | Su región | — | — | — |
+| Crear/modificar/eliminar Empleados y Pilotos | ✔ | ✔ | Su región | — (sin acceso a Usuarios) | — | — |
+| Aprobar usuarios pendientes (creados antes por un G3) | ✔ | ✔ | Su región | — | — | — |
+| Aviso "Piloto en tienda: despachar pedidos" (marca de llegada) | — | — | — | ✔ | ✔ | — |
 | Tiendas: crear / modificar / eliminar | ✔ / ✔ (con código) / ✔ | ✔ / datos / — | Ver | Ver | Ver | — |
 | Clientes: crear, modificar, eliminar, aprobar | ✔ | ✔ | Su región | Su tienda | Crea/modifica con aprobación | — |
 | Registrar pedidos | ✔ | ✔ | Su región | Su tienda | Su tienda | — |
-| Asignar piloto / horario / ruta, reprogramar | ✔ | ✔ | Su región | Solo solicita | Solo solicita | — |
-| Cancelar pedido | ✔ | ✔ | ✔ | ✔ | — | — |
-| Anular pedido | ✔ | ✔ | — | — | — | — |
-| Salí a entregar / Entregado / No entregado | — | — | — | — | — | Solo sus pedidos |
+| Ver el horario del piloto (marca) | ✔ | ✔ | ✔ | — (ven el slot) | — (ven el slot) | ✔ |
+| Elegir el slot al registrar | ✔ | ✔ | ✔ | ✔ | ✔ | — |
+| Asignar piloto / horario / ruta, reprogramar | ✔ | ✔ | Su región | Solo solicita (fecha) | Solo solicita (fecha) | — |
+| Alistando / Listo para despachar / Aprobar salida (dentro del pedido) | ✔ | ✔ | Su región | Su tienda | Su tienda | — |
+| Cancelar pedido (con motivo; ya no se anula) | ✔ | ✔ | ✔ | ✔ | — | — |
+| Recibido para ruta / Saliendo a ruta / Entregar ahora / Entregado / No entregado | — | — | — | — | — | Solo sus pedidos |
+| Config. → Slots | ✔ | ✔ | Ver | — | — | — |
 | Rutas: crear y asignar pilotos | ✔ | ✔ | Su región | Ver | — | — |
-| Reportes: exportar | ✔ | ✔ | ✔ | Solo ver | — | — |
+| Reportes: exportar | ✔ | ✔ | ✔ | Solo ver | — | Sus pedidos de 7 días |
+| Marcar sus horarios (escanea el QR de marcas de la tienda; validado ese día) | — | — | — | — | — | ✔ |
+| Ver / imprimir el QR de marcas del mes (Tiendas) | ✔ | ✔ | Su región | Su tienda | Su tienda | — |
+| QR del día de los pilotos (Rutas y asignaciones) | ✔ | ✔ | Su región | — | — | El suyo (Inicio) |
+| Validar al piloto escaneando su QR del día | ✔ | ✔ | ✔ | ✔ | ✔ | — |
 | Config. → Actividades | Solo Desarrollador | — | — | — | — | — |
+| Empresas (crear, ID, actividades) y elegir la empresa de un Administrador | Solo Desarrollador | — | — | — | — | — |
+| Tiendas → Regiones (crear, renombrar, eliminar) | ✔ | ✔ | — | — | — | — |
 | Config. → Categorías | ✔ | — | — | — | — | — |
 | Config. → Horarios base, tamaños, motivos, artículos, número de pedido, código de respaldo | ✔ | ✔ | Ver | — | — | — |
 | Config. → Tarifas y descuentos | ✔ | ✔ | Su región | — | — | — |

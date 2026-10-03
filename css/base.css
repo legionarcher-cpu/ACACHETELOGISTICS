@@ -6,16 +6,32 @@
    Lo propio del marco del index está en css/index.css.
    ================================================== */
 
-/* Fuente y tamaño base de toda la página.
-   clamp(mínimo, ideal, máximo): la letra crece con la pantalla,
-   pero nunca queda más chica que 14px ni más grande que 18px.
-   Todos los tamaños en "rem" del proyecto dependen de este. */
+/* ESCALA DE TODO EL SISTEMA: 1rem.
+   Todas las medidas del proyecto (letras, anchos, rellenos, fotos, botones)
+   están en rem, así que al cambiar este valor TODO crece o se achica junto,
+   sin desacomodarse. Se mide con el ancho Y el alto de la ventana (gana el
+   menor), para que quepa también en pantallas bajas (laptops 1366x768) y no
+   se agigante en monitores ultra anchos:
+       1366 x 768  -> 15px   (mínimo en computadora)
+       1536 x 864  -> 16px   (laptop 1920x1080 con Windows al 125%)
+       1920 x 1080 -> 18px   (REFERENCIA: px de diseño / 18 = rem)
+       2560 x 1440 -> 21.5px
+       3840 x 2160 -> 28px   (máximo)
+   Tablet y celular (≤ 900px): fijo en 16px (regla de abajo).
+   Las medidas que quedan en px son a propósito: bordes finos de 1-2px
+   y los cortes de @media (miden la ventana, no el contenido). */
 html {
     box-sizing: border-box;
     height: 100%;
     width: 100%;
-    font-size: clamp(14px, 1.5vw, 18px);
+    font-size: clamp(15px, min(0.54vw + 7.63px, 1vh + 8.5px), 28px);
     font-family: var(--fuente-base);
+}
+
+@media (max-width: 900px) {
+    html {
+        font-size: 16px;
+    }
 }
 
 /* box-sizing: el padding y el borde se cuentan dentro del ancho/alto.
@@ -24,6 +40,13 @@ html {
     box-sizing: inherit;
     min-width: 0;
     min-height: 0;
+}
+
+/* Los iconos (Bootstrap Icons) NUNCA se encogen: con el min-width: 0 de arriba,
+   en pantallas medianas el texto de al lado los dejaba en 0 de ancho y el
+   dibujo quedaba encima de las letras (ej. tarjetas de actividad del pedido). */
+.bi {
+    flex-shrink: 0;
 }
 
 body {

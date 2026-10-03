@@ -12,7 +12,7 @@
 @keyframes aparecerBajando {
     from {
         opacity: 0;
-        transform: translateY(-6px);
+        transform: translateY(-0.333rem);
     }
     to {
         opacity: 1;
@@ -47,8 +47,8 @@
 /* Sacudida de "error" (ej. login con datos incorrectos) */
 @keyframes sacudir {
     0%, 100% { transform: translateX(0); }
-    20%      { transform: translateX(-8px); }
-    40%      { transform: translateX(8px); }
-    60%      { transform: translateX(-5px); }
-    80%      { transform: translateX(5px); }
+    20%      { transform: translateX(-0.444rem); }
+    40%      { transform: translateX(0.444rem); }
+    60%      { transform: translateX(-0.278rem); }
+    80%      { transform: translateX(0.278rem); }
 }

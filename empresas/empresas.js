@@ -19,7 +19,10 @@
       .logo-img-1, .logo-img-2, #log-sec y .logo-slog)
      encabezado  -> imagen que REEMPLAZA el título ('' = usar el texto)
      pie         -> líneas del texto del pie (derechos reservados)
-     actividades -> qué hace la empresa (códigos de la tabla actividades):
+     actividades -> qué hace la empresa (códigos de la tabla actividades).
+                    Con EMPRESAS INTERNAS (tabla empresas, Tiendas -> Empresas)
+                    manda lo que marca cada empresa interna; esta lista queda
+                    como respaldo (base sin el bloque 16 de sql/01):
                       'tienda'      = Entregas de tienda (supermercado: abarrotes,
                                       línea blanca, electrónica...)
                       'encomiendas' = Encomiendas (cajas, bolsas, documentos,
@@ -91,8 +94,12 @@ const EMPRESAS = {
 const EMPRESA = EMPRESAS[EMPRESA_ACTIVA] || EMPRESAS[Object.keys(EMPRESAS)[0]];
 
 // ¿La empresa realiza esta actividad? (lista vacía = todas)
+// Si la sesión tiene empresa interna (tabla empresas, sql/01 bloque 16), manda la
+// de esa empresa: solo entregas de tienda, solo encomiendas o las dos.
 function empresaTieneActividad(codigo) {
-    const lista = EMPRESA.actividades || [];
+    const deSesion = typeof empresaActual === 'function' ? empresaActual() : null;
+    const lista = (deSesion && deSesion.actividades && deSesion.actividades.length ? deSesion.actividades : null)
+        || EMPRESA.actividades || [];
     return !lista.length || lista.includes(codigo);
 }
 

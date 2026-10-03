@@ -1,7 +1,8 @@
 # Documentación del sistema — ACACHETE Logistics
 
-Sistema web para coordinar **pedidos, entregas, pilotos, rutas y tiendas** de una o varias empresas
-(multimarca). Funciona en el navegador, guarda todo en **Supabase** (PostgreSQL) y no necesita
+Sistema web para coordinar **pedidos, entregas, pilotos, rutas y tiendas** de una o varias empresas:
+**empresas internas** en la misma base, cada una con su ID (`01`, `02`...) y sus datos separados
+([secciones/empresas.md](secciones/empresas.md)), y **multimarca** (otra copia con su logo y colores). Funciona en el navegador, guarda todo en **Supabase** (PostgreSQL) y no necesita
 servidor propio.
 
 > Esta carpeta explica **cómo está hecho hoy** y **dónde tocar** para cambiarlo.
@@ -25,6 +26,7 @@ servidor propio.
 | 10 | [10-recetas.md](10-recetas.md) | Paso a paso para los cambios más comunes |
 | 11 | [11-pruebas.md](11-pruebas.md) | Lista de pruebas por sección (usar después de cada cambio) |
 | 12 | [12-pendientes.md](12-pendientes.md) | Cambios aprobados, pendientes y decisiones abiertas |
+| 13 | [13-cambios.md](13-cambios.md) | Registro de cambios (qué cambió y qué SQL ejecutar) |
 
 ### Guías por sección (carpeta `secciones/`)
 
@@ -34,6 +36,7 @@ servidor propio.
 [Rutas y asignaciones](secciones/rutas.md) ·
 [Pilotos](secciones/pilotos.md) ·
 [Tiendas y Clientes](secciones/tiendas-y-clientes.md) ·
+[Empresas internas](secciones/empresas.md) ·
 [Usuarios](secciones/usuarios.md) ·
 [Reportes](secciones/reportes.md) ·
 [Configuración](secciones/configuracion.md) ·

@@ -7,6 +7,8 @@
 
    PARTE 1 - ENVIAR (las usan las secciones):
      notificarPendiente(...)   -> avisa a quienes deben APROBAR algo
+     avisar(...)               -> aviso por rol (G3 de la tienda, G2 de la región,
+                                  administradores) y/o a usuarios concretos (el piloto)
      notificarResultado(...)   -> avisa a quien PIDIÓ algo si se aprobó o rechazó
      resolverPendientes(...)   -> marca como leídos los avisos "pendiente"
                                   de algo que ya se resolvió
@@ -27,6 +29,17 @@
        (si la tienda no tiene G3: el Admin G2 de la región). Así no se llena
        de avisos a los administradores principales; ellos igual pueden aprobar
        desde Clientes si entran.
+
+   AVISOS DE PEDIDOS (js/secciones/pedidos.js e inicio.js; ver docs/secciones/pedidos.md):
+     piloto marca su llegada (horario) -> G3 y Empleados de la tienda (despachar sus pedidos)
+     pedido nuevo sin piloto      -> G2 (pendiente: asignar)       | con piloto -> el piloto (info)
+     solicitud de reasignación    -> G2 (pendiente)                 | resultado -> quien la pidió
+     listo para despachar         -> el piloto (info: recíbelo)
+     piloto "Recibido para ruta"  -> G3 de la tienda (pendiente: aprobar salida)
+     piloto "No entregado"        -> G2 (pendiente: reprogramar o cancelar) + G3 (info)
+     G2 reprograma / cancela / devuelto -> G3 de la tienda + el piloto (info)
+     tienda cancela               -> G2 + el piloto (info)
+     Los "pendiente" se cierran solos (resolverPendientes) cuando alguien hace lo pedido.
 
    HTML: index.html (.noti-*) | Estilos: css/index.css (bloque "NOTIFICACIONES")
    Necesita: js/supabase.js (db) y js/sesion.js cargados antes.
@@ -61,7 +74,9 @@ const NOTI_TIPOS = {
 //   soloTienda = true  -> SOLO el Admin G3 de esa tienda (ej. clientes de un
 //                         Empleado), para no llenar de avisos a los admins
 //                         principales. Si la tienda no tiene Admin G3, se avisa
-//                         al Admin G2 de la región para que no quede sin ver.
+//                         al Admin G2 de la región y, si tampoco hay, al
+//                         Administrador y Admin G1, para que no quede sin ver.
+// Todo dentro de la empresa activa (js/supabase.js filtra los usuarios).
 //   soloRegion = true  -> SOLO el Admin G2 de la región de la tienda (ej. una
 //                         solicitud de reasignación de un pedido que pide un
 //                         Admin G3). Si no hay G2, al Administrador y Admin G1.
@@ -82,13 +97,15 @@ async function destinatariosAprobacion(tiendaId, soloTienda = false, soloRegion 
         .filter((u) => !yo || u.id !== yo.id);
 
     const g2DeLaRegion = activos.filter((u) => u.rol === 'admin_g2' && u.region === region);
+    const generales = activos.filter((u) => u.rol === 'administrador' || u.rol === 'admin_g1');
 
     if (soloTienda) {
+        // G3 de la tienda; si no tiene, G2 de la región; si tampoco, Administrador y G1
+        // (así una solicitud nunca queda sin que nadie la vea)
         const g3DeLaTienda = activos.filter((u) => u.rol === 'admin_g3' && u.tienda_id === tiendaId);
-        return (g3DeLaTienda.length ? g3DeLaTienda : g2DeLaRegion).map((u) => u.id);
+        return (g3DeLaTienda.length ? g3DeLaTienda : g2DeLaRegion.length ? g2DeLaRegion : generales).map((u) => u.id);
     }
 
-    const generales = activos.filter((u) => u.rol === 'administrador' || u.rol === 'admin_g1');
     if (soloRegion) {
         return (g2DeLaRegion.length ? g2DeLaRegion : generales).map((u) => u.id);
     }
@@ -113,6 +130,51 @@ async function notificarPendiente({ referenciaTipo, referenciaId, tiendaId, solo
         if (error) throw error;
     } catch (err) {
         console.error('No se pudo enviar la notificación de pendiente:', err);
+    }
+}
+
+// Aviso general por ROL (lo usan los pedidos: tienda -> G3 / G2, piloto -> G2, G2 -> tienda y piloto).
+//   a: quiénes, por rol, de la tienda del pedido:
+//        'tienda'    -> Admin G3 y Empleados de la tienda (quienes despachan)
+//        'g3'        -> Admin G3 de la tienda (si no tiene, nadie más: la tienda la ve en Pedidos)
+//        'g2'        -> Admin G2 de la región (si no hay, Administrador y Admin G1)
+//        'generales' -> Administrador y Admin G1
+//   usuarios: ids concretos (ej. el piloto del pedido)
+//   tipo: 'pendiente' (hay que hacer algo; se cierra con resolverPendientes) | 'info' | 'aprobado' | 'rechazado'
+// Nunca se avisa al usuario conectado ni a usuarios sin aprobar. Si falla, solo queda en la consola.
+// Ej.: avisar({ tiendaId: 3, a: ['g2'], tipo: 'pendiente', titulo: '...', mensaje: '...',
+//               enlace: '#pedidos?id=15', referenciaTipo: 'pedido_no_entregado', referenciaId: 15 })
+async function avisar({ tiendaId = null, a = [], usuarios = [], tipo = 'info', titulo, mensaje, enlace, referenciaTipo = null, referenciaId = null }) {
+    try {
+        const ids = new Set(usuarios.filter(Boolean));
+        if (a.length && tiendaId) {
+            const [{ data: candidatos, error }, { data: tienda }] = await Promise.all([
+                db.from('usuarios').select('id, rol, region, tienda_id, aprobado')
+                    .in('rol', ['administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado']),
+                db.from('tiendas').select('region').eq('id', tiendaId).maybeSingle(),
+            ]);
+            if (error) throw error;
+            const region = tienda ? tienda.region : null;
+            const activos = (candidatos || []).filter((u) => u.aprobado !== false);
+            const generales = activos.filter((u) => u.rol === 'administrador' || u.rol === 'admin_g1');
+            const g2 = activos.filter((u) => u.rol === 'admin_g2' && u.region === region);
+            if (a.includes('tienda')) {
+                activos.filter((u) => ['admin_g3', 'empleado'].includes(u.rol) && u.tienda_id === tiendaId).forEach((u) => ids.add(u.id));
+            }
+            if (a.includes('g3')) activos.filter((u) => u.rol === 'admin_g3' && u.tienda_id === tiendaId).forEach((u) => ids.add(u.id));
+            if (a.includes('g2')) (g2.length ? g2 : generales).forEach((u) => ids.add(u.id));
+            if (a.includes('generales')) generales.forEach((u) => ids.add(u.id));
+        }
+        const yo = obtenerSesion();
+        if (yo) ids.delete(yo.id);
+        if (!ids.size) return;
+        const { error } = await db.from('notificaciones').insert([...ids].map((usuario_id) => ({
+            usuario_id, tipo, titulo, mensaje, enlace,
+            referencia_tipo: referenciaTipo, referencia_id: referenciaId,
+        })));
+        if (error) throw error;
+    } catch (err) {
+        console.error('No se pudo enviar el aviso:', err);
     }
 }
 

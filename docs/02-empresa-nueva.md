@@ -1,7 +1,15 @@
 # 2. Empresa nueva (multimarca)
 
-El mismo código sirve a varias empresas. **Cada empresa se configura en VS Code**, en un solo archivo:
-`empresas/empresas.js`. No se hace desde la página.
+Hay **dos formas** de tener varias empresas:
+
+| Forma | Qué es | Dónde |
+|---|---|---|
+| **Empresas internas** (recomendada) | Varias empresas en la **misma base**, cada una con ID (`01`, `02`...), sus actividades y sus datos separados; sus usuarios llevan el ID (`jperez02`) | Desde la página: Configuración → Empresas o Tiendas → Empresas (solo Desarrollador). Ver [secciones/empresas.md](secciones/empresas.md) |
+| **Multimarca** (esta guía) | Otra **copia** del sistema con su logo, colores, textos y, si se quiere, su propia base | `empresas/empresas.js`, en VS Code |
+
+Las dos se combinan: una marca (copia) puede tener varias empresas internas.
+
+**Cada marca se configura en VS Code**, en un solo archivo: `empresas/empresas.js`. No se hace desde la página.
 
 ## Qué define cada empresa
 
@@ -24,6 +32,8 @@ El mismo código sirve a varias empresas. **Cada empresa se configura en VS Code
 - `actividades`: `'tienda'` = Entregas de tienda (supermercado), `'encomiendas'` = Encomiendas.
   Las que no estén aquí **no aparecen en ninguna parte** del sistema. Ver
   [07-actividades-y-mercaderia.md](07-actividades-y-mercaderia.md).
+  Con empresas internas (sql/01 bloque 16) **manda lo que marca cada empresa interna**; esta lista queda
+  de respaldo para una base sin empresas.
 
 ## Agregar una empresa (sin escribir código)
 
@@ -48,8 +58,9 @@ Las imágenes van en `img/`. El script avisa si la ruta no existe.
 Queda sin tiendas, usuarios (solo `admin`), clientes ni pedidos; con la configuración inicial
 (actividades, categorías, pesos promedio, tamaños, tarifas de ejemplo, motivos, 5 horarios).
 
-> Si varias empresas usan **la misma** base (supabase vacío), comparten todos los datos.
-> Para separar datos entre empresas, cada una necesita su propio proyecto de Supabase.
+> Si varias marcas usan **la misma** base (supabase vacío), comparten todos los datos, salvo que se
+> separen con **empresas internas** (cada una ve solo lo suyo). Para separar del todo (otra base),
+> cada marca necesita su propio proyecto de Supabase.
 
 ⚠ **Cada cambio de estructura** (script `sql/NN_...`) hay que ejecutarlo **en la base de cada empresa**.
 Llevar una lista de qué scripts tiene cada base.

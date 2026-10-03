@@ -25,13 +25,15 @@
    ================================================== */
 
 /* Estructura principal de la página en 3 filas:
-     encabezado (10% de la pantalla)
+     encabezado (--alto-encabezado)
      contenido  (todo el espacio restante)
-     pie        (10% de la pantalla)
-   Para cambiar la altura del encabezado o del pie,
-   modificar grid-template-rows. */
+     pie        (lo que midan sus botones, mínimo --alto-pie)
+   Las alturas están en css/variables.css, en rem: crecen con la
+   pantalla junto con todo lo demás (antes eran 10vh y en pantallas
+   bajas la foto del usuario no cabía). */
 body {
     height: 100vh;
+    height: 100dvh;
     width: 100%;
     display: grid;
     background: var(--color-fondo-oscuro);
@@ -39,7 +41,7 @@ body {
         "encabezado"
         "contenido"
         "pie";
-    grid-template-rows: 10vh 1fr 10vh;
+    grid-template-rows: var(--alto-encabezado) minmax(0, 1fr) auto;
 }
 
 /* ==================================================
@@ -54,13 +56,13 @@ body {
     height: 100%;
     /* fr (no %) para que el gap no haga la página más ancha que la pantalla */
     grid-template-columns: minmax(0, 20fr) minmax(0, 60fr) minmax(0, 20fr);
-    gap: 5px;
+    gap: 0.278rem;
     border: 1px groove var(--color-fondo-oscuro);
     /* Sombra suave hacia abajo para separar el encabezado del contenido.
        position + z-index hacen que la sombra quede encima del contenido. */
     position: relative;
     z-index: 2;
-    box-shadow: 0 2px 10px rgba(0, 28, 59, 0.18);
+    box-shadow: 0 2px 0.556rem rgba(0, 28, 59, 0.18);
 }
 
 /* ---------- Logo ----------
@@ -146,7 +148,7 @@ body {
     background-color: var(--color-blanco);
     height: 100%;
     grid-template-columns: minmax(0, 10fr) minmax(0, 60fr) minmax(0, 30fr);
-    gap: 5px;
+    gap: 0.278rem;
 }
 
 /* Contenedor del logo de la empresa */
@@ -173,7 +175,7 @@ body {
     justify-content: center;
     border-radius: var(--radio);
     border: 1px solid #E0E0E0;
-    padding: 8px 12px; /* para que el borde no quede pegado al texto */
+    padding: 0.444rem 0.667rem; /* para que el borde no quede pegado al texto */
 }
 
 /* Nombre de la empresa (campo "titulo" de empresas/empresas.js) */
@@ -188,7 +190,7 @@ body {
 /* "Panel de Control de Operaciones" (campo "subtitulo") */
 #subti-panel {
     margin: 0;
-    margin-top: 4px; /* separación entre título y subtítulo */
+    margin-top: 0.222rem; /* separación entre título y subtítulo */
     font-size: clamp(0.85rem, 1.1vw, 1.1rem);
     font-weight: 400;
     color: var(--color-azul-marino);
@@ -228,11 +230,11 @@ body {
     height: 100%;
     display: flex;
     flex-direction: row; /* icono a la izquierda, textos a la derecha */
-    gap: 8px;
-    padding: 4px 10px;
-    min-width: 70px;
+    gap: 0.444rem;
+    padding: 0.222rem 0.556rem;
+    min-width: 3.889rem;
     background-color: var(--color-blanco);
-    border: 4px solid var(--color-azul-marino);
+    border: 0.222rem solid var(--color-azul-marino);
     border-radius: var(--radio);
 }
 
@@ -295,11 +297,11 @@ body {
 .user-trigger {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.556rem;
     background: none;
     border: none;
     cursor: pointer;
-    padding: 6px;
+    padding: 0.333rem;
     border-radius: 1px;
 }
 
@@ -310,8 +312,8 @@ body {
 /* Foto del usuario. js/permisos.js (con js/avatar.js) pone la foto
    como fondo, o las iniciales del nombre si no tiene foto. */
 .user-avatar {
-    width: 80px;
-    height: 80px;
+    width: 4.444rem;
+    height: 4.444rem;
     flex-shrink: 0;
     border-radius: 30%;
     background-color: var(--color-azul-marino);
@@ -348,14 +350,14 @@ body {
     position: absolute;
     z-index: 10; /* por encima del contenido de las secciones */
     top: 100%;   /* aparece justo debajo del bloque del usuario */
-    min-width: 160px;
-    padding: 6px 0;
+    min-width: 8.889rem;
+    padding: 0.333rem 0;
     background-color: var(--color-blanco);
     border: 1px solid var(--color-azul-marino);
     border-radius: 1px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0.222rem 0.667rem rgba(0, 0, 0, 0.1);
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(-0.333rem);
     /* visibility se retrasa 0.18s al cerrar para que se vea el fundido */
     transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
 }
@@ -372,7 +374,7 @@ body {
 /* Opciones del menú (Mi perfil, Configuración) */
 .user-menu-item {
     display: block;
-    padding: 8px 6px;
+    padding: 0.444rem 0.333rem;
     font-size: 0.85rem;
     color: var(--color-naranja);
     text-decoration: none; /* quita el subrayado de los enlaces */
@@ -394,6 +396,33 @@ body {
     margin: 2px 0;
 }
 
+/* Empresa activa (js/menu-usuario.js); el Desarrollador la cambia con el selector */
+.user-menu-empresa {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0.333rem 0.333rem 0.556rem;
+    margin-bottom: 0.222rem;
+    border-bottom: 1px solid var(--color-azul-marino);
+    font-size: 0.85rem;
+    color: var(--color-naranja);
+}
+
+.user-menu-empresa[hidden],
+.user-menu-empresa [hidden] {
+    display: none;
+}
+
+.user-menu-empresa-etiqueta {
+    font-size: 0.75rem;
+    opacity: 0.75;
+}
+
+.user-menu-empresa select {
+    height: 2rem;
+    font-size: 0.85rem;
+}
+
 /* ==================================================
    NOTIFICACIONES (js/notificaciones.js)
    Campana junto al usuario + lista desplegable + avisos emergentes
@@ -401,7 +430,7 @@ body {
 
 /* Deja un espacio entre la campana y el usuario */
 .info-user {
-    gap: 4px;
+    gap: 0.222rem;
 }
 
 /* ---------- Campana ---------- */
@@ -411,8 +440,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 42px;
-    height: 42px;
+    width: 2.333rem;
+    height: 2.333rem;
     flex-shrink: 0;
     padding: 0;
     background: none;
@@ -435,15 +464,15 @@ body {
     position: absolute;
     top: 2px;
     right: 0;
-    min-width: 18px;
-    height: 18px;
-    padding: 0 5px;
+    min-width: 1rem;
+    height: 1rem;
+    padding: 0 0.278rem;
     border-radius: 999px;
     background-color: var(--color-rojo);
     border: 2px solid var(--color-blanco);
     font-size: 0.65rem;
     font-weight: 700;
-    line-height: 14px;
+    line-height: 0.778rem;
     color: var(--color-blanco);
     text-align: center;
     animation: aparecerBajando 0.25s ease-out;
@@ -456,17 +485,17 @@ body {
     top: 100%;
     right: 0;
     z-index: 20; /* por encima del menú del usuario y de las secciones */
-    width: 340px;
-    max-width: calc(100vw - 24px);
+    width: 18.889rem;
+    max-width: calc(100vw - 1.333rem);
     background-color: var(--color-blanco);
     border: 1px solid var(--color-borde);
     border-radius: var(--radio-grande);
-    box-shadow: 0 12px 32px rgba(0, 28, 59, 0.2);
+    box-shadow: 0 0.667rem 1.778rem rgba(0, 28, 59, 0.2);
     overflow: hidden;
     /* Oculta hasta que el JS le pone "abierto" (con fundido) */
     visibility: hidden;
     opacity: 0;
-    transform: translateY(-6px);
+    transform: translateY(-0.333rem);
     transition: opacity 0.18s ease, transform 0.18s ease, visibility 0s linear 0.18s;
 }
 
@@ -481,8 +510,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 12px 14px;
+    gap: 0.444rem;
+    padding: 0.667rem 0.778rem;
     border-bottom: 1px solid var(--color-borde-suave);
 }
 
@@ -509,13 +538,13 @@ body {
 
 /* Lista con scroll si hay muchas */
 .noti-lista {
-    max-height: 380px;
+    max-height: 21.111rem;
     overflow-y: auto;
 }
 
 .noti-vacio {
     margin: 0;
-    padding: 28px 16px;
+    padding: 1.556rem 0.889rem;
     font-size: 0.85rem;
     color: var(--color-gris);
     text-align: center;
@@ -525,9 +554,9 @@ body {
 .noti-item {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
+    gap: 0.556rem;
     width: 100%;
-    padding: 12px 14px;
+    padding: 0.667rem 0.778rem;
     background: none;
     border: none;
     border-bottom: 1px solid var(--color-borde-suave);
@@ -549,9 +578,9 @@ body {
 .noti-item.no-leida .noti-titulo::before {
     content: '';
     display: inline-block;
-    width: 7px;
-    height: 7px;
-    margin-right: 6px;
+    width: 0.389rem;
+    height: 0.389rem;
+    margin-right: 0.333rem;
     border-radius: 50%;
     background-color: var(--color-azul);
     vertical-align: middle;
@@ -562,8 +591,8 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
+    width: 1.778rem;
+    height: 1.778rem;
     flex-shrink: 0;
     border-radius: 50%;
     font-size: 1rem;
@@ -602,27 +631,27 @@ body {
 
 .noti-avisos {
     position: fixed;
-    right: 20px;
-    bottom: calc(10vh + 16px); /* justo encima del pie */
+    right: 1.111rem;
+    bottom: calc(var(--alto-pie) + 0.889rem); /* justo encima del pie */
     z-index: 50;
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    width: 320px;
-    max-width: calc(100vw - 32px);
+    gap: 0.556rem;
+    width: 17.778rem;
+    max-width: calc(100vw - 1.778rem);
     pointer-events: none; /* el contenedor no bloquea clics; los avisos sí */
 }
 
 .noti-aviso {
     display: flex;
     align-items: flex-start;
-    gap: 10px;
-    padding: 12px 14px;
+    gap: 0.556rem;
+    padding: 0.667rem 0.778rem;
     background-color: var(--color-blanco);
     border: 1px solid var(--color-borde);
-    border-left: 4px solid var(--color-naranja);
+    border-left: 0.222rem solid var(--color-naranja);
     border-radius: var(--radio);
-    box-shadow: 0 10px 28px rgba(0, 28, 59, 0.22);
+    box-shadow: 0 0.556rem 1.556rem rgba(0, 28, 59, 0.22);
     cursor: pointer;
     font-family: inherit;
     text-align: left;
@@ -633,7 +662,7 @@ body {
 @keyframes entrarAvisoNoti {
     from {
         opacity: 0;
-        transform: translateX(24px);
+        transform: translateX(1.333rem);
     }
     to {
         opacity: 1;
@@ -643,18 +672,18 @@ body {
 
 /* ==================================================
    CONTENIDO
-   2 columnas: menú lateral (15%) | cuerpo principal (85%)
-   Para hacer el menú más ancho o angosto, cambiar
-   grid-template-columns (en fr: reparten el ancho que queda después
-   del gap; con % el gap se sumaba y aparecía scroll en toda la página).
+   2 columnas: menú lateral (--ancho-menu) | cuerpo principal (el resto)
+   Para hacer el menú más ancho o angosto, cambiar --ancho-menu en
+   css/variables.css (15% de la pantalla, con mínimo y máximo para que
+   no quede apretado en 1366 ni gigante en monitores ultra anchos).
    ================================================== */
 
 .contenido {
     grid-area: contenido;
     display: grid;
     background-color: var(--color-blanco);
-    grid-template-columns: minmax(0, 15fr) minmax(0, 85fr);
-    gap: 5px;
+    grid-template-columns: var(--ancho-menu) minmax(0, 1fr);
+    gap: 0.278rem;
 }
 
 /* ---------- Menú lateral ---------- */
@@ -664,11 +693,11 @@ body {
     width: 100%;
     display: block;
     background-color: var(--color-fondo-oscuro);
-    padding: 12px 0;
+    padding: 0.667rem 0;
     /* Sombra hacia la derecha para separar el menú del cuerpo principal */
     position: relative;
     z-index: 1;
-    box-shadow: 2px 0 10px rgba(0, 28, 59, 0.25);
+    box-shadow: 2px 0 0.556rem rgba(0, 28, 59, 0.25);
 }
 
 /* Lista sin viñetas, un ítem debajo de otro */
@@ -686,9 +715,9 @@ body {
 .menu-item a {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 12px 20px;
-    border-left: 3px solid transparent;
+    gap: 0.556rem;
+    padding: 0.667rem 1.111rem;
+    border-left: 0.167rem solid transparent;
     font-size: clamp(0.8rem, 1vw, 0.95rem);
     color: var(--color-fondo);
     text-decoration: none;
@@ -706,8 +735,8 @@ body {
    ítems no "saltan"). Normal: 20px. Subir = desplazamiento mayor. */
 .menu-item a:hover {
     background-color: rgba(255, 255, 255, 0.08);
-    border-left: 3px solid #F28C28;
-    padding-left: 26px;
+    border-left: 0.167rem solid #F28C28;
+    padding-left: 1.444rem;
 }
 
 .menu-item a:hover i {
@@ -717,7 +746,7 @@ body {
 /* Sección que se está viendo. La clase "activo" la pone js/pagina_inicial.js */
 .menu-item a.activo {
     background-color: rgba(255, 255, 255, 0.12);
-    border-left: 3px solid var(--color-naranja);
+    border-left: 0.167rem solid var(--color-naranja);
     font-weight: 600;
 }
 
@@ -725,7 +754,7 @@ body {
    luego la cambia por "visible" en cada ítem, uno tras otro. */
 .menu-item.oculto {
     opacity: 0;
-    transform: translateX(-15px); /* empieza 15px a la izquierda */
+    transform: translateX(-0.833rem); /* empieza 15px a la izquierda */
 }
 
 .menu-item.visible {
@@ -744,7 +773,7 @@ body {
 .menu-item.bloqueado a:hover {
     background-color: transparent;
     border-left-color: transparent;
-    padding-left: 20px; /* igual al normal: no se desplaza */
+    padding-left: 1.111rem; /* igual al normal: no se desplaza */
 }
 
 .menu-item.bloqueado a:hover i {
@@ -769,12 +798,13 @@ body {
     width: 100%;
     height: 100%;
     overflow: auto; /* si la sección es más alta, aparece scroll solo aquí */
+    background-color: var(--color-fondo); /* el de .pagina: sin franjas si la sección se centra */
     transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
 .cuerpo-principal.seccion-saliendo {
     opacity: 0;
-    transform: translateY(6px);
+    transform: translateY(0.333rem);
 }
 
 .cuerpo-principal.seccion-entrando {
@@ -784,7 +814,7 @@ body {
 @keyframes entradaSeccion {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(0.556rem);
     }
     to {
         opacity: 1;
@@ -794,7 +824,7 @@ body {
 
 /* Mensaje de "sin permiso" o "no se pudo cargar" dentro del cuerpo principal */
 .seccion-error {
-    margin: 40px 20px;
+    margin: 2.222rem 1.111rem;
     font-size: 1rem;
     color: var(--color-gris);
     text-align: center;
@@ -851,8 +881,9 @@ html[data-rol="empleado"] .pie .btn-chart {
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 10px;
-    padding: 8px 12px;
+    gap: 0.556rem;
+    min-height: var(--alto-pie);
+    padding: 0.444rem 0.667rem;
 }
 
 /* Espacio vacío a la izquierda para que los botones queden centrados */
@@ -865,7 +896,7 @@ html[data-rol="empleado"] .pie .btn-chart {
     display: flex;
     flex-wrap: wrap; /* en pantallas pequeñas los botones bajan a otra línea */
     justify-content: center;
-    gap: 10px;
+    gap: 0.556rem;
 }
 
 /* ---------- Botones de acceso rápido ----------
@@ -874,8 +905,8 @@ html[data-rol="empleado"] .pie .btn-chart {
 .acceso-btn {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: 0.333rem;
+    padding: 0.333rem 0.667rem;
     border: 1px solid #f5f5f5;
     border-radius: 8%;
     cursor: pointer;
@@ -897,44 +928,44 @@ html[data-rol="empleado"] .pie .btn-chart {
 .acceso-btn:hover {
     filter: brightness(1.25);
     transform: translateY(-2px) scale(1.1);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 0.222rem 0.556rem rgba(0, 0, 0, 0.35);
 }
 
 /* Al hacer clic: se encoge un poco (sensación de "presionar") */
 .acceso-btn:active {
     transform: translateY(0) scale(1.04);
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 1px 0.222rem rgba(0, 0, 0, 0.35);
 }
 
 /* Crear Pedido - azul */
 .btn-crear {
     background-color: #0c67c9;
-    border: 3px solid var(--color-blanco);
+    border: 0.167rem solid var(--color-blanco);
 }
 
 /* Asignar Piloto - naranja */
 .btn-piloto {
     background-color: #b44804;
-    border: 3px solid var(--color-blanco);
+    border: 0.167rem solid var(--color-blanco);
 }
 
 /* Reasignar horario - morado */
 .btn-hor {
     background-color: #610669;
-    border: 3px solid var(--color-blanco);
+    border: 0.167rem solid var(--color-blanco);
 }
 
 /* Cancelar pedido - café */
 .btn-del {
     background-color: #7e3504;
-    border: 3px solid var(--color-blanco);
+    border: 0.167rem solid var(--color-blanco);
 }
 
 /* Cargar Pedidos: verde azulado (el mismo de "En ruta"), en armonía con los demás.
    Solo lo ven Admin G2 y Admin G3 */
 .btn-cargar {
     background-color: #0E6B63;
-    border: 3px solid var(--color-blanco);
+    border: 0.167rem solid var(--color-blanco);
 }
 
 html:not([data-rol="admin_g2"]):not([data-rol="admin_g3"]) .pie .btn-cargar {
@@ -944,13 +975,13 @@ html:not([data-rol="admin_g2"]):not([data-rol="admin_g3"]) .pie .btn-cargar {
 /* Generar reporte: verde */
 .btn-chart {
     background-color: #0a6902;
-    border: 3px solid var(--color-blanco);
+    border: 0.167rem solid var(--color-blanco);
 }
 
 /* Cotizador: solo si la empresa realiza Encomiendas (el JS le quita "hidden") */
 .btn-cotizar {
     background-color: #1f4e79;
-    border: 3px solid var(--color-blanco);
+    border: 0.167rem solid var(--color-blanco);
 }
 
 .acceso-btn[hidden] {

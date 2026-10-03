@@ -12,8 +12,8 @@
 .prf-tarjeta {
     display: flex;
     flex-wrap: wrap; /* en pantallas angostas los datos bajan debajo de la foto */
-    gap: 32px;
-    max-width: 760px;
+    gap: 1.778rem;
+    max-width: 42.222rem;
 }
 
 /* ==================================================
@@ -24,8 +24,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
-    width: 220px;
+    gap: 0.667rem;
+    width: 12.222rem;
 }
 
 /* La foto late suavemente mientras se sube o se borra
@@ -38,13 +38,13 @@
 .prf-foto-botones {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.444rem;
     width: 100%;
 }
 
 .prf-foto-botones .boton {
-    height: 38px;
-    padding: 0 14px;
+    height: 2.111rem;
+    padding: 0 0.778rem;
 }
 
 /* "Quitar foto": texto rojo y fondo rojo claro al pasar el mouse */
@@ -66,7 +66,7 @@
 /* Aviso bajo la foto: a lo ancho y un poco más compacto */
 .prf-foto-zona .aviso {
     width: 100%;
-    padding: 8px 12px;
+    padding: 0.444rem 0.667rem;
     font-size: 0.85rem;
 }
 
@@ -76,17 +76,17 @@
 
 .prf-datos {
     flex: 1;
-    min-width: 260px;
+    min-width: 14.444rem;
     margin: 0;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px 24px;
+    gap: 1.111rem 1.333rem;
     align-content: start;
 }
 
 /* Título del dato */
 .prf-dato dt {
-    margin-bottom: 4px;
+    margin-bottom: 0.222rem;
     font-size: 0.75rem;
     font-weight: 700;
     color: var(--color-azul-marino);
@@ -97,7 +97,7 @@
 /* Valor del dato con una línea debajo */
 .prf-dato dd {
     margin: 0;
-    padding-bottom: 8px;
+    padding-bottom: 0.444rem;
     border-bottom: 1px solid var(--color-borde-suave);
     font-size: 1rem;
     color: var(--color-texto);

@@ -11,7 +11,7 @@ Lo que se ve siempre, alrededor de las secciones. HTML en `index.html`, estilos 
 | Título | Texto (`titulo` + `subtitulo`) o imagen que cubre el recuadro (`encabezado`) | `empresas.js` |
 | Fecha y hora | Mes/año, día y hora; se actualiza cada segundo | `js/date.js` |
 | Campana | Notificaciones (ver abajo) | `js/notificaciones.js` |
-| Usuario | Foto o iniciales + nombre; menú: Mi perfil, Configuración, Cerrar sesión | `js/permisos.js`, `js/menu-usuario.js` |
+| Usuario | Foto o iniciales + nombre; menú: **Empresa** ("01 · Empresa principal"; el Desarrollador la cambia con un selector), Mi perfil, Configuración, Cerrar sesión | `js/permisos.js`, `js/menu-usuario.js` |
 
 ## Menú lateral
 

@@ -6,16 +6,27 @@
    asignado a VARIAS tiendas (tabla "clientes_tiendas").
    Tablas: "clientes" y "clientes_tiendas" (sql/00, sección 4).
 
-   Se abre desde Tiendas. Parámetros del # (js/pagina_inicial.js):
-     #clientes?tienda=3  -> filtra por esa tienda (y la marca al crear)
-     #clientes?nuevo=1   -> abre el formulario "Nuevo cliente"
+   Se abre con la pestaña "Clientes" de Tiendas (o el botón de cada tienda).
+   Parámetros del # (js/pagina_inicial.js):
+     #clientes?tienda=3          -> filtra por esa tienda (y la marca al crear)
+     #clientes?nuevo=1           -> abre el formulario "Nuevo cliente"
+     #clientes?tienda=3&nuevo=1  -> "Nuevo cliente" ya marcado en esa tienda
+                                    (botón de persona con + en Tiendas)
+   También se agregan solos desde Nuevo pedido (js/secciones/pedidos.js): si el
+   cliente no se eligió del buscador, al registrar el pedido queda en Clientes con
+   su dirección y su punto en el mapa (o, si su teléfono ya existe, se usa ese).
 
-   QUIÉN VE QUÉ (alcance):
+   QUIÉN VE QUÉ (alcance; todo dentro de la empresa activa, js/supabase.js):
      Administrador / Admin G1 -> todos los clientes
      Admin G2                 -> clientes de tiendas de SU región
      Admin G3                 -> clientes de SU tienda
      Empleado                 -> clientes de SU tienda
      Piloto                   -> sin acceso (SECCIONES_POR_ROL en js/sesion.js)
+
+   FILTROS: región -> tienda -> ruta de entrega (+ estado y buscador). Quien ve
+   varias regiones elige primero la región (cuadros con el número de clientes).
+   Un cliente puede ser de varias tiendas (clientes_tiendas) y en cada una tiene
+   su ruta de entrega (clientes_tiendas.ruta_id, sql/01 bloque 16).
 
    QUIÉN HACE QUÉ:
      Administrador / Admin G1 -> crear, modificar, eliminar, aprobar
@@ -33,6 +44,9 @@
      SOLO al Admin G3 de su tienda (o al G2 de la región si la tienda no
      tiene G3); al aprobar/rechazar se avisa al Empleado.
 
+   UBICACIÓN: texto, enlace de mapas o coordenadas "9.93, -84.08" (las guarda
+   Nuevo pedido con el punto B del mapa). En la tabla, "Ver en mapa".
+
    PENDIENTE (Fase 2 - Pedidos): calificación 1 a 5 por pedido y
    categoría según el promedio: A ≥ 4.5, B ≥ 3.5, C ≥ 2.5, D < 2.5.
    Por ahora todos aparecen como "Nuevo". Qué permite o bloquea cada
@@ -47,21 +61,29 @@
 
 // Columnas que se traen. "clientes_tiendas(tienda_id)" = tiendas del cliente;
 // "solicitante:usuarios!solicitado_por(nombre)" = quién pidió la aprobación.
-const CLI_COLUMNAS = 'id, nombre, apellidos, telefono, direccion, ubicacion, aprobado, ' +
+// "apellidos" la calcula la base (apellido1 + apellido2): solo se lee.
+// clientes_tiendas.ruta_id = ruta de entrega del cliente en esa tienda (sql/01 bloque 16).
+const CLI_COLUMNAS = 'id, nombre, apellido1, apellido2, apellidos, telefono, correo, direccion, ubicacion, aprobado, ' +
     'cambios_pendientes, solicitado_por, solicitado_en, ' +
-    'clientes_tiendas(tienda_id), solicitante:usuarios!solicitado_por(nombre)';
+    'clientes_tiendas(tienda_id, ruta_id), solicitante:usuarios!solicitado_por(nombre)';
+const CLI_COLUMNAS_SIN_RUTA = CLI_COLUMNAS.replace('clientes_tiendas(tienda_id, ruta_id)', 'clientes_tiendas(tienda_id)');
 
 // Datos del cliente que se pueden modificar (y su nombre para mostrar)
 const CLI_CAMPOS = {
     nombre: 'Nombre',
-    apellidos: 'Apellidos',
+    apellido1: 'Primer apellido',
+    apellido2: 'Segundo apellido',
     telefono: 'Teléfono',
+    correo: 'Correo',
     direccion: 'Dirección',
     ubicacion: 'Ubicación',
 };
 
 // Número de columnas de la tabla (para las filas que ocupan todo el ancho)
-const CLI_COLUMNAS_TABLA = 8;
+const CLI_COLUMNAS_TABLA = 9;
+
+// "Nombre Apellido1 Apellido2" de un cliente o de los datos del formulario
+const cliNombreCompleto = (c) => [c.nombre, c.apellido1, c.apellido2].filter(Boolean).join(' ');
 
 registrarSeccion('clientes', (zona) => {
 
@@ -70,7 +92,9 @@ registrarSeccion('clientes', (zona) => {
 
     const contador     = $('#cliContador');
     const buscador     = $('#cliBuscar');
+    const filtroRegion = $('#cliFiltroRegion');
     const filtroTienda = $('#cliFiltroTienda');
+    const filtroRuta   = $('#cliFiltroRuta');
     const filtroEstado = $('#cliFiltroEstado');
     const cuerpo       = $('#cliCuerpo');
     const botonNuevo   = $('#cliNuevo');
@@ -84,8 +108,10 @@ registrarSeccion('clientes', (zona) => {
     const cajaTiendas  = $('#cliTiendas');
     const campos = {
         nombre:    $('#cliNombre'),
-        apellidos: $('#cliApellidos'),
+        apellido1: $('#cliApellido1'),
+        apellido2: $('#cliApellido2'),
         telefono:  $('#cliTelefono'),
+        correo:    $('#cliCorreo'),
         direccion: $('#cliDireccion'),
         ubicacion: $('#cliUbicacion'),
     };
@@ -124,12 +150,17 @@ registrarSeccion('clientes', (zona) => {
     let clientes = [];          // clientes dentro del alcance del usuario
     let todasTiendas = [];      // todas las tiendas (para mostrar códigos)
     let tiendasAlcance = [];    // tiendas que el usuario puede ver/asignar
+    let regiones = [];          // regiones de esas tiendas [{ codigo, nombre }]
+    let rutas = [];             // rutas de entrega de esas tiendas (sección Rutas)
+    let hayRutas = true;        // false si la base no tiene clientes_tiendas.ruta_id (bloque 16)
     let editando = null;        // null = creando; objeto = cliente que se modifica
     let revisando = null;       // cliente cuya solicitud se revisa
     let eliminandoId = null;
 
     const idsAlcance = () => new Set(tiendasAlcance.map((t) => t.id));
     const idsTiendasDe = (c) => (c.clientes_tiendas || []).map((ct) => ct.tienda_id);
+    const tiendaDe = (id) => todasTiendas.find((t) => t.id === id) || {};
+    const rutaDe = (id) => rutas.find((r) => r.id === id) || null;
 
     // ¿El cliente está dentro del alcance del usuario?
     function enAlcance(c) {
@@ -166,12 +197,26 @@ registrarSeccion('clientes', (zona) => {
         else if (g3 || esEmpleado) tiendasAlcance = data.filter((t) => t.id === miTienda);
         else tiendasAlcance = [];
 
-        // Filtro de tiendas
-        tiendasAlcance.forEach((t) => filtroTienda.appendChild(new Option(`${t.codigo} · ${t.nombre}`, t.id)));
+        // Regiones y rutas de entrega (si faltan las tablas, se trabaja sin ellas)
+        const ids = tiendasAlcance.map((t) => t.id);
+        const [reg, rut] = await Promise.all([
+            db.from('regiones').select('codigo, nombre').order('nombre'),
+            db.from('rutas').select('id, tienda_id, nombre, activa').in('tienda_id', ids.length ? ids : [0]).order('orden').order('nombre'),
+        ]);
+        const codigosRegion = new Set(tiendasAlcance.map((t) => t.region));
+        regiones = (reg.data || []).filter((r) => codigosRegion.has(r.codigo));
+        rutas = (rut.data || []).filter((r) => r.activa);
 
-        // Casillas del formulario
+        // Filtro de región: solo si ve más de una (G2, G3 y Empleado la tienen fija)
+        regiones.forEach((r) => filtroRegion.appendChild(new Option(r.nombre, r.codigo)));
+        filtroRegion.hidden = regiones.length <= 1;
+        llenarFiltroTiendas();
+
+        // Casillas del formulario: tienda + su ruta de entrega
         cajaTiendas.replaceChildren();
         tiendasAlcance.forEach((t) => {
+            const fila = document.createElement('div');
+            fila.className = 'cli-tienda-fila';
             const etiqueta = document.createElement('label');
             etiqueta.className = 'cli-tienda-opcion';
             const casilla = document.createElement('input');
@@ -180,12 +225,55 @@ registrarSeccion('clientes', (zona) => {
             const texto = document.createElement('span');
             texto.textContent = `${t.codigo} · ${t.nombre}`;
             etiqueta.append(casilla, texto);
-            cajaTiendas.appendChild(etiqueta);
+            fila.appendChild(etiqueta);
+            const deTienda = rutas.filter((r) => r.tienda_id === t.id);
+            if (deTienda.length) {
+                const sel = document.createElement('select');
+                sel.className = 'campo-input cli-ruta';
+                sel.dataset.tienda = t.id;
+                sel.setAttribute('aria-label', `Ruta de entrega en ${t.codigo}`);
+                sel.appendChild(new Option('Sin ruta', ''));
+                deTienda.forEach((r) => sel.appendChild(new Option(textoRuta(r), r.id)));
+                fila.appendChild(sel);
+            }
+            cajaTiendas.appendChild(fila);
         });
     }
 
+    const textoRuta = (r) => r.nombre;
+
+    // Tiendas del filtro según la región elegida
+    function llenarFiltroTiendas() {
+        const actual = filtroTienda.value;
+        filtroTienda.replaceChildren(new Option(filtroRegion.value ? 'Todas las tiendas de la región' : 'Todas mis tiendas', ''));
+        tiendasAlcance.filter((t) => !filtroRegion.value || t.region === filtroRegion.value)
+            .forEach((t) => filtroTienda.appendChild(new Option(`${t.codigo} · ${t.nombre}`, t.id)));
+        filtroTienda.value = [...filtroTienda.options].some((o) => o.value === actual) ? actual : '';
+        filtroTienda.hidden = filtroTienda.options.length <= 2 && !!filtroTienda.options[1] && tiendasAlcance.length === 1;
+        llenarFiltroRutas();
+    }
+
+    // Rutas del filtro: las de la tienda elegida (o de las tiendas de la región)
+    function llenarFiltroRutas() {
+        const actual = filtroRuta.value;
+        const tienda = Number(filtroTienda.value) || null;
+        const lista = rutas.filter((r) => (tienda ? r.tienda_id === tienda
+            : !filtroRegion.value || tiendaDe(r.tienda_id).region === filtroRegion.value));
+        filtroRuta.replaceChildren(new Option('Todas las rutas', ''));
+        lista.forEach((r) => filtroRuta.appendChild(new Option(
+            tienda ? textoRuta(r) : `${textoRuta(r)} · ${tiendaDe(r.tienda_id).codigo || ''}`, r.id)));
+        filtroRuta.value = [...filtroRuta.options].some((o) => o.value === actual) ? actual : '';
+        filtroRuta.hidden = !lista.length;
+    }
+
     async function cargarClientes() {
-        const { data, error } = await db.from('clientes').select(CLI_COLUMNAS).order('apellidos');
+        const columnas = () => (hayRutas ? CLI_COLUMNAS : CLI_COLUMNAS_SIN_RUTA);
+        let { data, error } = await db.from('clientes').select(columnas()).order('apellidos');
+        if (error && error.code === '42703' && hayRutas) { // falta clientes_tiendas.ruta_id (sql/01 bloque 16)
+            hayRutas = false;
+            ({ data, error } = await db.from('clientes').select(columnas()).order('apellidos'));
+            cajaTiendas.querySelectorAll('.cli-ruta').forEach((s) => s.remove());
+        }
         if (error) {
             console.error('Error al cargar clientes:', error);
             contador.textContent = 'No se pudo cargar la lista.';
@@ -208,13 +296,20 @@ registrarSeccion('clientes', (zona) => {
         try { new URL(texto); return true; } catch { return false; }
     }
 
+    // Coordenadas "9.93, -84.08" (las guarda Nuevo pedido) -> enlace de Google Maps
+    function enlaceDeCoordenadas(texto) {
+        const m = String(texto || '').trim().match(/^(-?\d{1,2}(?:\.\d+)?)\s*,\s*(-?\d{1,3}(?:\.\d+)?)$/);
+        return m ? `https://www.google.com/maps/search/?api=1&query=${m[1]},${m[2]}` : null;
+    }
+
     // Celda de ubicación: enlace "Ver en mapa" o el texto de referencia
     function celdaUbicacion(ubicacion) {
-        if (!esEnlace(ubicacion)) return crearCelda(ubicacion);
+        const destino = esEnlace(ubicacion) ? ubicacion : enlaceDeCoordenadas(ubicacion);
+        if (!destino) return crearCelda(ubicacion);
         const td = document.createElement('td');
         const enlace = document.createElement('a');
         enlace.className = 'cli-mapa';
-        enlace.href = ubicacion;
+        enlace.href = destino;
         enlace.target = '_blank';
         enlace.rel = 'noopener noreferrer';
         enlace.innerHTML = '<i class="bi bi-geo-alt"></i>';
@@ -225,7 +320,7 @@ registrarSeccion('clientes', (zona) => {
 
     // Celda "Nombre Apellidos" + (si está pendiente) "Solicitado por ..."
     function celdaCliente(c) {
-        const td = crearCelda(`${c.nombre} ${c.apellidos}`);
+        const td = crearCelda(cliNombreCompleto(c));
         if (esPendiente(c) && c.solicitante) {
             const detalle = document.createElement('span');
             detalle.className = 'celda-detalle'; // css/componentes.css
@@ -236,10 +331,14 @@ registrarSeccion('clientes', (zona) => {
         return td;
     }
 
-    // Códigos de las tiendas del cliente: "CEN-001, NOR-002"
+    // Tiendas del cliente con su ruta: "CEN-001 · Ruta Norte, NOR-002"
     function textoTiendas(c) {
-        return idsTiendasDe(c)
-            .map((id) => (todasTiendas.find((t) => t.id === id) || {}).codigo)
+        return (c.clientes_tiendas || [])
+            .map((ct) => {
+                const codigo = tiendaDe(ct.tienda_id).codigo;
+                const ruta = rutaDe(ct.ruta_id);
+                return codigo ? `${codigo}${ruta ? ` · ${ruta.nombre}` : ''}` : null;
+            })
             .filter(Boolean)
             .sort()
             .join(', ');
@@ -255,6 +354,7 @@ registrarSeccion('clientes', (zona) => {
         const tr = document.createElement('tr');
         tr.appendChild(celdaCliente(c));
         tr.appendChild(crearCelda(c.telefono));
+        tr.appendChild(crearCelda(c.correo));
         tr.appendChild(crearCelda(c.direccion));
         tr.appendChild(celdaUbicacion(c.ubicacion));
         tr.appendChild(crearCelda(textoTiendas(c), 'texto-codigo'));
@@ -288,12 +388,21 @@ registrarSeccion('clientes', (zona) => {
     function dibujarTabla() {
         const tienda = filtroTienda.value;
         const estado = filtroEstado.value;
-        const filtro = buscador.value.trim();
+        // Cada palabra debe aparecer en algún dato (ej. "ana mora" o "8888 1234"); sin tildes
+        const palabras = palabrasDeBusqueda(buscador.value);
+        const textoDe = (c) => textoParaBuscar(
+            `${cliNombreCompleto(c)} ${c.correo || ''} ${String(c.telefono || '').replace(/\D/g, '')} ${c.direccion || ''}`);
 
+        const region = filtroRegion.value;
+        const ruta = Number(filtroRuta.value) || null;
+        // Relaciones cliente-tienda que entran en región / tienda (para la ruta)
+        const relaciones = (c) => (c.clientes_tiendas || []).filter((ct) =>
+            (!region || tiendaDe(ct.tienda_id).region === region) && (!tienda || ct.tienda_id === Number(tienda)));
         const visibles = clientes.filter((c) =>
-            (!tienda || idsTiendasDe(c).includes(Number(tienda))) &&
+            relaciones(c).length > 0 &&
+            (!ruta || relaciones(c).some((ct) => ct.ruta_id === ruta)) &&
             (!estado || (estado === 'pendiente' ? esPendiente(c) : !esPendiente(c))) &&
-            coincideBusqueda([c.nombre, c.apellidos, `${c.nombre} ${c.apellidos}`, c.telefono, c.direccion], filtro)
+            (!palabras.length || palabras.every((p) => textoDe(c).includes(p)))
         );
 
         cuerpo.replaceChildren();
@@ -312,8 +421,46 @@ registrarSeccion('clientes', (zona) => {
     }
 
     buscador.addEventListener('input', dibujarTabla);
-    filtroTienda.addEventListener('change', dibujarTabla);
+    filtroRegion.addEventListener('change', () => { llenarFiltroTiendas(); dibujarTabla(); });
+    filtroTienda.addEventListener('change', () => { llenarFiltroRutas(); dibujarTabla(); });
+    filtroRuta.addEventListener('change', dibujarTabla);
     filtroEstado.addEventListener('change', dibujarTabla);
+
+    // ---------- Primero la región ----------
+    // Quien ve varias regiones elige una antes de ver la lista (botón por región
+    // con su número de clientes, y "Todas"). Luego se cambia con el filtro.
+    function mostrarElegirRegion() {
+        const caja = $('#cliRegiones');
+        caja.replaceChildren();
+        const cuenta = (codigo) => clientes.filter((c) => idsTiendasDe(c).some((id) => !codigo || tiendaDe(id).region === codigo)).length;
+        [...regiones.map((r) => ({ valor: r.codigo, texto: r.nombre })), { valor: '', texto: 'Todas las regiones' }].forEach((r) => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'cli-region-boton';
+            b.dataset.region = r.valor;
+            const nombre = document.createElement('strong');
+            nombre.textContent = r.texto;
+            const n = document.createElement('small');
+            n.textContent = plural(cuenta(r.valor), 'cliente', 'clientes');
+            b.append(nombre, n);
+            caja.appendChild(b);
+        });
+        $('#cliElegirRegion').hidden = false;
+        $('#cliFiltros').hidden = true;
+        $('#cliTablaCaja').hidden = true;
+        contador.textContent = 'Elige la región para ver sus clientes.';
+    }
+
+    $('#cliRegiones').addEventListener('click', (evento) => {
+        const b = evento.target.closest('button[data-region]');
+        if (!b) return;
+        filtroRegion.value = b.dataset.region;
+        llenarFiltroTiendas();
+        $('#cliElegirRegion').hidden = true;
+        $('#cliFiltros').hidden = false;
+        $('#cliTablaCaja').hidden = false;
+        dibujarTabla();
+    });
 
     // Un solo "escuchador" para todos los botones de la tabla
     cuerpo.addEventListener('click', (evento) => {
@@ -357,6 +504,13 @@ registrarSeccion('clientes', (zona) => {
         cajaTiendas.querySelectorAll('input').forEach((casilla) => {
             casilla.checked = marcadas.includes(Number(casilla.value));
         });
+        // Ruta de entrega en cada tienda
+        cajaTiendas.querySelectorAll('select.cli-ruta').forEach((sel) => {
+            const rel = cliente ? (cliente.clientes_tiendas || []).find((ct) => ct.tienda_id === Number(sel.dataset.tienda)) : null;
+            const deFiltro = !cliente && filtroRuta.value && rutaDe(Number(filtroRuta.value))
+                && rutaDe(Number(filtroRuta.value)).tienda_id === Number(sel.dataset.tienda) ? filtroRuta.value : '';
+            sel.value = rel && rel.ruta_id ? String(rel.ruta_id) : deFiltro;
+        });
 
         dialogo.showModal();
         campos.nombre.focus();
@@ -380,29 +534,51 @@ registrarSeccion('clientes', (zona) => {
             datos[campo] = campos[campo].value.trim() || null;
         });
 
+        if (datos.correo) datos.correo = datos.correo.toLowerCase();
+
         if (!datos.nombre) return fallo('Escribe el nombre.', campos.nombre);
-        if (!datos.apellidos) return fallo('Escribe los apellidos.', campos.apellidos);
+        if (!datos.apellido1) return fallo('Escribe el primer apellido.', campos.apellido1);
         if (!datos.telefono) return fallo('Escribe el teléfono.', campos.telefono);
+        if (datos.telefono.replace(/\D/g, '').length < 8) return fallo('El teléfono debe tener al menos 8 dígitos.', campos.telefono);
+        if (datos.correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(datos.correo)) {
+            return fallo('Revisa el correo (ejemplo: nombre@correo.com).', campos.correo);
+        }
 
         const tiendas = [...cajaTiendas.querySelectorAll('input:checked')].map((c) => Number(c.value));
+        // Ruta elegida en cada tienda marcada: { tienda_id: ruta_id | null }
+        const rutasElegidas = {};
+        cajaTiendas.querySelectorAll('select.cli-ruta').forEach((sel) => {
+            rutasElegidas[Number(sel.dataset.tienda)] = sel.value ? Number(sel.value) : null;
+        });
         if (!esEmpleado && tiendas.length === 0) {
             return fallo('Marca al menos una tienda que atienda a este cliente.');
         }
         if (esEmpleado && !miTienda) {
             return fallo('Tu usuario no tiene tienda asignada. Pide a un administrador que lo revise.');
         }
-        return { datos, tiendas };
+        return { datos, tiendas, rutasElegidas };
     }
 
-    // Asigna/quita tiendas (solo dentro del alcance del usuario)
-    async function sincronizarTiendas(clienteId, actuales, elegidas) {
+    // Asigna/quita tiendas (solo dentro del alcance del usuario) y su ruta de entrega.
+    // rutasElegidas: { tienda_id: ruta_id | null } (solo las tiendas que tienen rutas)
+    async function sincronizarTiendas(clienteId, actuales, elegidas, rutasElegidas = {}, relacionesActuales = []) {
         const alcance = idsAlcance();
         const agregar = elegidas.filter((id) => !actuales.includes(id));
         const quitar = actuales.filter((id) => alcance.has(id) && !elegidas.includes(id));
+        const conRuta = (tienda_id) => (hayRutas && tienda_id in rutasElegidas ? { ruta_id: rutasElegidas[tienda_id] } : {});
 
         if (agregar.length) {
             const { error } = await db.from('clientes_tiendas')
-                .insert(agregar.map((tienda_id) => ({ cliente_id: clienteId, tienda_id })));
+                .insert(agregar.map((tienda_id) => ({ cliente_id: clienteId, tienda_id, ...conRuta(tienda_id) })));
+            if (error) return error;
+        }
+        // Tiendas que ya tenía: se actualiza la ruta si cambió
+        for (const tienda_id of elegidas.filter((id) => actuales.includes(id))) {
+            if (!hayRutas || !(tienda_id in rutasElegidas)) continue;
+            const antes = (relacionesActuales.find((ct) => ct.tienda_id === tienda_id) || {}).ruta_id || null;
+            if (antes === rutasElegidas[tienda_id]) continue;
+            const { error } = await db.from('clientes_tiendas').update({ ruta_id: rutasElegidas[tienda_id] })
+                .eq('cliente_id', clienteId).eq('tienda_id', tienda_id);
             if (error) return error;
         }
         if (quitar.length) {
@@ -414,7 +590,7 @@ registrarSeccion('clientes', (zona) => {
     }
 
     // Guarda según quién es y si crea o modifica. Devuelve { error, mensaje }.
-    async function guardar({ datos, tiendas }) {
+    async function guardar({ datos, tiendas, rutasElegidas }) {
         const ahora = new Date().toISOString();
 
         // --- Empleado: todo queda pendiente de aprobación ---
@@ -432,10 +608,10 @@ registrarSeccion('clientes', (zona) => {
                 notificarPendiente({
                     referenciaTipo: 'cliente', referenciaId: data.id, tiendaId: miTienda, soloTienda: true,
                     titulo: 'Cliente nuevo por aprobar',
-                    mensaje: `${sesion.nombre} agregó a ${datos.nombre} ${datos.apellidos} (tel. ${datos.telefono}).`,
+                    mensaje: `${sesion.nombre} agregó a ${cliNombreCompleto(datos)} (tel. ${datos.telefono}).`,
                     enlace: `#clientes?tienda=${miTienda}`,
                 });
-                return { mensaje: 'Solicitud enviada: el cliente quedará pendiente hasta que un administrador lo apruebe.' };
+                return { id: data.id, mensaje: 'Solicitud enviada: el cliente quedará pendiente hasta que un administrador lo apruebe.' };
             }
 
             // Un cliente nuevo que aún no se aprueba se corrige directo (sigue pendiente)
@@ -462,7 +638,7 @@ registrarSeccion('clientes', (zona) => {
             notificarPendiente({
                 referenciaTipo: 'cliente', referenciaId: editando.id, tiendaId: miTienda, soloTienda: true,
                 titulo: 'Cambios de cliente por aprobar',
-                mensaje: `${sesion.nombre} propuso cambios para ${editando.nombre} ${editando.apellidos} ` +
+                mensaje: `${sesion.nombre} propuso cambios para ${cliNombreCompleto(editando)} ` +
                     `(${Object.keys(cambios).map((c) => CLI_CAMPOS[c].toLowerCase()).join(', ')}).`,
                 enlace: `#clientes?tienda=${miTienda}`,
             });
@@ -473,16 +649,16 @@ registrarSeccion('clientes', (zona) => {
         if (!editando) {
             const { data, error } = await db.from('clientes').insert(datos).select('id').single();
             if (error) return { error };
-            const errorTiendas = await sincronizarTiendas(data.id, [], tiendas);
+            const errorTiendas = await sincronizarTiendas(data.id, [], tiendas, rutasElegidas);
             if (errorTiendas) return { error: errorTiendas };
-            return { mensaje: `Cliente "${datos.nombre} ${datos.apellidos}" creado.` };
+            return { id: data.id, mensaje: `Cliente "${cliNombreCompleto(datos)}" creado.` };
         }
 
         const { error } = await db.from('clientes').update(datos).eq('id', editando.id);
         if (error) return { error };
-        const errorTiendas = await sincronizarTiendas(editando.id, idsTiendasDe(editando), tiendas);
+        const errorTiendas = await sincronizarTiendas(editando.id, idsTiendasDe(editando), tiendas, rutasElegidas, editando.clientes_tiendas || []);
         if (errorTiendas) return { error: errorTiendas };
-        return { mensaje: `Cliente "${datos.nombre} ${datos.apellidos}" actualizado.` };
+        return { mensaje: `Cliente "${cliNombreCompleto(datos)}" actualizado.` };
     }
 
     form.addEventListener('submit', async (evento) => {
@@ -501,7 +677,12 @@ registrarSeccion('clientes', (zona) => {
 
         if (error) {
             console.error('Error al guardar cliente:', error);
-            errorForm.textContent = error.mensajePropio || 'No se pudo guardar. Revisa la conexión e intenta de nuevo.';
+            errorForm.textContent = error.mensajePropio
+                // Correo repetido (índice clientes_correo_unico): puede ser de un cliente de otra tienda
+                || (error.code === '23505' ? 'Ya hay un cliente con ese correo (puede estar en otra tienda). Búscalo o usa otro correo.'
+                : error.code === '42703' || error.code === 'PGRST204' ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloques 11 y 16: clientes).'
+                : 'No se pudo guardar. Revisa la conexión e intenta de nuevo.');
+            if (error.code === '23505') campos.correo.focus();
             return;
         }
 
@@ -522,13 +703,13 @@ registrarSeccion('clientes', (zona) => {
 
         if (!cliente.aprobado) {
             // Cliente nuevo
-            revisarTexto.textContent = `${quien} pidió agregar a "${cliente.nombre} ${cliente.apellidos}" ` +
+            revisarTexto.textContent = `${quien} pidió agregar a "${cliNombreCompleto(cliente)}" ` +
                 `(tel. ${cliente.telefono}) en ${textoTiendas(cliente) || 'su tienda'}. ` +
                 'Si lo rechazas, el cliente se elimina.';
             revisarCambios.hidden = true;
         } else {
             // Cambios propuestos: tabla Dato | Actual | Propuesto
-            revisarTexto.textContent = `${quien} propuso estos cambios para "${cliente.nombre} ${cliente.apellidos}":`;
+            revisarTexto.textContent = `${quien} propuso estos cambios para "${cliNombreCompleto(cliente)}":`;
             Object.entries(cliente.cambios_pendientes || {}).forEach(([campo, propuesto]) => {
                 const tr = document.createElement('tr');
                 tr.appendChild(crearCelda(CLI_CAMPOS[campo] || campo));
@@ -556,15 +737,19 @@ registrarSeccion('clientes', (zona) => {
         const c = revisando;
         if (!c || !puedeAdministrar(c)) return revisar.close();
 
+        // Solo los datos que existen hoy (una propuesta vieja podía traer "apellidos", que ahora calcula la base)
+        const propuestos = Object.fromEntries(Object.entries(c.cambios_pendientes || {}).filter(([k]) => k in CLI_CAMPOS));
         const cambios = c.aprobado
-            ? { ...(c.cambios_pendientes || {}), ...sinSolicitud } // aplica los cambios propuestos
-            : { aprobado: true, ...sinSolicitud };                   // aprueba el cliente nuevo
+            ? { ...propuestos, ...sinSolicitud }   // aplica los cambios propuestos
+            : { aprobado: true, ...sinSolicitud }; // aprueba el cliente nuevo
 
         const { error } = await db.from('clientes').update(cambios).eq('id', c.id);
         revisar.close();
         if (error) {
             console.error('Error al aprobar:', error);
-            aviso.mostrar('No se pudo aprobar. Intenta de nuevo.', 'error');
+            aviso.mostrar(error.code === '23505'
+                ? 'No se pudo aprobar: el correo propuesto ya lo tiene otro cliente. Rechaza los cambios y pide otro correo.'
+                : 'No se pudo aprobar. Intenta de nuevo.', 'error');
             return;
         }
         // Notificaciones (js/notificaciones.js): avisar al empleado y cerrar los "pendiente"
@@ -572,13 +757,13 @@ registrarSeccion('clientes', (zona) => {
             usuarioId: c.solicitado_por, aprobado: true,
             titulo: c.aprobado ? 'Cambios de cliente aprobados' : 'Cliente aprobado',
             mensaje: c.aprobado
-                ? `Se aplicaron tus cambios a ${c.nombre} ${c.apellidos}.`
-                : `${c.nombre} ${c.apellidos} ya está aprobado.`,
+                ? `Se aplicaron tus cambios a ${cliNombreCompleto(c)}.`
+                : `${cliNombreCompleto(c)} ya está aprobado.`,
             enlace: enlaceDeCliente(c), referenciaTipo: 'cliente', referenciaId: c.id,
         });
         resolverPendientes('cliente', c.id);
 
-        aviso.mostrar(c.aprobado ? 'Cambios aprobados y aplicados.' : `Cliente "${c.nombre} ${c.apellidos}" aprobado.`);
+        aviso.mostrar(c.aprobado ? 'Cambios aprobados y aplicados.' : `Cliente "${cliNombreCompleto(c)}" aprobado.`);
         cargarClientes();
     });
 
@@ -602,8 +787,8 @@ registrarSeccion('clientes', (zona) => {
             usuarioId: c.solicitado_por, aprobado: false,
             titulo: c.aprobado ? 'Cambios de cliente rechazados' : 'Cliente rechazado',
             mensaje: c.aprobado
-                ? `No se aplicaron tus cambios a ${c.nombre} ${c.apellidos}.`
-                : `${c.nombre} ${c.apellidos} no se agregó.`,
+                ? `No se aplicaron tus cambios a ${cliNombreCompleto(c)}.`
+                : `${cliNombreCompleto(c)} no se agregó.`,
             enlace: enlaceDeCliente(c),
         });
         resolverPendientes('cliente', c.id);
@@ -618,7 +803,7 @@ registrarSeccion('clientes', (zona) => {
 
     function pedirConfirmacion(cliente) {
         eliminandoId = cliente.id;
-        confirmarTexto.textContent = `¿Seguro que quieres eliminar a "${cliente.nombre} ${cliente.apellidos}"? ` +
+        confirmarTexto.textContent = `¿Seguro que quieres eliminar a "${cliNombreCompleto(cliente)}"? ` +
             'Se quitará de todas sus tiendas. Esta acción no se puede deshacer.';
         confirmar.showModal();
     }
@@ -642,7 +827,7 @@ registrarSeccion('clientes', (zona) => {
         // Si tenía algo pendiente, esos avisos ya no aplican
         if (esPendiente(c)) resolverPendientes('cliente', c.id);
 
-        aviso.mostrar(`Cliente "${c.nombre} ${c.apellidos}" eliminado.`);
+        aviso.mostrar(`Cliente "${cliNombreCompleto(c)}" eliminado.`);
         cargarClientes();
     });
 
@@ -657,10 +842,16 @@ registrarSeccion('clientes', (zona) => {
         // ?tienda=3 -> se filtra por esa tienda (si está en su alcance)
         const tiendaPedida = parametros.get('tienda');
         if (tiendaPedida && tiendasAlcance.some((t) => String(t.id) === tiendaPedida)) {
+            filtroRegion.value = tiendaDe(Number(tiendaPedida)).region || '';
+            llenarFiltroTiendas();
             filtroTienda.value = tiendaPedida;
+            llenarFiltroRutas();
         }
 
         await cargarClientes();
+
+        // Primero la región (si ve varias y no se pidió una tienda)
+        if (regiones.length > 1 && !filtroTienda.value && parametros.get('nuevo') !== '1') mostrarElegirRegion();
 
         // ?nuevo=1 -> abre el formulario directamente
         if (parametros.get('nuevo') === '1' && puedeCrear) abrirFormulario();

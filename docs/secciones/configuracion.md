@@ -30,9 +30,16 @@ registrarModuloConfig('nombre', (seccion, ctx) => {
 | Módulo | Qué configura | Tablas | Quién |
 |---|---|---|---|
 | **Horarios** | Cantidad de horarios del piloto y pedidos máximos por horario; horas de cada horario; horario por día de la semana; pedidos por horario de una región o tienda (tienda > región > base) | `configuracion`, `marcas_horario`, `horario_dias`, `marcas_dia`, `capacidad_marcas` | Admin y G1 todo; G2 ve la base y ajusta su región/tiendas |
+| **Slots** (`configuracion/slots.js`) | Rangos de horario de **despacho** de los pedidos (distintos de los horarios del piloto): cantidad de slots, horas de cada slot (desde / hasta, sin encimarse) y slots propios por día de la semana (0 = no se despacha). El empleado elige el slot al registrar y lo confirma en "Listo para despachar" | `configuracion` (`cantidad_slots`), `slots_horario`, `slot_dias`, `slots_dia` | Admin y G1 cambian; G2 solo ve |
 | **Vehículos** | Resumen por estado; lista con búsqueda; agregar/modificar/eliminar (placa, **tipo**: camión, pick-up, panel, moto; marca; estado) | `vehiculos` | Admin y G1; G2 los de pilotos de su región (no agrega) |
 | **Pedidos** | Tarifas, descuentos, categorías de mercadería, artículos frecuentes (pesos promedio), tamaños de bulto, motivos de retraso, número de pedido, código de respaldo, **simulador de precios peso × distancia (Python)** | ver [07-actividades-y-mercaderia.md](../07-actividades-y-mercaderia.md) | ver abajo |
-| **Actividades** (ventana) | Nombre, descripción, activa, **qué usa** (bodega, recolección, tamaños, compra, alcohol). Activa = disponible en todas las tiendas | `actividades` | Solo Desarrollador |
+| **Actividades** (ventana) | Nombre, descripción, activa, **qué usa** (bodega, punto de partida, tamaños, compra, alcohol). Activa = disponible en todas las tiendas | `actividades` | Solo Desarrollador |
+| **Empresas** (abre Tiendas → Empresas con "Nueva empresa") | ID (01, 02...), nombre, actividades (una o varias) y estado de una empresa interna. Ver [empresas.md](empresas.md) | `empresas` | Solo Desarrollador |
+
+**Por empresa:** Vehículos, tarifas, descuentos, categorías y artículos son de la empresa activa (y solo se
+ven los de sus actividades). Horarios, slots, tamaños, motivos, número de pedido y código de respaldo son
+de todo el sistema. En Tarifas, la opción "General" aparece al crear mientras a alguna actividad de la
+empresa le falte su tarifa general (ej. una empresa nueva que no copió la configuración).
 
 "En uso" / "Disponible" del vehículo cambian solos (según los pedidos activos de su piloto);
 "Mantenimiento" solo lo cambia una persona.

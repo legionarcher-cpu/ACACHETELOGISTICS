@@ -1,312 +1,258 @@
 /* ==================================================
-   SECCIÓN: INICIO
+   SECCIÓN: INICIO (tablero "qué pasa hoy")
    ACACHETE LOGISTICS
 
-   Solo lo PROPIO de secciones/inicio.html (clases "ini-"). Lo común viene
-   de css/componentes.css. js/pagina_inicial.js activa este archivo solo
-   mientras se ve la sección.
+   Solo lo PROPIO de secciones/inicio.html (clases "ini-"). Lo común
+   (cuadros .resumen-item, tarjetas, botones, etiquetas) viene de
+   css/componentes.css. js/pagina_inicial.js activa este archivo solo
+   mientras se ve la sección. En celular todo va en una columna.
    ================================================== */
 
-/* Cuadrícula principal del inicio: 4 secciones
-   2 columnas (la izquierda el doble de ancha que la derecha) y 2 filas
-   de igual altura. Para cambiar la distribución, modificar
-   grid-template-columns / grid-template-rows. */
-.area-principal {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    gap: 16px; /* separación entre las secciones */
-    min-height: 100%;
-}
-
-/* Cada sección (vacía por ahora) */
-.ini-seccion {
-    min-width: 0;
-    min-height: 200px;
-    background-color: var(--color-blanco);
-    border: 1px solid var(--color-borde);
-    border-radius: var(--radio-grande);
-}
-
-/* ---------- Sección 1: resumen de pedidos de hoy ---------- */
-
-/* Tamaños de letra que se ajustan a la pantalla:
-   clamp(mínimo, según el ancho de la pantalla, máximo).
-   En pantallas chicas se usa el mínimo; en grandes, el máximo. */
-.ini-resumen {
-    --ini-letra-titulo: clamp(0.85rem, 0.6rem + 0.45vw, 1.1rem);
-    --ini-letra-texto:  clamp(0.68rem, 0.55rem + 0.25vw, 0.85rem);
-    --ini-letra-chica:  clamp(0.62rem, 0.5rem + 0.2vw, 0.78rem);
-    --ini-letra-numero: clamp(0.85rem, 0.6rem + 0.45vw, 1.15rem);
-}
-
-/* Todo compacto: la sección debe aguantar muchos pedidos */
-.ini-resumen {
+/* ---------- Saludo y accesos rápidos ---------- */
+.ini-saludo {
     display: flex;
-    flex-direction: column;
-    gap: 6px;
-    min-height: 0;
-    padding: 12px 14px;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 0.889rem;
 }
 
-.ini-titulo {
-    margin: 0;
-    font-size: var(--ini-letra-titulo);
-    font-weight: 700;
-    color: var(--color-texto);
-}
-
-/* "Tienda Central · Martes 29 de septiembre" */
-.ini-alcance {
-    margin: 0;
-    font-size: var(--ini-letra-chica);
-    color: var(--color-gris);
-}
-
-/* Los cuadros bajan a otra fila si no caben (nunca se cortan ni se enciman) */
-.ini-numeros {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(clamp(90px, 7vw, 125px), 1fr));
-    gap: 8px;
-}
-
-/* Cada cuadro es un botón que filtra la lista:
-   cuadrito con icono ARRIBA y, abajo, el texto y el número */
-.ini-numero {
+.ini-accesos {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-    min-width: 0;
-    padding: 6px 8px;
-    border: 1px solid var(--color-borde);
-    border-radius: var(--radio-grande);
-    background-color: var(--color-blanco);
-    font-family: inherit;
-    text-align: left;
-    cursor: pointer;
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    flex-wrap: wrap;
+    gap: 0.556rem;
 }
 
-.ini-numero:hover {
-    box-shadow: 0 4px 12px rgba(0, 28, 59, 0.1);
+.ini-accesos[hidden] {
+    display: none;
 }
 
-.ini-numero.activo {
-    border-color: var(--color-azul);
-    background-color: var(--color-azul-claro);
-}
-
-/* Cuadrito de color con el icono en blanco (el fondo es solo del cuadrito) */
-.ini-icono {
-    display: flex;
-    flex-shrink: 0;
-    align-items: center;
-    justify-content: center;
-    width: clamp(20px, 1rem + 0.6vw, 28px);
-    height: clamp(20px, 1rem + 0.6vw, 28px);
-    border-radius: 6px;
-    background-color: var(--color-azul-marino);
-    color: var(--color-blanco);
-    font-size: clamp(0.7rem, 0.55rem + 0.3vw, 0.9rem);
-}
-
-.ini-numero-textos {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-/* Texto: puede ocupar dos líneas en vez de cortarse */
-.ini-numero-textos span {
-    font-size: var(--ini-letra-chica);
-    font-weight: 600;
-    line-height: 1.2;
-    color: var(--color-gris);
-    overflow-wrap: anywhere;
-}
-
-.ini-numero-textos strong {
-    font-size: var(--ini-letra-numero);
-    line-height: 1.15;
-    color: var(--color-texto);
-}
-
-/* Lista de pedidos: filas bajas, letra chica y desplazamiento propio
-   (el encabezado queda fijo arriba al bajar) */
-.ini-lista {
-    flex: 1;
-    min-height: 0;
-    max-height: 320px;
-    margin-top: 4px;
-    overflow-y: auto;
-}
-
-.ini-lista .tabla {
-    font-size: var(--ini-letra-texto);
-}
-
-.ini-lista .tabla th,
-.ini-lista .tabla td {
-    padding: 4px 8px;
-    white-space: nowrap;
-}
-
-.ini-lista .tabla th {
-    position: sticky;
-    top: 0;
-    z-index: 1;
-    font-size: var(--ini-letra-chica);
-}
-
-.ini-lista .etiqueta {
-    padding: 1px 7px;
-    font-size: var(--ini-letra-chica);
-}
-
-.ini-lista a {
-    font-weight: 700;
-    color: var(--color-azul);
+.ini-accesos .boton {
     text-decoration: none;
 }
 
-/* ---------- Sección 2: solo iconos que filtran ---------- */
-
-.ini-iconos {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+/* ---------- Cuadros grandes ---------- */
+.ini-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.889rem;
 }
 
-/* Botón = solo el cuadrito de color con el icono */
-.ini-icono-filtro {
-    position: relative;
-    padding: 3px;
-    border: 2px solid transparent;
-    border-radius: 8px;
-    background: none;
-    cursor: pointer;
+.ini-kpi {
+    min-height: 6.5rem;
+    gap: 0.333rem;
+    text-decoration: none;
+    color: inherit;
 }
 
-.ini-icono-filtro.activo {
-    border-color: var(--color-azul);
-    background-color: var(--color-azul-claro);
+a.ini-kpi:hover .resumen-numero {
+    color: var(--color-azul);
 }
 
-/* Separador entre tiempos y totales */
-.ini-iconos-separador {
-    width: 1px;
-    align-self: stretch;
-    margin: 0 4px;
-    background-color: var(--color-borde);
+.ini-kpi .resumen-numero {
+    font-size: 1.75rem;
 }
 
-/* Globo con la información al posar el mouse (o al enfocar con el teclado) */
-.ini-icono-filtro::after {
-    content: attr(data-info);
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 50%;
-    z-index: 5;
-    width: max-content;
-    max-width: 220px;
-    padding: 6px 9px;
-    border-radius: var(--radio);
-    background-color: var(--color-azul-marino);
-    font-size: var(--ini-letra-chica);
-    font-weight: 600;
-    line-height: 1.3;
-    text-align: left;
-    white-space: normal;
-    color: var(--color-blanco);
-    opacity: 0;
-    pointer-events: none;
-    transform: translateX(-50%);
-    transition: opacity 0.15s ease;
+.ini-kpi .resumen-texto i {
+    margin-right: 0.222rem;
 }
 
-.ini-icono-filtro:hover::after,
-.ini-icono-filtro:focus-visible::after {
-    opacity: 1;
-}
-
-/* "Promedio: despacho 35 min · en ruta 1 h · total 1 h 35 min" */
-.ini-promedios {
-    margin: 2px 0 0;
-    font-size: var(--ini-letra-chica);
-    color: var(--color-texto);
-}
-
-.ini-promedios strong {
-    color: var(--color-azul-marino);
-}
-
-/* La columna derecha es angosta: celdas más juntas y el piloto puede
-   bajar a dos líneas para que quepan las 6 columnas */
-#iniSeccion2 .ini-lista .tabla th,
-#iniSeccion2 .ini-lista .tabla td {
-    padding: 4px 5px;
-}
-
-#iniSeccion2 .ini-lista .tabla td {
-    font-size: var(--ini-letra-chica);
-}
-
-/* Día de entrega debajo del número de pedido */
-.ini-dia {
-    display: block;
-    font-size: 0.9em;
+.ini-kpi-detalle {
+    font-size: 0.8rem;
     color: var(--color-gris);
 }
 
-#iniSeccion2 .ini-lista .tabla td:nth-child(2) {
-    white-space: normal;
+div.ini-kpi {
+    cursor: default;
 }
 
-.ini-icono-filtro.neutro .ini-icono { background-color: var(--color-gris); }
-.ini-icono-filtro.pendientes .ini-icono { background-color: var(--color-naranja); }
-.ini-icono-filtro.ruta .ini-icono       { background-color: #0E6B63; }
-.ini-icono-filtro.hechos .ini-icono     { background-color: var(--color-verde); }
-.ini-icono-filtro.fallidos .ini-icono   { background-color: #9D174D; }
+/* Cuadro vacío mientras carga */
+.ini-cargando {
+    background: linear-gradient(90deg, var(--color-fondo) 25%, var(--color-borde) 50%, var(--color-fondo) 75%);
+    background-size: 200% 100%;
+    animation: ini-brillo 1.2s linear infinite;
+    border-left-color: var(--color-borde);
+}
 
-/* Color del cuadrito de cada grupo (Total usa el azul marino de arriba) */
-.ini-numero.pendientes .ini-icono { background-color: var(--color-naranja); }
-.ini-numero.ruta .ini-icono       { background-color: #0E6B63; }
-.ini-numero.hechos .ini-icono     { background-color: var(--color-verde); }
-.ini-numero.fallidos .ini-icono   { background-color: #9D174D; }
+@keyframes ini-brillo {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+}
 
-/* ---------- Sección 3: ubicación de pilotos ---------- */
+/* ---------- Tarjetas ---------- */
+.ini-columnas {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.889rem;
+    align-items: start;
+}
 
-/* Mapa a la izquierda y lista a la derecha (alto fijo: no se desborda) */
+.ini-columnas[hidden] {
+    display: none;
+}
+
+.ini-ancha {
+    grid-column: 1 / -1;
+}
+
+.ini-tarjeta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.667rem;
+    min-width: 0;
+    padding: 1.111rem 1.222rem;
+}
+
+.ini-tarjeta[hidden] {
+    display: none;
+}
+
+.ini-tarjeta-cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.556rem;
+}
+
+.ini-tarjeta-titulo {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--color-texto);
+}
+
+.ini-tarjeta-titulo i {
+    margin-right: 0.333rem;
+    color: var(--color-azul);
+}
+
+.ini-tarjeta-nota {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+.ini-tarjeta-nota:empty {
+    display: none;
+}
+
+.ini-enlace {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-azul);
+}
+
+.ini-lienzo {
+    position: relative;
+    height: 15rem;
+}
+
+/* ---------- Listas (por tienda, pendientes, solicitudes) ---------- */
+.ini-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.444rem;
+    max-height: 22rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.ini-fila {
+    display: flex;
+    align-items: center;
+    gap: 0.667rem;
+    padding: 0.556rem 0.667rem;
+    border: 1px solid var(--color-borde);
+    border-left: 0.222rem solid var(--color-borde);
+    border-radius: var(--radio);
+    color: inherit;
+    text-decoration: none;
+}
+
+a.ini-fila:hover {
+    background-color: var(--color-azul-claro);
+}
+
+.ini-fila-alerta { border-left-color: var(--color-naranja); }
+.ini-fila-mal    { border-left-color: var(--color-rojo); }
+.ini-fila-bien   { border-left-color: var(--color-verde); }
+
+.ini-fila-icono {
+    font-size: 1.1rem;
+    color: var(--color-gris);
+}
+
+.ini-fila-textos {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ini-fila-textos strong {
+    font-size: 0.92rem;
+    color: var(--color-texto);
+}
+
+.ini-fila-textos small {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+.ini-fila-valor {
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.ini-vacio {
+    padding: 0.667rem;
+    font-size: 0.9rem;
+    color: var(--color-gris);
+    text-align: center;
+}
+
+/* ---------- Mapa: entregas de hoy (TODO EL ANCHO) ---------- */
+.ini-mapa-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem;
+}
+
+.ini-mapa-filtros select[hidden] {
+    display: none;
+}
+
+/* Mapa grande a la izquierda y leyenda + pilotos a la derecha */
 .ini-mapa-cuerpo {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) clamp(150px, 14vw, 210px);
-    gap: 10px;
-    flex: 1;
-    min-height: 220px;
-    max-height: 340px;
+    grid-template-columns: minmax(0, 1fr) clamp(13rem, 20vw, 18rem);
+    gap: 0.667rem;
+    min-height: 26rem;
 }
 
-/* Espacio reservado del mapa (cuadrícula suave tipo plano) */
+/* Espacio del mapa mientras carga (cuadrícula suave tipo plano) */
 .ini-mapa {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 4px;
-    padding: 16px;
+    gap: 0.222rem;
+    min-height: 26rem;
+    padding: 0.889rem;
     border: 1px solid var(--color-borde);
     border-radius: var(--radio-grande);
     background-color: var(--color-azul-claro);
     background-image:
         linear-gradient(rgba(0, 28, 59, 0.06) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0, 28, 59, 0.06) 1px, transparent 1px);
-    background-size: 24px 24px;
+    background-size: 1.333rem 1.333rem;
     text-align: center;
     color: var(--color-azul-marino);
 }
 
-/* Con el mapa cargado (libre o Google): sin relleno ni cuadrícula.
+/* Con el mapa cargado: sin relleno ni cuadrícula.
    position + z-index + isolation: las capas del mapa (z-index altos de Leaflet)
    quedan DENTRO de la caja y no tapan los menús del encabezado ni las ventanas. */
 .ini-mapa.conectado {
@@ -320,41 +266,78 @@
     text-align: left;
 }
 
-/* Textos del cartel "Cargando mapa..." (no se aplican a los botones del mapa) */
 .ini-mapa:not(.conectado) .bi {
-    font-size: clamp(1.4rem, 1rem + 1vw, 2rem);
+    font-size: 2rem;
     opacity: 0.6;
 }
 
 .ini-mapa:not(.conectado) strong {
-    font-size: var(--ini-letra-texto);
+    font-size: 0.9rem;
 }
 
 .ini-mapa:not(.conectado) span {
-    max-width: 280px;
-    font-size: var(--ini-letra-chica);
+    max-width: 16rem;
+    font-size: 0.8rem;
     color: var(--color-gris);
 }
 
-.ini-mapa-pilotos {
+.ini-mapa-lado {
     display: flex;
     flex-direction: column;
+    gap: 0.444rem;
     min-height: 0;
-    padding: 8px 10px;
+    padding: 0.556rem 0.667rem;
     border: 1px solid var(--color-borde);
     border-radius: var(--radio-grande);
 }
 
+/* Leyenda de colores */
+.ini-leyenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.278rem 0.667rem;
+    margin: 0;
+    padding: 0 0 0.444rem;
+    border-bottom: 1px solid var(--color-borde);
+    list-style: none;
+    font-size: 0.78rem;
+    color: var(--color-gris);
+}
+
+.ini-leyenda[hidden] {
+    display: none;
+}
+
+.ini-leyenda li {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.278rem;
+}
+
+.ini-leyenda-punto {
+    width: 0.667rem;
+    height: 0.667rem;
+    border: 2px solid var(--color-blanco);
+    border-radius: 50%;
+    box-shadow: 0 0 0 1px var(--color-borde);
+}
+
 .ini-mapa-subtitulo {
-    margin: 0 0 6px;
-    font-size: var(--ini-letra-texto);
+    margin: 0;
+    font-size: 0.85rem;
     color: var(--color-texto);
 }
 
-/* Lista con scroll propio */
+.ini-mapa-subtitulo[hidden],
+.ini-mapa-lista[hidden] {
+    display: none;
+}
+
+/* Lista de pilotos con scroll propio */
 .ini-mapa-lista {
     flex: 1;
     min-height: 0;
+    max-height: 22rem;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -364,22 +347,22 @@
 .ini-mapa-lista li {
     display: flex;
     align-items: flex-start;
-    gap: 8px;
-    padding: 5px 0;
+    gap: 0.444rem;
+    padding: 0.333rem 0;
     border-bottom: 1px solid var(--color-borde);
-    font-size: var(--ini-letra-chica);
+    font-size: 0.8rem;
 }
 
 .ini-mapa-lista li:last-child {
     border-bottom: 0;
 }
 
-/* Punto de color del estado */
+/* Punto de color del estado del piloto */
 .ini-punto {
     flex-shrink: 0;
-    width: 8px;
-    height: 8px;
-    margin-top: 4px;
+    width: 0.5rem;
+    height: 0.5rem;
+    margin-top: 0.278rem;
     border-radius: 50%;
     background-color: var(--color-gris);
 }
@@ -400,145 +383,263 @@
 .ini-mapa-lista small.ruta { color: #0E6B63; }
 .ini-mapa-lista small.pendientes { color: var(--color-naranja); }
 
-/* ---------- Sección 4: actividad reciente ---------- */
-
-.ini-act-titulo {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.ini-act-reloj {
+/* Marcadores del mapa: tienda (cuadro) y número de la ruta del piloto */
+.ini-marcador-tienda {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: clamp(20px, 1rem + 0.6vw, 26px);
-    height: clamp(20px, 1rem + 0.6vw, 26px);
-    border-radius: 50%;
+    border: 2px solid var(--color-blanco);
+    border-radius: 0.333rem;
     background-color: var(--color-azul-marino);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    font-size: 0.8rem;
     color: var(--color-blanco);
-    font-size: var(--ini-letra-chica);
 }
 
-.ini-act-filtros {
+.ini-marcador-numero span {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-
-.ini-act-filtros:not(:has(select:not([hidden]))) {
-    display: none;
-}
-
-.ini-act-filtro {
-    flex: 1 1 90px;
-    min-width: 0;
-    height: 28px;
-    padding: 0 6px;
-    border: 1px solid var(--color-borde);
-    border-radius: var(--radio);
-    background-color: var(--color-blanco);
-    font-family: inherit;
-    font-size: var(--ini-letra-chica);
-    color: var(--color-texto);
-}
-
-/* Lista con scroll propio (alto fijo: no empuja ni se sale del cuadro) */
-.ini-act-lista {
-    position: relative;
-    flex: 1;
-    min-height: 0;
-    max-height: 320px;
-    margin: 4px 0 0;
-    padding: 0 4px 0 0;
-    list-style: none;
-    overflow-y: auto;
-}
-
-.ini-act-item {
-    position: relative;
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 6px 0;
-}
-
-/* Línea vertical que une los iconos */
-.ini-act-item:not(:last-child)::before {
-    content: "";
-    position: absolute;
-    top: 30px;
-    bottom: -6px;
-    left: calc(clamp(22px, 1rem + 0.7vw, 30px) / 2);
-    width: 2px;
-    background-color: var(--color-borde);
-}
-
-.ini-act-icono {
-    display: flex;
-    flex-shrink: 0;
     align-items: center;
     justify-content: center;
-    width: clamp(22px, 1rem + 0.7vw, 30px);
-    height: clamp(22px, 1rem + 0.7vw, 30px);
+    width: 26px;
+    height: 26px;
+    border: 2px solid var(--color-blanco);
     border-radius: 50%;
-    background-color: var(--color-azul);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+    font-size: 0.8rem;
+    font-weight: 700;
     color: var(--color-blanco);
-    font-size: var(--ini-letra-chica);
 }
 
-.ini-act-textos {
+/* Ventanita de un pedido en el mapa */
+.ini-popup {
     display: flex;
     flex-direction: column;
-    min-width: 0;
+    gap: 0.222rem;
+    min-width: 11rem;
+    font-family: inherit;
 }
 
-.ini-act-textos span {
-    font-size: var(--ini-letra-texto);
-    line-height: 1.3;
-    color: var(--color-texto);
-    overflow-wrap: anywhere;
-}
-
-.ini-act-textos a {
+.ini-popup a {
     font-weight: 700;
     color: var(--color-azul);
     text-decoration: none;
 }
 
-.ini-act-textos small {
-    font-size: var(--ini-letra-chica);
+.ini-popup small {
     color: var(--color-gris);
 }
 
-.ini-act-vacio {
-    padding: 12px 0;
-    font-size: var(--ini-letra-chica);
+/* ---------- MI RUTA (solo el piloto) ---------- */
+.ini-mi-ruta-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.333rem;
+    max-height: 26rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.ini-mi-ruta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.667rem;
+    padding: 0.5rem 0.667rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+    background-color: var(--color-blanco);
+}
+
+/* El que está entregando, resaltado */
+.ini-mi-ruta-item.en_entrega {
+    border-color: var(--color-verde);
+    background-color: var(--color-verde-claro);
+}
+
+.ini-mi-ruta-numero {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.778rem;
+    height: 1.778rem;
+    border-radius: 50%;
+    background-color: var(--color-azul-marino);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-blanco);
+}
+
+.ini-mi-ruta-textos {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.111rem;
+    min-width: 0;
+    font-size: 0.88rem;
+}
+
+.ini-mi-ruta-textos a {
+    font-weight: 700;
+    color: var(--color-azul);
+    text-decoration: none;
+}
+
+.ini-mi-ruta-textos small {
+    font-size: 0.8rem;
     color: var(--color-gris);
 }
 
-.ini-act-icono.ingreso    { background-color: var(--color-azul); }
-.ini-act-icono.asignado   { background-color: var(--color-azul-marino); }
-.ini-act-icono.ruta       { background-color: #0E6B63; }
-.ini-act-icono.hechos     { background-color: var(--color-verde); }
-.ini-act-icono.incidencia { background-color: var(--color-naranja); }
-.ini-act-icono.fallidos   { background-color: #9D174D; }
-.ini-act-icono.neutro     { background-color: var(--color-gris); }
+.ini-mi-ruta-vacio {
+    padding: 0.667rem;
+    font-size: 0.88rem;
+    color: var(--color-gris);
+}
 
-/* Pantallas medianas y chicas: una columna */
+/* ---------- MIS MARCAS DE HOY (solo el piloto) ---------- */
+
+/* "La tienda te validó hoy..." / "Primero muestra Mi QR del día..." */
+.ini-validacion {
+    margin: 0;
+    padding: 0.444rem 0.667rem;
+    border-radius: var(--radio);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.ini-validacion:empty {
+    display: none;
+}
+
+.ini-validacion.hecha     { background-color: var(--color-verde-claro);   color: var(--color-verde); }
+.ini-validacion.pendiente { background-color: var(--color-naranja-claro); color: #B34A07; }
+
+.ini-marcas-botones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem;
+}
+
+.ini-marcas-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.333rem;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.ini-marca {
+    display: flex;
+    align-items: center;
+    gap: 0.667rem;
+    padding: 0.5rem 0.667rem;
+    border: 1px solid var(--color-borde);
+    border-left: 0.222rem solid var(--color-borde);
+    border-radius: var(--radio);
+    background-color: var(--color-blanco);
+}
+
+.ini-marca-numero {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 1.778rem;
+    height: 1.778rem;
+    border-radius: 50%;
+    background-color: var(--color-gris);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-blanco);
+}
+
+.ini-marca-textos {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.111rem;
+    min-width: 0;
+    font-size: 0.88rem;
+}
+
+.ini-marca-textos small {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+/* Según el estado: habilitada (naranja), marcada (verde), tarde, perdida */
+.ini-marca.abierta              { border-left-color: var(--color-naranja); background-color: var(--color-naranja-claro); }
+.ini-marca.abierta .ini-marca-numero  { background-color: var(--color-naranja); }
+.ini-marca.atrasada             { border-left-color: var(--color-rojo); }
+.ini-marca.atrasada .ini-marca-numero { background-color: var(--color-rojo); }
+.ini-marca.hecha                { border-left-color: var(--color-verde); }
+.ini-marca.hecha .ini-marca-numero    { background-color: var(--color-verde); }
+.ini-marca.tarde                { border-left-color: #B34A07; }
+.ini-marca.tarde .ini-marca-numero    { background-color: #B34A07; }
+.ini-marca.perdida              { opacity: 0.6; }
+
+/* ---------- Pantallas medianas: mapa arriba y lista abajo ---------- */
 @media (max-width: 1000px) {
-    .area-principal {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto;
-    }
-
-    /* Mapa arriba y lista de pilotos abajo */
     .ini-mapa-cuerpo {
         grid-template-columns: 1fr;
-        max-height: none;
     }
 
     .ini-mapa-lista {
-        max-height: 180px;
+        max-height: 12rem;
     }
+}
+
+/* ---------- Celular: una columna y botones grandes ---------- */
+@media (max-width: 760px) {
+    .ini-columnas {
+        grid-template-columns: 1fr;
+    }
+
+    .ini-kpis {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.556rem;
+    }
+
+    .ini-kpi {
+        min-height: 5.5rem;
+    }
+
+    .ini-kpi .resumen-numero {
+        font-size: 1.35rem;
+    }
+
+    .ini-mapa,
+    .ini-mapa-cuerpo {
+        min-height: 18rem;
+    }
+
+    .ini-accesos {
+        width: 100%;
+    }
+
+    .ini-accesos .boton {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+
+    /* Mi ruta y marcas: el botón baja debajo de los textos y ocupa todo el ancho */
+    .ini-mi-ruta-item,
+    .ini-marca {
+        flex-wrap: wrap;
+    }
+
+    .ini-marcas-botones .boton,
+    .ini-mi-ruta-item .boton,
+    #iniSaliendo {
+        flex: 1 1 100%;
+        justify-content: center;
+        min-height: 2.6rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .ini-cargando { animation: none; }
 }

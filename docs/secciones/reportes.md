@@ -26,12 +26,12 @@ Depende de lo que **usa** la actividad (Configuración → Actividades), no de s
 
 | La actividad... | Tarjetas | Gráfica propia | Columnas |
 |---|---|---|---|
-| (todas) | Pedidos, Entregados, A tiempo, Satisfechos, Incidencias, Cancelados, Envíos cobrados | Por día, por estado, **mercadería por categoría**, por piloto, retrasos | Pedido, fecha, tienda, cliente, piloto, estado, envío, a cobrar, peso |
+| (todas) | Pedidos, Entregados, A tiempo, Satisfechos, Incidencias, Cancelados, Envíos cobrados | Por día, por estado, **mercadería por categoría**, por piloto, retrasos, **cancelaciones por motivo** (los pedidos ya no se anulan: se cancelan con motivo) | Pedido, fecha, tienda, cliente, piloto, estado, envío, a cobrar, peso |
 | usa compra | Compras (+ con envío gratis) | Compras por tienda | Compra |
 | permite alcohol | Con alcohol | — | Alcohol |
 | no usa compra | Peso transportado (+ bultos) | — | Bultos |
 | usa bodega | En bodega | — | — |
-| usa recolección | Con recolección | — | Recolección |
+| usa punto de partida (`usa_recoleccion`) | Con punto de partida | — | Punto de partida |
 | usa tamaños | — | Bultos por tamaño | — |
 
 El récord también cambia: con compra, "Monto total (compras + envíos)"; sin compra, "Monto total
@@ -40,7 +40,8 @@ El récord también cambia: con compra, "Monto total (compras + envíos)"; sin c
 ## Quién ve qué
 
 Administrador y G1: todo, exportan · G2: su región (fija), exporta · G3: su región y tienda (fijas),
-**solo ve** · Empleado y Piloto: sin acceso.
+**solo ve** · Empleado: sin acceso · **Piloto: solo SUS pedidos de los últimos 7 días** (sin región, tienda,
+"ver por" ni atajos; las fechas no pueden salir de esos 7 días, `REP_DIAS_PILOTO`) y puede exportar lo suyo.
 
 ## Dónde tocar
 

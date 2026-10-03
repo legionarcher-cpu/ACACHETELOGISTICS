@@ -232,17 +232,91 @@ function montoDescuento(descuento, envio) {
 }
 
 // ---------- Búsqueda ----------
-// true si alguno de los valores contiene el texto buscado (sin distinguir mayúsculas)
+// Texto en minúsculas y sin tildes: "Pérez" -> "perez" (así se busca sin importar cómo se escribió)
+function textoParaBuscar(texto) {
+    return String(texto || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
+// Palabras de una búsqueda, listas para comparar con textoParaBuscar o con la columna
+// "busqueda" de clientes: sin tildes y los teléfonos solo con dígitos ("8888-1234" -> "88881234")
+function palabrasDeBusqueda(texto) {
+    return textoParaBuscar(texto)
+        .split(/\s+/)
+        .map((p) => (/^[\d+\-().]+$/.test(p) ? p.replace(/\D/g, '') : p))
+        .filter(Boolean);
+}
+
+// true si alguno de los valores contiene el texto buscado (sin distinguir mayúsculas ni tildes)
 function coincideBusqueda(valores, filtro) {
     if (!filtro) return true;
-    const buscado = filtro.toLowerCase();
-    return valores.some((valor) => String(valor || '').toLowerCase().includes(buscado));
+    const buscado = textoParaBuscar(filtro);
+    return valores.some((valor) => textoParaBuscar(valor).includes(buscado));
 }
 
 // ---------- Plural simple ----------
 // plural(1, 'tienda', 'tiendas') -> "1 tienda" | plural(3, ...) -> "3 tiendas"
 function plural(cantidad, singular, pluralTexto) {
     return `${cantidad} ${cantidad === 1 ? singular : pluralTexto}`;
+}
+
+// ---------- Usuario con el ID de la empresa (sql/01 bloques 16 y 17) ----------
+// Todos los usuarios llevan al final el ID de su empresa ("01"), sin guiones:
+//   G3, Empleado y Piloto:   región + nombre + empresa -> "cen" + "jperez" + "01" = "cenjperez01"
+//   Administrador, G1 y G2:  nombre + empresa          -> "jperez" + "01"        = "jperez01"
+// No lleva el número de la tienda: si cambia de sucursal en la misma región (o es
+// multisucursal) su usuario no cambia. "admin" y "desar" no cambian.
+// Lo usan Usuarios y Tiendas. usuarioSinPrefijo acepta todos los formatos.
+function codigoEmpresa(empresa = null) {
+    const e = empresa || (typeof empresaActual === 'function' ? empresaActual() : null);
+    return e && e.codigo ? String(e.codigo) : '';
+}
+
+// Región de la tienda en minúsculas: "CEN-001" -> "cen"
+function prefijoUsuario(codigoTienda) {
+    return String(codigoTienda || '').slice(0, 3).toLowerCase();
+}
+
+// ("jperez", "CEN-001", "01") -> "cenjperez01" · ("jperez", null, "01") -> "jperez01"
+function usuarioCompuesto(base, codigoTienda = null, codigo = codigoEmpresa()) {
+    return prefijoUsuario(codigoTienda) + String(base || '') + (codigo || '');
+}
+
+// "cenjperez01", "cen001jperez01", "cen-001-jperez", "jperez01" -> "jperez"
+function usuarioSinPrefijo(idUsuario, codigoTienda = null, codigo = codigoEmpresa()) {
+    let id = String(idUsuario || '');
+    if (['admin', 'desar'].includes(id)) return id;
+    if (codigoTienda) {
+        const conGuion = `${String(codigoTienda).toLowerCase()}-`;                     // cen-001-
+        const tienda = String(codigoTienda).toLowerCase().replace(/[^a-z0-9]/g, ''); // cen001
+        const region = prefijoUsuario(codigoTienda);                                  // cen
+        const forma = [conGuion, tienda, region].find((f) => f && id.startsWith(f) && id.length > f.length);
+        if (forma) id = id.slice(forma.length);
+    }
+    if (codigo && id.endsWith(codigo) && id.length > codigo.length) id = id.slice(0, -codigo.length);
+    return id;
+}
+
+// ---------- Librerías externas (se descargan una sola vez, al usarlas) ----------
+// Gráficas (Chart.js), Excel (SheetJS) y PDF (jsPDF + AutoTable). Lo usan Inicio y Reportes.
+const LIBRERIAS = {
+    chart: 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js',
+    xlsx: 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    jspdf: 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js',
+    autotable: 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js',
+};
+const libreriasCargadas = new Map(); // url -> Promise
+
+function cargarLibreria(url) {
+    if (!libreriasCargadas.has(url)) {
+        libreriasCargadas.set(url, new Promise((resolve, reject) => {
+            const s = document.createElement('script');
+            s.src = url;
+            s.onload = () => resolve();
+            s.onerror = () => { libreriasCargadas.delete(url); s.remove(); reject(new Error(`No se pudo descargar ${url}`)); };
+            document.head.appendChild(s);
+        }));
+    }
+    return libreriasCargadas.get(url);
 }
 
 // ---------- Python en el navegador (Pyodide) ----------

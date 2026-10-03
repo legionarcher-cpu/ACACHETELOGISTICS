@@ -66,6 +66,13 @@ function aplicarPermisos() {
             if (candado) candado.remove();
         }
     });
+
+    // Menú del usuario (Mi perfil, Configuración): las opciones sin permiso no se muestran
+    // (ej. Configuración para Admin G3, Empleado o Piloto)
+    document.querySelectorAll('.user-menu-item[href^="#"]').forEach((enlace) => {
+        const seccion = enlace.getAttribute('href').slice(1);
+        if (seccion) enlace.hidden = !!sesion && !tienePermiso(seccion);
+    });
 }
 
 // Un solo "escuchador" para todo el menú: si se hace clic en una

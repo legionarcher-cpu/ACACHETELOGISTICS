@@ -8,32 +8,18 @@
    Las clases propias empiezan con "cli-".
    ================================================== */
 
-/* Enlace "← Tiendas" arriba del título */
-.cli-volver {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 4px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--color-azul);
-    text-decoration: none;
-}
+/* (Las pestañas Tiendas | Clientes usan .pestanas de css/componentes.css) */
 
-.cli-volver:hover {
-    text-decoration: underline;
-}
-
-/* Debajo de este ancho aparece el scroll horizontal (8 columnas) */
+/* Debajo de este ancho aparece el scroll horizontal (9 columnas) */
 .cli-tabla {
-    min-width: 1000px;
+    min-width: 62rem;
 }
 
 /* Enlace "Ver en mapa" */
 .cli-mapa {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 0.222rem;
     font-weight: 600;
     color: var(--color-azul);
     text-decoration: none;
@@ -49,27 +35,27 @@
 
 /* Nota naranja para Empleados: "quedará pendiente de aprobación" */
 .cli-nota {
-    margin: 0 0 16px;
-    padding: 10px 14px;
+    margin: 0 0 0.889rem;
+    padding: 0.556rem 0.778rem;
     background-color: var(--color-naranja-claro);
-    border-left: 4px solid var(--color-naranja);
+    border-left: 0.222rem solid var(--color-naranja);
     border-radius: var(--radio);
     font-size: 0.85rem;
-    color: #B34A07;
+    color: var(--color-naranja-texto);
 }
 
 .cli-nota i {
-    margin-right: 6px;
+    margin-right: 0.333rem;
 }
 
 /* Casillas de tiendas: en columnas que se acomodan al ancho */
 .cli-tiendas {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 8px;
-    max-height: 180px;
+    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    gap: 0.444rem;
+    max-height: 14rem;
     overflow-y: auto; /* si hay muchas tiendas, scroll dentro */
-    padding: 10px 12px;
+    padding: 0.556rem 0.667rem;
     background-color: var(--color-fondo);
     border: 1px solid var(--color-borde);
     border-radius: var(--radio);
@@ -78,16 +64,77 @@
 .cli-tienda-opcion {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.444rem;
     font-size: 0.9rem;
     color: var(--color-texto);
     cursor: pointer;
 }
 
 .cli-tienda-opcion input {
-    width: 16px;
-    height: 16px;
+    width: 0.889rem;
+    height: 0.889rem;
     accent-color: var(--color-naranja);
+}
+
+/* Tienda + su ruta de cobro */
+.cli-tienda-fila {
+    display: flex;
+    flex-direction: column;
+    gap: 0.222rem;
+}
+
+.cli-ruta {
+    height: 2rem;
+    font-size: 0.85rem;
+}
+
+/* ==================================================
+   PRIMERO LA REGIÓN (antes de la lista)
+   ================================================== */
+
+.cli-elegir-region {
+    margin-top: 0.889rem;
+    padding: 1.111rem;
+}
+
+.cli-elegir-titulo {
+    margin: 0 0 0.778rem;
+    font-size: 1rem;
+    color: var(--color-azul-marino);
+}
+
+.cli-regiones {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    gap: 0.667rem;
+}
+
+.cli-region-boton {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.222rem;
+    padding: 0.889rem 1rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+    background: var(--color-blanco);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.cli-region-boton:hover,
+.cli-region-boton:focus-visible {
+    border-color: var(--color-naranja);
+    background: var(--color-naranja-claro);
+}
+
+.cli-region-boton strong {
+    color: var(--color-azul-marino);
+}
+
+.cli-region-boton small {
+    color: var(--color-gris);
 }
 
 /* ==================================================
@@ -95,7 +142,7 @@
    ================================================== */
 
 .cli-cambios {
-    margin-top: 16px;
+    margin-top: 0.889rem;
     border: 1px solid var(--color-borde);
     border-radius: var(--radio);
 }
@@ -104,4 +151,19 @@
 .cli-cambios td:last-child {
     font-weight: 600;
     color: var(--color-verde);
+}
+
+/* Monto mínimo y máximo a prestar (dos campos lado a lado) */
+.cli-montos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 0.667rem;
+}
+
+.cli-montos[hidden] {
+    display: none;
+}
+
+.cli-montos .campo-ayuda {
+    grid-column: 1 / -1;
 }

@@ -158,6 +158,76 @@ registrarSeccion('rutas', (zona) => {
             nombresExtra = data || [];
         }
         dibujar();
+        dibujarQrPilotos();
+    }
+
+    // ==================================================
+    // VALIDACIÓN DEL DÍA (G2 o superior): QR de hoy de cada piloto (js/qr.js)
+    //   qr_piloto_dia(piloto) -> "ACACHETE-PILOTO:<token>" (solo sirve hoy)
+    //   pilotos_dia.validado_en -> la tienda ya lo escaneó y confirmó su foto
+    // ==================================================
+
+    async function dibujarQrPilotos() {
+        const caja = $('#rutQrCaja');
+        caja.hidden = !puedeGestionar;
+        if (!puedeGestionar) return;
+        const ul = $('#rutQrPilotos');
+        ul.replaceChildren();
+        if (!pilotos.length) {
+            const li = document.createElement('li');
+            li.className = 'rut-qr-vacio';
+            li.textContent = 'Esta tienda no tiene pilotos.';
+            ul.appendChild(li);
+            return;
+        }
+        const { data: hoyDatos, error } = await db.from('pilotos_dia').select('piloto_id, validado_en')
+            .in('piloto_id', pilotos.map((p) => p.id)).eq('fecha', hoy);
+        if (error) console.error('Error al cargar la validación del día (¿falta sql/01, bloque 14?):', error);
+        pilotos.forEach((p) => {
+            const li = document.createElement('li');
+            li.className = 'rut-qr-piloto';
+            const foto = document.createElement('span');
+            foto.className = 'avatar avatar-chico';
+            pintarAvatar(foto, p.nombre, p.foto_url); // js/avatar.js
+            const textos = document.createElement('span');
+            textos.className = 'rut-qr-textos';
+            const nombre = document.createElement('strong');
+            nombre.textContent = p.nombre;
+            const estado = document.createElement('span');
+            const v = (hoyDatos || []).find((x) => x.piloto_id === p.id && x.validado_en);
+            estado.className = `etiqueta ${v ? 'etiqueta-verde' : 'etiqueta-gris'}`;
+            estado.textContent = v
+                ? `Validado ${new Date(v.validado_en).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Sin validar hoy';
+            textos.append(nombre, estado);
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'boton boton-secundario boton-chico';
+            b.innerHTML = '<i class="bi bi-qr-code"></i> <span>QR de hoy</span>';
+            b.addEventListener('click', () => mostrarQrPiloto(p));
+            li.append(foto, textos, b);
+            ul.appendChild(li);
+        });
+    }
+
+    async function mostrarQrPiloto(p) {
+        const { data, error } = await db.rpc('qr_piloto_dia', { p_piloto: p.id });
+        if (error) {
+            console.error('Error al obtener el QR del piloto:', error);
+            aviso.mostrar(error.code === 'PGRST202' || error.code === '42883'
+                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 14: QR).'
+                : 'No se pudo obtener el QR del piloto.', 'error');
+            return;
+        }
+        mostrarQrEnVentana({ // js/qr.js
+            titulo: 'QR del piloto · hoy',
+            subtitulo: new Date().toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'long' }),
+            texto: data,
+            nombre: p.nombre,
+            foto: p.foto_url,
+            nota: 'La tienda lo escanea con "Escanear QR" al empezar el día y confirma que la foto coincide. Solo sirve hoy.',
+            archivo: `qr-piloto-${p.id_usuario}-${hoy}`,
+        });
     }
 
     // Pilotos que se pueden asignar a las rutas de una tienda:
@@ -166,7 +236,7 @@ registrarSeccion('rutas', (zona) => {
     // Si todavía no existe la columna multitienda, solo los de la tienda.
     async function cargarPilotos(tiendaId) {
         const region = (tiendas.find((t) => t.id === tiendaId) || {}).region;
-        const columnas = 'id, nombre, id_usuario, tienda_id, tiendas(codigo, region)';
+        const columnas = 'id, nombre, id_usuario, tienda_id, foto_url, tiendas(codigo, region)';
         let r = await db.from('usuarios').select(`${columnas}, multitienda`)
             .eq('rol', 'piloto').eq('aprobado', true)
             .or(`tienda_id.eq.${tiendaId},multitienda.eq.true`).order('nombre');

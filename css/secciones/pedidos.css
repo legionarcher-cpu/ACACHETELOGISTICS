@@ -11,15 +11,15 @@
 .ped-vista {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 0.889rem;
 }
 
 /* "← Pedidos" */
 .ped-volver {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    margin-bottom: 4px;
+    gap: 0.333rem;
+    margin-bottom: 0.222rem;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--color-azul);
@@ -33,9 +33,9 @@
 /* Nota azul (ej. falta ejecutar un SQL) */
 .ped-nota {
     margin: 0;
-    padding: 10px 14px;
+    padding: 0.556rem 0.778rem;
     background-color: var(--color-azul-claro);
-    border-left: 4px solid var(--color-azul);
+    border-left: 0.222rem solid var(--color-azul);
     border-radius: var(--radio);
     font-size: 0.85rem;
     color: var(--color-azul-marino);
@@ -46,7 +46,7 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 0.444rem;
 }
 
 .ped-rutas-dia .etiqueta {
@@ -57,7 +57,7 @@
 .ped-si-no {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.444rem;
     font-size: 0.9rem;
     cursor: pointer;
 }
@@ -66,8 +66,8 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px 20px;
-    min-height: 42px;
+    gap: 0.444rem 1.111rem;
+    min-height: 2.333rem;
 }
 
 .ped-mayus {
@@ -79,7 +79,7 @@
    ================================================== */
 
 .ped-tabla {
-    min-width: 980px;
+    min-width: 54.444rem;
 }
 
 /* Código del pedido + actividad debajo */
@@ -103,7 +103,7 @@
 /* Texto largo recortado (dirección) */
 .ped-corto {
     display: block;
-    max-width: 240px;
+    max-width: 13.333rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -116,14 +116,14 @@
 .ped-form {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 0.889rem;
 }
 
 .ped-bloque {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 20px 24px;
+    gap: 0.889rem;
+    padding: 1.111rem 1.333rem;
 }
 
 /* "Guardar A como ubicación de la tienda" (debajo del mapa) */
@@ -133,7 +133,7 @@
 
 /* Enlaces de navegación en el detalle (Google Maps / Waze) */
 .ped-navegar a {
-    margin-right: 10px;
+    margin-right: 0.556rem;
     font-weight: 600;
     color: var(--color-azul);
 }
@@ -141,7 +141,7 @@
 .ped-bloque-titulo {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 0.556rem;
     margin: 0;
     font-size: 1.05rem;
     font-weight: 700;
@@ -153,8 +153,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 28px;
-    height: 28px;
+    width: 1.556rem;
+    height: 1.556rem;
     border-radius: 50%;
     background-color: var(--color-azul-marino);
     font-size: 0.85rem;
@@ -164,15 +164,15 @@
 /* Tarjetas para elegir la actividad */
 .ped-actividades {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(13.333rem, 1fr));
+    gap: 0.667rem;
 }
 
 .ped-actividad {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 16px;
+    gap: 0.667rem;
+    padding: 0.778rem 0.889rem;
     border: 2px solid var(--color-borde);
     border-radius: var(--radio-grande);
     cursor: pointer;
@@ -194,16 +194,25 @@
     pointer-events: none;
 }
 
+/* Icono con ancho fijo (no se encoge ni queda encima del texto) */
 .ped-actividad i {
+    flex: 0 0 2rem;
+    width: 2rem;
+    text-align: center;
     font-size: 1.6rem;
+    line-height: 1;
     color: #B34A07;
 }
 
+/* Texto: ocupa el resto y baja de línea si no cabe */
 .ped-actividad span {
     display: flex;
+    flex: 1 1 auto;
     flex-direction: column;
     gap: 2px;
+    min-width: 0;
     font-weight: 700;
+    overflow-wrap: anywhere;
 }
 
 .ped-actividad small {
@@ -219,8 +228,8 @@
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 0.444rem;
+    margin-bottom: 0.444rem;
     font-size: 0.85rem;
     font-weight: 600;
     color: var(--color-azul-marino);
@@ -229,23 +238,23 @@
 .ped-filas {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.444rem;
 }
 
 .ped-fila {
     display: grid;
     align-items: center;
-    gap: 8px;
+    gap: 0.444rem;
 }
 
 /* Bulto: descripción | cant. | tamaño | peso | quitar */
 .ped-fila-bulto {
-    grid-template-columns: minmax(0, 2fr) 80px minmax(0, 1fr) 120px 40px;
+    grid-template-columns: minmax(0, 2fr) 4.444rem minmax(0, 1fr) 6.667rem 2.222rem;
 }
 
 /* Artículo: artículo | cant. | peso | quitar */
 .ped-fila-articulo {
-    grid-template-columns: minmax(0, 3fr) 80px 120px 40px;
+    grid-template-columns: minmax(0, 3fr) 4.444rem 6.667rem 2.222rem;
 }
 
 .ped-fila .campo-input {
@@ -263,15 +272,15 @@
 .ped-casillas {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    margin-top: 8px;
+    gap: 0.556rem;
+    margin-top: 0.444rem;
 }
 
 .ped-casilla {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
+    gap: 0.444rem;
+    padding: 0.556rem 0.889rem;
     border: 2px solid var(--color-borde);
     border-radius: 999px;
     font-weight: 600;
@@ -288,14 +297,14 @@
 .ped-categorias-detalle {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 0.667rem;
 }
 
 /* Panel de una categoría marcada */
 .ped-categoria {
-    padding: 14px 16px;
+    padding: 0.778rem 0.889rem;
     border: 1px solid var(--color-borde);
-    border-left: 4px solid var(--color-naranja);
+    border-left: 0.222rem solid var(--color-naranja);
     border-radius: var(--radio);
     background-color: var(--color-fondo);
 }
@@ -303,8 +312,8 @@
 .ped-categoria-titulo {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 0 0 12px;
+    gap: 0.444rem;
+    margin: 0 0 0.667rem;
     font-size: 0.95rem;
     font-weight: 700;
 }
@@ -312,22 +321,22 @@
 /* Conteo de abarrotes: 4 números + alcohol */
 .ped-conteo {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(7.778rem, 1fr));
     align-items: end;
-    gap: 12px;
+    gap: 0.667rem;
 }
 
 .ped-compra {
-    margin-top: 16px;
+    margin-top: 0.889rem;
 }
 
 .ped-peso-total {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 8px;
+    gap: 0.444rem;
     margin: 0;
-    padding: 10px 14px;
+    padding: 0.556rem 0.778rem;
     background-color: var(--color-azul-claro);
     border-radius: var(--radio);
     font-size: 0.95rem;
@@ -343,13 +352,13 @@
 
 .ped-desglose {
     width: 100%;
-    max-width: 520px;
+    max-width: 28.889rem;
     border-collapse: collapse;
     font-size: 0.9rem;
 }
 
 .ped-desglose td {
-    padding: 6px 0;
+    padding: 0.333rem 0;
     border-bottom: 1px dashed var(--color-borde);
 }
 
@@ -361,7 +370,7 @@
 
 .ped-desglose tr.ped-desglose-total td {
     border-bottom: none;
-    padding-top: 10px;
+    padding-top: 0.556rem;
     font-size: 1rem;
     font-weight: 700;
     color: var(--color-azul-marino);
@@ -387,7 +396,7 @@
 .ped-form-botones {
     display: flex;
     justify-content: flex-end;
-    gap: 10px;
+    gap: 0.556rem;
 }
 
 /* ==================================================
@@ -398,7 +407,7 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
+    gap: 0.667rem;
 }
 
 .ped-detalle-titulo .etiqueta {
@@ -407,8 +416,8 @@
 
 .ped-detalle-rejilla {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(18.889rem, 1fr));
+    gap: 0.889rem;
     align-items: start;
 }
 
@@ -421,10 +430,10 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 12px;
-    padding: 12px 16px;
+    gap: 0.667rem;
+    padding: 0.667rem 0.889rem;
     background-color: var(--color-naranja-claro);
-    border-left: 4px solid var(--color-naranja);
+    border-left: 0.222rem solid var(--color-naranja);
     border-radius: var(--radio);
     font-size: 0.9rem;
     color: var(--color-texto);
@@ -437,20 +446,20 @@
 
 .ped-solicitud p {
     flex: 1;
-    min-width: 240px;
+    min-width: 13.333rem;
     margin: 0;
 }
 
 .ped-solicitud-botones {
     display: flex;
-    gap: 8px;
+    gap: 0.444rem;
 }
 
 /* Lista de datos "Etiqueta: valor" */
 .ped-datos {
     display: grid;
     grid-template-columns: max-content 1fr;
-    gap: 8px 16px;
+    gap: 0.444rem 0.889rem;
     margin: 0;
     font-size: 0.9rem;
 }
@@ -470,12 +479,12 @@
 .ped-fotos {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
+    gap: 0.556rem;
 }
 
 .ped-fotos a img {
-    width: 110px;
-    height: 110px;
+    width: 6.111rem;
+    height: 6.111rem;
     object-fit: cover;
     border-radius: var(--radio);
     border: 1px solid var(--color-borde);
@@ -485,9 +494,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 110px;
-    height: 110px;
-    padding: 8px;
+    width: 6.111rem;
+    height: 6.111rem;
+    padding: 0.444rem;
     border: 1px dashed var(--color-borde);
     border-radius: var(--radio);
     font-size: 0.75rem;
@@ -506,9 +515,9 @@
 
 .ped-linea li {
     position: relative;
-    padding: 0 0 16px 22px;
+    padding: 0 0 0.889rem 1.222rem;
     border-left: 2px solid var(--color-borde);
-    margin-left: 6px;
+    margin-left: 0.333rem;
     font-size: 0.88rem;
 }
 
@@ -521,10 +530,10 @@
 .ped-linea li::before {
     content: "";
     position: absolute;
-    left: -7px;
+    left: -0.389rem;
     top: 2px;
-    width: 12px;
-    height: 12px;
+    width: 0.667rem;
+    height: 0.667rem;
     border-radius: 50%;
     background-color: var(--color-naranja);
     border: 2px solid var(--color-blanco);
@@ -551,14 +560,14 @@
    ================================================== */
 
 .ped-qr-dialogo {
-    width: min(440px, calc(100vw - 32px));
+    width: min(24.444rem, calc(100vw - 1.778rem));
 }
 
 /* La tarjeta del QR se dibuja a 600 px y se muestra más chica */
 .ped-qr-canvas {
     display: block;
     width: 100%;
-    max-width: 320px;
+    max-width: 17.778rem;
     height: auto;
     margin: 0 auto;
     border: 1px solid var(--color-borde);
@@ -566,7 +575,7 @@
 }
 
 .ped-qr-texto {
-    margin-top: 12px;
+    margin-top: 0.667rem;
     font-size: 0.85rem;
     text-align: center;
 }
@@ -575,8 +584,8 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 8px;
-    margin-top: 12px;
+    gap: 0.444rem;
+    margin-top: 0.667rem;
 }
 
 /* Botón verde de WhatsApp */
@@ -592,14 +601,249 @@
 }
 
 .ped-accion-motivo {
-    margin-top: 14px;
+    margin-top: 0.778rem;
 }
 
 .ped-textarea {
     height: auto;
-    padding: 10px 12px;
+    padding: 0.556rem 0.667rem;
     resize: vertical;
     font-family: inherit;
+}
+
+/* ==================================================
+   BUSCADOR DE CLIENTES (paso 2) y ficha del cliente elegido
+   La lista NO flota: empuja el formulario hacia abajo, así en celular se
+   puede deslizar y tocar sin que tape los campos.
+   ================================================== */
+
+.ped-cli-buscar {
+    display: flex;
+    flex-direction: column;
+    gap: 0.333rem;
+}
+
+.ped-cli-campo {
+    position: relative;
+}
+
+.ped-cli-campo > i {
+    position: absolute;
+    top: 50%;
+    left: 0.778rem;
+    transform: translateY(-50%);
+    color: var(--color-gris);
+    pointer-events: none;
+}
+
+.ped-cli-campo .campo-input {
+    width: 100%;
+    height: 2.667rem;
+    padding-left: 2.333rem;
+    font-size: 1rem;
+}
+
+.ped-cli-estado {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+.ped-cli-estado:empty {
+    display: none;
+}
+
+.ped-cli-resultados {
+    display: flex;
+    flex-direction: column;
+    max-height: 22rem; /* unas 5 tarjetas; si hay más, scroll dentro */
+    margin: 0;
+    padding: 0.222rem;
+    overflow-y: auto;
+    list-style: none;
+    background-color: var(--color-fondo);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+}
+
+.ped-cli-resultados[hidden] {
+    display: none;
+}
+
+/* Cada cliente: iniciales | nombre + teléfono / correo + dirección */
+.ped-cli-opcion {
+    display: flex;
+    align-items: center;
+    gap: 0.667rem;
+    min-height: 3.333rem;
+    padding: 0.556rem 0.778rem;
+    border-radius: var(--radio);
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.ped-cli-opcion + .ped-cli-opcion {
+    margin-top: 0.111rem;
+}
+
+.ped-cli-opcion:hover,
+.ped-cli-opcion.activo {
+    background-color: var(--color-azul-claro);
+}
+
+.ped-cli-opcion.activo {
+    box-shadow: inset 0.167rem 0 0 var(--color-naranja);
+}
+
+.ped-cli-avatar {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.333rem;
+    height: 2.333rem;
+    border-radius: 50%;
+    background-color: var(--color-azul-marino);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-blanco);
+}
+
+.ped-cli-datos {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 0.111rem;
+    min-width: 0;
+}
+
+.ped-cli-nombre {
+    font-size: 0.95rem;
+    color: var(--color-texto);
+}
+
+.ped-cli-contacto {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.111rem 0.889rem;
+    font-size: 0.85rem;
+    color: var(--color-azul-marino);
+}
+
+.ped-cli-contacto > span {
+    overflow-wrap: anywhere; /* correos largos bajan de línea en celular */
+}
+
+.ped-cli-direccion,
+.ped-cli-nota {
+    overflow: hidden;
+    font-size: 0.75rem;
+    color: var(--color-gris);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* Ficha del cliente elegido */
+.ped-cli-elegido {
+    display: flex;
+    align-items: center;
+    gap: 0.778rem;
+    padding: 0.778rem 0.889rem;
+    background-color: var(--color-verde-claro);
+    border: 1px solid var(--color-borde);
+    border-left: 0.222rem solid var(--color-verde);
+    border-radius: var(--radio-grande);
+}
+
+.ped-cli-elegido[hidden] {
+    display: none;
+}
+
+.ped-cli-elegido .ped-cli-avatar {
+    width: 2.778rem;
+    height: 2.778rem;
+    background-color: var(--color-verde);
+}
+
+.ped-cli-elegido .ped-cli-nota {
+    white-space: normal;
+}
+
+/* ==================================================
+   ESCANEAR DESPACHO (cámara + QR del piloto)
+   ================================================== */
+
+.ped-escaner-dialogo {
+    width: min(30rem, calc(100vw - 1.25rem));
+}
+
+.ped-escaner-camara {
+    position: relative;
+    overflow: hidden;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--radio-grande);
+    background-color: var(--color-fondo-oscuro);
+}
+
+.ped-escaner-camara video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Cuadro guía para apuntar al QR */
+.ped-escaner-marco {
+    position: absolute;
+    inset: 18%;
+    border: 0.188rem solid rgba(255, 255, 255, 0.9);
+    border-radius: var(--radio-grande);
+    box-shadow: 0 0 0 100vmax rgba(0, 28, 59, 0.35);
+    pointer-events: none;
+}
+
+.ped-escaner-sin-camara {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 1.25rem;
+    font-size: 0.9rem;
+    text-align: center;
+    color: var(--color-blanco);
+    background-color: var(--color-fondo-oscuro);
+}
+
+.ped-escaner-estado {
+    margin: 0.75rem 0 0;
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--radio);
+    background-color: var(--color-fondo);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-texto);
+}
+
+.ped-escaner-estado.ok {
+    background-color: var(--color-verde-claro);
+    color: var(--color-verde);
+}
+
+.ped-escaner-estado.error {
+    background-color: var(--color-rojo-claro);
+    color: var(--color-rojo);
+}
+
+.ped-escaner-manual {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.ped-escaner-manual .campo-input {
+    flex: 1;
 }
 
 /* ==================================================
@@ -607,6 +851,23 @@
    ================================================== */
 
 @media (max-width: 640px) {
+    /* Ficha: el botón "Cambiar" baja y ocupa todo el ancho */
+    .ped-cli-elegido {
+        flex-wrap: wrap;
+    }
+
+    .ped-cli-elegido .boton {
+        width: 100%;
+    }
+
+    .ped-cli-resultados {
+        max-height: 60vh;
+    }
+
+    .ped-cli-direccion {
+        white-space: normal;
+    }
+
     .ped-fila-bulto,
     .ped-fila-articulo {
         grid-template-columns: 1fr 1fr;
@@ -622,6 +883,6 @@
     }
 
     .ped-bloque {
-        padding: 16px;
+        padding: 1rem;
     }
 }

@@ -12,6 +12,29 @@
 | `css/secciones/<nombre>.css` | Lo propio de una sección (prefijo de clases) | Solo esa sección; gana sobre lo anterior |
 | `responsive/responsive.css` | Tablet y celular (solo `@media`) | Pantallas ≤ 1200 px |
 
+## Medidas: todo en `rem` (multirresolución)
+
+**No usar `px`** en estilos nuevos (salvo bordes finos de 1–2 px y los cortes de `@media`).
+1rem es la escala de todo el sistema y la calcula `css/base.css` según la ventana (gana el menor
+entre ancho y alto, así cabe en pantallas bajas y no se agiganta en ultra anchas):
+
+| Pantalla | 1rem |
+|---|---|
+| 1366×768 | 15 px (mínimo en computadora) |
+| 1536×864 (1920×1080 con Windows al 125 %) | 16 px |
+| **1920×1080 (referencia)** | **18 px** |
+| 2560×1440 | 21.5 px |
+| 3840×2160 (4K) | 28 px (máximo) |
+| Tablet y celular (≤ 900 px) | 16 px fijo |
+
+Para pasar una medida de diseño a rem: **px ÷ 18** (ej. 24px → `1.333rem`); en los bloques de celular
+de `responsive.css`, **px ÷ 16**. Como todo está en rem, de 1366 a 4K no hacen falta cortes de `@media`:
+la pantalla entera se escala junta.
+
+Medidas del marco en `css/variables.css`: `--alto-encabezado`, `--alto-pie` (mínimo; crece si los
+botones bajan de línea), `--ancho-menu` (15 % con mínimo y máximo) y `--ancho-max-pagina` (en monitores
+ultra anchos la sección se centra).
+
 ## Variables (`css/variables.css`)
 
 | Variable | Valor ACACHETE | Se usa en |
@@ -28,7 +51,7 @@
 | `--color-borde`, `--color-borde-suave` | `#DDE3EA`, `#EEF1F5` | Bordes y líneas |
 | `--color-verde`, `-claro` / `--color-rojo`, `-oscuro`, `-claro` | | Éxito / error |
 | `--fuente-base`, `--fuente-codigo` | Segoe UI / Consolas | Textos / usuarios y códigos |
-| `--radio`, `--radio-grande` | 8px / 12px | Esquinas redondeadas |
+| `--radio`, `--radio-grande` | 0.444rem / 0.667rem (8 / 12 px en 1920×1080) | Esquinas redondeadas |
 | `--sombra-tarjeta`, `--sombra-foco`, `--sombra-boton` | | Sombras |
 
 Una empresa puede cambiar cualquiera de estas en su campo `colores` ([02-empresa-nueva.md](02-empresa-nueva.md)).
@@ -61,6 +84,9 @@ Antes de crear un estilo nuevo, buscar aquí: casi todo ya existe.
 - Un estilo nuevo de una sección va en su CSS, con el prefijo de la sección (`ped-`, `cfg-`...).
 - Para ocultar algo desde JS: `elemento.hidden = true` (base.css lo oculta siempre).
 - Iconos: Bootstrap Icons 1.11.3 (`<i class="bi bi-truck"></i>`), https://icons.getbootstrap.com.
+  `base.css` hace que los `.bi` nunca se encojan (por el `min-width: 0` general, en pantallas medianas el
+  texto de al lado los dejaba en 0 de ancho y el dibujo quedaba encima de las letras). Si un icono va al lado
+  de un texto largo en un `flex`, darle además un ancho fijo y al texto `flex: 1` (ej. `.ped-actividad`).
 - Animaciones y transiciones: respetar las que existen (cambiar la duración de salida de sección exige
   cambiar también `DURACION_SALIDA` en `pagina_inicial.js`).
 - Responsive: reglas nuevas solo dentro de los `@media` de `responsive.css`; las de secciones con el

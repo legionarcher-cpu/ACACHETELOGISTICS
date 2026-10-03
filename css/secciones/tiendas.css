@@ -11,13 +11,13 @@
 
 /* Debajo de este ancho aparece el scroll horizontal (7 columnas) */
 .tnd-tabla {
-    min-width: 820px;
+    min-width: 45.556rem;
 }
 
 /* Columna "Usuarios": angosta y centrada */
 .tabla th.tnd-col-numero,
 .tabla td.tnd-col-numero {
-    width: 90px;
+    width: 5rem;
     text-align: center;
 }
 
@@ -38,15 +38,34 @@
 /* Advertencia naranja al cambiar el código de una tienda con usuarios:
    "Los 2 usuarios pasarán de cen-001-… a nor-005-…" */
 .tnd-aviso-codigo {
-    margin: 8px 0 0;
-    padding: 8px 12px;
+    margin: 0.444rem 0 0;
+    padding: 0.444rem 0.667rem;
     background-color: var(--color-naranja-claro);
-    border-left: 4px solid var(--color-naranja);
+    border-left: 0.222rem solid var(--color-naranja);
     border-radius: var(--radio);
     font-size: 0.8rem;
-    color: #B34A07;
+    color: var(--color-naranja-texto);
 }
 
 .tnd-aviso-codigo[hidden] {
     display: none;
+}
+
+/* ---------- Ventana de regiones ---------- */
+.tnd-reg-form {
+    display: grid;
+    grid-template-columns: 6rem 1fr auto;
+    align-items: end;
+    gap: 0.667rem;
+    margin-top: 0.889rem;
+}
+
+.tnd-reg-form .campo-input {
+    width: 100%;
+}
+
+@media (max-width: 480px) {
+    .tnd-reg-form {
+        grid-template-columns: 1fr;
+    }
 }
