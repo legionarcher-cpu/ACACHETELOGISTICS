@@ -6,6 +6,8 @@ Sistema web para coordinar **pedidos, entregas, pilotos, rutas y tiendas** de un
 servidor propio.
 
 > Esta carpeta explica **cómo está hecho hoy** y **dónde tocar** para cambiarlo.
+> **Resumen de todo en un solo archivo** (qué hace cada parte, cómo modificarla y cómo ligar una app):
+> [GUIA-RESUMIDA-Y-APP.md](../GUIA-RESUMIDA-Y-APP.md), en la raíz.
 > El documento de diseño original (ideas, fases, decisiones) es
 > [PROPUESTA-ESTRUCTURADA-V2.md](../PROPUESTA-ESTRUCTURADA-V2.md), en la raíz; se conserva como
 > historia. Si algo no coincide, manda esta carpeta.
