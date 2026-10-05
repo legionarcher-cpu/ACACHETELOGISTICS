@@ -35,11 +35,12 @@
                                       Si es la única, "Pedido" se lee "Viaje"
                                       (js/palabras.js, docs/14-transporte.md)
                     Las demás actividades no aparecen en ninguna parte del sistema.
-     registroClientes -> (opcional) ID de la empresa interna ('02') cuyos clientes
-                    pueden SOLICITAR su usuario desde el login ("¿Eres cliente?
-                    Solicita tu usuario"). Solo aparece si esa empresa está activa y
-                    hace viajes (Transporte). '' = no aparece. Sin esto, igual
-                    funciona el enlace index.html#registro?empresa=02.
+     registroClientes -> (opcional) "¿Eres cliente? Solicita tu usuario" del login.
+                    Lo pueden usar los clientes de TODAS las empresas activas con
+                    Transporte (la base lo revisa). Sin el campo: el cliente escribe
+                    el código de su empresa (02, 03...). '02' = ya va puesta esa
+                    empresa (no se pregunta). false = el botón no aparece.
+                    El enlace index.html#registro?empresa=02 también la deja puesta.
                     La solicitud se aprueba en Clientes -> "Revisar" (sql/01 bloque 20).
      supabase    -> base de datos de la empresa ({ url, anonKey }).
                     Vacío = la de js/supabase.js. Una empresa nueva usa una base
