@@ -1,0 +1,151 @@
+<!-- ==================================================
+     SECCIÓN: COTIZADOR (encomiendas)
+     Calcula el precio de un envío de Encomiendas con las tarifas que se
+     definen en Configuración -> Pedidos -> Tarifas (tienda > región > general)
+     y los descuentos pre-establecidos. No guarda nada: solo cotiza.
+     Se abre con el botón "Cotizador" del pie (solo si la empresa realiza
+     Encomiendas, empresas/empresas.js).
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/cotizador.css (clases "cot-")
+       Estilos comunes -> css/componentes.css
+       Lógica          -> js/secciones/cotizador.js
+     Los ids empiezan con "cot".
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a index.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina">
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Cotizador de encomiendas</h2>
+            <p class="pagina-subtitulo">Precio de un envío con las tarifas de Configuración. No se guarda nada.</p>
+        </div>
+        <div class="pagina-acciones">
+            <button type="button" id="cotLimpiar" class="boton boton-secundario">
+                <i class="bi bi-arrow-counterclockwise"></i>
+                <span>Nueva cotización</span>
+            </button>
+            <a href="#pedidos?nuevo=1&actividad=encomiendas" id="cotRegistrar" class="boton boton-principal">
+                <i class="bi bi-plus-circle"></i>
+                <span>Registrar pedido</span>
+            </a>
+        </div>
+    </div>
+
+    <p id="cotAviso" class="aviso" role="status"></p>
+    <!-- Encomiendas desactivada en Configuración -> Actividades, o sin tarifa -->
+    <p id="cotNota" class="cot-nota" hidden></p>
+
+    <div class="cot-cuerpo">
+
+        <!-- ---------- Datos del envío ---------- -->
+        <div class="tarjeta cot-datos">
+            <div class="campos">
+                <div class="campo">
+                    <label for="cotTienda" class="campo-etiqueta">Tienda</label>
+                    <select id="cotTienda" class="campo-input"></select>
+                    <small class="campo-ayuda">Define qué tarifa aplica: la de la tienda, la de su región o la general.</small>
+                </div>
+                <div class="campo">
+                    <label for="cotDescuento" class="campo-etiqueta">Descuento</label>
+                    <select id="cotDescuento" class="campo-input"></select>
+                    <small class="campo-ayuda">Solo los pre-establecidos (máximo 1).</small>
+                </div>
+            </div>
+
+            <!-- Punto A -> punto B (js/mapa.js): distancia por calle para el precio por km -->
+            <h3 class="cot-titulo">Ruta</h3>
+            <div class="campos">
+                <div class="campo">
+                    <label for="cotOrigen" class="campo-etiqueta">A · Punto de partida</label>
+                    <input id="cotOrigen" type="text" class="campo-input" maxlength="200" autocomplete="off"
+                           placeholder="Vacío = sale de la tienda">
+                </div>
+                <div class="campo">
+                    <label for="cotDestino" class="campo-etiqueta">B · Entrega</label>
+                    <input id="cotDestino" type="text" class="campo-input" maxlength="200" autocomplete="off"
+                           placeholder="Dirección, coordenadas o enlace de Google Maps">
+                </div>
+            </div>
+            <div id="cotMapa"></div>
+
+            <div class="cot-bultos-cabecera">
+                <h3 class="cot-titulo">Mercadería</h3>
+                <button type="button" id="cotAgregar" class="boton boton-secundario boton-chico">
+                    <i class="bi bi-plus-lg"></i> <span>Agregar bulto</span>
+                </button>
+            </div>
+
+            <div class="tabla-caja">
+                <table class="tabla cot-tabla">
+                    <thead>
+                        <tr>
+                            <th>Categoría</th>
+                            <th>Artículo / descripción</th>
+                            <th>Cant.</th>
+                            <th class="cot-col-tamano">Tamaño</th>
+                            <th>Peso c/u (kg)</th>
+                            <th>Peso</th>
+                            <th class="tabla-col-acciones"><span class="cot-oculto">Quitar</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="cotBultos"></tbody>
+                </table>
+            </div>
+            <!-- Catálogo de pesos promedio por categoría (lo llena el JS) -->
+            <div id="cotListas"></div>
+        </div>
+
+        <!-- ---------- Resultado ---------- -->
+        <aside class="tarjeta cot-resultado" aria-live="polite">
+            <h3 class="cot-titulo">Cotización</h3>
+            <p class="cot-peso">Peso total: <strong id="cotPeso">0 kg</strong></p>
+            <p class="cot-peso" id="cotDistanciaCaja">Distancia: <strong id="cotDistancia">sin ubicar</strong></p>
+            <table class="cot-desglose"><tbody id="cotDesglose"></tbody></table>
+            <div class="cot-total">
+                <span>Precio del envío</span>
+                <strong id="cotTotal">₡0.00</strong>
+            </div>
+            <p id="cotTarifa" class="cot-tarifa"></p>
+            <div class="cot-compartir">
+                <button type="button" id="cotCopiar" class="boton boton-secundario boton-chico">
+                    <i class="bi bi-clipboard"></i> <span>Copiar</span>
+                </button>
+                <button type="button" id="cotWhatsapp" class="boton boton-secundario boton-chico">
+                    <i class="bi bi-whatsapp"></i> <span>WhatsApp</span>
+                </button>
+            </div>
+        </aside>
+    </div>
+
+    <!-- ---------- Tabla rápida: precio según el peso con la tarifa de la tienda ---------- -->
+    <div class="tarjeta cot-rapida">
+        <h3 class="cot-titulo">Precios rápidos por peso</h3>
+        <p id="cotRapidaTexto" class="campo-ayuda"></p>
+        <!-- Los precios rápidos son SIN distancia (solo peso); la distancia se suma aparte -->
+
+        <div class="tabla-caja">
+            <table class="tabla">
+                <thead><tr id="cotRapidaPesos"></tr></thead>
+                <tbody><tr id="cotRapidaPrecios"></tr></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Tablet y celular: barra fija abajo con el precio (el detalle queda más abajo).
+         En computadora no se ve (la cotización está al lado). -->
+    <div class="cot-barra" id="cotBarra">
+        <div>
+            <span class="cot-barra-texto">Precio del envío</span>
+            <strong id="cotBarraTotal">₡0.00</strong>
+            <small id="cotBarraDetalle"></small>
+        </div>
+        <button type="button" id="cotVerDetalle" class="boton boton-secundario boton-chico">
+            <i class="bi bi-receipt"></i> <span>Ver detalle</span>
+        </button>
+    </div>
+</div>

@@ -1,0 +1,277 @@
+<!-- ==================================================
+     SECCIÓN: CLIENTES
+     Base de datos de clientes (tablas "clientes" y "clientes_tiendas").
+     Un cliente puede ser de VARIAS tiendas (multitienda) y en cada una tiene
+     su ruta de entrega. Se abre con la pestaña "Clientes" de Tiendas o con los
+     botones de cada tienda (sus clientes / nuevo cliente en esa tienda).
+     También se agregan solos desde Nuevo pedido (con su dirección y ubicación).
+     Primero pide la región (si el usuario ve más de una). Se puede abrir filtrada:
+       #clientes?tienda=3   -> clientes de la tienda con id 3 (sin preguntar región)
+       #clientes?nuevo=1    -> abre directamente el formulario "Nuevo cliente"
+
+     Quién ve y hace qué: ver la cabecera de js/secciones/clientes.js
+     (los Pilotos no tienen acceso; lo que hace un Empleado queda
+     pendiente de aprobación).
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/clientes.css (clases "cli-")
+       Estilos comunes -> css/componentes.css
+       Lógica          -> js/secciones/clientes.js
+     Los ids empiezan con "cli".
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a index.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina">
+
+    <!-- Pestañas: Tiendas | Clientes | Empresas (las mismas en tiendas.html) -->
+    <nav class="pestanas" aria-label="Tiendas, clientes y empresas">
+        <a href="#tiendas" class="pestana"><i class="bi bi-shop"></i> <span>Tiendas</span></a>
+        <a href="#clientes" class="pestana activo" aria-current="page"><i class="bi bi-people"></i> <span>Clientes</span></a>
+        <a href="#empresas-internas" class="pestana" data-solo-desarrollador><i class="bi bi-buildings"></i> <span>Empresas</span></a>
+    </nav>
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Clientes</h2>
+            <p id="cliContador" class="pagina-subtitulo">Cargando clientes...</p>
+        </div>
+
+        <div class="pagina-acciones">
+            <div class="buscador">
+                <i class="bi bi-search"></i>
+                <input id="cliBuscar" type="search" class="buscador-input"
+                       placeholder="Buscar por nombre, teléfono o correo" aria-label="Buscar clientes">
+            </div>
+            <button type="button" id="cliNuevo" class="boton boton-principal">
+                <i class="bi bi-person-plus"></i>
+                <span>Nuevo cliente</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ---------- Primero: ¿de qué región? ----------
+         Antes de la lista se elige la región (quien ve más de una). Los G2, G3 y
+         Empleados la tienen fija y pasan directo a la lista. -->
+    <div id="cliElegirRegion" class="tarjeta cli-elegir-region" hidden>
+        <h3 class="cli-elegir-titulo"><i class="bi bi-geo"></i> ¿De qué región son los clientes?</h3>
+        <div id="cliRegiones" class="cli-regiones"></div>
+    </div>
+
+    <!-- ---------- Filtros: región, tienda, ruta de entrega y estado ----------
+         Rutas: las de la tienda (sección Rutas y asignaciones) -->
+    <div class="filtros" id="cliFiltros">
+        <select id="cliFiltroRegion" class="campo-input filtro" aria-label="Filtrar por región">
+            <option value="">Todas las regiones</option>
+        </select>
+        <select id="cliFiltroTienda" class="campo-input filtro" aria-label="Filtrar por tienda">
+            <option value="">Todas mis tiendas</option>
+        </select>
+        <select id="cliFiltroRuta" class="campo-input filtro" aria-label="Filtrar por ruta de entrega" hidden>
+            <option value="">Todas las rutas</option>
+        </select>
+        <select id="cliFiltroEstado" class="campo-input filtro" aria-label="Filtrar por estado">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendientes de aprobación</option>
+            <option value="aprobado">Aprobados</option>
+        </select>
+    </div>
+
+    <!-- Mensajes de "Cliente creado", "Solicitud enviada", errores (los pone el JS) -->
+    <p id="cliAviso" class="aviso" role="status"></p>
+
+    <!-- ---------- Tabla de clientes ---------- -->
+    <div class="tabla-caja" id="cliTablaCaja">
+        <table class="tabla cli-tabla">
+            <thead>
+                <tr>
+                    <th>Cliente</th>
+                    <th>Teléfono</th>
+                    <th>Correo</th>
+                    <th>Dirección</th>
+                    <th>Ubicación</th>
+                    <th>Tiendas y rutas</th>
+                    <th>Categoría</th>
+                    <th>Estado</th>
+                    <th class="tabla-col-acciones">Acciones</th>
+                </tr>
+            </thead>
+            <!-- Las filas las arma js/secciones/clientes.js -->
+            <tbody id="cliCuerpo"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================================================
+     VENTANA: CREAR / MODIFICAR CLIENTE
+     ================================================== -->
+<dialog id="cliDialogo" class="dialogo" aria-labelledby="cliDialogoTitulo">
+    <form id="cliForm" class="dialogo-form" novalidate>
+        <h3 id="cliDialogoTitulo" class="dialogo-titulo">Nuevo cliente</h3>
+
+        <!-- Aviso para Empleados: sus cambios quedan pendientes de aprobación -->
+        <p id="cliAvisoAprobacion" class="cli-nota" hidden>
+            <i class="bi bi-hourglass-split"></i>
+            Lo que guardes quedará <strong>pendiente de aprobación</strong> de un administrador.
+        </p>
+
+        <div class="campos">
+            <div class="campo">
+                <label for="cliNombre" class="campo-etiqueta">Nombre *</label>
+                <input id="cliNombre" type="text" class="campo-input" autocomplete="off" required>
+            </div>
+
+            <div class="campo">
+                <label for="cliApellido1" class="campo-etiqueta">Primer apellido *</label>
+                <input id="cliApellido1" type="text" class="campo-input" autocomplete="off" maxlength="60" required>
+            </div>
+
+            <div class="campo">
+                <label for="cliApellido2" class="campo-etiqueta">Segundo apellido</label>
+                <input id="cliApellido2" type="text" class="campo-input" autocomplete="off" maxlength="60">
+            </div>
+
+            <div class="campo">
+                <label for="cliTelefono" class="campo-etiqueta">Teléfono *</label>
+                <input id="cliTelefono" type="tel" class="campo-input" autocomplete="off" inputmode="tel" maxlength="20" required>
+            </div>
+
+            <!-- El correo no se repite entre clientes: sirve para encontrarlo al crear un pedido -->
+            <div class="campo campo-ancho">
+                <label for="cliCorreo" class="campo-etiqueta">Correo electrónico</label>
+                <input id="cliCorreo" type="email" class="campo-input" autocomplete="off" inputmode="email" maxlength="120"
+                       placeholder="nombre@correo.com">
+                <small class="campo-ayuda">Recomendado: con el correo o el teléfono se encuentra al cliente al crear un pedido.</small>
+            </div>
+
+            <div class="campo campo-ancho">
+                <label for="cliDireccion" class="campo-etiqueta">Dirección</label>
+                <input id="cliDireccion" type="text" class="campo-input" autocomplete="off">
+            </div>
+
+            <div class="campo campo-ancho">
+                <label for="cliUbicacion" class="campo-etiqueta">Ubicación</label>
+                <input id="cliUbicacion" type="text" class="campo-input" autocomplete="off"
+                       placeholder="Coordenadas (9.93, -84.08), referencia o enlace de Google Maps">
+                <small class="campo-ayuda">Nuevo pedido la llena sola con el punto de entrega del mapa (y la usa la próxima vez).</small>
+            </div>
+
+            <!-- Tiendas del cliente (casillas; puede ser de varias = multitienda) y, en
+                 cada una, su ruta de entrega. Al Empleado se le asigna su tienda. -->
+            <div id="cliCampoTiendas" class="campo campo-ancho">
+                <span class="campo-etiqueta">Tiendas que lo atienden y ruta de entrega *</span>
+                <div id="cliTiendas" class="cli-tiendas"></div>
+            </div>
+        </div>
+
+        <!-- Error del formulario -->
+        <p id="cliFormError" class="form-error" role="alert"></p>
+
+        <div class="dialogo-botones">
+            <button type="button" id="cliCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="cliGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: REVISAR SOLICITUD (aprobar o rechazar lo que pidió un Empleado)
+     ================================================== -->
+<dialog id="cliRevisar" class="dialogo" aria-labelledby="cliRevisarTitulo">
+    <div class="dialogo-form">
+        <h3 id="cliRevisarTitulo" class="dialogo-titulo">Revisar solicitud</h3>
+        <p id="cliRevisarTexto" class="dialogo-texto"></p>
+        <!-- Tabla "Dato | Actual | Propuesto" (solo para cambios) -->
+        <table id="cliRevisarCambios" class="tabla cli-cambios" hidden>
+            <thead>
+                <tr><th>Dato</th><th>Actual</th><th>Propuesto</th></tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <div class="dialogo-botones">
+            <button type="button" id="cliRevisarCerrar" class="boton boton-secundario">Cerrar</button>
+            <button type="button" id="cliRechazar" class="boton boton-peligro">Rechazar</button>
+            <button type="button" id="cliAprobar" class="boton boton-principal">Aprobar</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: ACCESO Y LUGARES (solo si la empresa hace viajes; sql/01 bloque 19)
+     Usuario del cliente (rol "cliente": entra a Inicio, Viajes y Mi perfil para
+     solicitar sus viajes) y sus lugares Casa y Trabajo. Lógica: js/secciones/clientes.js
+     ================================================== -->
+<dialog id="cliAcceso" class="dialogo" aria-labelledby="cliAccesoTitulo">
+    <form id="cliAccesoForm" class="dialogo-form" novalidate>
+        <h3 id="cliAccesoTitulo" class="dialogo-titulo">Acceso y lugares</h3>
+
+        <fieldset class="cli-acceso-grupo">
+            <legend class="campo-etiqueta">Usuario para solicitar viajes</legend>
+            <!-- Sin usuario -->
+            <div id="cliAccesoNuevo" class="campos">
+                <div class="campo">
+                    <label for="cliAccesoUsuario" class="campo-etiqueta">Usuario</label>
+                    <input id="cliAccesoUsuario" type="text" maxlength="20" class="campo-input texto-codigo" autocomplete="off">
+                    <small id="cliAccesoEjemplo" class="campo-ayuda"></small>
+                </div>
+                <div class="campo">
+                    <label for="cliAccesoClave" class="campo-etiqueta">Contraseña (mínimo 6)</label>
+                    <input id="cliAccesoClave" type="text" maxlength="40" class="campo-input" autocomplete="off">
+                </div>
+            </div>
+            <!-- Con usuario -->
+            <div id="cliAccesoTiene" class="cli-acceso-tiene" hidden>
+                <p class="dialogo-texto">Entra con el usuario <strong id="cliAccesoActual" class="texto-codigo"></strong>.</p>
+                <div class="campo">
+                    <label for="cliAccesoClaveNueva" class="campo-etiqueta">Contraseña nueva (opcional)</label>
+                    <input id="cliAccesoClaveNueva" type="text" maxlength="40" class="campo-input" autocomplete="off">
+                </div>
+                <button type="button" id="cliAccesoQuitar" class="boton boton-peligro boton-chico">Quitar acceso</button>
+            </div>
+        </fieldset>
+
+        <fieldset class="cli-acceso-grupo">
+            <legend class="campo-etiqueta">Lugares (arman la ruta con un toque)</legend>
+            <div class="campos">
+                <div class="campo campo-ancho">
+                    <label for="cliCasaTexto" class="campo-etiqueta"><i class="bi bi-house"></i> Casa</label>
+                    <div class="cli-lugar-buscar">
+                        <input id="cliCasaTexto" type="text" maxlength="200" class="campo-input" placeholder="Dirección, coordenadas o enlace de Google Maps">
+                        <button type="button" class="boton boton-secundario boton-chico" data-buscar-lugar="casa"><i class="bi bi-search"></i> Ubicar</button>
+                    </div>
+                    <select id="cliCasaOpciones" class="campo-input" hidden aria-label="Resultados para Casa"></select>
+                    <small id="cliCasaEstado" class="campo-ayuda"></small>
+                </div>
+                <div class="campo campo-ancho">
+                    <label for="cliTrabajoTexto" class="campo-etiqueta"><i class="bi bi-briefcase"></i> Trabajo</label>
+                    <div class="cli-lugar-buscar">
+                        <input id="cliTrabajoTexto" type="text" maxlength="200" class="campo-input" placeholder="Dirección, coordenadas o enlace de Google Maps">
+                        <button type="button" class="boton boton-secundario boton-chico" data-buscar-lugar="trabajo"><i class="bi bi-search"></i> Ubicar</button>
+                    </div>
+                    <select id="cliTrabajoOpciones" class="campo-input" hidden aria-label="Resultados para Trabajo"></select>
+                    <small id="cliTrabajoEstado" class="campo-ayuda"></small>
+                </div>
+            </div>
+        </fieldset>
+
+        <p id="cliAccesoError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="cliAccesoCancelar" class="boton boton-secundario">Cerrar</button>
+            <button type="submit" id="cliAccesoGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: CONFIRMAR ELIMINACIÓN
+     ================================================== -->
+<dialog id="cliConfirmar" class="dialogo dialogo-chico" aria-labelledby="cliConfirmarTitulo">
+    <h3 id="cliConfirmarTitulo" class="dialogo-titulo">Eliminar cliente</h3>
+    <p id="cliConfirmarTexto" class="dialogo-texto"></p>
+    <div class="dialogo-botones">
+        <button type="button" id="cliNoEliminar" class="boton boton-secundario">Cancelar</button>
+        <button type="button" id="cliSiEliminar" class="boton boton-peligro">Eliminar</button>
+    </div>
+</dialog>

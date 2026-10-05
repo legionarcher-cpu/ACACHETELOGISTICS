@@ -1,0 +1,138 @@
+<!-- ==================================================
+     SECCIÓN: LOGIN
+     Se carga dentro de .cuerpo-principal de index.html cuando
+     no hay sesión (lo decide js/pagina_inicial.js). El fondo
+     azul llena todo el cuerpo principal; encabezado, menú
+     (bloqueado) y pie del index siguen visibles alrededor.
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estructura   -> css/secciones/loggin.css
+       (estructura, textos y animaciones juntos en ese archivo)
+       Lógica       -> js/secciones/loggin.js
+     ================================================== -->
+
+<!-- Si alguien abre este archivo directamente (ej. "Open with Live Server"
+     sobre él), se ve sin estilos ni imagen. Esta línea lo manda a index.html.
+     Cuando index lo carga en .cuerpo-principal NO se ejecuta (innerHTML no
+     ejecuta scripts), así que no afecta. Copiarla en cada sección nueva. -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="login-fondo">
+    <!-- Contenedor: tiene la animación de entrada/salida -->
+    <div class="login-contenedor">
+
+        <!-- Cuadro central -->
+        <section class="login-tarjeta" aria-labelledby="login-titulo">
+
+            <!-- Franja superior con el logo -->
+            <div class="login-cabecera">
+                <img src="img/logo-web-slog.png" alt="ACACHETE Logistics - Operaciones que mueven su negocio" class="login-logo">
+            </div>
+
+            <div class="login-cuerpo">
+                <h1 id="login-titulo" class="login-titulo">Iniciar sesión</h1>
+                <p class="login-subtitulo">Panel de Control de Operaciones</p>
+
+                <!-- novalidate: los mensajes de error los maneja js/secciones/loggin.js -->
+                <form id="formLogin" class="login-form" novalidate>
+
+                    <!-- Campo: Usuario -->
+                    <div class="login-campo">
+                        <label for="inputUsuario" class="login-etiqueta">Usuario</label>
+                        <div class="login-input-caja">
+                            <i class="bi bi-person"></i>
+                            <input id="inputUsuario" name="usuario" type="text"
+                                   class="login-input" placeholder="Ej. norinavarro01"
+                                   autocomplete="username" required>
+                        </div>
+                    </div>
+
+                    <!-- Campo: Contraseña -->
+                    <div class="login-campo">
+                        <label for="inputClave" class="login-etiqueta">Contraseña</label>
+                        <div class="login-input-caja">
+                            <i class="bi bi-lock"></i>
+                            <input id="inputClave" name="clave" type="password"
+                                   class="login-input" placeholder="Ingresa tu contraseña"
+                                   autocomplete="current-password" required>
+                            <!-- Botón del ojo para mostrar/ocultar la contraseña -->
+                            <button type="button" id="btnVerClave" class="login-ver-clave" aria-label="Mostrar contraseña">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Aquí aparece el mensaje de error (role="alert" lo anuncia a lectores de pantalla) -->
+                    <p id="loginError" class="login-error" role="alert"></p>
+
+                    <button type="submit" id="btnIngresar" class="login-boton">
+                        Ingresar
+                    </button>
+
+                    <!-- Solo si la empresa recibe solicitudes de clientes (Transporte):
+                         enlace index.html#registro?empresa=02 o "registroClientes" en empresas/empresas.js -->
+                    <p class="login-registro-enlace" id="loginRegistroEnlace" hidden>
+                        ¿Eres cliente? <button type="button" id="btnIrRegistro" class="login-enlace">Solicita tu usuario</button>
+                    </p>
+                </form>
+
+                <!-- SOLICITAR USUARIO (cliente). Lo guarda la base (solicitar_acceso_cliente,
+                     sql/01 bloque 20) y queda pendiente hasta que la empresa lo apruebe en Clientes. -->
+                <form id="formRegistro" class="login-form" novalidate hidden>
+                    <div class="login-registro-campos">
+                        <div class="login-campo">
+                            <label for="regNombre" class="login-etiqueta">Nombre *</label>
+                            <input id="regNombre" class="login-input-simple" maxlength="60" autocomplete="given-name" required>
+                        </div>
+                        <div class="login-campo">
+                            <label for="regApellido1" class="login-etiqueta">Primer apellido *</label>
+                            <input id="regApellido1" class="login-input-simple" maxlength="60" autocomplete="family-name" required>
+                        </div>
+                        <div class="login-campo">
+                            <label for="regApellido2" class="login-etiqueta">Segundo apellido</label>
+                            <input id="regApellido2" class="login-input-simple" maxlength="60">
+                        </div>
+                        <div class="login-campo">
+                            <label for="regTelefono" class="login-etiqueta">Teléfono *</label>
+                            <input id="regTelefono" class="login-input-simple" type="tel" maxlength="20" placeholder="8888 1234" autocomplete="tel" required>
+                        </div>
+                        <div class="login-campo login-campo-ancho">
+                            <label for="regCorreo" class="login-etiqueta">Correo</label>
+                            <input id="regCorreo" class="login-input-simple" type="email" maxlength="120" autocomplete="email">
+                        </div>
+                        <div class="login-campo login-campo-ancho">
+                            <label for="regUsuario" class="login-etiqueta">Usuario que quieres *</label>
+                            <input id="regUsuario" class="login-input-simple" maxlength="20" placeholder="Ej. aramirez" autocomplete="username" required>
+                            <small class="login-ayuda" id="regUsuarioAyuda">Letras y números, sin espacios</small>
+                        </div>
+                        <div class="login-campo">
+                            <label for="regClave" class="login-etiqueta">Contraseña *</label>
+                            <input id="regClave" class="login-input-simple" type="password" maxlength="72" autocomplete="new-password" required>
+                        </div>
+                        <div class="login-campo">
+                            <label for="regClave2" class="login-etiqueta">Repite la contraseña *</label>
+                            <input id="regClave2" class="login-input-simple" type="password" maxlength="72" autocomplete="new-password" required>
+                        </div>
+                    </div>
+                    <!-- Trampa para robots: una persona no la ve ni la llena -->
+                    <input id="regSitio" class="login-trampa" type="text" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+                    <p class="login-ayuda">La empresa revisa tus datos antes de activar tu usuario.</p>
+                    <p id="registroError" class="login-error" role="alert"></p>
+
+                    <button type="submit" id="btnSolicitar" class="login-boton">Enviar solicitud</button>
+                    <button type="button" id="btnVolverLogin" class="login-enlace login-enlace-centro">Ya tengo usuario: iniciar sesión</button>
+                </form>
+
+                <!-- Solicitud enviada -->
+                <div id="registroListo" class="login-registro-listo" hidden>
+                    <i class="bi bi-check-circle"></i>
+                    <p id="registroListoTexto"></p>
+                    <button type="button" id="btnListoLogin" class="login-boton">Volver a iniciar sesión</button>
+                </div>
+            </div>
+        </section>
+
+        <p class="login-pie">Derechos Reservados Achete Logistics S.A.</p>
+    </div>
+</div>

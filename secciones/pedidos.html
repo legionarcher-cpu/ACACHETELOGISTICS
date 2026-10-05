@@ -1,0 +1,561 @@
+<!-- ==================================================
+     SECCIÓN: PEDIDOS
+     Pedidos por ACTIVIDAD (Encomiendas, Entregas de tienda...).
+     Guía: docs/secciones/pedidos.md. Tablas: sql/00, secciones 6, 7 y 8.
+     El formulario se arma según la ACTIVIDAD elegida: sus categorías de
+     mercadería y lo que usa (punto de partida, tamaños, compra, alcohol, bodega),
+     que se marca en Configuración -> Actividades.
+
+     Tiene 3 vistas (solo se ve una a la vez), según la dirección:
+       #pedidos           -> LISTA de pedidos con filtros y resumen por estado
+       #pedidos?nuevo=1   -> REGISTRAR un pedido (el formulario cambia según la actividad)
+       #pedidos?id=15     -> DETALLE de un pedido: datos, QR, cobro, línea de tiempo y acciones
+                             (?id=15&qr=1 abre además la ventana del QR, ej. al recién crearlo;
+                              ?id=15&abrir=reasignar | cancelar abre esa ventana)
+       #pedidos?accion=reasignar | cancelar -> LISTA de pendientes para elegir cuál
+                             (lo abren los botones del pie "Reasignar horario" y "Cancelar pedido")
+
+     Quién ve y hace qué: ver la cabecera de js/secciones/pedidos.js
+     (resumen: piloto y horario los asigna G2 o superior; Admin G3 y Empleado
+     solo SOLICITAN la reasignación; "Salió a entregar" y "Entregado" los marca
+     solo el piloto; el Empleado registra pero no cancela).
+
+     RUTAS (sección #rutas): al registrar, se elige la ruta
+     de la tienda y el piloto sale SOLO según lo que asignó el G2 para ese día.
+     (En la base de datos "horario" se sigue llamando marca_numero.)
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/pedidos.css (clases "ped-")
+       Estilos comunes -> css/componentes.css
+       Lógica          -> js/secciones/pedidos.js
+     Los ids empiezan con "ped".
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a index.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina">
+
+    <!-- Mensajes de "Pedido registrado", errores (los pone el JS) -->
+    <p id="pedAviso" class="aviso" role="status"></p>
+
+    <!-- Si todavía no se ejecutaron los SQL de pedidos -->
+    <p id="pedFaltaSql" class="ped-nota" hidden>
+        <i class="bi bi-exclamation-triangle"></i>
+        Falta instalar la base de datos: <strong>sql/00_instalacion_completa.sql</strong>.
+    </p>
+
+    <!-- ==================================================
+         VISTA 1: LISTA
+         ================================================== -->
+    <section id="pedLista" class="ped-vista" hidden>
+
+        <div class="pagina-cabecera">
+            <div>
+                <h2 class="pagina-titulo">Pedidos</h2>
+                <p id="pedContador" class="pagina-subtitulo">Cargando pedidos...</p>
+            </div>
+            <div class="pagina-acciones">
+                <div class="buscador">
+                    <i class="bi bi-search"></i>
+                    <input id="pedBuscar" type="search" class="buscador-input"
+                           placeholder="Buscar por código, cliente, teléfono o dirección" aria-label="Buscar pedidos">
+                </div>
+                <a href="#pedidos?nuevo=1" id="pedNuevo" class="boton boton-principal">
+                    <i class="bi bi-plus-circle"></i>
+                    <span>Nuevo pedido</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Una pestaña por actividad de la empresa (Entregas de tienda | Encomiendas).
+             Cada actividad se ve por separado, nunca revueltas. Con una sola actividad
+             no se muestran. Las crea crearPestanas() (js/componentes.js). -->
+        <div id="pedPestanas" class="pestanas" hidden></div>
+
+        <!-- Filtros: fecha de entrega, tienda, ruta y estado -->
+        <div class="filtros">
+            <input id="pedFiltroFecha" type="date" class="campo-input filtro" aria-label="Fecha de entrega">
+            <button type="button" id="pedTodasFechas" class="boton boton-secundario boton-chico">Todas las fechas</button>
+            <select id="pedFiltroTienda" class="campo-input filtro" aria-label="Filtrar por tienda">
+                <option value="">Todas mis tiendas</option>
+            </select>
+            <!-- Solo si la tienda tiene rutas -->
+            <select id="pedFiltroRuta" class="campo-input filtro" aria-label="Filtrar por ruta" hidden>
+                <option value="">Todas las rutas</option>
+            </select>
+            <select id="pedFiltroEstado" class="campo-input filtro" aria-label="Filtrar por estado">
+                <option value="">Todos los estados</option>
+            </select>
+        </div>
+
+        <!-- Aviso del modo que abren los botones del pie
+             (#pedidos?accion=reasignar | #pedidos?accion=cancelar) -->
+        <p id="pedModo" class="ped-solicitud" hidden>
+            <i id="pedModoIcono" class="bi bi-calendar-event"></i>
+            <span id="pedModoTexto"></span>
+            <a href="#pedidos" class="boton boton-secundario boton-chico">Salir</a>
+        </p>
+
+        <!-- Rutas del día y su piloto (lo que asignó el G2). Al Piloto: SU ruta del día -->
+        <p id="pedRutasDia" class="ped-nota ped-rutas-dia" hidden></p>
+
+        <!-- Resumen por estado (clic = filtrar) -->
+        <div id="pedResumen" class="resumen"></div>
+
+        <div class="tabla-caja">
+            <table class="tabla ped-tabla">
+                <thead>
+                    <tr>
+                        <th>Pedido</th>
+                        <th>Cliente</th>
+                        <th>Entrega</th>
+                        <th>Slot / ruta</th>
+                        <th>Piloto</th>
+                        <th>Estado</th>
+                        <!-- Cambia con la actividad: "Compra" si usa compra; si no, "Peso" -->
+                        <th id="pedColExtra">Peso</th>
+                        <th>A cobrar</th>
+                        <th class="tabla-col-acciones">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody id="pedCuerpo"></tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- ==================================================
+         VISTA 2: REGISTRAR UN PEDIDO
+         Las partes que dependen de la actividad las muestra u oculta el JS.
+         ================================================== -->
+    <section id="pedNuevoVista" class="ped-vista" hidden>
+
+        <div class="pagina-cabecera">
+            <div>
+                <a href="#pedidos" class="ped-volver"><i class="bi bi-arrow-left"></i> Pedidos</a>
+                <h2 class="pagina-titulo">Nuevo pedido</h2>
+                <p class="pagina-subtitulo">Los campos con * son obligatorios.</p>
+            </div>
+        </div>
+
+        <form id="pedForm" class="ped-form" novalidate>
+
+            <!-- ---------- 1. Actividad y tienda ---------- -->
+            <div class="tarjeta ped-bloque">
+                <h3 class="ped-bloque-titulo"><span class="ped-paso">1</span> Actividad</h3>
+                <div class="campos">
+                    <div class="campo" id="pedCampoTienda">
+                        <label for="pedTienda" class="campo-etiqueta">Tienda *</label>
+                        <select id="pedTienda" class="campo-input"></select>
+                    </div>
+                    <!-- Solo si la empresa usa número de pedido MANUAL (Configuración -> Pedidos) -->
+                    <div class="campo" id="pedCampoCodigo" hidden>
+                        <label for="pedCodigo" class="campo-etiqueta">Número de pedido *</label>
+                        <input id="pedCodigo" type="text" class="campo-input ped-mayus" maxlength="30" autocomplete="off" placeholder="Ej. FAC-1234">
+                        <small class="campo-ayuda">La empresa numera los pedidos a mano. No se puede repetir.</small>
+                    </div>
+                </div>
+                <!-- Una tarjeta por actividad disponible en la tienda (las arma el JS) -->
+                <div id="pedActividades" class="ped-actividades" role="radiogroup" aria-label="Actividad"></div>
+            </div>
+
+            <!-- ---------- 2. Cliente ---------- -->
+            <div class="tarjeta ped-bloque">
+                <h3 class="ped-bloque-titulo"><span class="ped-paso">2</span> Cliente</h3>
+                <div class="campos">
+                    <!-- Buscador de clientes de la tienda por TELÉFONO o CORREO (js/secciones/pedidos.js,
+                         "Buscar cliente"): al coincidir completo con un cliente se llenan solos sus datos;
+                         si coincide con varios o está incompleto, se muestran para tocar el correcto.
+                         Al elegir, el buscador se cambia por la ficha del cliente ("Cambiar" para buscar otro). -->
+                    <div class="campo campo-ancho">
+                        <div id="pedClienteBuscarCaja" class="ped-cli-buscar">
+                            <label for="pedBuscarCliente" class="campo-etiqueta">Teléfono o correo del cliente</label>
+                            <div class="ped-cli-campo">
+                                <i class="bi bi-search" aria-hidden="true"></i>
+                                <input id="pedBuscarCliente" type="search" class="campo-input" autocomplete="off" enterkeyhint="search"
+                                       placeholder="Ej. 8888-1234 o ana@correo.com"
+                                       role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pedClientesResultados">
+                            </div>
+                            <p id="pedClientesEstado" class="ped-cli-estado" aria-live="polite"></p>
+                            <ul id="pedClientesResultados" class="ped-cli-resultados" role="listbox" aria-label="Clientes encontrados" hidden></ul>
+                        </div>
+
+                        <!-- Cliente elegido -->
+                        <div id="pedClienteElegido" class="ped-cli-elegido" hidden>
+                            <span class="ped-cli-avatar" aria-hidden="true"></span>
+                            <div class="ped-cli-datos">
+                                <strong class="ped-cli-nombre"></strong>
+                                <span class="ped-cli-contacto"></span>
+                                <small class="ped-cli-nota">Datos llenados desde Clientes. Puedes corregir el nombre o el teléfono solo para este pedido.</small>
+                            </div>
+                            <button type="button" id="pedClienteCambiar" class="boton boton-secundario boton-chico">
+                                <i class="bi bi-arrow-repeat"></i> <span>Cambiar</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="campo">
+                        <label for="pedClienteNombre" class="campo-etiqueta">Nombre del cliente *</label>
+                        <input id="pedClienteNombre" type="text" class="campo-input" maxlength="80" autocomplete="off">
+                    </div>
+                    <div class="campo">
+                        <label for="pedClienteTelefono" class="campo-etiqueta">Teléfono *</label>
+                        <input id="pedClienteTelefono" type="tel" class="campo-input" maxlength="20" autocomplete="off">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ---------- 3. Entrega ---------- -->
+            <div class="tarjeta ped-bloque">
+                <h3 class="ped-bloque-titulo"><span class="ped-paso">3</span> Entrega</h3>
+                <!-- Punto A -> punto B (js/mapa.js), igual que en el Cotizador: distancia por calle para el cobro por km.
+                     A = el punto de partida escrito o, si está vacío, la tienda. Si la actividad no usa punto de partida
+                     (Configuración -> Actividades), el campo A queda desactivado y A es siempre la tienda.
+                     B = la entrega. Se ubican solos al escribir la dirección; se pueden mover con clic o arrastrando. -->
+                <div class="campos">
+                    <div class="campo">
+                        <label for="pedRecoleccion" class="campo-etiqueta" id="pedEtiquetaA">A · Punto de partida</label>
+                        <input id="pedRecoleccion" type="text" class="campo-input" maxlength="200" autocomplete="off"
+                               placeholder="Vacío = sale de la tienda">
+                    </div>
+                    <div class="campo">
+                        <label for="pedDireccion" class="campo-etiqueta">B · Entrega *</label>
+                        <input id="pedDireccion" type="text" class="campo-input" maxlength="200" autocomplete="off"
+                               placeholder="Dirección, coordenadas o enlace de Google Maps">
+                    </div>
+
+                    <div class="campo campo-ancho">
+                        <div id="pedMapa"></div>
+                        <small class="campo-ayuda">Revisa que A y B estén bien puestos: la distancia se cobra si la tarifa tiene precio por km.</small>
+                        <!-- Solo Administrador y Admin G1, cuando A es la tienda -->
+                        <button type="button" id="pedGuardarUbicacionTienda" class="boton boton-secundario boton-chico ped-ubicacion-tienda" hidden>
+                            <i class="bi bi-pin-map"></i> <span>Guardar A como ubicación de la tienda</span>
+                        </button>
+                    </div>
+
+                    <div class="campo campo-ancho">
+                        <span class="campo-etiqueta">¿Quién recibe? *</span>
+                        <div class="ped-opciones">
+                            <label class="ped-si-no"><input type="radio" name="pedRecibe" value="cliente" checked> El mismo cliente</label>
+                            <label class="ped-si-no"><input type="radio" name="pedRecibe" value="autorizado"> Persona autorizada</label>
+                        </div>
+                    </div>
+                    <div class="campo" data-solo-autorizado hidden>
+                        <label for="pedRecibeNombre" class="campo-etiqueta">Nombre de quien recibe *</label>
+                        <input id="pedRecibeNombre" type="text" class="campo-input" maxlength="80" autocomplete="off">
+                    </div>
+                    <div class="campo" data-solo-autorizado hidden>
+                        <label for="pedRecibeTelefono" class="campo-etiqueta">Teléfono de quien recibe</label>
+                        <input id="pedRecibeTelefono" type="tel" class="campo-input" maxlength="20" autocomplete="off">
+                    </div>
+
+                    <div class="campo">
+                        <label for="pedFecha" class="campo-etiqueta">Fecha de entrega *</label>
+                        <input id="pedFecha" type="date" class="campo-input">
+                    </div>
+                    <!-- Slot de despacho (Configuración -> Slots): lo elige el empleado y se
+                         confirma al marcar "Listo para despachar" -->
+                    <div class="campo">
+                        <label for="pedSlot" class="campo-etiqueta">Slot de despacho</label>
+                        <select id="pedSlot" class="campo-input"></select>
+                        <small class="campo-ayuda">Rango de horario en que se despacha. Se confirma al marcarlo listo.</small>
+                    </div>
+                    <!-- Horario del piloto (marca): SOLO lo ven el piloto y Admin G2 en adelante -->
+                    <div class="campo" id="pedCampoMarca" hidden>
+                        <label for="pedMarca" class="campo-etiqueta">Horario del piloto</label>
+                        <select id="pedMarca" class="campo-input"></select>
+                        <small class="campo-ayuda">Entre paréntesis: pedidos ocupados / máximo del horario.</small>
+                    </div>
+                    <!-- Ruta de la tienda. Muestra el o los pilotos que el G2 asignó ese día -->
+                    <div class="campo" id="pedCampoRuta" hidden>
+                        <label for="pedRuta" class="campo-etiqueta">Ruta</label>
+                        <select id="pedRuta" class="campo-input"></select>
+                        <small id="pedRutaPilotos" class="campo-ayuda"></small>
+                    </div>
+                    <!-- Solo G2 o superior pueden cambiar el piloto a mano -->
+                    <div class="campo">
+                        <label for="pedPiloto" class="campo-etiqueta">Piloto</label>
+                        <select id="pedPiloto" class="campo-input"></select>
+                        <small class="campo-ayuda">Vacío = el de la ruta ese día.</small>
+                    </div>
+                    <div class="campo">
+                        <label for="pedNotas" class="campo-etiqueta">Notas</label>
+                        <input id="pedNotas" type="text" class="campo-input" maxlength="300" autocomplete="off"
+                               placeholder="Referencias, indicaciones para el piloto...">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ---------- 4. Mercadería ---------- -->
+            <div class="tarjeta ped-bloque">
+                <h3 class="ped-bloque-titulo"><span class="ped-paso">4</span> Mercadería</h3>
+
+                <!-- Casillas de las categorías de la ACTIVIDAD elegida (las arma el JS):
+                       conteo    -> abarrotes: cajas, bolsas, hieleras, peso aprox. (y alcohol)
+                       articulos -> línea blanca, electrónica...: artículo + peso (del catálogo, editable)
+                       bulto     -> cajas, bolsas: cantidad, tamaño y peso de cada uno
+                       documento -> sobres: solo cantidad -->
+                <div id="pedMercaderiaCaja">
+                    <span class="campo-etiqueta">Selecciona lo que lleva el pedido *</span>
+                    <div id="pedCategorias" class="ped-casillas"></div>
+                    <div id="pedCategoriasDetalle" class="ped-categorias-detalle"></div>
+                    <!-- Solo actividades que usan "compra" (ej. Entregas de tienda) -->
+                    <div class="campos ped-compra" id="pedCompraCaja" hidden>
+                        <div class="campo">
+                            <label for="pedMontoCompra" class="campo-etiqueta">Monto de la compra (₡)</label>
+                            <input id="pedMontoCompra" type="number" min="0" step="0.01" class="campo-input">
+                            <small id="pedAyudaGratis" class="campo-ayuda"></small>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="ped-peso-total">
+                    <i class="bi bi-box-seam"></i>
+                    Peso total: <strong id="pedPesoTotal">0 kg</strong>
+                    <span class="ped-peso-nota">(lo ve el piloto)</span>
+                    <span id="pedAlcoholAviso" class="etiqueta etiqueta-rosada" hidden>Lleva alcohol: el piloto confirmará la mayoría de edad</span>
+                </p>
+            </div>
+
+            <!-- ---------- 5. Cobro ---------- -->
+            <div class="tarjeta ped-bloque">
+                <h3 class="ped-bloque-titulo"><span class="ped-paso">5</span> Cobro</h3>
+
+                <!-- Desglose del envío (lo arma el JS con la tarifa) -->
+                <table class="ped-desglose">
+                    <tbody id="pedDesglose"></tbody>
+                </table>
+
+                <div class="campos">
+                    <div class="campo">
+                        <label for="pedDescuento" class="campo-etiqueta">Descuento (máximo 1)</label>
+                        <select id="pedDescuento" class="campo-input"></select>
+                    </div>
+                    <div class="campo">
+                        <span class="campo-etiqueta">El piloto cobra al entregar</span>
+                        <div class="ped-opciones">
+                            <label class="ped-si-no"><input id="pedCobrarEnvio" type="checkbox" checked> El envío</label>
+                            <!-- Marcada por defecto: se desmarca si el cliente ya pagó la compra en línea -->
+                            <label class="ped-si-no" id="pedCobrarCompraCaja" hidden><input id="pedCobrarCompra" type="checkbox" checked> La compra</label>
+                        </div>
+                        <small class="campo-ayuda">Desmarca lo que el cliente ya pagó en línea.</small>
+                    </div>
+                    <div class="campo">
+                        <span class="campo-etiqueta">Forma de pago</span>
+                        <div class="ped-opciones">
+                            <label class="ped-si-no"><input type="radio" name="pedPago" value="efectivo" checked> Efectivo</label>
+                            <label class="ped-si-no"><input type="radio" name="pedPago" value="tarjeta"> Tarjeta</label>
+                        </div>
+                    </div>
+                    <div class="campo" id="pedCampoPagaCon">
+                        <label for="pedPagaCon" class="campo-etiqueta">Paga con (₡)</label>
+                        <input id="pedPagaCon" type="number" min="0" step="0.01" class="campo-input">
+                        <small id="pedVuelto" class="campo-ayuda"></small>
+                    </div>
+                </div>
+
+                <p class="ped-total">A cobrar al entregar: <strong id="pedTotal">0.00</strong></p>
+            </div>
+
+            <p id="pedFormError" class="form-error" role="alert"></p>
+
+            <div class="ped-form-botones">
+                <a href="#pedidos" class="boton boton-secundario">Cancelar</a>
+                <button type="submit" id="pedGuardar" class="boton boton-principal">
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Registrar pedido</span>
+                </button>
+            </div>
+        </form>
+    </section>
+
+    <!-- ==================================================
+         VISTA 3: DETALLE DE UN PEDIDO
+         ================================================== -->
+    <section id="pedDetalle" class="ped-vista" hidden>
+
+        <div class="pagina-cabecera">
+            <div>
+                <a href="#pedidos" class="ped-volver"><i class="bi bi-arrow-left"></i> Pedidos</a>
+                <h2 class="pagina-titulo ped-detalle-titulo">
+                    <span id="pedDetCodigo">Pedido</span>
+                    <span id="pedDetEstado"></span>
+                </h2>
+                <p id="pedDetSubtitulo" class="pagina-subtitulo"></p>
+            </div>
+            <!-- Botones de acción según el estado y el rol (los arma el JS) -->
+            <div id="pedDetAcciones" class="pagina-acciones"></div>
+        </div>
+
+        <!-- Solicitud de reasignación pendiente (la pide el Admin G3; la resuelve G2 o superior) -->
+        <div id="pedDetSolicitud" class="ped-solicitud" hidden>
+            <i class="bi bi-calendar2-week"></i>
+            <p id="pedDetSolicitudTexto"></p>
+            <div id="pedDetSolicitudBotones" class="ped-solicitud-botones"></div>
+        </div>
+
+        <div class="ped-detalle-rejilla">
+            <div class="tarjeta ped-bloque">
+                <h3 class="ped-bloque-titulo"><i class="bi bi-person"></i> Cliente y entrega</h3>
+                <dl id="pedDetEntrega" class="ped-datos"></dl>
+            </div>
+
+            <div class="tarjeta ped-bloque">
+                <h3 class="ped-bloque-titulo"><i class="bi bi-cash-coin"></i> Cobro</h3>
+                <table class="ped-desglose"><tbody id="pedDetCobro"></tbody></table>
+            </div>
+
+            <div class="tarjeta ped-bloque ped-ancho">
+                <h3 class="ped-bloque-titulo"><i class="bi bi-box-seam"></i> Mercadería</h3>
+                <div class="tabla-caja">
+                    <table class="tabla">
+                        <thead>
+                            <tr><th>Categoría</th><th>Artículo</th><th>Cant.</th><th>Tamaño</th><th>Peso c/u</th><th>Peso</th></tr>
+                        </thead>
+                        <tbody id="pedDetArticulos"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Cierre de entrega (lo llena la app del piloto) -->
+            <div class="tarjeta ped-bloque" id="pedDetEntregaCaja" hidden>
+                <h3 class="ped-bloque-titulo"><i class="bi bi-clipboard-check"></i> Entrega</h3>
+                <dl id="pedDetCierre" class="ped-datos"></dl>
+                <div id="pedDetFotos" class="ped-fotos"></div>
+            </div>
+
+            <div class="tarjeta ped-bloque">
+                <h3 class="ped-bloque-titulo"><i class="bi bi-clock-history"></i> Línea de tiempo</h3>
+                <ol id="pedDetHistorial" class="ped-linea"></ol>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ==================================================
+     VENTANA: QR DEL PEDIDO
+     Imagen para que el cliente la guarde o la reenvíe a quien recibe.
+     ================================================== -->
+<dialog id="pedQrDialogo" class="dialogo ped-qr-dialogo" aria-labelledby="pedQrTitulo">
+    <div class="dialogo-form">
+        <h3 id="pedQrTitulo" class="dialogo-titulo">QR del pedido</h3>
+        <!-- Tarjeta con QR, código y código de respaldo (se dibuja en un canvas) -->
+        <canvas id="pedQrCanvas" class="ped-qr-canvas" width="600" height="760" aria-label="Código QR del pedido"></canvas>
+        <p id="pedQrTexto" class="dialogo-texto ped-qr-texto"></p>
+        <div class="ped-qr-botones">
+            <button type="button" id="pedQrDescargar" class="boton boton-secundario"><i class="bi bi-download"></i> <span>Descargar imagen</span></button>
+            <button type="button" id="pedQrCompartir" class="boton boton-secundario" hidden><i class="bi bi-share"></i> <span>Compartir</span></button>
+            <a id="pedQrWhatsapp" class="boton boton-whatsapp" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> <span>Enviar por WhatsApp</span></a>
+        </div>
+        <div class="dialogo-botones">
+            <button type="button" id="pedQrCerrar" class="boton boton-principal">Listo</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: ASIGNAR / REPROGRAMAR / SOLICITAR (fecha, horario, ruta y piloto)
+     ================================================== -->
+<dialog id="pedAsignarDialogo" class="dialogo" aria-labelledby="pedAsignarTitulo">
+    <form id="pedAsignarForm" class="dialogo-form" novalidate>
+        <h3 id="pedAsignarTitulo" class="dialogo-titulo">Asignar horario y piloto</h3>
+        <div class="campos">
+            <div class="campo">
+                <label for="pedAsigFecha" class="campo-etiqueta">Fecha de entrega *</label>
+                <input id="pedAsigFecha" type="date" class="campo-input">
+            </div>
+            <div class="campo">
+                <label for="pedAsigMarca" class="campo-etiqueta">Horario del piloto</label>
+                <select id="pedAsigMarca" class="campo-input"></select>
+            </div>
+            <div class="campo campo-ancho" id="pedAsigRutaCaja" hidden>
+                <label for="pedAsigRuta" class="campo-etiqueta">Ruta</label>
+                <select id="pedAsigRuta" class="campo-input"></select>
+            </div>
+            <div class="campo campo-ancho" id="pedAsigPilotoCaja">
+                <label for="pedAsigPiloto" class="campo-etiqueta">Piloto</label>
+                <select id="pedAsigPiloto" class="campo-input"></select>
+            </div>
+            <div class="campo campo-ancho" id="pedAsigMotivoCaja" hidden>
+                <label for="pedAsigMotivo" class="campo-etiqueta">Motivo *</label>
+                <input id="pedAsigMotivo" type="text" class="campo-input" maxlength="200">
+            </div>
+        </div>
+        <p id="pedAsignarError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="pedAsignarCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: LISTO PARA DESPACHAR (elegir / confirmar el slot)
+     ================================================== -->
+<dialog id="pedSlotDialogo" class="dialogo dialogo-chico" aria-labelledby="pedSlotTitulo">
+    <form id="pedSlotForm" novalidate>
+        <h3 id="pedSlotTitulo" class="dialogo-titulo">Listo para despachar</h3>
+        <p id="pedSlotTexto" class="dialogo-texto"></p>
+        <div class="campo">
+            <label for="pedSlotElegir" class="campo-etiqueta">Slot al que se carga *</label>
+            <select id="pedSlotElegir" class="campo-input"></select>
+            <small class="campo-ayuda">Entre paréntesis: pedidos que ya tiene ese slot en la tienda.</small>
+        </div>
+        <p id="pedSlotError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="pedSlotCancelar" class="boton boton-secundario">Volver</button>
+            <button type="submit" id="pedSlotSi" class="boton boton-principal">Listo para despachar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: APROBAR SALIDA DEL PEDIDO (escanear su QR)
+     Se abre DENTRO de cada pedido "Listo para despachar" (botón "Aprobar salida").
+     El despachador / empleado escanea con la cámara el QR que muestra el piloto
+     ("Recibido para ruta"); solo vale el QR de ESE pedido. Al leerlo, el pedido
+     queda "Cargado" con su hora. Sin cámara: se escribe el número del pedido.
+     ================================================== -->
+<dialog id="pedEscanerDialogo" class="dialogo ped-escaner-dialogo" aria-labelledby="pedEscanerTitulo">
+    <div class="dialogo-form">
+        <h3 id="pedEscanerTitulo" class="dialogo-titulo"><i class="bi bi-qr-code-scan"></i> Aprobar salida</h3>
+        <div class="ped-escaner-camara">
+            <video id="pedEscanerVideo" playsinline muted></video>
+            <span class="ped-escaner-marco" aria-hidden="true"></span>
+            <p id="pedEscanerSinCamara" class="ped-escaner-sin-camara" hidden></p>
+        </div>
+        <p id="pedEscanerEstado" class="ped-escaner-estado" aria-live="polite">Apunta la cámara al QR que muestra el piloto.</p>
+        <form id="pedEscanerManual" class="ped-escaner-manual" novalidate>
+            <input id="pedEscanerCodigo" type="text" class="campo-input ped-mayus" maxlength="30" autocomplete="off"
+                   placeholder="O escribe el número de pedido (P-000123)" aria-label="Número de pedido">
+            <button type="submit" class="boton boton-secundario">Cargar</button>
+        </form>
+        <div class="dialogo-botones">
+            <button type="button" id="pedEscanerCerrar" class="boton boton-secundario">Cerrar</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: CONFIRMAR UNA ACCIÓN (alistando, entregado, cancelar...)
+     Motivo obligatorio u opcional según la acción.
+     ================================================== -->
+<dialog id="pedAccionDialogo" class="dialogo dialogo-chico" aria-labelledby="pedAccionTitulo">
+    <form id="pedAccionForm" novalidate>
+        <h3 id="pedAccionTitulo" class="dialogo-titulo">Confirmar</h3>
+        <p id="pedAccionTexto" class="dialogo-texto"></p>
+        <div class="campo ped-accion-motivo" id="pedAccionMotivoCaja">
+            <label for="pedAccionMotivo" id="pedAccionMotivoEtiqueta" class="campo-etiqueta">Motivo</label>
+            <textarea id="pedAccionMotivo" class="campo-input ped-textarea" maxlength="300" rows="3"></textarea>
+        </div>
+        <!-- Solo al marcar "Entregado" un pedido con alcohol -->
+        <label id="pedAccionEdadCaja" class="ped-si-no" hidden>
+            <input id="pedAccionEdad" type="checkbox"> Confirmo que quien recibió es mayor de edad
+        </label>
+        <p id="pedAccionError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="pedAccionCancelar" class="boton boton-secundario">Volver</button>
+            <button type="submit" id="pedAccionSi" class="boton boton-principal">Confirmar</button>
+        </div>
+    </form>
+</dialog>

@@ -1,0 +1,156 @@
+<!-- ==================================================
+     SECCIÓN: EMPRESAS INTERNAS (#empresas-internas; pestaña "Empresas" de Tiendas,
+     SOLO el Desarrollador). No confundir con empresas/empresas.js (marcas).
+     Guía: docs/secciones/empresas-internas.md. Tabla empresas (sql/01 bloques 16 y 21).
+
+     Cada empresa tiene un ID de 2 números ("01", "02"...) que va al final de
+     sus usuarios (jperez01, cenjperez01), sus actividades (entregas de
+     tienda, encomiendas o las dos) y sus propias regiones, tiendas, usuarios,
+     clientes, rutas, vehículos, pedidos, mercadería, tarifas y descuentos.
+     "Nueva empresa" también se abre desde Configuración.
+     El Desarrollador elige con cuál trabaja en su menú (o con "Trabajar con esta").
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/empresas-internas.css (clases "emp-")
+       Lógica          -> js/secciones/empresas-internas.js
+       Modelos de paleta -> PALETAS_MODELO en empresas/empresas.js
+     Los ids empiezan con "emp".
+     ================================================== -->
+
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina">
+
+    <nav class="pestanas" aria-label="Tiendas, clientes y empresas">
+        <a href="#tiendas" class="pestana"><i class="bi bi-shop"></i> <span>Tiendas</span></a>
+        <a href="#clientes" class="pestana"><i class="bi bi-people"></i> <span>Clientes</span></a>
+        <a href="#empresas-internas" class="pestana activo" aria-current="page" data-solo-desarrollador><i class="bi bi-buildings"></i> <span>Empresas</span></a>
+    </nav>
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Empresas</h2>
+            <p id="empContador" class="pagina-subtitulo">Cargando empresas...</p>
+        </div>
+        <div class="pagina-acciones">
+            <button type="button" id="empNueva" class="boton boton-principal">
+                <i class="bi bi-building-add"></i>
+                <span>Nueva empresa</span>
+            </button>
+        </div>
+    </div>
+
+    <p id="empAviso" class="aviso" role="status"></p>
+
+    <p id="empFaltaSql" class="emp-nota emp-nota-alerta" hidden>
+        <i class="bi bi-exclamation-triangle"></i>
+        Falta ejecutar el bloque 16 de <strong>sql/01_actualizacion_base_existente.sql</strong> para usar empresas.
+    </p>
+
+    <p class="emp-nota">
+        <i class="bi bi-info-circle"></i>
+        Para empezar con una empresa nueva: elígela con <strong>Trabajar con esta</strong> y crea sus regiones y
+        tiendas (Tiendas), su Administrador (Usuarios: se elige la empresa por su ID) y revisa sus tarifas y
+        mercadería (Configuración → Pedidos).
+    </p>
+
+    <div class="tabla-caja">
+        <table class="tabla emp-tabla">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Empresa</th>
+                    <th>Actividades</th>
+                    <th class="emp-col-numero">Regiones</th>
+                    <th class="emp-col-numero">Tiendas</th>
+                    <th class="emp-col-numero">Usuarios</th>
+                    <th>Estado</th>
+                    <th class="tabla-col-acciones">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="empLista"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================================================
+     VENTANA: NUEVA / MODIFICAR EMPRESA
+     ================================================== -->
+<dialog id="empDialogo" class="dialogo" aria-labelledby="empDialogoTitulo">
+    <form id="empForm" class="dialogo-form" novalidate>
+        <h3 id="empDialogoTitulo" class="dialogo-titulo">Nueva empresa</h3>
+        <div class="campos">
+            <!-- ID: 2 números. Va al final de sus usuarios: jperez01 / cenjperez01 -->
+            <div class="campo">
+                <label for="empCodigo" class="campo-etiqueta">ID de la empresa *</label>
+                <input id="empCodigo" type="text" class="campo-input emp-codigo" maxlength="2" inputmode="numeric"
+                       autocomplete="off" placeholder="02">
+                <small class="campo-ayuda">2 números. Sus usuarios: <strong id="empCodigoEjemplo">jperez02 · cenjperez02</strong></small>
+            </div>
+
+            <div class="campo">
+                <label for="empNombre" class="campo-etiqueta">Nombre *</label>
+                <input id="empNombre" type="text" class="campo-input" maxlength="80" autocomplete="off"
+                       placeholder="Transportes del Valle">
+            </div>
+            <p id="empCodigoAviso" class="campo-ancho emp-codigo-aviso" hidden></p>
+
+            <!-- Qué hace: entregas de tienda, encomiendas o las dos (multifunción) -->
+            <div class="campo campo-ancho">
+                <span class="campo-etiqueta">Actividades que realiza *</span>
+                <div id="empActividades" class="emp-actividades"></div>
+                <small class="campo-ayuda">Solo lo de sus actividades aparece en Pedidos, Reportes, Configuración y el Cotizador.</small>
+            </div>
+
+            <div class="campo">
+                <label for="empEstado" class="campo-etiqueta">Estado</label>
+                <select id="empEstado" class="campo-input">
+                    <option value="activa">Activa</option>
+                    <option value="inactiva">Inactiva (sus usuarios no entran)</option>
+                </select>
+            </div>
+
+            <!-- Paleta: se pinta al iniciar sesión con un usuario de esta empresa (sql/01 bloque 21).
+                 Modelos: PALETAS_MODELO (empresas/empresas.js). Con 2 colores (principal y de acción)
+                 paletaDesdeColores arma las 7 de la marca. -->
+            <fieldset class="campo-ancho emp-paleta">
+                <legend class="campo-etiqueta">Paleta de colores *</legend>
+                <div class="emp-paleta-fila">
+                    <div class="campo">
+                        <label for="empPaletaModelo" class="campo-etiqueta">Elegir</label>
+                        <select id="empPaletaModelo" class="campo-input"></select>
+                    </div>
+                    <div class="campo emp-paleta-color">
+                        <label for="empColorPrincipal" class="campo-etiqueta">Principal</label>
+                        <input id="empColorPrincipal" type="color" value="#1258A6">
+                    </div>
+                    <div class="campo emp-paleta-color">
+                        <label for="empColorAccion" class="campo-etiqueta">Botones</label>
+                        <input id="empColorAccion" type="color" value="#F2660F">
+                    </div>
+                </div>
+                <!-- Muestra: encabezado, menú y botón con los colores elegidos -->
+                <div id="empPaletaMuestra" class="emp-paleta-muestra" aria-hidden="true">
+                    <span class="emp-muestra-barra">Encabezado y menú</span>
+                    <span class="emp-muestra-claro">Fondo suave</span>
+                    <span class="emp-muestra-boton">Botón</span>
+                </div>
+                <small class="campo-ayuda">Se ve al entrar con un usuario de esta empresa. "Colores de la marca" = sin paleta propia.</small>
+            </fieldset>
+
+            <!-- Solo al crear: copia mercadería, pesos promedio, tarifas generales y descuentos generales -->
+            <label id="empCopiarCampo" class="campo-ancho emp-copiar">
+                <input id="empCopiar" type="checkbox" checked>
+                <span>Copiar la configuración de pedidos (categorías, artículos con su peso, tarifas y descuentos
+                generales) de <strong id="empCopiarDe"></strong></span>
+            </label>
+        </div>
+
+        <p id="empFormError" class="form-error" role="alert"></p>
+
+        <div class="dialogo-botones">
+            <button type="button" id="empCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="empGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>

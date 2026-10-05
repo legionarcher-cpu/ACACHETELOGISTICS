@@ -1,0 +1,245 @@
+<!-- ==================================================
+     SECCIÓN: VIAJES (Transporte)
+     Solo aparece si la empresa hace viajes (actividad con usa_viajes, ej. Transporte).
+     Diseño: docs/14-transporte.md · Guía: docs/secciones/viajes.md
+
+     Cambia según quién entra (lo arma js/secciones/viajes.js):
+       Cliente   -> sus próximos viajes y los anteriores, su avance hacia el viaje
+                    de cortesía, Casa y Trabajo, y "Solicitar viaje".
+       Conductor -> (rol piloto) sus viajes del día con los botones "Voy en camino",
+                    "A bordo", "Terminar" y "No se presentó", y enlaces para navegar.
+       Personal  -> agenda del día (todos los viajes), con filtros, resumen, cambiar la
+                    hora, cancelar y avanzar; también solicita viajes para un cliente.
+
+     Solicitud en 4 pasos (primero la ruta y después la hora: la duración del viaje
+     decide qué horas están libres). La hora se reserva en la base (viajes_solicitar):
+     revisa que siga libre, asigna vehículo y conductor y confirma al instante.
+
+     Parámetros: #viajes?nuevo=1 (abre la solicitud) · #viajes?id=15 (muestra ese viaje).
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/viajes.css (y css/viajes.css, comunes)
+       Lógica          -> js/secciones/viajes.js (y js/viajes-comun.js)
+     Los ids empiezan con "via".
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a index.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina via">
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 id="viaTitulo" class="pagina-titulo">Viajes</h2>
+            <p id="viaSubtitulo" class="pagina-subtitulo"></p>
+        </div>
+        <div class="pagina-acciones">
+            <button type="button" id="viaNuevo" class="boton boton-principal" hidden>
+                <i class="bi bi-plus-circle"></i>
+                <span>Solicitar viaje</span>
+            </button>
+        </div>
+    </div>
+
+    <p id="viaAviso" class="aviso" role="status"></p>
+
+    <!-- ==================================================
+         LISTA / AGENDA
+         ================================================== -->
+    <div id="viaVistaLista">
+
+        <!-- Solo el cliente: cortesía y sus lugares -->
+        <div id="viaCliente" class="via-columnas" hidden>
+            <section id="viaCortesia" class="tarjeta via-tarjeta via-cortesia" hidden></section>
+            <section class="tarjeta via-tarjeta">
+                <h3 class="via-tarjeta-titulo"><i class="bi bi-geo-alt"></i> Mis lugares</h3>
+                <ul id="viaLugaresLista" class="via-lugares"></ul>
+                <p class="via-nota-chica">
+                    Casa y Trabajo arman la ruta con un toque. Para guardarlos: en "Solicitar viaje" ubica el
+                    punto en el mapa y presiona "Guardar como Casa" o "Guardar como Trabajo".
+                </p>
+            </section>
+        </div>
+
+        <!-- Personal y conductor: el día que se ve -->
+        <div id="viaFiltros" class="tarjeta via-filtros" hidden>
+            <div class="via-dia">
+                <button type="button" class="boton-icono" data-dia="-1" aria-label="Día anterior"><i class="bi bi-chevron-left"></i></button>
+                <input id="viaFecha" type="date" class="campo-input" aria-label="Día de los viajes">
+                <button type="button" class="boton-icono" data-dia="1" aria-label="Día siguiente"><i class="bi bi-chevron-right"></i></button>
+                <button type="button" id="viaHoy" class="boton boton-secundario boton-chico">Hoy</button>
+            </div>
+            <select id="viaFiltroEstado" class="campo-input filtro" aria-label="Filtrar por estado">
+                <option value="">Todos los estados</option>
+            </select>
+            <select id="viaFiltroVehiculo" class="campo-input filtro" aria-label="Filtrar por vehículo" hidden>
+                <option value="">Todos los vehículos</option>
+            </select>
+            <div class="buscador">
+                <i class="bi bi-search"></i>
+                <input id="viaBuscar" type="search" class="buscador-input" placeholder="Código, cliente o dirección" aria-label="Buscar viajes">
+            </div>
+        </div>
+
+        <div id="viaResumen" class="via-kpis" hidden></div>
+
+        <section class="via-bloque">
+            <h3 id="viaListaTitulo" class="via-bloque-titulo">Próximos viajes</h3>
+            <div id="viaListaViajes" class="via-lista"></div>
+        </section>
+
+        <section id="viaHistorialCaja" class="via-bloque" hidden>
+            <h3 class="via-bloque-titulo">Viajes anteriores</h3>
+            <div id="viaHistorial" class="via-lista"></div>
+        </section>
+    </div>
+
+    <!-- ==================================================
+         SOLICITAR UN VIAJE (4 pasos; el personal elige antes al cliente)
+         ================================================== -->
+    <form id="viaForm" class="via-solicitud" hidden novalidate>
+
+        <!-- 0 · Cliente (solo el personal) -->
+        <section id="viaPasoCliente" class="tarjeta via-paso" hidden>
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">0</span> Cliente</h3>
+            <div class="buscador via-buscador-ancho">
+                <i class="bi bi-search"></i>
+                <input id="viaCliBuscar" type="search" class="buscador-input" autocomplete="off"
+                       placeholder="Nombre, teléfono o correo del cliente" aria-label="Buscar cliente">
+            </div>
+            <ul id="viaCliResultados" class="via-cli-resultados" hidden></ul>
+            <div id="viaCliElegido" class="via-cli-elegido" hidden></div>
+            <p class="via-nota-chica">¿No aparece? Agrégalo en <a href="#clientes?nuevo=1">Clientes</a>.</p>
+        </section>
+
+        <!-- 1 · Quiénes y qué viajan -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">1</span> ¿Quiénes y qué viajan?</h3>
+            <div class="campos">
+                <div class="campo">
+                    <label for="viaPersonas" class="campo-etiqueta">Personas que viajan *</label>
+                    <input id="viaPersonas" type="number" min="0" max="60" step="1" value="1" inputmode="numeric" class="campo-input">
+                    <small class="campo-ayuda">0 solo si es un envío de mercadería sin pasajero.</small>
+                </div>
+                <fieldset class="campo via-si-no">
+                    <legend class="campo-etiqueta">¿Lleva mascotas? *</legend>
+                    <div class="via-si-no-opciones">
+                        <label><input type="radio" name="viaMascotas" value="si"> Sí</label>
+                        <label><input type="radio" name="viaMascotas" value="no"> No</label>
+                    </div>
+                </fieldset>
+                <div class="campo" data-si="mascotas" hidden>
+                    <label for="viaMascotasCantidad" class="campo-etiqueta">¿Cuántas mascotas?</label>
+                    <input id="viaMascotasCantidad" type="number" min="1" max="10" step="1" value="1" inputmode="numeric" class="campo-input">
+                </div>
+                <div class="campo" data-si="mascotas" hidden>
+                    <label for="viaMascotasNota" class="campo-etiqueta">Nota</label>
+                    <input id="viaMascotasNota" type="text" maxlength="120" class="campo-input" placeholder="Ej. perro grande, con jaula">
+                </div>
+                <fieldset class="campo via-si-no campo-ancho">
+                    <legend class="campo-etiqueta">¿Lleva mercadería?</legend>
+                    <div class="via-si-no-opciones">
+                        <label><input type="radio" name="viaMercaderia" value="si"> Sí</label>
+                        <label><input type="radio" name="viaMercaderia" value="no" checked> No</label>
+                    </div>
+                </fieldset>
+                <div class="campo campo-ancho" data-si="mercaderia" hidden>
+                    <label for="viaMercDescripcion" class="campo-etiqueta">Descripción</label>
+                    <input id="viaMercDescripcion" type="text" maxlength="150" class="campo-input" placeholder="Ej. 3 cajas de ropa">
+                </div>
+                <div class="campo" data-si="mercaderia" hidden>
+                    <label for="viaMercBultos" class="campo-etiqueta">Bultos</label>
+                    <input id="viaMercBultos" type="number" min="1" max="999" step="1" inputmode="numeric" class="campo-input">
+                </div>
+                <div class="campo" data-si="mercaderia" hidden>
+                    <label for="viaMercKg" class="campo-etiqueta">Peso aproximado (kg)</label>
+                    <input id="viaMercKg" type="number" min="0" max="5000" step="0.5" inputmode="decimal" class="campo-input">
+                </div>
+            </div>
+        </section>
+
+        <!-- 2 · Ruta A -> B -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">2</span> Ruta</h3>
+            <div class="via-puntos">
+                <div class="campo">
+                    <label for="viaOrigen" class="campo-etiqueta"><b class="via-punto via-punto-a">A</b> Recoger en *</label>
+                    <input id="viaOrigen" type="text" maxlength="200" class="campo-input"
+                           placeholder="Escribe la dirección o marca el punto en el mapa">
+                    <div class="via-lugares-botones" data-lado="a"></div>
+                </div>
+                <div class="campo">
+                    <label for="viaDestino" class="campo-etiqueta"><b class="via-punto via-punto-b">B</b> Llevar a *</label>
+                    <input id="viaDestino" type="text" maxlength="200" class="campo-input"
+                           placeholder="Escribe la dirección o marca el punto en el mapa">
+                    <div class="via-lugares-botones" data-lado="b"></div>
+                </div>
+            </div>
+            <div id="viaMapa"></div>
+            <div id="viaRutaResumen" class="via-ruta-resumen" hidden></div>
+        </section>
+
+        <!-- 3 · Día y hora -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">3</span> Día y hora</h3>
+            <p id="viaHoraAyuda" class="via-nota-chica">
+                Primero ubica A y B: la duración del viaje decide qué horas están libres.
+            </p>
+            <div id="viaDias" class="via-dias" aria-label="Día del viaje"></div>
+            <div id="viaHoras" class="via-horas" aria-live="polite"></div>
+        </section>
+
+        <!-- 4 · Confirmar -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">4</span> Confirmar</h3>
+            <div id="viaConfirmar" class="via-confirmar"></div>
+            <div class="campo">
+                <label for="viaNotas" class="campo-etiqueta">Nota para el conductor</label>
+                <input id="viaNotas" type="text" maxlength="200" class="campo-input" placeholder="Ej. portón negro, esperar en recepción">
+            </div>
+            <p id="viaFormError" class="form-error" role="alert"></p>
+            <div class="dialogo-botones">
+                <button type="button" id="viaVolver" class="boton boton-secundario">Volver</button>
+                <button type="submit" id="viaSolicitar" class="boton boton-principal" disabled>
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Solicitar viaje</span>
+                </button>
+            </div>
+        </section>
+    </form>
+</div>
+
+<!-- ==================================================
+     VENTANA: CAMBIAR LA HORA (todo o nada: si la nueva no está libre, sigue la anterior)
+     ================================================== -->
+<dialog id="viaCambiarDialogo" class="dialogo" aria-labelledby="viaCambiarTitulo">
+    <div class="dialogo-form">
+        <h3 id="viaCambiarTitulo" class="dialogo-titulo">Cambiar la hora</h3>
+        <p id="viaCambiarTexto" class="dialogo-texto"></p>
+        <div id="viaCambiarDias" class="via-dias" aria-label="Día nuevo"></div>
+        <div id="viaCambiarHoras" class="via-horas" aria-live="polite"></div>
+        <p id="viaCambiarError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="viaCambiarNo" class="boton boton-secundario">Cerrar</button>
+            <button type="button" id="viaCambiarSi" class="boton boton-principal" disabled>Cambiar la hora</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: CANCELAR UN VIAJE
+     ================================================== -->
+<dialog id="viaCancelarDialogo" class="dialogo dialogo-chico" aria-labelledby="viaCancelarTitulo">
+    <h3 id="viaCancelarTitulo" class="dialogo-titulo">Cancelar el viaje</h3>
+    <p id="viaCancelarTexto" class="dialogo-texto"></p>
+    <div class="campo">
+        <label for="viaCancelarMotivo" class="campo-etiqueta">Motivo (opcional)</label>
+        <input id="viaCancelarMotivo" type="text" maxlength="150" class="campo-input">
+    </div>
+    <p id="viaCancelarError" class="form-error" role="alert"></p>
+    <div class="dialogo-botones">
+        <button type="button" id="viaCancelarNo" class="boton boton-secundario">No, volver</button>
+        <button type="button" id="viaCancelarSi" class="boton boton-peligro">Cancelar el viaje</button>
+    </div>
+</dialog>
