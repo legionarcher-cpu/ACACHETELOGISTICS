@@ -69,8 +69,8 @@
                         Ingresar
                     </button>
 
-                    <!-- Solo si la empresa recibe solicitudes de clientes (Transporte):
-                         enlace index.html#registro?empresa=02 o "registroClientes" en empresas/empresas.js -->
+                    <!-- Clientes de cualquier empresa con Transporte (js/secciones/loggin.js).
+                         Se oculta solo con registroClientes: false en empresas/empresas.js -->
                     <p class="login-registro-enlace" id="loginRegistroEnlace" hidden>
                         ¿Eres cliente? <button type="button" id="btnIrRegistro" class="login-enlace">Solicita tu usuario</button>
                     </p>
@@ -80,6 +80,14 @@
                      sql/01 bloque 20) y queda pendiente hasta que la empresa lo apruebe en Clientes. -->
                 <form id="formRegistro" class="login-form" novalidate hidden>
                     <div class="login-registro-campos">
+                        <!-- Código de la empresa: se oculta si ya viene en el enlace (#registro?empresa=02)
+                             o en la marca (registroClientes: '02') -->
+                        <div class="login-campo login-campo-ancho" id="regCampoEmpresa">
+                            <label for="regEmpresa" class="login-etiqueta">Código de tu empresa *</label>
+                            <input id="regEmpresa" class="login-input-simple" inputmode="numeric" maxlength="2"
+                                   placeholder="Ej. 02" autocomplete="off">
+                            <small class="login-ayuda" id="regEmpresaAyuda">Son 2 números (ej. 02). Pídelo a tu empresa.</small>
+                        </div>
                         <div class="login-campo">
                             <label for="regNombre" class="login-etiqueta">Nombre *</label>
                             <input id="regNombre" class="login-input-simple" maxlength="60" autocomplete="given-name" required>
