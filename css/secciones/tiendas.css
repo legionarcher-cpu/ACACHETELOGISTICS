@@ -1,0 +1,71 @@
+/* ==================================================
+   SECCIÓN: TIENDAS
+   ACACHETE LOGISTICS
+
+   Solo lo PROPIO de secciones/tiendas.html. Lo común (página,
+   buscador, botones, avisos, tabla, etiquetas, formulario y
+   ventanas) viene de css/componentes.css.
+   js/pagina_inicial.js activa este archivo solo mientras se ve
+   la sección. Las clases propias empiezan con "tnd-".
+   ================================================== */
+
+/* Debajo de este ancho aparece el scroll horizontal (7 columnas) */
+.tnd-tabla {
+    min-width: 45.556rem;
+}
+
+/* Columna "Usuarios": angosta y centrada */
+.tabla th.tnd-col-numero,
+.tabla td.tnd-col-numero {
+    width: 5rem;
+    text-align: center;
+}
+
+/* El título de cada región (fila que separa los grupos) es el componente
+   .tabla-grupo de css/componentes.css */
+
+/* ==================================================
+   FORMULARIO
+   ================================================== */
+
+/* "Código de la tienda: NOR-004" */
+.tnd-vista-previa {
+    font-family: var(--fuente-codigo);
+    font-size: 0.9rem;
+    color: var(--color-azul);
+}
+
+/* Advertencia naranja al cambiar el código de una tienda con usuarios:
+   "Los 2 usuarios pasarán de cen-001-… a nor-005-…" */
+.tnd-aviso-codigo {
+    margin: 0.444rem 0 0;
+    padding: 0.444rem 0.667rem;
+    background-color: var(--color-naranja-claro);
+    border-left: 0.222rem solid var(--color-naranja);
+    border-radius: var(--radio);
+    font-size: 0.8rem;
+    color: var(--color-naranja-texto);
+}
+
+.tnd-aviso-codigo[hidden] {
+    display: none;
+}
+
+/* ---------- Ventana de regiones ---------- */
+.tnd-reg-form {
+    display: grid;
+    grid-template-columns: 6rem 1fr auto;
+    align-items: end;
+    gap: 0.667rem;
+    margin-top: 0.889rem;
+}
+
+.tnd-reg-form .campo-input {
+    width: 100%;
+}
+
+@media (max-width: 480px) {
+    .tnd-reg-form {
+        grid-template-columns: 1fr;
+    }
+}

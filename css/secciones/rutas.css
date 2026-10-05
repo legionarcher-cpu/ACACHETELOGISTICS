@@ -1,0 +1,224 @@
+/* ==================================================
+   SECCIÓN: RUTAS Y ASIGNACIONES
+   ACACHETE LOGISTICS
+
+   Solo lo PROPIO de secciones/rutas.html (clases "rut-"). Lo común viene
+   de css/componentes.css.
+   ================================================== */
+
+/* Botones ◀ fecha ▶ "Esta semana" */
+.rut-semana {
+    display: flex;
+    align-items: center;
+    gap: 0.333rem;
+}
+
+.rut-nota {
+    margin: 0;
+    padding: 0.556rem 0.778rem;
+    background-color: var(--color-azul-claro);
+    border-left: 0.222rem solid var(--color-azul);
+    border-radius: var(--radio);
+    font-size: 0.85rem;
+    color: var(--color-azul-marino);
+}
+
+.rut-si-no {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.444rem;
+    min-height: 2.333rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.rut-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem 1.111rem;
+}
+
+/* Botones de la confirmación en una sola línea */
+#rutConfirmar .boton {
+    white-space: nowrap;
+}
+
+/* ---------- Calendario semanal ---------- */
+
+.rut-tabla {
+    min-width: 60rem;
+    table-layout: fixed;
+}
+
+.rut-tabla th:first-child,
+.rut-tabla td:first-child {
+    width: 10.556rem;
+}
+
+.rut-tabla td {
+    vertical-align: top;
+}
+
+/* Día de hoy resaltado */
+.rut-tabla th.rut-hoy {
+    color: var(--color-naranja);
+}
+
+.rut-tabla td.rut-hoy {
+    background-color: var(--color-naranja-claro);
+}
+
+/* Encabezado del día: "Lun" + "29/09" */
+.rut-dia {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.rut-dia small {
+    font-weight: 400;
+    font-size: 0.75rem;
+    text-transform: none;
+}
+
+/* Nombre de la ruta + etiquetas */
+.rut-ruta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.222rem;
+}
+
+.rut-ruta strong {
+    color: var(--color-texto);
+}
+
+.rut-ruta .etiqueta {
+    width: fit-content;
+    font-size: 0.72rem;
+}
+
+.rut-ruta-botones {
+    display: flex;
+    gap: 0.222rem;
+    margin-top: 0.222rem;
+}
+
+/* Piloto asignado ese día */
+.rut-pilotos {
+    display: flex;
+    flex-direction: column;
+    gap: 0.222rem;
+}
+
+.rut-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.222rem;
+    padding: 0.167rem 0.333rem 0.167rem 0.556rem;
+    border-radius: 999px;
+    background-color: var(--color-azul-claro);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-azul-marino);
+}
+
+.rut-chip-semana {
+    background-color: #DDF3F1;
+    color: #0E6B63;
+}
+
+/* El nombre puede ocupar dos líneas (las columnas de los días son angostas) */
+.rut-chip span {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+/* × para quitar al piloto */
+.rut-chip button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1rem;
+    height: 1rem;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.rut-chip button:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+.rut-vacio {
+    font-size: 0.78rem;
+    color: var(--color-gris);
+}
+
+/* "+" para asignar en ese día */
+.rut-agregar {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.222rem;
+    margin-top: 0.222rem;
+    padding: 2px 0.444rem;
+    border: 1px dashed var(--color-borde);
+    border-radius: 999px;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.75rem;
+    color: var(--color-gris);
+    cursor: pointer;
+}
+
+.rut-agregar:hover {
+    border-color: var(--color-naranja);
+    color: var(--color-naranja);
+}
+
+/* ---------- Validación del día: QR de cada piloto ---------- */
+
+.rut-qr-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
+}
+
+.rut-qr-lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+    gap: 0.5rem;
+    margin: 0.75rem 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.rut-qr-piloto {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    padding: 0.5rem 0.625rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.rut-qr-textos {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.125rem;
+    min-width: 0;
+    font-size: 0.9rem;
+}
+
+.rut-qr-vacio {
+    font-size: 0.9rem;
+    color: var(--color-gris);
+}

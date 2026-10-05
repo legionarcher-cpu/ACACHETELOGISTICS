@@ -1,0 +1,54 @@
+/* ==================================================
+   ANIMACIONES COMPARTIDAS (@keyframes)
+   ACACHETE LOGISTICS
+
+   Solo los movimientos que usan varias partes del sistema.
+   Se aplican con  animation: <nombre> <duración> <curva>;
+   Las animaciones de una sola sección van en el CSS de esa
+   sección (ej. la entrada del login en css/secciones/loggin.css).
+   ================================================== */
+
+/* Aparece bajando un poco: avisos ("Usuario creado", errores) */
+@keyframes aparecerBajando {
+    from {
+        opacity: 0;
+        transform: translateY(-0.333rem);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Ventana que se abre creciendo desde un poco más pequeña */
+@keyframes abrirDialogo {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Fundido simple (fondo oscuro detrás de las ventanas) */
+@keyframes fundido {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Parpadeo suave mientras algo se carga (ej. foto subiendo) */
+@keyframes latir {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.5; }
+}
+
+/* Sacudida de "error" (ej. login con datos incorrectos) */
+@keyframes sacudir {
+    0%, 100% { transform: translateX(0); }
+    20%      { transform: translateX(-0.444rem); }
+    40%      { transform: translateX(0.444rem); }
+    60%      { transform: translateX(-0.278rem); }
+    80%      { transform: translateX(0.278rem); }
+}

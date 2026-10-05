@@ -1,0 +1,408 @@
+/* ==================================================
+   SECCIÓN: LOGIN
+   ACACHETE LOGISTICS
+
+   TODO lo propio de secciones/loggin.html: estructura, textos
+   y animaciones. js/pagina_inicial.js activa este archivo solo
+   mientras se ve el login. Todas las clases empiezan con "login-".
+
+   Colores y medidas: css/variables.css
+   Sacudida de error (@keyframes sacudir): css/animaciones.css
+   ================================================== */
+
+/* ==================================================
+   FONDO
+   Ocupa TODO el espacio de .cuerpo-principal (el encabezado,
+   menú y pie del index siguen visibles alrededor) y centra
+   el cuadro. Los degradados dan un toque de color de la marca.
+   ================================================== */
+
+.login-fondo {
+    min-height: 100%; /* llena el alto de .cuerpo-principal */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.333rem 0.889rem;
+    background:
+        radial-gradient(circle at 20% 15%, rgba(18, 88, 166, 0.35), transparent 45%),
+        radial-gradient(circle at 85% 90%, rgba(242, 102, 15, 0.12), transparent 40%),
+        var(--color-blanco);
+}
+
+/* Agrupa el cuadro y el texto de abajo. Entra subiendo al abrir. */
+.login-contenedor {
+    width: 100%;
+    max-width: 22.222rem; /* ancho máximo del cuadro. Subir = cuadro más ancho */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.889rem;
+    animation: entradaLogin 0.5s ease-out;
+}
+
+/* Salida al ingresar correctamente.
+   Si se cambia 0.25s, cambiar también DURACION_SALIDA_LOGIN en js/secciones/loggin.js */
+.login-contenedor.saliendo {
+    animation: salidaLogin 0.25s ease-in forwards;
+}
+
+@keyframes entradaLogin {
+    from {
+        opacity: 0;
+        transform: translateY(1.111rem);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes salidaLogin {
+    to {
+        opacity: 0;
+        transform: translateY(-0.667rem) scale(0.98);
+    }
+}
+
+/* ==================================================
+   CUADRO CENTRAL
+   ================================================== */
+
+.login-tarjeta {
+    width: 100%;
+    background-color: var(--color-blanco);
+    border-radius: var(--radio-grande);
+    overflow: hidden; /* para que la franja del logo respete las esquinas redondeadas */
+    box-shadow: 0 1.111rem 2.5rem rgba(0, 0, 0, 0.35);
+}
+
+/* Sacudida cuando el usuario o la contraseña son incorrectos
+   (la clase "sacudir" la pone js/secciones/loggin.js) */
+.login-tarjeta.sacudir {
+    animation: sacudir 0.4s ease;
+}
+
+/* Franja superior azul con el logo (el logo tiene fondo azul) */
+.login-cabecera {
+    background-color: var(--color-fondo-oscuro);
+    padding: 1.111rem 1.556rem;
+    border-bottom: 0.222rem solid var(--color-naranja); /* línea naranja de la marca */
+}
+
+.login-logo {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
+/* Parte blanca con el formulario */
+.login-cuerpo {
+    padding: 1.556rem 1.778rem 1.778rem;
+}
+
+/* "Iniciar sesión" */
+.login-titulo {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-texto);
+    text-align: left;
+}
+
+/* "Panel de Control de Operaciones" */
+.login-subtitulo {
+    margin: 0.222rem 0 1.333rem;
+    font-size: 0.9rem;
+    color: var(--color-gris);
+}
+
+/* ==================================================
+   FORMULARIO
+   ================================================== */
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.889rem; /* separación entre los campos */
+}
+
+.login-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.333rem; /* separación entre la etiqueta y la caja */
+}
+
+/* "Usuario" / "Contraseña" */
+.login-etiqueta {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-azul-marino);
+}
+
+/* Caja que contiene: icono + input (+ botón del ojo) */
+.login-input-caja {
+    display: flex;
+    align-items: center;
+    gap: 0.556rem;
+    height: 2.556rem;
+    padding: 0 0.667rem;
+    background-color: var(--color-fondo);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+/* Cuando el usuario está escribiendo en la caja */
+.login-input-caja:focus-within {
+    background-color: var(--color-blanco);
+    border-color: var(--color-azul);
+    box-shadow: var(--sombra-foco);
+}
+
+/* Cuando hay error (la clase la pone js/secciones/loggin.js) */
+.login-input-caja.con-error {
+    border-color: var(--color-rojo);
+    box-shadow: 0 0 0 0.167rem rgba(192, 57, 43, 0.12);
+}
+
+/* Iconos de persona y candado: grises, y azules al escribir */
+.login-input-caja > i {
+    font-size: 1.1rem;
+    color: var(--color-gris);
+    transition: color 0.2s ease;
+}
+
+.login-input-caja:focus-within > i {
+    color: var(--color-azul);
+}
+
+/* El input ocupa todo el espacio libre y no tiene borde propio
+   (el borde lo pone .login-input-caja) */
+.login-input {
+    flex: 1;
+    height: 100%;
+    padding: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--color-texto);
+}
+
+.login-input::placeholder {
+    color: var(--color-placeholder);
+}
+
+/* Botón del ojo (mostrar/ocultar contraseña) */
+.login-ver-clave {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.778rem;
+    height: 1.778rem;
+    padding: 0;
+    background: none;
+    border: none;
+    border-radius: 0.333rem;
+    cursor: pointer;
+    font-size: 1.05rem;
+    color: var(--color-gris);
+}
+
+.login-ver-clave:hover {
+    background-color: var(--color-azul-claro);
+}
+
+/* "Usuario o contraseña incorrectos." min-height reserva el
+   espacio para que el botón no "salte" cuando aparece */
+.login-error {
+    min-height: 1.2em;
+    margin: -0.222rem 0 0;
+    font-size: 0.85rem;
+    color: var(--color-rojo);
+}
+
+/* ==================================================
+   BOTÓN INGRESAR
+   ================================================== */
+
+.login-boton {
+    height: 2.667rem;
+    background-color: var(--color-naranja);
+    border: none;
+    border-radius: var(--radio);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-blanco);
+    letter-spacing: 0.5px;
+    transition: background-color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.login-boton:hover {
+    background-color: var(--color-naranja-oscuro);
+}
+
+/* Sube un poco al pasar el mouse (igual que los botones del pie) */
+.login-boton:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 0.333rem 0.778rem rgba(242, 102, 15, 0.35);
+}
+
+.login-boton:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.login-boton:focus-visible {
+    outline: 0.167rem solid rgba(242, 102, 15, 0.4);
+    outline-offset: 2px;
+}
+
+/* Mientras ingresa (js/secciones/loggin.js lo deshabilita) */
+.login-boton:disabled {
+    cursor: wait;
+    opacity: 0.8;
+}
+
+/* ==================================================
+   SOLICITAR USUARIO (clientes de empresas con Transporte)
+   ================================================== */
+
+/* El cuadro se ensancha para el formulario de solicitud */
+.login-contenedor.registrando {
+    max-width: 30rem;
+}
+
+/* "¿Eres cliente? Solicita tu usuario" */
+.login-registro-enlace {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+    text-align: center;
+}
+
+/* Botón con aspecto de enlace */
+.login-enlace {
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    color: var(--color-azul);
+    text-decoration: underline;
+}
+
+.login-enlace:hover {
+    color: var(--color-naranja);
+}
+
+.login-enlace-centro {
+    align-self: center;
+    font-size: 0.85rem;
+}
+
+/* Campos en dos columnas (una en celular) */
+.login-registro-campos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.667rem 0.778rem;
+}
+
+.login-campo-ancho {
+    grid-column: 1 / -1;
+}
+
+.login-input-simple {
+    height: 2.333rem;
+    padding: 0 0.667rem;
+    background-color: var(--color-fondo);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--color-texto);
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.login-input-simple:focus {
+    background-color: var(--color-blanco);
+    border-color: var(--color-azul);
+    box-shadow: var(--sombra-foco);
+}
+
+.login-ayuda {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--color-gris);
+}
+
+/* Trampa para robots: fuera de la vista */
+.login-trampa {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+/* "Solicitud enviada" */
+.login-registro-listo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.889rem;
+    text-align: center;
+}
+
+.login-registro-listo > i {
+    font-size: 2.5rem;
+    color: var(--color-verde);
+}
+
+.login-registro-listo p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--color-texto);
+}
+
+.login-registro-listo .login-boton {
+    align-self: stretch;
+}
+
+@media (max-width: 480px) {
+    .login-registro-campos {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==================================================
+   TEXTO INFERIOR ("Derechos Reservados...")
+   ================================================== */
+
+.login-pie {
+    margin: 0;
+    font-size: 0.75rem;
+    color: rgba(246, 249, 252, 0.6);
+    text-align: center;
+}
+
+/* ==================================================
+   ACCESIBILIDAD: "reducir movimiento" del sistema operativo
+   ================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+    .login-contenedor,
+    .login-tarjeta.sacudir {
+        animation: none;
+    }
+
+    .login-boton:hover:not(:disabled) {
+        transform: none;
+    }
+}

@@ -1,0 +1,849 @@
+/* ==================================================
+   SECCIÓN: CONFIGURACIÓN
+   ACACHETE LOGISTICS
+
+   Solo lo PROPIO de secciones/configuracion.html. Lo común (página,
+   tarjeta, botones, avisos, tabla, formulario y ventanas) viene de
+   css/componentes.css. Las clases propias empiezan con "cfg-".
+   ================================================== */
+
+/* ==================================================
+   PANTALLA DE INICIO: TARJETAS DE MÓDULOS
+   ================================================== */
+
+/* Tarjetas en columnas que se acomodan al ancho */
+.cfg-inicio {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(15.556rem, 1fr));
+    gap: 0.889rem;
+}
+
+/* Una tarjeta = un botón que abre su módulo */
+.cfg-modulo-tarjeta {
+    display: flex;
+    align-items: center;
+    gap: 0.778rem;
+    padding: 1rem 1.111rem;
+    background-color: var(--color-blanco);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+    box-shadow: var(--sombra-tarjeta);
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.cfg-modulo-tarjeta:hover {
+    border-color: var(--color-naranja);
+    box-shadow: 0 0.333rem 1rem rgba(0, 28, 59, 0.12);
+    transform: translateY(-2px);
+}
+
+.cfg-modulo-icono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.667rem;
+    height: 2.667rem;
+    flex-shrink: 0;
+    border-radius: var(--radio-grande);
+    background-color: var(--color-naranja-claro);
+    font-size: 1.4rem;
+    color: #B34A07;
+}
+
+.cfg-modulo-textos {
+    display: flex;
+    flex-direction: column;
+    gap: 0.167rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.cfg-modulo-nombre {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-texto);
+}
+
+.cfg-modulo-descripcion {
+    font-size: 0.85rem;
+    color: var(--color-gris);
+    line-height: 1.35;
+}
+
+/* "Administrador y Admin G1" */
+.cfg-modulo-acceso {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-azul);
+}
+
+.cfg-modulo-flecha {
+    font-size: 1.1rem;
+    color: var(--color-gris);
+    transition: transform 0.2s ease;
+}
+
+.cfg-modulo-tarjeta:hover .cfg-modulo-flecha {
+    transform: translateX(0.167rem);
+    color: var(--color-naranja);
+}
+
+/* ==================================================
+   MÓDULO ABIERTO
+   ================================================== */
+
+.cfg-modulo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.889rem;
+}
+
+.cfg-modulo-cabecera {
+    display: flex;
+    flex-direction: column;
+    gap: 0.222rem;
+}
+
+/* "← Configuración" */
+.cfg-volver {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.333rem;
+    width: fit-content;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-azul);
+    text-decoration: none;
+}
+
+.cfg-volver:hover {
+    text-decoration: underline;
+}
+
+.cfg-modulo-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.444rem;
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-azul-marino);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .cfg-modulo-tarjeta:hover,
+    .cfg-modulo-tarjeta:hover .cfg-modulo-flecha {
+        transform: none;
+    }
+}
+
+/* Nota azul (ej. "No hay opciones de configuración para tu rol") */
+.cfg-nota {
+    margin: 0;
+    padding: 0.556rem 0.778rem;
+    background-color: var(--color-azul-claro);
+    border-left: 0.222rem solid var(--color-azul);
+    border-radius: var(--radio);
+    font-size: 0.85rem;
+    color: var(--color-azul-marino);
+}
+
+.cfg-nota i {
+    margin-right: 0.333rem;
+}
+
+/* ==================================================
+   TARJETAS
+   ================================================== */
+
+.cfg-tarjeta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.889rem;
+    padding: 1.111rem 1.333rem;
+}
+
+.cfg-tarjeta-cabecera {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.667rem;
+}
+
+.cfg-tarjeta-titulo {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-texto);
+}
+
+.cfg-tarjeta-texto {
+    margin: 0.222rem 0 0;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+/* ---------- Valores base: campos en fila ---------- */
+
+.cfg-base {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.889rem 1.333rem;
+}
+
+.cfg-base .campo {
+    width: 13.333rem;
+}
+
+/* El botón queda alineado con los campos (debajo de la etiqueta) */
+.cfg-guardar-base {
+    margin-top: 1.333rem;
+}
+
+/* Campos numéricos: más angostos y el número grande */
+.cfg-numero {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* ---------- Tablas del módulo ---------- */
+
+.cfg-tabla {
+    min-width: 31.111rem;
+}
+
+/* Número de marca en un círculo naranja */
+.cfg-numero-marca {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.556rem;
+    height: 1.556rem;
+    margin-right: 0.444rem;
+    border-radius: 50%;
+    background-color: var(--color-naranja-claro);
+    font-weight: 700;
+    color: #B34A07;
+}
+
+/* ==================================================
+   HORARIO POR DÍA
+   ================================================== */
+
+/* Botón "Volver a la base" en la tabla de días */
+.boton-icono-base {
+    color: var(--color-naranja);
+}
+
+.boton-icono-base:hover:not(:disabled) {
+    background-color: var(--color-naranja-claro);
+    border-color: #F8CBA8;
+}
+
+/* ---------- Ventana del día ---------- */
+
+/* La ventana del día es más ancha: 4 columnas por marca */
+.cfg-dialogo-ancho {
+    width: min(35.556rem, calc(100vw - 1.778rem));
+}
+
+/* ---------- Ventana flotante de un módulo (ej. Actividades) ----------
+   Título a la izquierda y botón X para cerrar a la derecha */
+.cfg-ventana-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.667rem;
+    margin-bottom: 0.333rem;
+}
+
+.cfg-ventana-cabecera .dialogo-titulo {
+    margin: 0;
+}
+
+/* Actividades: "Nueva actividad" junto a la X */
+.cfg-act-cabecera-botones {
+    display: flex;
+    align-items: center;
+    gap: 0.444rem;
+}
+
+/* Icono elegido al lado de su lista */
+.cfg-act-icono-caja {
+    display: flex;
+    align-items: center;
+    gap: 0.556rem;
+}
+
+.cfg-act-icono-caja i {
+    font-size: 1.4rem;
+    color: var(--color-azul);
+}
+
+/* Palabras de la actividad: etiqueta | singular | plural */
+.cfg-act-palabras {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    align-items: center;
+    gap: 0.444rem 0.556rem;
+    margin: 0;
+    padding: 0.556rem 0.667rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.cfg-act-palabras legend,
+.cfg-act-palabras small {
+    grid-column: 1 / -1;
+}
+
+.cfg-act-palabras label {
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .cfg-act-palabras {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .cfg-act-palabras label {
+        grid-column: 1 / -1;
+    }
+}
+
+/* La tabla deja aire bajo el texto de la ventana */
+#cfgActDialogo .tabla-caja {
+    margin-top: 0.778rem;
+}
+
+/* Descripción chica debajo del nombre de la actividad */
+.cfg-act-desc {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.78rem;
+    color: var(--color-gris);
+}
+
+/* Casillas de "qué usa esta actividad": una debajo de otra */
+.cfg-act-usa {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0.556rem 0.667rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.cfg-act-usa .cfg-si-no {
+    height: auto;
+    padding: 0.222rem 0;
+}
+
+/* ---------- Calculadora de precios (Python) ---------- */
+.cfg-calc-controles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12.778rem, 1fr));
+    gap: 0.667rem;
+    align-items: end;
+}
+
+/* La tarifa ocupa toda la fila (debajo va su regla en una línea) */
+.cfg-calc-tarifa {
+    grid-column: 1 / -1;
+}
+
+/* Grupos "Peso (filas)" y "Distancia (columnas)": Desde · Hasta · Cada */
+.cfg-calc-grupo {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.444rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0.444rem 0.556rem 0.556rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.cfg-calc-grupo legend {
+    padding: 0 0.222rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-azul-marino);
+}
+
+.cfg-calc-grupo label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.222rem;
+    flex: 1;
+    min-width: 0;
+    font-size: 0.75rem;
+    color: var(--color-gris);
+}
+
+.cfg-calc-grupo .campo-input {
+    width: 100%;
+    min-width: 0;
+    height: 2.111rem;
+}
+
+.cfg-calc-unidad {
+    padding-bottom: 0.556rem;
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+/* Tarifa sin precio por km: la distancia no se usa */
+.cfg-calc-grupo:disabled {
+    opacity: 0.5;
+}
+
+.cfg-calc-estado {
+    margin: 0.667rem 0 0;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+/* "Cálculos hechos (N)" + Borrar todos */
+.cfg-calc-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.556rem;
+    margin-top: 0.889rem;
+    font-size: 0.9rem;
+    color: var(--color-azul-marino);
+}
+
+.cfg-calc-cabecera[hidden] {
+    display: none;
+}
+
+.cfg-calc-historial {
+    display: flex;
+    flex-direction: column;
+    gap: 0.778rem;
+    margin-top: 0.556rem;
+}
+
+/* Un cálculo: cabecera, la tarifa en palabras y la tabla */
+.cfg-calc-resultado {
+    display: flex;
+    flex-direction: column;
+    gap: 0.667rem;
+    padding: 0.778rem 0.889rem;
+    border: 1px solid var(--color-borde);
+    border-left: 0.222rem solid var(--color-naranja);
+    border-radius: var(--radio-grande);
+    background-color: var(--color-blanco);
+    animation: aparecerBajando 0.25s ease-out;
+}
+
+.cfg-calc-resultado-cabecera {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.556rem;
+}
+
+.cfg-calc-resultado-cabecera div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cfg-calc-resultado-cabecera small {
+    font-size: 0.78rem;
+    color: var(--color-gris);
+}
+
+/* Regla de la tarifa en una línea (bajo el título de cada simulación) */
+.cfg-calc-resultado-cabecera small.cfg-calc-regla {
+    color: var(--color-azul-marino);
+}
+
+/* Tabla cruzada: peso (filas) × distancia (columnas) */
+.cfg-calc-matriz th:first-child,
+.cfg-calc-matriz td:first-child {
+    position: sticky; /* el peso queda a la vista al deslizar de lado */
+    left: 0;
+    z-index: 1;
+    background-color: var(--color-blanco);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.cfg-calc-matriz thead th:first-child {
+    background-color: var(--color-azul-claro);
+}
+
+.cfg-calc-tabla .cfg-calc-precio {
+    font-weight: 600;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Columnas de distancia que cubre el mínimo: "5 km / incluido" */
+.cfg-calc-matriz th.cfg-calc-incluido small {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--color-verde);
+}
+
+/* Filas que cubre el precio base (kg adicionales en gris) */
+.cfg-calc-tabla tr.cfg-calc-base td:nth-child(2) {
+    color: var(--color-gris);
+}
+
+/* Línea "Más de 3 kg: se suma ₡500 por cada kg adicional" */
+.cfg-calc-tabla tr.cfg-calc-separador td {
+    padding: 0.444rem 0.889rem;
+    background-color: var(--color-naranja-claro);
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #B34A07;
+    text-align: left;
+}
+
+
+.cfg-dia-cantidad {
+    max-width: 14.444rem;
+    margin-bottom: 1rem;
+}
+
+.cfg-dia-marcas,
+#cfgDiaMarcas {
+    display: flex;
+    flex-direction: column;
+    gap: 0.444rem;
+}
+
+/* Una fila = "Marca N" + inicia desde + inicia hasta + termina */
+.cfg-dia-fila {
+    display: grid;
+    grid-template-columns: 5rem 1fr 1fr 1fr;
+    align-items: center;
+    gap: 0.556rem;
+}
+
+.cfg-dia-fila .campo-input {
+    min-width: 0;
+}
+
+/* Slots: "Slot N" + desde + hasta (una columna menos que las marcas) */
+.cfg-dia-fila.cfg-slot-fila {
+    grid-template-columns: 5rem 1fr 1fr;
+}
+
+.cfg-dia-encabezado {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-gris);
+}
+
+.cfg-dia-nombre {
+    display: flex;
+    align-items: center;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-texto);
+}
+
+.cfg-dia-nombre .cfg-numero-marca {
+    width: 1.333rem;
+    height: 1.333rem;
+    font-size: 0.8rem;
+}
+
+/* "Aplicar también a": casillas de los días en fila */
+.cfg-dia-copiar {
+    margin: 1rem 0 0;
+    padding: 0;
+    border: none;
+}
+
+.cfg-dia-copiar legend {
+    padding: 0;
+    margin-bottom: 0.444rem;
+}
+
+.cfg-dia-otros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem;
+}
+
+.cfg-dia-otros label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.333rem;
+    padding: 0.333rem 0.667rem;
+    border: 1px solid var(--color-borde);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.cfg-dia-otros label:has(input:checked) {
+    border-color: var(--color-naranja);
+    background-color: var(--color-naranja-claro);
+    color: #B34A07;
+}
+
+/* ==================================================
+   MÓDULO VEHÍCULOS
+   ================================================== */
+
+/* (El resumen por estado usa el componente .resumen de css/componentes.css) */
+
+/* La placa se escribe y se ve en mayúsculas */
+.cfg-placa {
+    text-transform: uppercase;
+}
+
+/* Pilotos asignados: uno por línea */
+.cfg-pilotos {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.85rem;
+}
+
+.cfg-pilotos small {
+    color: var(--color-gris);
+}
+
+/* ==================================================
+   MÓDULO PEDIDOS
+   ================================================== */
+
+/* Tarjetas una debajo de otra (las arma el JS) */
+.cfg-pilas {
+    display: flex;
+    flex-direction: column;
+    gap: 0.889rem;
+}
+
+/* Icono al lado del nombre en las tablas (actividades, categorías) */
+.cfg-icono-fila {
+    color: var(--color-naranja);
+}
+
+/* Casillas de la ventana genérica (ej. tiendas de una actividad) */
+.cfg-casillas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem;
+    max-height: 10rem;
+    overflow-y: auto;
+}
+
+.cfg-casillas label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.333rem;
+    padding: 0.333rem 0.667rem;
+    border: 1px solid var(--color-borde);
+    border-radius: 999px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    user-select: none;
+}
+
+.cfg-casillas label:has(input:checked) {
+    border-color: var(--color-naranja);
+    background-color: var(--color-naranja-claro);
+    color: #B34A07;
+}
+
+/* Casilla sola "Sí / No" dentro de la ventana */
+.cfg-si-no {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.444rem;
+    height: 2.333rem;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+/* Ejemplo del cálculo en la ventana de tarifas */
+.cfg-vista-previa {
+    margin: 0.889rem 0 0;
+    padding: 0.556rem 0.778rem;
+    background-color: var(--color-verde-claro);
+    border-left: 0.222rem solid var(--color-verde);
+    border-radius: var(--radio);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--color-texto);
+    white-space: pre-line; /* una regla por línea (ej. la tarifa en palabras) */
+}
+
+/* Código de respaldo: dos opciones grandes */
+.cfg-opcion {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.556rem;
+    padding: 0.667rem 0.889rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio-grande);
+    cursor: pointer;
+}
+
+.cfg-opcion:has(input:checked) {
+    border-color: var(--color-naranja);
+    background-color: var(--color-naranja-claro);
+}
+
+.cfg-opcion span {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.9rem;
+}
+
+.cfg-opcion small {
+    color: var(--color-gris);
+}
+
+/* Pantallas chicas: "Marca N" arriba y las 3 horas debajo */
+@media (max-width: 560px) {
+    .cfg-dia-fila {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+
+    .cfg-dia-fila.cfg-slot-fila {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .cfg-dia-nombre {
+        grid-column: 1 / -1;
+    }
+
+    .cfg-dia-encabezado span:first-child {
+        display: none;
+    }
+}
+
+/* ==================================================
+   MÓDULO TRANSPORTE (js/secciones/configuracion/transporte.js)
+   ================================================== */
+.cfg-tra {
+    display: flex;
+    flex-direction: column;
+    gap: 1.111rem;
+}
+
+/* Botones de las tablas: mismos colores que editar / eliminar */
+.boton-icono-editar-franja,
+.boton-icono-editar-gasto,
+.boton-icono-editar-vehiculo {
+    color: var(--color-azul);
+}
+
+.boton-icono-eliminar-franja,
+.boton-icono-eliminar-gasto,
+.boton-icono-eliminar-cerrado {
+    color: var(--color-rojo);
+}
+
+.cfg-tra-grupos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0.889rem;
+}
+
+.cfg-tra-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.556rem;
+    margin: 0;
+    padding: 0.778rem 0.889rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.cfg-tra-grupo legend {
+    padding: 0 0.333rem;
+    font-weight: 600;
+    color: var(--color-azul-marino);
+}
+
+.cfg-tra-sim-controles,
+.cfg-tra-combustible,
+.cfg-tra-cerrado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.556rem;
+}
+
+.cfg-tra-sim-controles {
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.cfg-tra-sim-controles .campo-input {
+    width: 4.5rem;
+}
+
+.cfg-tra-simulador td:first-child {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.cfg-tra-resumen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    margin: 0.667rem 0;
+}
+
+.cfg-tra-subtitulo {
+    margin: 0.889rem 0 0.444rem;
+    font-size: 0.95rem;
+    color: var(--color-azul-marino);
+}
+
+.cfg-tra-dias {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.cfg-tra-dias-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.222rem 0.889rem;
+}
+
+/* Datos de Transporte en la ventana del vehículo */
+.cfg-veh-transporte {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.556rem 0.889rem;
+    margin: 0;
+    padding: 0.667rem 0.778rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.cfg-veh-transporte legend {
+    padding: 0 0.333rem;
+}
+
+@media (max-width: 600px) {
+    .cfg-veh-transporte {
+        grid-template-columns: 1fr;
+    }
+}
