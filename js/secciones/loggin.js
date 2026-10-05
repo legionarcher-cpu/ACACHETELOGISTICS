@@ -228,11 +228,13 @@ registrarSeccion('loggin', (zona) => {
 });
 
 // ==================================================
-// SOLICITAR USUARIO (clientes de empresas con Transporte, sql/01 bloque 20)
-//   Se abre con el enlace index.html#registro?empresa=02 (ej. en la tarjeta, WhatsApp
-//   o un QR) o con "¿Eres cliente? Solicita tu usuario" si la marca tiene
-//   registroClientes en empresas/empresas.js. Solo aparece si esa empresa está
-//   activa y hace viajes (registro_clientes_empresa).
+// SOLICITAR USUARIO (clientes de cualquier empresa con Transporte, sql/01 bloque 20)
+//   "¿Eres cliente? Solicita tu usuario" aparece en el login de TODAS las marcas
+//   (salvo registroClientes: false en empresas/empresas.js). ¿De qué empresa?
+//     - enlace index.html#registro?empresa=02 (tarjeta, WhatsApp, QR) -> esa, ya puesta
+//     - registroClientes: '02' en la marca -> esa, ya puesta
+//     - si no -> el cliente escribe el CÓDIGO de su empresa (02, 03...), que ella le da
+//   La base revisa que la empresa esté activa y haga viajes (registro_clientes_empresa).
 //   La solicitud la guarda la base (solicitar_acceso_cliente): cliente y usuario
 //   quedan SIN APROBAR y se avisa al Administrador y al G1 de la empresa, que la
 //   aprueban en Clientes -> "Revisar".
@@ -247,22 +249,47 @@ async function montarSolicitudUsuario(zona, inputUsuario) {
     const subtitulo = $('.login-subtitulo');
     const textosLogin = { titulo: titulo.textContent, subtitulo: subtitulo.textContent };
     const errorRegistro = $('#registroError');
+    const campoCodigo = $('#regCampoEmpresa');
+    const inputCodigo = $('#regEmpresa');
+    const ayudaCodigo = $('#regEmpresaAyuda');
+
+    const config = typeof EMPRESA !== 'undefined' ? EMPRESA.registroClientes : undefined;
+    if (config === false) return; // esta marca no recibe solicitudes
 
     const desdeEnlace = nombreSeccionDeHash() === 'registro';
-    const codigo = ((desdeEnlace && parametrosSeccion().get('empresa'))
-        || (typeof EMPRESA !== 'undefined' && EMPRESA.registroClientes) || '').trim();
-    if (!codigo) return;
+    const codigoFijo = String((desdeEnlace && parametrosSeccion().get('empresa'))
+        || (typeof config === 'string' ? config : '') || '').trim();
 
-    // ¿La empresa recibe solicitudes?
-    const { data: empresa, error } = await db.rpc('registro_clientes_empresa', { p_codigo: codigo });
-    if (!zona.contains(formRegistro)) return; // ya se salió del login
-    if (error || !empresa) {
-        if (desdeEnlace) {
-            $('#loginError').textContent = error && error.code !== 'PGRST202'
-                ? 'No se pudo revisar el enlace de registro. Intenta de nuevo.'
-                : 'Este enlace de registro no es válido. Pide a la empresa el enlace correcto.';
+    let codigo = '';     // empresa elegida ('02')
+    let empresa = null;  // { nombre } si recibe solicitudes
+
+    // ¿Esa empresa recibe solicitudes? Devuelve { nombre } o null (o lanza si no hay conexión)
+    async function buscarEmpresa(cod) {
+        const { data, error } = await db.rpc('registro_clientes_empresa', { p_codigo: cod });
+        if (error && error.code !== 'PGRST202') throw error;
+        return error ? null : data;
+    }
+
+    function pintarEmpresa() {
+        subtitulo.textContent = empresa ? `Clientes de ${empresa.nombre}` : 'Escribe el código que te dio tu empresa';
+        const base = baseUsuario();
+        $('#regUsuarioAyuda').textContent = base ? `Entrarás como "${base}${codigo || '..'}"` : 'Letras y números, sin espacios';
+    }
+
+    // Empresa ya conocida (enlace o marca): se revisa una vez
+    if (codigoFijo) {
+        try {
+            empresa = await buscarEmpresa(codigoFijo);
+        } catch {
+            empresa = null;
         }
-        return;
+        if (!zona.contains(formRegistro)) return; // ya se salió del login
+        if (empresa) {
+            codigo = codigoFijo;
+            campoCodigo.hidden = true; // no hace falta escribirlo
+        } else if (desdeEnlace) {
+            $('#loginError').textContent = 'Este enlace de registro no es válido. Escribe el código de tu empresa en "Solicita tu usuario".';
+        }
     }
 
     $('#loginRegistroEnlace').hidden = false;
@@ -273,12 +300,14 @@ async function montarSolicitudUsuario(zona, inputUsuario) {
         listo.hidden = vista !== 'listo';
         contenedor.classList.toggle('registrando', vista === 'registro');
         titulo.textContent = vista === 'login' ? textosLogin.titulo : vista === 'registro' ? 'Solicitar usuario' : 'Solicitud enviada';
-        subtitulo.textContent = vista === 'login' ? textosLogin.subtitulo : `Clientes de ${empresa.nombre}`;
+        if (vista === 'login') subtitulo.textContent = textosLogin.subtitulo;
+        else if (vista === 'registro') pintarEmpresa();
+        else subtitulo.textContent = ''; // "Solicitud enviada": el texto de abajo dice la empresa
         // El # queda como enlace para compartir mientras se llena (sin recargar la sección)
         history.replaceState(null, '', vista === 'registro'
-            ? `${location.pathname}${location.search}#registro?empresa=${encodeURIComponent(codigo)}`
+            ? `${location.pathname}${location.search}#registro${codigo ? `?empresa=${encodeURIComponent(codigo)}` : ''}`
             : location.pathname + location.search);
-        if (vista === 'registro') $('#regNombre').focus();
+        if (vista === 'registro') (campoCodigo.hidden ? $('#regNombre') : inputCodigo).focus();
         if (vista === 'login') inputUsuario.focus();
     }
 
@@ -286,16 +315,47 @@ async function montarSolicitudUsuario(zona, inputUsuario) {
     $('#btnVolverLogin').addEventListener('click', () => mostrar('login'));
     $('#btnListoLogin').addEventListener('click', () => mostrar('login'));
 
+    // Código escrito por el cliente: al tener 2 números se busca la empresa
+    let busqueda = 0;
+    inputCodigo.addEventListener('input', async () => {
+        inputCodigo.value = inputCodigo.value.replace(/\D/g, '').slice(0, 2);
+        codigo = '';
+        empresa = null;
+        const cod = inputCodigo.value;
+        ayudaCodigo.textContent = cod.length < 2 ? 'Son 2 números (ej. 02). Pídelo a tu empresa.' : 'Buscando...';
+        pintarEmpresa();
+        if (cod.length < 2) return;
+        const esta = ++busqueda;
+        let encontrada = null;
+        try {
+            encontrada = await buscarEmpresa(cod);
+        } catch {
+            if (esta === busqueda) ayudaCodigo.textContent = 'No se pudo revisar el código. Revisa tu conexión.';
+            return;
+        }
+        if (esta !== busqueda) return; // ya escribió otro
+        if (encontrada) {
+            codigo = cod;
+            empresa = encontrada;
+            ayudaCodigo.textContent = `✔ ${encontrada.nombre}`;
+        } else {
+            ayudaCodigo.textContent = 'Ese código no recibe solicitudes. Revísalo con tu empresa.';
+        }
+        pintarEmpresa();
+    });
+
     // "Entrarás como aramirez02" (si ya existe, la base le agrega un número)
     const baseUsuario = () => $('#regUsuario').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-    $('#regUsuario').addEventListener('input', () => {
-        const base = baseUsuario();
-        $('#regUsuarioAyuda').textContent = base ? `Entrarás como "${base}${codigo}"` : 'Letras y números, sin espacios';
-    });
+    $('#regUsuario').addEventListener('input', pintarEmpresa);
     formRegistro.addEventListener('input', () => { errorRegistro.textContent = ''; });
 
     formRegistro.addEventListener('submit', async (evento) => {
         evento.preventDefault();
+        if (!empresa) {
+            errorRegistro.textContent = 'Escribe el código de tu empresa (2 números, te lo da la empresa).';
+            inputCodigo.focus();
+            return;
+        }
         const valor = (id) => $(id).value.trim();
         const datos = {
             empresa: codigo,
@@ -321,6 +381,13 @@ async function montarSolicitudUsuario(zona, inputUsuario) {
                 'podrás entrar con ese usuario y la contraseña que escribiste.';
             inputUsuario.value = usuario;
             formRegistro.reset();
+            if (campoCodigo.hidden) {
+                inputCodigo.value = codigo; // empresa fija (enlace o marca): se conserva
+            } else {
+                codigo = '';                // escrita a mano: la próxima solicitud la vuelve a pedir
+                empresa = null;
+                ayudaCodigo.textContent = 'Son 2 números (ej. 02). Pídelo a tu empresa.';
+            }
             mostrar('listo');
         };
 
