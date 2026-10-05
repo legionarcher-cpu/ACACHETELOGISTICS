@@ -9,7 +9,7 @@ Empresa + actividad                ──► sus CATEGORÍAS (con artículos y p
 Categoría (categorias_mercaderia)  ──► qué se registra (conteo, artículos, bultos, documentos)
 ```
 
-Desde el bloque 16 de sql/01 (empresas internas, ver [secciones/empresas.md](secciones/empresas.md)) cada
+Desde el bloque 16 de sql/01 (empresas internas, ver [secciones/empresas-internas.md](secciones/empresas-internas.md)) cada
 empresa tiene **su propia** mercadería, tarifas y descuentos, y solo ve los de las actividades que realiza.
 Una empresa nueva puede copiar los de la empresa activa al crearse.
 
@@ -19,6 +19,14 @@ Una empresa nueva puede copiar los de la empresa activa al crearse.
 |---|---|---|
 | `tienda` | Entregas de tienda (supermercado) | Compra (monto, envío gratis, cobrar la compra), alcohol |
 | `encomiendas` | Encomiendas | Bodega ("Recibido en bodega"), punto de partida, tamaños S/M/L/XL |
+| `transporte` | Transporte | **Viajes con agenda** (`usa_viajes`): sección Viajes en vez de Pedidos, precio por franja, cortesía. Se llama "viaje" y "conductor" ([secciones/viajes.md](secciones/viajes.md)) |
+
+**Palabras de la actividad** (sql/01 bloque 18): cada actividad puede llamar distinto al registro y al conductor
+(Configuración → Actividades; vacío = pedido / piloto). Si **todas** las actividades de la empresa usan la misma,
+`js/palabras.js` la muestra en todo lo que se ve (menú, pie, secciones, ventanas, avisos, confirmaciones). Una
+empresa solo de Transporte lee "Viajes" y "Conductores"; con Transporte y otra actividad sigue "Pedidos". No cambia
+ids, enlaces ni la base. Para datos escritos por personas: `data-sin-palabras`. Para textos que no pasan por la
+pantalla (Excel, PDF): `cambiarPalabras(texto)` o `palabra('registros')`.
 
 - **Qué realiza la empresa:** Tiendas → Empresas (casillas de actividades de cada empresa interna; si la
   base no tiene empresas, `empresas.js` → `actividades`). Las demás no aparecen en ningún lado.
@@ -37,6 +45,7 @@ Una empresa nueva puede copiar los de la empresa activa al crearse.
 | `usa_tamanos` | Columna de tamaño en los bultos |
 | `usa_compra` | "Monto de la compra", aviso de envío gratis, "el piloto cobra la compra" |
 | `permite_alcohol` | Casilla "Lleva alcohol" en abarrotes; el piloto confirma mayoría de edad al entregar |
+| `usa_viajes` | No es de pedidos: va a la sección **Viajes** (el cliente solicita día y hora; vehículo y conductor automáticos). No aparece en Pedidos, Rutas ni Configuración → Pedidos; su precio está en Configuración → Transporte |
 
 ## Categorías de mercadería
 
@@ -86,9 +95,17 @@ total a cobrar = envío (si lo cobra el piloto) + compra (si lo cobra el piloto)
 
 Ejemplo (mínimo ₡2500 cubre 2 kg, ₡500 por kg adicional): 1.5 kg → ₡2500 · 4 kg → ₡3500 · 8 kg → ₡5500.
 
-## Agregar una actividad nueva (ej. farmacia)
+## Agregar una actividad nueva (ej. transporte, farmacia)
 
-1. SQL nuevo: `insert into actividades (codigo, nombre, ..., usa_*)`, su tarifa general y sus categorías.
-2. Agregar el código a `actividades` de las empresas que la realicen (`empresas.js`).
-3. Marcar qué usa y activarla (Configuración → Actividades): queda en todas las tiendas.
-No hace falta programar el formulario: se arma con sus categorías y lo que usa.
+Desde la página, sin SQL (solo Desarrollador):
+
+1. Configuración → Actividades → **Nueva actividad**: nombre, código (sale solo del nombre, ej.
+   `transporte`; no se cambia después), descripción, icono, activa y qué usa.
+2. Dejar marcada **"Agregarla a la empresa con la que trabajas"**. Las demás empresas la marcan en
+   Tiendas → Empresas (la casilla aparece sola). Sin empresas internas: agregar el código a
+   `actividades` en `empresas.js`.
+3. Configuración → Pedidos: su **tarifa general** y sus **categorías** de mercadería.
+
+No hace falta programar el formulario: se arma con sus categorías y lo que usa. Una actividad con
+**"Viajes con agenda"** (`usa_viajes`, como Transporte) no usa categorías ni tarifas: se configura en
+Configuración → Transporte ([secciones/viajes.md](secciones/viajes.md)).

@@ -167,3 +167,39 @@
 .cli-montos .campo-ayuda {
     grid-column: 1 / -1;
 }
+
+/* ---------- Acceso y lugares (Viajes, sql/01 bloque 19) ---------- */
+.cli-acceso-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.556rem;
+    margin: 0 0 0.778rem;
+    padding: 0.778rem 0.889rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.cli-acceso-grupo legend {
+    padding: 0 0.333rem;
+}
+
+.cli-acceso-tiene {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.556rem;
+}
+
+.cli-acceso-tiene .campo {
+    width: 100%;
+}
+
+.cli-lugar-buscar {
+    display: flex;
+    gap: 0.444rem;
+}
+
+.cli-lugar-buscar .campo-input {
+    flex: 1;
+    min-width: 0;
+}

@@ -18,7 +18,7 @@
 
 ## Usuario (cómo inicia sesión)
 
-Usuario compuesto **con el ID de su empresa al final** (sql/01 bloque 16, [empresas.md](empresas.md)).
+Usuario compuesto **con el ID de su empresa al final** (sql/01 bloque 16, [empresas-internas.md](empresas-internas.md)).
 En el formulario se escribe `jperez`; al guardar se agrega:
 
 | Rol | Se guarda | Ejemplo (empresa `01`) |

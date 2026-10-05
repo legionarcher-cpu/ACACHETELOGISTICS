@@ -11,6 +11,7 @@
 | `css/index.css` | Encabezado, menú, pie, notificaciones | El marco que se ve siempre |
 | `css/secciones/<nombre>.css` | Lo propio de una sección (prefijo de clases) | Solo esa sección; gana sobre lo anterior |
 | `responsive/responsive.css` | Tablet y celular (solo `@media`) | Pantallas ≤ 1200 px |
+| `css/encabezados.css` | **Imágenes del encabezado** por marca y por empresa interna (va al final) | Cambiar la imagen del título o los logos de una empresa |
 
 ## Medidas: todo en `rem` (multirresolución)
 

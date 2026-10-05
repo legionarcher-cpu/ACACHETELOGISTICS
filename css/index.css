@@ -98,16 +98,14 @@ body {
     border-style: ridge;
 }
 
-/* Imagen 1: logo de ACACHETE con eslogan (marca de la casa, queda encima) */
+/* Imagen 1 (queda encima) e imagen 2 (debajo). Las IMÁGENES de cada marca y empresa
+   se eligen en css/encabezados.css */
 .logo-img-1 {
-    background-image: url("../img/logo-web-slog.png");
     z-index: 2;
     animation: cortina1 6s infinite;
 }
 
-/* Imagen 2: logo de la empresa (queda debajo). Para cambiarlo, cambiar la imagen aquí */
 .logo-img-2 {
-    background-image: url("../img/img-logo.png");
     z-index: 1;
     animation: cortina2 6s infinite;
 }
@@ -158,10 +156,9 @@ body {
     margin: 10%;
 }
 
-/* Logo de la empresa junto al título. Para cambiarlo, cambiar la imagen aquí */
+/* Logo chico junto al título (la imagen: css/encabezados.css) */
 #log-sec {
     height: 80%;
-    background-image: url("../img/logo.png");
     background-size: contain;
     background-repeat: no-repeat;
     background-position: center;
@@ -197,30 +194,8 @@ body {
     text-align: center;
 }
 
-/* Si la empresa tiene imagen de encabezado (campo "encabezado"),
-   empresas/empresas.js agrega "con-imagen": la imagen cubre todo el recuadro */
-.titulos-primordial.con-imagen {
-    position: relative;
-    align-self: stretch; /* ocupa todo el alto aunque .cont-info centre a los demás */
-    padding: 0;
-    overflow: hidden;    /* recorta la imagen con las esquinas redondeadas */
-}
-
-.titulos-primordial.con-imagen #titulo-panel {
-    position: absolute;
-    inset: 0;
-}
-
-.titulos-primordial.con-imagen #titulo-panel img {
-    display: block;
-    width: 100%;
-    height: 100%;
-    object-fit: cover; /* llena el recuadro; si sobra, recorta los bordes */
-}
-
-.titulos-primordial.con-imagen #subti-panel {
-    display: none;
-}
+/* Imagen del encabezado en vez del título: css/encabezados.css (.encabezado-imagen,
+   .con-imagen), según la marca y la empresa activas */
 
 /* ---------- Fecha y hora ----------
    Los textos los llena js/date.js cada segundo. */
@@ -857,6 +832,15 @@ html.sin-sesion .pie-botones {
    administrativas). Su menú lo limita SECCIONES_POR_ROL en js/sesion.js. */
 html[data-rol="piloto"] .pie-botones {
     visibility: hidden;
+}
+
+/* Cliente (solicita sus viajes): sin botones del pie ni lector de QR */
+html[data-rol="cliente"] .pie-botones {
+    visibility: hidden;
+}
+
+html[data-rol="cliente"] .qr-boton {
+    display: none;
 }
 
 /* "Asignar Piloto" es solo de Admin G2 o superior (G3 y Empleado no lo ven).

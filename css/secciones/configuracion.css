@@ -266,6 +266,56 @@
     margin: 0;
 }
 
+/* Actividades: "Nueva actividad" junto a la X */
+.cfg-act-cabecera-botones {
+    display: flex;
+    align-items: center;
+    gap: 0.444rem;
+}
+
+/* Icono elegido al lado de su lista */
+.cfg-act-icono-caja {
+    display: flex;
+    align-items: center;
+    gap: 0.556rem;
+}
+
+.cfg-act-icono-caja i {
+    font-size: 1.4rem;
+    color: var(--color-azul);
+}
+
+/* Palabras de la actividad: etiqueta | singular | plural */
+.cfg-act-palabras {
+    display: grid;
+    grid-template-columns: auto 1fr 1fr;
+    align-items: center;
+    gap: 0.444rem 0.556rem;
+    margin: 0;
+    padding: 0.556rem 0.667rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.cfg-act-palabras legend,
+.cfg-act-palabras small {
+    grid-column: 1 / -1;
+}
+
+.cfg-act-palabras label {
+    margin: 0;
+}
+
+@media (max-width: 600px) {
+    .cfg-act-palabras {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .cfg-act-palabras label {
+        grid-column: 1 / -1;
+    }
+}
+
 /* La tabla deja aire bajo el texto de la ventana */
 #cfgActDialogo .tabla-caja {
     margin-top: 0.778rem;
@@ -683,5 +733,117 @@
 
     .cfg-dia-encabezado span:first-child {
         display: none;
+    }
+}
+
+/* ==================================================
+   MÓDULO TRANSPORTE (js/secciones/configuracion/transporte.js)
+   ================================================== */
+.cfg-tra {
+    display: flex;
+    flex-direction: column;
+    gap: 1.111rem;
+}
+
+/* Botones de las tablas: mismos colores que editar / eliminar */
+.boton-icono-editar-franja,
+.boton-icono-editar-gasto,
+.boton-icono-editar-vehiculo {
+    color: var(--color-azul);
+}
+
+.boton-icono-eliminar-franja,
+.boton-icono-eliminar-gasto,
+.boton-icono-eliminar-cerrado {
+    color: var(--color-rojo);
+}
+
+.cfg-tra-grupos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 0.889rem;
+}
+
+.cfg-tra-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.556rem;
+    margin: 0;
+    padding: 0.778rem 0.889rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.cfg-tra-grupo legend {
+    padding: 0 0.333rem;
+    font-weight: 600;
+    color: var(--color-azul-marino);
+}
+
+.cfg-tra-sim-controles,
+.cfg-tra-combustible,
+.cfg-tra-cerrado {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.556rem;
+}
+
+.cfg-tra-sim-controles {
+    align-items: center;
+    font-size: 0.85rem;
+}
+
+.cfg-tra-sim-controles .campo-input {
+    width: 4.5rem;
+}
+
+.cfg-tra-simulador td:first-child {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.cfg-tra-resumen {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    margin: 0.667rem 0;
+}
+
+.cfg-tra-subtitulo {
+    margin: 0.889rem 0 0.444rem;
+    font-size: 0.95rem;
+    color: var(--color-azul-marino);
+}
+
+.cfg-tra-dias {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.cfg-tra-dias-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.222rem 0.889rem;
+}
+
+/* Datos de Transporte en la ventana del vehículo */
+.cfg-veh-transporte {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.556rem 0.889rem;
+    margin: 0;
+    padding: 0.667rem 0.778rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.cfg-veh-transporte legend {
+    padding: 0 0.333rem;
+}
+
+@media (max-width: 600px) {
+    .cfg-veh-transporte {
+        grid-template-columns: 1fr;
     }
 }

@@ -1,5 +1,11 @@
 # Reportes (`#reportes`)
 
+> **Pestaña Viajes** (empresas que hacen viajes, `#reportes?actividad=viajes`): reporte propio
+> (`montarReporteViajes`, `js/viajes-comun.js`) con resumen, por franja, por vehículo (costo estimado y margen) y
+> detalle; exporta Excel y PDF. Las actividades de viajes no salen como pestañas de pedidos. **Exportaciones:** el
+> Excel y el PDF llevan el nombre de la empresa con la que se trabaja (`nombreEmpresaExportar`), los colores de su
+> paleta (`colorDeVariable`) y sus palabras (`textoExportar`, Pedido → Viaje), funciones de `js/componentes.js`.
+
 | Archivo | Qué tiene |
 |---|---|
 | `secciones/reportes.html`, `js/secciones/reportes.js`, `css/secciones/reportes.css` | Clases e ids `rep` |

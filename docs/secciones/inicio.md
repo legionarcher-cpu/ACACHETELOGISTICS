@@ -2,7 +2,11 @@
 
 Primera pantalla después del login (`SECCION_INICIAL` en `js/pagina_inicial.js`): un tablero simple de
 **"qué pasa hoy"** que cambia según el rol, con el **mapa** de las entregas del día. Todo es de la empresa
-activa (ver [empresas.md](empresas.md)). No cuenta pedidos anulados.
+activa (ver [empresas-internas.md](empresas-internas.md)). No cuenta pedidos anulados.
+
+> **Viajes:** el **cliente** con usuario y las empresas **solo de Transporte** ven otro Inicio
+> (`montarInicioViajes`, `js/viajes-comun.js`): viajes de hoy (por hacer, en curso, terminados, ingresos), próximos
+> viajes, la cortesía del cliente y avisos si falta configurar franjas o vehículos. Ver [viajes.md](viajes.md).
 
 | Archivo | Qué tiene |
 |---|---|

@@ -33,11 +33,17 @@ la página y ruta de entrega del cliente por tienda.
 
 Nunca crear columnas a mano en el Table Editor.
 
-**Vaciar una base (empezar de cero):** `herramientas/vaciar_base_datos.sql` borra **todos** los
-registros (también la configuración) y reinicia los contadores, sin tocar la estructura. Después se
-ejecuta `01_actualizacion_base_existente.sql` (pone las tablas al día) y luego `00_instalacion_completa.sql`
-(vuelve a cargar los valores de fábrica). Las fotos de
-Storage se borran a mano (Storage → `avatares` / `evidencias`). No se puede deshacer.
+**Vaciar (empezar de cero):** `herramientas/vaciar_base_datos.sql` primero pide **qué empresa** se limpia (PASO 1
+del archivo); sin escribirla se detiene sin borrar nada.
+- **Una empresa:** su ID (`'02'`) y, para confirmar, su nombre exacto. Borra solo sus datos (pedidos, viajes,
+  clientes, rutas, vehículos, usuarios, tiendas, regiones, tarifas, descuentos, categorías y su configuración de
+  transporte); las demás empresas y lo que es de todo el sistema (actividades, horarios, slots) no se tocan. Puede
+  conservar sus Administradores (`conservar_administradores`) y borrar la empresa al final (`borrar_empresa`).
+- **Toda la base:** `'TODAS'` + `'BORRAR TODO'`: borra todo (también la configuración) y reinicia los contadores, sin
+  tocar la estructura. Después se ejecuta `01_actualizacion_base_existente.sql` y luego `00_instalacion_completa.sql`
+  (valores de fábrica).
+
+Las fotos de Storage se borran a mano (Storage → `avatares` / `evidencias`). No se puede deshacer.
 
 Si la página dice "Falta instalar la base de datos", falta `00`; si dice "Falta ejecutar
 sql/01_actualizacion_base_existente.sql", falta la actualización.
@@ -48,7 +54,8 @@ sql/01_actualizacion_base_existente.sql", falta la actualización.
 
 **`empresas`** (sql/01 bloque 16) — empresas internas: `id`, `codigo` (ID de 2 números, `01`, único; va al
 final de sus usuarios), `nombre` (único), `actividades` (`{tienda,encomiendas}`, al menos una), `activa`
-(inactiva = sus usuarios no entran), `creado_en`. La primera es la "Empresa principal" (`01`).
+(inactiva = sus usuarios no entran), `colores` (paleta: `{"color-azul": "#5A6B34", ...}`, `{}` = la de la marca;
+se pinta al iniciar sesión con un usuario de la empresa; bloque 21), `creado_en`. La primera es la "Empresa principal" (`01`).
 **`empresa_id`** (obligatorio) en `regiones`, `tiendas`, `clientes`, `rutas`, `vehiculos`, `pedidos`,
 `categorias_mercaderia`, `tarifas` y `descuentos`; en `usuarios` es obligatorio salvo para el Desarrollador.
 Valor por defecto: `empresa_principal()`. Triggers: pedidos y rutas toman la de su tienda; tiendas y
@@ -56,7 +63,7 @@ descuentos la de su región; tarifas la de su tienda o región; usuarios la de s
 (Administrador y G1, la que se elige). Funciones: `usuario_base`, `usuario_completo`,
 `usuario_libre` (agrega un número si el usuario ya existe), `cambiar_codigo_empresa` (cambia el ID y renombra
 a sus usuarios). Bloque 17: usuarios de tienda con la región y sin el número de la tienda. La página filtra sola por la empresa
-activa (`js/supabase.js`, ver [secciones/empresas.md](secciones/empresas.md)).
+activa (`js/supabase.js`, ver [secciones/empresas-internas.md](secciones/empresas-internas.md)).
 
 **`regiones`** — zonas del país. `codigo` (3 letras MAYÚSCULAS, ej. `NOR`, único en todo el sistema),
 `nombre`, `empresa_id`. Se administran en Tiendas → Regiones (Administrador y G1).
@@ -73,8 +80,9 @@ de sus entregas; la guardan Administrador y G1 desde el formulario de Pedidos; s
 | `nombre`, `telefono` | Datos de la persona |
 | `id_usuario` | Con lo que inicia sesión (único, minúsculas). Lleva el ID de la empresa al final: `cenjperez01` (G3/Empleado/Piloto: región + nombre, sin la tienda), `jperez01` (Administrador/G1/G2) |
 | `empresa_id` | Su empresa interna (null solo el Desarrollador) |
-| `clave` | Contraseña (⚠ sin cifrar hasta la Fase 7) |
-| `rol` | `administrador`, `admin_g1`, `admin_g2`, `admin_g3`, `empleado`, `piloto` |
+| `clave` | Contraseña **cifrada** (bcrypt, bloque 20): la cifra la base sola (`cifrar_clave`), el login la compara con `iniciar_sesion` y la página no puede leerla (`usuarios_ocultar_clave()`: volver a ejecutarla si se agrega una columna a `usuarios`). ⚠ Desde la página, leer `usuarios` siempre con columnas (`usuarios(id)`), nunca `usuarios(count)` ni `select('*')`: dan "permission denied for table usuarios" |
+| `rol` | `administrador`, `admin_g1`, `admin_g2`, `admin_g3`, `empleado`, `piloto`, `cliente` (bloque 19) |
+| `cliente_id` | Solo el rol `cliente`: su fila en `clientes` (un acceso por cliente; al eliminar el cliente se elimina su usuario) |
 | `tienda_id` | Su tienda (obligatoria para G3, Empleado y Piloto) |
 | `region` | Su región (obligatoria solo para G2) |
 | `foto_url` | Enlace de su foto (Storage `avatares`) |
@@ -86,17 +94,19 @@ de sus entregas; la guardan Administrador y G1 desde el formulario de Pedidos; s
 Reglas: tienda/región según el rol; vehículo y multitienda solo pilotos; el usuario `admin` no se
 elimina ni cambia de usuario o rol (trigger `proteger_admin`).
 
-**`vehiculos`** — `placa` (única, MAYÚSCULAS), `tipo` (`camion`, `pickup`, `panel`, `moto`), `marca`,
+**`vehiculos`** — `placa` (única, MAYÚSCULAS), `tipo` (`camion`, `pickup`, `panel`, `moto`, `auto`, `microbus`), `marca`,
 `estado` (`disponible`, `en_uso`, `mantenimiento`). `en_uso`/`disponible` los pone solo la base de datos
 según los pedidos activos del piloto (función `recalcular_estado_vehiculo` + triggers); `mantenimiento`
-no se toca.
+no se toca. Transporte (bloque 19): `asientos`, `carga_kg`, `acepta_mascotas` (los usa la agenda para asignar
+el vehículo) y `km_por_litro`, `horas_mes`, `km_mes` (costos).
 
 **`clientes`** — `nombre`, `apellido1`, `apellido2` (opcional), `telefono`, `correo` (opcional, **no se
 repite dentro de la empresa**), `direccion`, `ubicacion` (texto, enlace o coordenadas `lat, lng`: Nuevo pedido
 guarda el punto de entrega), `empresa_id`, y aprobación (`aprobado`, `cambios_pendientes`, `solicitado_por`,
 `solicitado_en`). Calculadas por la base (no se escriben): `apellidos` (= apellido1 + apellido2) y
 `busqueda` (nombre, apellidos, correo y teléfono en dígitos, minúsculas y sin tildes; la usa el buscador de
-clientes de Pedidos). sql/01 bloque 11.
+clientes de Pedidos). sql/01 bloque 11. Transporte (bloque 19): `casa_direccion`, `casa_lat`, `casa_lng`,
+`trabajo_direccion`, `trabajo_lat`, `trabajo_lng` (sus dos lugares para armar la ruta de un viaje).
 **`clientes_tiendas`** — qué tiendas atienden a cada cliente (muchos a muchos) y `ruta_id`: su **ruta de
 entrega** en esa tienda (sql/01 bloque 16).
 
@@ -149,7 +159,13 @@ Función `slots_del_dia(fecha)`: slots que aplican a una fecha. Sin límite de p
 
 | Tabla | Qué guarda |
 |---|---|
-| `actividades` | `codigo` (`tienda`, `encomiendas`), `nombre`, `descripcion`, `icono`, `activa`, `orden` y qué usa: `usa_bodega`, `usa_recoleccion`, `usa_compra`, `usa_tamanos`, `permite_alcohol` |
+| `actividades` | `codigo` (`tienda`, `encomiendas`, `transporte`; se agregan desde Configuración → Actividades), `nombre`, `descripcion`, `icono`, `activa`, `orden`; qué usa: `usa_bodega`, `usa_recoleccion`, `usa_compra`, `usa_tamanos`, `permite_alcohol`, `usa_viajes` (trabaja con viajes en vez de pedidos; bloque 19); cómo llama al registro y al conductor: `palabra_registro`, `palabra_registros`, `palabra_conductor`, `palabra_conductores` (vacío = pedido / piloto; bloque 18, `js/palabras.js`) |
+| `transporte_config` | Reglas de transporte de cada empresa (una fila por `empresa_id`): agenda (acercamiento, colchón, velocidad, anticipación, plazo para cancelar, zona horaria), recargos fijos, redondeo, cortesía y precio del litro. Bloque 19 |
+| `transporte_franjas` | Precio por km según la hora de recogida: `dias` (1 = lunes … 7 = domingo), `desde`, `hasta`, `cargo_base`, `precio_km`, `minimo`, `activa`. Trigger `franjas_sin_encimar` |
+| `transporte_dias_cerrados` | `empresa_id` + `fecha` + `motivo`: ese día no se reserva |
+| `transporte_costos` | Gastos del mes: `concepto`, `tipo` (`fijo` / `variable`), `monto_mes`, `vehiculo_id` (vacío = toda la empresa) |
+| `viajes` | Viajes (código `V-000001`): cliente, A y B (dirección y punto), km, minutos, personas, mascotas, mercadería, `inicio` y bloque del vehículo, vehículo, conductor, franja, precio, recargos, total, `desglose`, cortesía, estado y horas de cada paso. **La página solo lee**: se escribe con `viajes_solicitar`, `viajes_cambiar_hora`, `viajes_cancelar` y `viajes_avanzar` |
+| `cortesias` | Viajes de cortesía ganados: cliente, `ganada_en`, `vence_en`, `usada_viaje_id`. Solo lectura desde la página |
 | `tiendas_actividades` | **Ya no se usa**: las actividades activas aplican a todas las tiendas (se puede quitar en una limpieza futura) |
 | `categorias_mercaderia` | Casillas del pedido por actividad: `nombre`, `tipo` (`conteo`, `articulos`, `bulto`, `documento`), `icono`, `peso_referencia` (documentos), `activa`, `orden` |
 | `articulos_catalogo` | Pesos promedio: `categoria_id`, `nombre`, `peso_kg`, `activo`, `orden` |
@@ -221,6 +237,16 @@ tarifa usada. Es a propósito: el historial muestra lo que pasó aunque luego ca
 Todas las tablas tienen reglas **TEMPORALES** que dejan leer y escribir a cualquiera con la clave
 pública (`anon`). Pedidos, entregas y evidencias no se pueden borrar; el historial solo se agrega.
 Quién ve qué lo decide la página. Ver Fase 7 en [12-pendientes.md](12-pendientes.md).
+
+Ya protegido en la base (no depende de la página):
+- `viajes` y `cortesias`: la página solo lee; todo cambio pasa por funciones (bloque 19).
+- `usuarios.clave`: cifrada y no se puede leer (bloque 20).
+- Solicitud de usuario del cliente: `registro_clientes_empresa(codigo)` y `solicitar_acceso_cliente(p)` (bloque 20)
+  revisan la empresa (activa y con Transporte), los datos, duplicados por teléfono o correo, máximo 20 solicitudes por
+  hora y crean cliente + usuario **sin aprobar**.
+
+En la página (`js/supabase.js`): `select`, `update` y `delete` de las tablas por empresa llevan siempre la empresa
+activa; sin empresa activa, `delete` no borra nada.
 
 > Supabase devuelve como máximo **1000 filas** por consulta (ajuste "Max Rows" del proyecto, en la
 > configuración de la API). Si los reportes crecen más, subir ese valor o paginar.

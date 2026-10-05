@@ -1,0 +1,346 @@
+/* ==================================================
+   VIAJES (TRANSPORTE) - PIEZAS COMUNES
+   ACACHETE LOGISTICS
+
+   Tarjeta de viaje, cortesía, Inicio de viajes y reporte de viajes
+   (js/viajes-comun.js). Se usan en Inicio, Viajes y Reportes, por eso se
+   cargan siempre (index.html). Lo propio de la sección Viajes (solicitud
+   en 4 pasos, horas) está en css/secciones/viajes.css. Clases "via-".
+   Colores: variables de css/variables.css (cambian con la paleta de la empresa).
+   ================================================== */
+
+/* ---------- Tarjetas y columnas ---------- */
+.via-columnas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    gap: 0.889rem;
+    align-items: start;
+}
+
+.via-tarjeta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.667rem;
+    padding: 1.111rem;
+}
+
+.via-tarjeta-cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.667rem;
+}
+
+.via-tarjeta-titulo {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--color-azul-marino);
+}
+
+.via-tarjeta-titulo i {
+    margin-right: 0.222rem;
+    color: var(--color-azul);
+}
+
+.via-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.667rem;
+}
+
+.via-vacio {
+    margin: 0;
+    padding: 0.889rem;
+    text-align: center;
+    color: var(--color-gris);
+    background-color: var(--color-fondo);
+    border-radius: var(--radio);
+}
+
+.via-nota-chica {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+.via-num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* ---------- Tarjeta de un viaje ---------- */
+.via-viaje {
+    display: grid;
+    grid-template-columns: 5.5rem 1fr;
+    gap: 0.889rem;
+    padding: 0.889rem;
+    background-color: var(--color-blanco);
+    border: 1px solid var(--color-borde);
+    border-left: 0.333rem solid var(--color-azul);
+    border-radius: var(--radio-grande);
+}
+
+.via-estado-en_camino      { border-left-color: #0E6B63; }
+.via-estado-en_curso       { border-left-color: #6D28D9; }
+.via-estado-terminado      { border-left-color: var(--color-verde); }
+.via-estado-cancelado,
+.via-estado-no_se_presento { border-left-color: var(--color-gris); opacity: 0.8; }
+
+.via-viaje-hora {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.111rem;
+}
+
+.via-viaje-hora strong {
+    font-size: 1.5rem;
+    line-height: 1.1;
+    color: var(--color-azul-marino);
+}
+
+.via-viaje-hora small {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+.via-viaje-cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.389rem;
+    min-width: 0;
+}
+
+.via-viaje-cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.444rem;
+}
+
+.via-viaje-cliente,
+.via-ruta,
+.via-viaje-nota {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.via-viaje-nota {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+.via-ruta {
+    display: flex;
+    align-items: baseline;
+    gap: 0.444rem;
+}
+
+.via-ruta span {
+    overflow-wrap: anywhere;
+}
+
+.via-punto {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 1.333rem;
+    height: 1.333rem;
+    font-size: 0.75rem;
+    color: var(--color-blanco);
+    background-color: var(--color-azul);
+    border-radius: 50%;
+}
+
+.via-punto-b {
+    background-color: var(--color-naranja);
+}
+
+.via-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.333rem;
+}
+
+.via-chip {
+    padding: 0.111rem 0.5rem;
+    font-size: 0.78rem;
+    color: var(--color-texto);
+    background-color: var(--color-fondo);
+    border: 1px solid var(--color-borde-suave);
+    border-radius: 999px;
+}
+
+.via-viaje-pie {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.444rem;
+    padding-top: 0.389rem;
+    border-top: 1px solid var(--color-borde-suave);
+}
+
+.via-viaje-vehiculo {
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+.via-viaje-total {
+    font-size: 1.1rem;
+    color: var(--color-azul-marino);
+}
+
+.via-viaje-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem;
+    padding-top: 0.222rem;
+}
+
+.via-viaje-acciones a.boton {
+    text-decoration: none;
+}
+
+/* ---------- Cortesía ---------- */
+.via-cortesia-ganada {
+    margin: 0;
+    padding: 0.556rem 0.667rem;
+    color: var(--color-verde);
+    background-color: var(--color-verde-claro);
+    border-radius: var(--radio);
+}
+
+.via-cortesia-avance {
+    margin: 0;
+    font-weight: 600;
+}
+
+.via-barra {
+    height: 0.556rem;
+    overflow: hidden;
+    background-color: var(--color-borde-suave);
+    border-radius: 999px;
+}
+
+.via-barra span {
+    display: block;
+    height: 100%;
+    background-color: var(--color-naranja);
+    border-radius: 999px;
+    transition: width 0.3s ease;
+}
+
+/* ---------- Avisos de configuración (Inicio del personal) ---------- */
+.via-alertas {
+    display: flex;
+    flex-direction: column;
+    gap: 0.444rem;
+}
+
+.via-alerta {
+    margin: 0;
+    padding: 0.667rem 0.889rem;
+    color: #7A4A00;
+    background-color: #FFF4E0;
+    border: 1px solid #F5D49A;
+    border-radius: var(--radio);
+}
+
+.via-alerta a {
+    font-weight: 600;
+    color: inherit;
+}
+
+/* ---------- Cuadros con número (reporte de viajes) ---------- */
+.via-kpis {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    gap: 0.889rem;
+    margin: 0.889rem 0;
+}
+
+.via-kpi {
+    gap: 0.333rem;
+    cursor: default;
+}
+
+.via-kpi .resumen-numero {
+    font-size: 1.5rem;
+}
+
+.via-kpi-detalle {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+/* ---------- Filtros (agenda y reporte) ---------- */
+.via-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.667rem;
+    padding: 1rem;
+}
+
+.via-filtros .campo {
+    min-width: 9rem;
+}
+
+.via-atajos,
+.via-filtros-botones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem;
+}
+
+.via-filtros-botones {
+    margin-left: auto;
+}
+
+.via-atajos .boton.activo {
+    color: var(--color-blanco);
+    background-color: var(--color-azul);
+    border-color: var(--color-azul);
+}
+
+.via-paginas {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.667rem;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+#repViajes .via-columnas {
+    margin-bottom: 0.889rem;
+}
+
+/* ---------- Celular ---------- */
+@media (max-width: 600px) {
+    .via-columnas {
+        grid-template-columns: 1fr;
+    }
+
+    .via-viaje {
+        grid-template-columns: 1fr;
+        gap: 0.444rem;
+    }
+
+    .via-viaje-hora {
+        flex-direction: row;
+        align-items: baseline;
+        gap: 0.444rem;
+    }
+
+    .via-filtros .campo {
+        min-width: 0;
+        flex: 1 1 8rem;
+    }
+
+    .via-filtros-botones {
+        margin-left: 0;
+    }
+}

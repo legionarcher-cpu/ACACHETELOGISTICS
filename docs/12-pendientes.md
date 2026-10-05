@@ -58,9 +58,12 @@ tablas (Table Editor → Export) antes de cada script que cambie datos.
 
 ## C. Seguridad — Fase 7 (antes de usar datos reales)
 
-- Hoy: claves sin cifrar y la base acepta todo con la clave pública; las reglas las aplica la página.
-- Fase 7: login con **Supabase Auth** (claves cifradas) y reglas **RLS** en cada tabla con la jerarquía
-  de permisos, para que ninguna consulta o reporte devuelva lo que el rol no puede ver.
+- Hecho (2026-10-04, bloque 20): claves **cifradas** y no legibles desde la página; login dentro de la base;
+  `update`/`delete` de la página siempre dentro de la empresa activa; vaciar la base pide la empresa.
+- Hoy todavía: la base acepta leer y escribir las demás tablas con la clave pública (ej. cambiar `aprobado` o la
+  clave de un usuario); las reglas por rol las aplica la página.
+- Fase 7: login con **Supabase Auth** y reglas **RLS** en cada tabla con la jerarquía de permisos y la empresa, para
+  que ninguna consulta o reporte devuelva lo que el rol no puede ver.
 - Cambiar la clave de `admin`. (La protección del usuario `admin` queda asegurada con `sql/01`.)
 
 ## D. Pendientes de funcionalidad
@@ -83,7 +86,22 @@ tablas (Table Editor → Export) antes de cada script que cambie datos.
 - Empresas internas: reglas reales en la base (Fase 7) para que una empresa no pueda leer otra aunque
   alguien cambie la página; marcadores de los pilotos en el mapa de Inicio cuando la app comparta el GPS.
 
-## E. Decisiones abiertas
+## E. Actividad Transporte (hecha el 2026-10-04; seguridad parcial)
+
+[14-transporte.md](14-transporte.md) · [secciones/viajes.md](secciones/viajes.md). Fases 1 a 7 hechas (`sql/01`
+bloques 18 y 19): sección Viajes, rol cliente, franjas, recargos, costos del mes, días cerrados, cortesía, reporte de
+viajes y exportaciones con el nombre y la paleta de la empresa.
+
+- **Pendiente (seguridad):** las reservas ya pasan por funciones de la base, pero las lecturas siguen abiertas con la
+  clave pública hasta la **Fase 7** (Supabase Auth + RLS, parte C). Hacerla antes de dar usuarios a clientes externos
+  con datos reales.
+- **Hecho (bloque 20):** el cliente solicita su usuario desde el login (`#registro?empresa=02`) y se aprueba en
+  Clientes → Revisar. Posible mejora: confirmar el teléfono con un código por WhatsApp/SMS y "Olvidé mi contraseña".
+- **Pendiente de decidir:** "Repetir viaje" / "Agregar regreso" y viajes recurrentes.
+- **Para probar en la base real:** ejecutar el bloque 19, crear franjas, poner asientos a un vehículo con piloto y
+  dar acceso a un cliente (lista en [11-pruebas.md](11-pruebas.md), "Transporte: viajes").
+
+## F. Decisiones abiertas
 
 - Documentos en encomiendas: hoy suman 0.2 kg cada uno al peso (cobro por peso). ¿Tarifa fija por sobre?
 - ¿Página pública de seguimiento para quien recibe el pedido?

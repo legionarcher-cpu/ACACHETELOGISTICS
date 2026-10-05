@@ -24,7 +24,7 @@ si se tocó Pedidos o Inicio). Tener la consola abierta (F12): no debe aparecer 
 - [ ] Cambiar a un empleado de tienda dentro de la misma región: su usuario no cambia.
 - [ ] Menú del usuario: todos ven "Empresa · 01 · Empresa principal"; el **Desarrollador** ve un selector y al
       cambiar de empresa la sección se recarga solo con lo de esa empresa (tiendas, usuarios, pedidos...).
-- [ ] Tiendas → pestaña **Empresas** solo la ve el Desarrollador (otros: ni la pestaña ni `#empresas`).
+- [ ] Tiendas → pestaña **Empresas** solo la ve el Desarrollador (otros: ni la pestaña ni `#empresas-internas`).
 - [ ] Nueva empresa: propone el siguiente ID (02); no deja un ID repetido ni sin actividades; con "Copiar la
       configuración" la nueva tiene las categorías, artículos, tarifas y descuentos generales de sus actividades.
 - [ ] Cambiar el ID de una empresa con usuarios avisa cuántos se renombran y los renombra (…01 → …05).
@@ -242,9 +242,82 @@ si se tocó Pedidos o Inicio). Tener la consola abierta (F12): no debe aparecer 
 - [ ] La línea naranja aparece justo antes del primer peso con kg adicionales; en celular la columna Peso queda fija al deslizar.
 - [ ] Varias simulaciones se apilan (la nueva arriba); ✕ borra una; "Borrar todos" las quita y oculta el contador.
 - [ ] Si ya se había usado la calculadora antes del cambio, recargar la página (F5) para que tome el Python nuevo.
-- [ ] Actividades (Administrador): la ventana se abre sobre las tarjetas; cambiar "qué usa" se refleja en Pedidos.
+- [ ] Actividades (Desarrollador): la ventana se abre sobre las tarjetas; cambiar "qué usa" se refleja en Pedidos.
+- [ ] Actividades → Nueva actividad: el código sigue al nombre ("Envíos Exprés" → `envios_expres`) hasta que se
+      escribe a mano; código repetido o inválido avisa; con "Agregarla a la empresa" aparece enseguida su pestaña en
+      Pedidos y su casilla en Tiendas → Empresas. Las que la empresa no hace dicen "No la realiza esta empresa".
+- [ ] Palabras: escribir solo el singular (o solo el plural) avisa; guardar "viaje / viajes" muestra "Se llama: viaje…".
+
+## Transporte: Pedido → Viaje (sql/01 bloque 18)
+- [ ] Ejecutar el bloque 18: aparece la actividad Transporte con "Se llama: viaje · conductor".
+- [ ] Empresa SOLO con Transporte: menú "Viajes" y "Conductores"; pie "Crear Viaje", "Asignar Conductor",
+      "Cancelar viaje"; Pedidos ("Nuevo viaje"), Inicio, Reportes, avisos y ventanas de confirmar dicen viaje.
+- [ ] Empresa con Transporte + otra actividad: todo sigue diciendo "Pedidos" y Pedidos tiene la pestaña Transporte.
+- [ ] Desarrollador: cambiar de empresa en el menú del usuario cambia las palabras sin recargar, en los dos sentidos.
+- [ ] Cerrar sesión: el login y el menú vuelven a "Pedidos".
+- [ ] No cambia nada guardado: ids, enlaces (#pedidos), valores de los campos y la base siguen igual.
+- [ ] Paleta de empresa interna (sql/01 bloque 21): Tiendas → Empresas → Nueva empresa no deja guardar sin elegir
+      la paleta; al elegir un modelo o 2 colores la muestra cambia. Al entrar con un usuario de esa empresa toda la
+      página usa esa paleta; al cerrar sesión vuelven los colores de la marca. El punto de color de la lista la muestra.
+- [ ] Encabezados (`css/encabezados.css`): sin sesión se ve la imagen de la marca activa; al entrar con un usuario
+      de la empresa 01 cambia a la de su regla `html[data-empresa="01"]`; al cerrar sesión vuelve la de la marca.
+      El Desarrollador, al cambiar de empresa en su menú, ve cambiar el encabezado sin recargar. Una marca o empresa
+      sin regla de imagen muestra el título en texto. `--encabezado-ajuste: contain` = completa con lados difuminados.
+- [ ] `herramientas\empresas.bat`: opción 1 agrega la marca con su paleta y deja su regla en `css/encabezados.css`;
+      3 cambia la paleta; 4 la activa.
+- [ ] Paleta: con una clave en `COLORES_POR_EMPRESA`, al entrar con un usuario de esa empresa (o cambiar a ella)
+      cambian los colores; al salir vuelven los de la marca.
+
+## Transporte: viajes (sql/01 bloque 19)
+Antes: abrir `herramientas/prueba_logica_viajes.html` (doble clic): todo debe decir OK.
+- [ ] Empresa solo de Transporte: el menú muestra **Viajes** y no Pedidos, Rutas ni Cotizador; Configuración muestra
+      **Transporte** y no Pedidos ni Slots; Inicio y Reportes muestran viajes.
+- [ ] Empresa con Transporte + Encomiendas: menú con Pedidos y Viajes; Reportes con la pestaña **Viajes**; Pedidos sin
+      pestaña Transporte.
+- [ ] Configuración → Transporte: crear una franja L–S 06:00–22:00; otra que se encime avisa y no se guarda; el
+      simulador y "en palabras" muestran los precios; guardar recargos, agenda y cortesía.
+- [ ] Costos: agregar gastos fijos y variables (de un vehículo y de toda la empresa), precio del litro y horas/km del
+      mes de un vehículo: aparecen costo por hora, por km y el margen de cada franja.
+- [ ] Vehículos: un Automóvil con 4 asientos y un piloto asignado (Usuarios). Sin asientos o sin piloto, no recibe viajes.
+- [ ] Clientes → llave "Acceso y lugares": crear usuario (sale `nombre + ID`), ubicar Casa y Trabajo; el usuario no
+      aparece en Usuarios; "Quitar acceso" lo elimina.
+- [ ] Entrar como cliente: solo Inicio, Viajes y Mi perfil (sin pie ni QR); Inicio con "Solicitar viaje" y la cortesía.
+- [ ] Solicitar: sin marcar mascotas no deja buscar horas; 0 personas sin mercadería avisa; Casa / Trabajo llenan A y B;
+      "Guardar como Casa" guarda el punto; las horas salen cada 15 min con precio y las ocupadas en gris.
+- [ ] Confirmar: queda **Confirmado** con vehículo y conductor; el conductor recibe el aviso en la campana.
+- [ ] Dos navegadores piden la misma hora con un solo vehículo: el segundo recibe "Esa hora acaba de ocuparse".
+- [ ] Un viaje de 30 min bloquea al vehículo desde 15 min antes hasta 10 min después (horas vecinas en gris).
+- [ ] Día cerrado y domingo sin franja: "Ese día no hay servicio".
+- [ ] Cliente: "Cambiar hora" y "Cancelar" solo hasta 2 h antes; después ya no salen (y la base lo rechaza).
+- [ ] Conductor: "Voy en camino" (el cliente recibe el aviso) → "A bordo" → "Terminar".
+- [ ] Cortesía: al terminar el 5.º viaje en 15 días el cliente recibe el aviso; el siguiente viaje dentro del radio sale
+      en ₡0 + recargos; al cancelarlo a tiempo la cortesía vuelve.
+- [ ] Reportes → Viajes: resumen, por franja, por vehículo (costo y margen), detalle; Excel y PDF con el nombre y los
+      colores de la empresa.
+- [ ] Reportes de pedidos: Excel y PDF dicen el nombre de la empresa (no "ACACHETE LOGISTICS") y usan su paleta.
 - [ ] Con otra empresa activa, Configuración → Pedidos y Vehículos muestran solo lo de esa empresa; en una
       empresa nueva sin tarifas, "Nueva tarifa" ofrece "General".
+
+## Seguridad y solicitud de usuario (sql/01 bloque 20)
+- [ ] Después de ejecutar el bloque 20, `admin`, un piloto y un cliente entran con su **misma** contraseña.
+- [ ] Table Editor → usuarios: la columna `clave` empieza con `$2a$` / `$2b$` (cifrada). Crear un usuario y cambiar
+      una contraseña: también quedan cifradas y se puede entrar con ellas.
+- [ ] Consola del navegador: `await db.from('usuarios').select('clave')` da error de permiso (no se puede leer).
+- [ ] Clave equivocada: "Usuario o contraseña incorrectos".
+- [ ] Consola sin sesión: `await db.from('clientes').delete().gt('id', 0)` → error `SIN_EMPRESA`, no borra nada.
+- [ ] Con sesión en la empresa 01, un `update` / `delete` por id de una fila de la empresa 02 no la cambia.
+- [ ] `herramientas/vaciar_base_datos.sql` sin escribir la empresa: se detiene sin borrar. Con un ID que no existe o un
+      nombre que no coincide: se detiene. Con ID + nombre correctos (en una base de PRUEBA): solo esa empresa queda en
+      0 en la comprobación; las demás conservan sus datos y los Administradores de la limpiada siguen entrando.
+- [ ] `index.html#registro?empresa=02` (sin sesión): abre "Solicitar usuario · Clientes de ...". Con una empresa sin
+      Transporte o inexistente: "Este enlace de registro no es válido".
+- [ ] Con `registroClientes: '02'` en la marca: el login muestra "¿Eres cliente? Solicita tu usuario"; vacío: no aparece.
+- [ ] Enviar la solicitud: "Solicitud enviada · Tu usuario será aramirez02". Al intentar entrar: "Tu solicitud
+      todavía está en revisión". Repetir con el mismo teléfono: "Ya hay un usuario o una solicitud...".
+- [ ] El Administrador y el G1 reciben "Solicitud de acceso a viajes"; en Clientes sale "Nuevo · pendiente" con
+      "Pidió su usuario ... desde el login". Revisar → Aprobar: el cliente entra y ve solo Inicio, Viajes y Mi perfil.
+- [ ] Rechazar una solicitud nueva: desaparecen el cliente y su usuario. Con el teléfono de un cliente que ya existía:
+      sale "Acceso pendiente"; rechazar borra solo el usuario.
 
 ## Multimarca
 - [ ] Cambiar `EMPRESA_ACTIVA`: cambian logo, título/imagen, pie, colores y actividades; pide iniciar sesión.

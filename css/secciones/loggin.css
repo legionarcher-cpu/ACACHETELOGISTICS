@@ -268,6 +268,120 @@
 }
 
 /* ==================================================
+   SOLICITAR USUARIO (clientes de empresas con Transporte)
+   ================================================== */
+
+/* El cuadro se ensancha para el formulario de solicitud */
+.login-contenedor.registrando {
+    max-width: 30rem;
+}
+
+/* "¿Eres cliente? Solicita tu usuario" */
+.login-registro-enlace {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+    text-align: center;
+}
+
+/* Botón con aspecto de enlace */
+.login-enlace {
+    padding: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: 600;
+    color: var(--color-azul);
+    text-decoration: underline;
+}
+
+.login-enlace:hover {
+    color: var(--color-naranja);
+}
+
+.login-enlace-centro {
+    align-self: center;
+    font-size: 0.85rem;
+}
+
+/* Campos en dos columnas (una en celular) */
+.login-registro-campos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.667rem 0.778rem;
+}
+
+.login-campo-ancho {
+    grid-column: 1 / -1;
+}
+
+.login-input-simple {
+    height: 2.333rem;
+    padding: 0 0.667rem;
+    background-color: var(--color-fondo);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+    font-family: inherit;
+    font-size: 0.95rem;
+    color: var(--color-texto);
+    outline: none;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.login-input-simple:focus {
+    background-color: var(--color-blanco);
+    border-color: var(--color-azul);
+    box-shadow: var(--sombra-foco);
+}
+
+.login-ayuda {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--color-gris);
+}
+
+/* Trampa para robots: fuera de la vista */
+.login-trampa {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+}
+
+/* "Solicitud enviada" */
+.login-registro-listo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.889rem;
+    text-align: center;
+}
+
+.login-registro-listo > i {
+    font-size: 2.5rem;
+    color: var(--color-verde);
+}
+
+.login-registro-listo p {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--color-texto);
+}
+
+.login-registro-listo .login-boton {
+    align-self: stretch;
+}
+
+@media (max-width: 480px) {
+    .login-registro-campos {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* ==================================================
    TEXTO INFERIOR ("Derechos Reservados...")
    ================================================== */
 

@@ -13,8 +13,10 @@ Python se usa de dos formas, sin servidores propios:
 |---|---|---|
 | `tarifas.py` | Navegador y VS Code | Precio del envío por peso: mínimo + kg adicionales después del mínimo (+ km), envío gratis. `matriz_precios_json` (la usa el **Simulador de precios** de Configuración → Pedidos: precio para cada peso × cada distancia en km; cada fila con su `tramo`: `base` o `adicional`). También `tabla_precios` y `resumen_tarifa`. En VS Code pregunta los valores (incluidos precio por km y distancia) y muestra la tarifa en palabras y la tabla |
 | `pesos_promedio.py` | VS Code | Compara los pesos promedio del catálogo con los pesos reales de los pedidos. `--aplicar` guarda, `--agregar` suma artículos nuevos repetidos, `--minimo N` pedidos mínimos (5 por defecto) |
-| `nueva_empresa.py` | VS Code | Agrega una empresa a `empresas/empresas.js` preguntando qué actividad realiza |
 | `empresa_activa.py` | (ayuda) | Lee la empresa activa y su conexión, y consulta Supabase (REST) con `urllib` |
+
+Agregar o cambiar empresas (marcas) ya no es un script de Python: `herramientas\empresas.bat` (PowerShell, no
+necesita instalar nada). Ver [02-empresa-nueva.md](02-empresa-nueva.md).
 
 ## Python en la página
 

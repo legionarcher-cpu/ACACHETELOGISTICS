@@ -6,9 +6,23 @@ Lo que se ve siempre, alrededor de las secciones. HTML en `index.html`, estilos 
 
 | Parte | Qué es | Dónde se cambia |
 |---|---|---|
-| Logo animado (izquierda) | Logo de ACACHETE que se turna cada 6 s con el de la empresa (efecto cortina) | Imágenes y fondo: `css/index.css` (`.logo-img-1`, `.logo-img-2`, `.logo-slog`). Velocidad: `6s` en `.logo-img-1` y `.logo-img-2` |
-| Logo de la empresa | Junto al título (`#log-sec`) | `css/index.css` → `#log-sec` |
-| Título | Texto (`titulo` + `subtitulo`) o imagen que cubre el recuadro (`encabezado`) | `empresas.js` |
+| Logo animado (izquierda) | Dos imágenes que se turnan cada 6 s (efecto cortina) | Imágenes: **`css/encabezados.css`** (`.logo-img-1`, `.logo-img-2`). Fondo: `.logo-slog`. Velocidad: `6s` en `css/index.css` |
+| Logo chico | Junto al título (`#log-sec`) | Imagen: **`css/encabezados.css`** |
+| Título | Imagen de la marca o de la empresa (`.encabezado-imagen`) o, si no tiene, texto (`titulo` + `subtitulo` de `empresas.js`) | Imagen: **`css/encabezados.css`** |
+
+### Imágenes del encabezado: solo `css/encabezados.css`
+
+- Todas las imágenes del encabezado están **en ese único archivo**, con una regla por marca y por empresa interna:
+  `html[data-marca="otoya-valverde"] .encabezado-imagen { ... }` o `html[data-empresa="01"] .encabezado-imagen { ... }`.
+- `empresas/empresas.js` (`aplicarEncabezadoEmpresa`) pone en `<html>` `data-marca` (la marca activa) y
+  `data-empresa` (el ID de la empresa de la sesión). Cambian al **iniciar sesión, cambiar de empresa y cerrar
+  sesión**, así el encabezado cambia solo.
+- Orden del archivo (lo de abajo gana): 1) ACACHETE por defecto, 2) por marca, 3) por empresa interna.
+- En la misma regla: `--encabezado-ajuste: contain;` (completa, con los lados difuminados) o `cover` (llena y
+  recorta, por defecto) y `--encabezado-enfoque: 50% 60%;` (qué parte se ve con `cover`).
+- Sin regla de imagen se ve el título en texto. El ícono de la pestaña del navegador no se puede poner desde CSS:
+  es `icono` en `empresas.js`.
+- Después de cambiarlo: subir `?v=` de `encabezados.css` en `index.html` y recargar con Ctrl + F5.
 | Fecha y hora | Mes/año, día y hora; se actualiza cada segundo | `js/date.js` |
 | Campana | Notificaciones (ver abajo) | `js/notificaciones.js` |
 | Usuario | Foto o iniciales + nombre; menú: **Empresa** ("01 · Empresa principal"; el Desarrollador la cambia con un selector), Mi perfil, Configuración, Cerrar sesión | `js/permisos.js`, `js/menu-usuario.js` |

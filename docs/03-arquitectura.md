@@ -19,6 +19,10 @@ js/
   permisos.js              Bloquea el menú y pinta el usuario según la sesión
   pagina_inicial.js        Cargador de secciones y botones del pie
   componentes.js           Funciones comunes (avisos, celdas, botones, tarifas, Python...)
+  palabras.js              "Pedido" se lee "Viaje" (y "Piloto" "Conductor") según la actividad
+                           de la empresa, en todo lo que se ve (ver 07-actividades-y-mercaderia.md)
+  viajes-comun.js          Viajes (Transporte): estados, tarjeta, cortesía, precios por franja,
+                           costos, Inicio de viajes y reporte de viajes (ver secciones/viajes.md)
   mapa.js                  Mapa gratis (Leaflet + OpenStreetMap), buscar direcciones y
                            distancia por calle A -> B (Inicio, Pedidos, Cotizador)
   avatar.js                Fotos de usuario (Storage "avatares")
@@ -30,6 +34,8 @@ js/
   secciones/configuracion/ Módulos grandes de Configuración (pedidos.js, actividades.js)
 responsive/                Tablet y celular (responsive.css + responsive.js)
 python/                    Scripts de Python (ver 09-python.md)
+herramientas/              empresas.bat (empresas/marcas: nueva, base, paleta, logos, activa),
+                           vaciar_base_datos.sql (pide la empresa), prueba_logica_viajes.html
 sql/                       Scripts de la base de datos (ver 05-base-de-datos.md)
 img/                       Logos e imágenes
 docs/                      Esta documentación
@@ -43,7 +49,7 @@ docs/                      Esta documentación
 3. **`js/sesion.js`** (sin `defer`) + un script en línea: si no hay sesión pone `<html class="sin-sesion">`,
    si hay pone `<html data-rol="...">` (el CSS oculta cosas según eso).
 4. Con `defer`, en este orden: supabase-js (CDN) → `supabase.js` → `avatar.js` → `componentes.js` →
-   `mapa.js` → `notificaciones.js` → `permisos.js` → `date.js` → `menu-usuario.js` → `menu-animado.js` →
+   `palabras.js` → `mapa.js` → `notificaciones.js` → `qr.js` → `viajes-comun.js` → `permisos.js` → `date.js` → `menu-usuario.js` → `menu-animado.js` →
    `pagina_inicial.js` (último) → `responsive/responsive.js`.
 
 ## Cargador de secciones (`js/pagina_inicial.js`)

@@ -1,7 +1,18 @@
 # Tiendas (`#tiendas`) y Clientes (`#clientes`)
 
 Arriba de las dos secciones hay pestañas: **Tiendas | Clientes | Empresas** (Empresas solo la ve el
-Desarrollador, ver [empresas.md](empresas.md)). Todo es de la empresa activa.
+Desarrollador, ver [empresas-internas.md](empresas-internas.md)). Todo es de la empresa activa.
+
+> **Viajes (Transporte):** si la empresa hace viajes, cada cliente aprobado tiene el botón de llave **"Acceso y
+> lugares"** (Administrador, G1, G2 y G3): crea su usuario rol `cliente` (`nombre + ID`, ej. `mramirez02`) con su
+> contraseña, la cambia o quita el acceso, y guarda **Casa** y **Trabajo** con el buscador de direcciones. Ver
+> [viajes.md](viajes.md).
+>
+> **Solicitud desde el login** (sql/01 bloque 20, [login-y-perfil.md](login-y-perfil.md)): el cliente que pidió su
+> usuario aparece **"Nuevo · pendiente"** ("Pidió su usuario ... desde el login"), o **"Acceso pendiente"** si su
+> teléfono ya era de un cliente. **Revisar → Aprobar** activa el cliente y su usuario (avisarle por teléfono o
+> WhatsApp); **Rechazar** borra el cliente nuevo, o solo el usuario si el cliente ya existía. ⚠ En "Acceso
+> pendiente", confirmar con el cliente que fue él antes de aprobar.
 
 ## Tiendas
 
