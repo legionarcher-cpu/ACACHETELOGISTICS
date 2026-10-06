@@ -1,0 +1,401 @@
+<!-- ==================================================
+     PRODUCTOS (se abre en la ventana interna de index.html)
+     Cada <article class="producto"> es un producto:
+       - lo de arriba se ve en la tarjeta
+       - .producto-detalle se ve en grande en el visor (anterior / siguiente)
+       - data-segmentos: courier, distribuidora y/o transporte (para los filtros)
+     Para agregar uno: copiar un <article> completo y cambiar sus textos e ícono
+     (íconos: https://icons.getbootstrap.com).
+     ================================================== -->
+<div class="pagina-interna">
+    <header>
+        <h1>Una plataforma, un producto para cada necesidad</h1>
+        <p>Cada función resuelve un problema concreto de su operación. Use solo lo que su empresa necesita: todo
+            funciona junto, con su marca y sin cambiar el sistema con el que ya vende o factura.</p>
+    </header>
+
+    <h2 class="subtitulo-interno">Cómo funciona</h2>
+    <div class="pasos pasos-internos">
+        <article class="paso">
+            <i class="bi bi-pencil-square"></i>
+            <h3>Registro</h3>
+            <p>El pedido se crea con el cliente, el punto en el mapa y el precio calculado.</p>
+        </article>
+        <article class="paso">
+            <i class="bi bi-box-seam"></i>
+            <h3>Alistado y carga</h3>
+            <p>La tienda lo prepara y el piloto escanea el código al cargarlo.</p>
+        </article>
+        <article class="paso">
+            <i class="bi bi-truck"></i>
+            <h3>En ruta</h3>
+            <p>Todo el equipo ve que el pedido va en camino.</p>
+        </article>
+        <article class="paso">
+            <i class="bi bi-check2-circle"></i>
+            <h3>Entrega confirmada</h3>
+            <p>Quedan registrados la hora, quien recibe, la fotografía y el cobro.</p>
+        </article>
+    </div>
+
+    <h2 class="subtitulo-interno">Nuestros productos</h2>
+    <div class="filtros" role="group" aria-label="Filtrar por tipo de empresa">
+        <button type="button" data-segmento="todos" class="activo">Todos</button>
+        <button type="button" data-segmento="courier"><i class="bi bi-bicycle"></i> Mensajerías y couriers</button>
+        <button type="button" data-segmento="distribuidora"><i class="bi bi-shop"></i> Distribuidoras y comercios</button>
+        <button type="button" data-segmento="transporte"><i class="bi bi-car-front"></i> Transporte de personas</button>
+    </div>
+
+    <div class="productos">
+
+        <!-- ========== 1. PEDIDOS ========== -->
+        <article class="producto" data-segmentos="courier distribuidora">
+            <span class="producto-icono"><i class="bi bi-box-seam"></i></span>
+            <h3>Gestión de pedidos</h3>
+            <p class="producto-frase">Cada pedido, del registro a la puerta del cliente, en una sola pantalla.</p>
+            <div class="segmentos"><span class="segmento">Mensajerías</span><span class="segmento">Distribuidoras</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>Termina con el "¿dónde va mi pedido?". Todo el equipo ve en qué paso está cada entrega sin llamadas,
+                    hojas de cálculo ni mensajes sueltos.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Registro del pedido con el cliente, la dirección y el punto exacto en el mapa.</li>
+                    <li>Número automático (o el suyo) y código de respaldo para validar la entrega.</li>
+                    <li>Estados claros: registrado, alistando, listo para despachar, cargado, en ruta, en entrega y entregado.</li>
+                    <li>Línea de tiempo de cada pedido: qué pasó, a qué hora y quién lo hizo.</li>
+                    <li>Los pedidos nunca se borran: se cancelan con motivo, para que siempre quede registro.</li>
+                    <li>Mercadería por categorías (abarrotes, bultos, documentos) con pesos promedio sugeridos.</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-bicycle"></i><div><strong>Mensajerías y couriers</strong><span>Recolección y entrega de encomiendas de muchos comercios, cada uno con lo suyo.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-shop"></i><div><strong>Distribuidoras y comercios</strong><span>Pedidos de cada tienda o sucursal ordenados por fecha y horario de despacho.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 2. ENTREGA CON PRUEBA ========== -->
+        <article class="producto" data-segmentos="courier distribuidora">
+            <span class="producto-icono"><i class="bi bi-qr-code-scan"></i></span>
+            <h3>Entrega con prueba (QR)</h3>
+            <p class="producto-frase">Cada entrega queda demostrada: hora, quién recibió y fotos.</p>
+            <div class="segmentos"><span class="segmento">Mensajerías</span><span class="segmento">Distribuidoras</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>Los reclamos de "no me llegó" y las discusiones sin pruebas. Cada pedido se valida al cargarlo y al
+                    entregarlo, y la evidencia queda guardada.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Código QR único por pedido, sin datos personales del cliente.</li>
+                    <li>Código de respaldo cuando no se puede escanear.</li>
+                    <li>El piloto escanea al cargar: se sabe quién subió cada pedido y a qué hora.</li>
+                    <li>Cierre de entrega: quién recibió, si quedó satisfecho y si la mercadería llegó en buen estado.</li>
+                    <li>Fotos de la entrega, de mercadería en mal estado o del motivo de un retraso.</li>
+                    <li>Confirmación de mayoría de edad cuando el pedido lleva licor.</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-bicycle"></i><div><strong>Mensajerías y couriers</strong><span>Prueba de entrega para mostrar a cada comercio que lo contrata.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-shop"></i><div><strong>Distribuidoras y comercios</strong><span>Menos reclamos y devoluciones sin respaldo.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 3. PILOTOS Y HORARIOS ========== -->
+        <article class="producto" data-segmentos="courier distribuidora transporte">
+            <span class="producto-icono"><i class="bi bi-person-badge"></i></span>
+            <h3>Pilotos y horarios</h3>
+            <p class="producto-frase">Quién trabaja, en qué tienda y a qué hora llegó, sin hojas de firma.</p>
+            <div class="segmentos"><span class="segmento">Mensajerías</span><span class="segmento">Distribuidoras</span><span class="segmento">Transporte</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>El control de asistencia y puntualidad de los repartidores, y la certeza de que quien retira la
+                    mercadería es realmente su piloto.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Horarios de trabajo por día de la semana, con días especiales.</li>
+                    <li>El piloto marca su llegada escaneando el QR del mes de la tienda.</li>
+                    <li>Marca tardía con justificación obligatoria.</li>
+                    <li>QR del día del piloto: la tienda lo escanea y ve su nombre y su foto.</li>
+                    <li>Vehículo asignado a cada piloto, con su estado (en uso o disponible).</li>
+                    <li>Pilotos que atienden varias tiendas.</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-bicycle"></i><div><strong>Mensajerías y couriers</strong><span>Control de sus motorizados en cada punto de recolección.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-shop"></i><div><strong>Distribuidoras y comercios</strong><span>Puntualidad de los repartidores por tienda y por horario.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-car-front"></i><div><strong>Transporte</strong><span>Los mismos usuarios son sus conductores, con su vehículo.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 4. RUTAS ========== -->
+        <article class="producto" data-segmentos="courier distribuidora">
+            <span class="producto-icono"><i class="bi bi-signpost-split"></i></span>
+            <h3>Rutas y asignaciones</h3>
+            <p class="producto-frase">Cada piloto sabe su ruta del día y la tienda sabe quién viene.</p>
+            <div class="segmentos"><span class="segmento">Mensajerías</span><span class="segmento">Distribuidoras</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>El desorden al repartir el trabajo del día y el tiempo perdido armando rutas en una hoja de cálculo.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Rutas por tienda (por ejemplo, Ruta Norte o Ruta Centro), con o sin actividad propia.</li>
+                    <li>Asignación del piloto a una ruta por día o por semana.</li>
+                    <li>Clientes con su ruta de entrega en cada tienda.</li>
+                    <li>Horarios de despacho (slots) para organizar la carga.</li>
+                    <li>Un solo pedido "en entrega" por piloto a la vez: siempre se sabe a quién está atendiendo.</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-bicycle"></i><div><strong>Mensajerías y couriers</strong><span>Zonas de reparto claras para cada motorizado.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-shop"></i><div><strong>Distribuidoras y comercios</strong><span>Despacho ordenado por tienda, ruta y horario.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 5. TARIFAS Y COBRO ========== -->
+        <article class="producto" data-segmentos="courier distribuidora">
+            <span class="producto-icono"><i class="bi bi-cash-coin"></i></span>
+            <h3>Tarifas y cobro contra entrega</h3>
+            <p class="producto-frase">El precio correcto en cada envío y el efectivo que cuadra al final del día.</p>
+            <div class="segmentos"><span class="segmento">Mensajerías</span><span class="segmento">Distribuidoras</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>Los cobros calculados "a ojo", los errores al dar vuelto y las diferencias de efectivo con los pilotos.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Tarifas por peso y por kilómetro, con mínimo, cargo fijo y envío gratis desde cierto monto.</li>
+                    <li>Tarifas generales, por región o por tienda.</li>
+                    <li>Descuentos por porcentaje o monto.</li>
+                    <li>Cobro de la compra y del envío, forma de pago, con cuánto paga el cliente y su vuelto.</li>
+                    <li>Cotizador para dar precios al instante y simulador de tarifas antes de cambiarlas.</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-bicycle"></i><div><strong>Mensajerías y couriers</strong><span>Cotice y cobre cada encomienda con la misma regla para todos.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-shop"></i><div><strong>Distribuidoras y comercios</strong><span>Cobro contra entrega controlado por piloto.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 6. MAPA ========== -->
+        <article class="producto" data-segmentos="courier distribuidora transporte">
+            <span class="producto-icono"><i class="bi bi-geo-alt"></i></span>
+            <h3>Mapa y distancias</h3>
+            <p class="producto-frase">Direcciones exactas y kilómetros reales por calle, sin costo de licencias.</p>
+            <div class="segmentos"><span class="segmento">Mensajerías</span><span class="segmento">Distribuidoras</span><span class="segmento">Transporte</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>Las direcciones confusas, las entregas en el lugar equivocado y los precios que no reflejan la distancia real.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Buscador de direcciones y punto exacto de recolección y de entrega.</li>
+                    <li>Kilómetros y minutos por calle del punto A al punto B.</li>
+                    <li>La ubicación de cada cliente queda guardada para sus próximos pedidos.</li>
+                    <li>Botones para navegar con Google Maps o Waze.</li>
+                    <li>Mapa en el inicio con la operación del día.</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-bicycle"></i><div><strong>Mensajerías y couriers</strong><span>Precio por distancia real en cada envío.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-shop"></i><div><strong>Distribuidoras y comercios</strong><span>Clientes frecuentes con su punto de entrega listo.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-car-front"></i><div><strong>Transporte</strong><span>La duración del viaje define la agenda de cada vehículo.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 7. VIAJES ========== -->
+        <article class="producto" data-segmentos="transporte">
+            <span class="producto-icono"><i class="bi bi-car-front"></i></span>
+            <h3>Viajes y transporte de personas</h3>
+            <p class="producto-frase">Agenda inteligente: el cliente reserva y el sistema asigna vehículo y conductor.</p>
+            <div class="segmentos"><span class="segmento">Transporte</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>Las reservas por teléfono o WhatsApp, los choques de horario entre vehículos y los precios distintos
+                    para el mismo recorrido.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Solicitud en 4 pasos: quiénes viajan (personas, mascotas y carga), ruta A → B, día y hora libres con su precio, y confirmación.</li>
+                    <li>Asignación automática del vehículo y el conductor que cumplen con asientos, carga y mascotas.</li>
+                    <li>Agenda sin choques: cada viaje bloquea el tiempo real de acercamiento y recorrido.</li>
+                    <li>Precio por kilómetro según la franja horaria, con mínimo y recargos fijos.</li>
+                    <li>Cambio de hora o cancelación hasta el plazo que usted defina.</li>
+                    <li>Días cerrados y agenda del día para su personal.</li>
+                    <li>Botones del conductor: "Voy en camino", "A bordo", "Terminar" y "No se presentó".</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-car-front"></i><div><strong>Transporte de personal y viajes programados</strong><span>Ideal para clientes que viajan con frecuencia, como trabajadores que van y vuelven del trabajo.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 8. PORTAL DEL CLIENTE ========== -->
+        <article class="producto" data-segmentos="transporte">
+            <span class="producto-icono"><i class="bi bi-person-check"></i></span>
+            <h3>Portal del cliente</h3>
+            <p class="producto-frase">Sus clientes piden su usuario, reservan y siguen sus viajes por sí mismos.</p>
+            <div class="segmentos"><span class="segmento">Transporte</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>La carga de atender cada reserva a mano. El cliente se atiende solo y su equipo solo aprueba y supervisa.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>El cliente solicita su usuario con el código de su empresa o con un enlace o QR que usted le comparte.</li>
+                    <li>Usted revisa y aprueba cada solicitud antes de darle acceso.</li>
+                    <li>Lugares guardados: Casa y Trabajo, para reservar con un toque.</li>
+                    <li>Sus próximos viajes y los anteriores, en un solo lugar.</li>
+                    <li>Viaje de cortesía automático para clientes fieles (por ejemplo, 5 viajes en 15 días = 1 de cortesía).</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-car-front"></i><div><strong>Transporte</strong><span>Fidelice a sus clientes frecuentes y reduzca las llamadas para reservar.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 9. COSTOS ========== -->
+        <article class="producto" data-segmentos="transporte">
+            <span class="producto-icono"><i class="bi bi-graph-up-arrow"></i></span>
+            <h3>Costos y rentabilidad del transporte</h3>
+            <p class="producto-frase">Sepa cuánto le cuesta cada kilómetro y cada hora, y cuánto gana en cada franja.</p>
+            <div class="segmentos"><span class="segmento">Transporte</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>Fijar precios sin saber el costo real del servicio y descubrir tarde que un horario o un vehículo no deja ganancia.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Gastos fijos y variables del mes, por vehículo o de toda la empresa.</li>
+                    <li>Combustible según el rendimiento de cada vehículo.</li>
+                    <li>Costo por kilómetro y por hora, estimado y real.</li>
+                    <li>Margen de cada franja de precio contra el costo.</li>
+                    <li>Simulador de kilómetros por franja antes de publicar precios.</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-car-front"></i><div><strong>Transporte</strong><span>Precios con respaldo y decisiones con números, no con suposiciones.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 10. REPORTES ========== -->
+        <article class="producto" data-segmentos="courier distribuidora transporte">
+            <span class="producto-icono"><i class="bi bi-bar-chart-line"></i></span>
+            <h3>Reportes e indicadores</h3>
+            <p class="producto-frase">Su operación en números, listos para decidir y para presentar.</p>
+            <div class="segmentos"><span class="segmento">Mensajerías</span><span class="segmento">Distribuidoras</span><span class="segmento">Transporte</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>No saber qué piloto, ruta o tienda rinde mejor, ni cuánto tarda cada paso de la entrega.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Filtros por fecha, región, tienda, piloto y actividad, con gráficos interactivos.</li>
+                    <li>Tiempos de cada paso: hasta que el pedido está listo, la carga, la ruta y la entrega.</li>
+                    <li>Reporte de viajes por franja y por vehículo, con costo y margen.</li>
+                    <li>Exportación a Excel y PDF con el nombre y los colores de su empresa.</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-bicycle"></i><div><strong>Mensajerías y couriers</strong><span>Reportes para cada comercio cliente, con su marca.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-shop"></i><div><strong>Distribuidoras y comercios</strong><span>Comparativo entre tiendas, rutas y pilotos.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-car-front"></i><div><strong>Transporte</strong><span>Rentabilidad por vehículo y horario.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 11. CLIENTES Y TIENDAS ========== -->
+        <article class="producto" data-segmentos="courier distribuidora">
+            <span class="producto-icono"><i class="bi bi-people"></i></span>
+            <h3>Clientes y tiendas</h3>
+            <p class="producto-frase">Su red de tiendas y su base de clientes, ordenadas y siempre al día.</p>
+            <div class="segmentos"><span class="segmento">Mensajerías</span><span class="segmento">Distribuidoras</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>Clientes repetidos, datos desactualizados y tener que escribir la misma dirección en cada pedido.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Tiendas organizadas por región, con su código y su ubicación.</li>
+                    <li>Clientes por tienda y por ruta, con búsqueda por teléfono o correo.</li>
+                    <li>Al escribir el teléfono en un pedido se llenan solos sus datos y su punto de entrega.</li>
+                    <li>Lo que crea o cambia un empleado queda pendiente hasta que un responsable lo aprueba.</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-bicycle"></i><div><strong>Mensajerías y couriers</strong><span>Los destinatarios frecuentes de cada comercio, listos para el próximo envío.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-shop"></i><div><strong>Distribuidoras y comercios</strong><span>Varias sucursales con un mismo control.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 12. MULTIEMPRESA Y MARCA ========== -->
+        <article class="producto" data-segmentos="courier distribuidora transporte">
+            <span class="producto-icono"><i class="bi bi-buildings"></i></span>
+            <h3>Multiempresa con su marca</h3>
+            <p class="producto-frase">Varias empresas en una plataforma, cada una con su logo, sus colores y sus datos.</p>
+            <div class="segmentos"><span class="segmento">Mensajerías</span><span class="segmento">Distribuidoras</span><span class="segmento">Transporte</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>Tener que usar un sistema con la marca de otro, o mezclar los datos de distintas empresas o comercios.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Cada empresa con su identificador, sus actividades y sus datos separados.</li>
+                    <li>Su propia paleta de colores, que se aplica al iniciar sesión.</li>
+                    <li>Su propio encabezado y sus logos.</li>
+                    <li>Sus usuarios llevan el identificador de la empresa.</li>
+                    <li>Las palabras se adaptan a la actividad: "Pedido" o "Viaje", "Piloto" o "Conductor".</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-bicycle"></i><div><strong>Mensajerías y couriers</strong><span>Ofrezca la plataforma a sus comercios con su propia marca.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-shop"></i><div><strong>Distribuidoras y comercios</strong><span>Varias razones sociales o líneas de negocio en un solo lugar.</span></div></div>
+                    <div class="para-empresa"><i class="bi bi-car-front"></i><div><strong>Transporte</strong><span>Su marca frente a sus clientes desde el primer ingreso.</span></div></div>
+                </div>
+            </div>
+        </article>
+
+        <!-- ========== 13. USUARIOS, ROLES Y AVISOS ========== -->
+        <article class="producto" data-segmentos="courier distribuidora transporte">
+            <span class="producto-icono"><i class="bi bi-shield-check"></i></span>
+            <h3>Usuarios, roles y avisos</h3>
+            <p class="producto-frase">Cada persona ve y hace solo lo que le corresponde, y se entera a tiempo.</p>
+            <div class="segmentos"><span class="segmento">Mensajerías</span><span class="segmento">Distribuidoras</span><span class="segmento">Transporte</span></div>
+            <span class="producto-ver">Ver detalle <i class="bi bi-arrow-right"></i></span>
+            <div class="producto-detalle">
+                <h4>Qué resuelve</h4>
+                <p>Accesos sin control, cambios sin autorización y avisos importantes que se pierden en el chat.</p>
+                <h4>Qué incluye</h4>
+                <ul>
+                    <li>Roles por nivel: administración general, regional, de tienda, empleado, piloto y cliente.</li>
+                    <li>Aprobaciones: lo que crea un nivel inferior lo aprueba el responsable.</li>
+                    <li>Notificaciones en la campana: pendientes por aprobar, cambios de pedidos y viajes.</li>
+                    <li>Contraseñas guardadas de forma cifrada.</li>
+                </ul>
+                <h4>Para su empresa</h4>
+                <div class="para-empresas">
+                    <div class="para-empresa"><i class="bi bi-diagram-3"></i><div><strong>Todas las empresas</strong><span>Orden y responsabilidad claros, de la gerencia al repartidor.</span></div></div>
+                </div>
+            </div>
+        </article>
+    </div>
+
+    <p style="margin-top:2rem;text-align:center">
+        <button type="button" class="boton boton-naranja" data-ventana="contacto">
+            <i class="bi bi-calendar-check"></i> Quiero ver una demostración
+        </button>
+    </p>
+</div>

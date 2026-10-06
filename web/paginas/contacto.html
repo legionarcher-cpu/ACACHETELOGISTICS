@@ -1,0 +1,88 @@
+<!-- ==================================================
+     CONTACTO (se abre en la ventana interna de index.html)
+     El formulario no necesita servidor: arma el mensaje y lo abre en WhatsApp o
+     en el correo (web/js/web.js: prepararContacto).
+     Correo y teléfono: aquí y en WEB_CORREO / WEB_WHATSAPP de web/js/web.js.
+     Imagen del encabezado: --img-contacto-banner en web/css/web.css
+     ================================================== -->
+<div class="pagina-interna">
+    <div class="banner-interno banner-contacto">
+        <h1>Hablemos de su operación</h1>
+        <p>Cuéntenos cómo entrega hoy y le mostramos, con la marca de su empresa, cómo se vería con ACACHETE Logistics.</p>
+    </div>
+
+    <div class="contacto-datos">
+        <a class="dato" href="mailto:acachetelogistics@gmail.com">
+            <i class="bi bi-envelope"></i>
+            <span><small>Correo</small><strong>acachetelogistics@gmail.com</strong></span>
+        </a>
+        <a class="dato" href="tel:+50662381665">
+            <i class="bi bi-telephone"></i>
+            <span><small>Celular</small><strong>+506 6238 1665</strong></span>
+        </a>
+        <a class="dato whatsapp" href="https://wa.me/50662381665?text=Hola%20ACACHETE%20Logistics%2C%20me%20gustar%C3%ADa%20recibir%20informaci%C3%B3n." target="_blank" rel="noopener">
+            <i class="bi bi-whatsapp"></i>
+            <span><small>WhatsApp</small><strong>Escríbanos ahora</strong></span>
+        </a>
+    </div>
+
+    <div class="contacto-columnas">
+        <form class="formulario" id="webContacto" novalidate>
+            <h2>Agende una demostración</h2>
+            <div class="campos-web">
+                <div class="campo-web">
+                    <label for="webNombre">Nombre *</label>
+                    <input id="webNombre" autocomplete="name" maxlength="80">
+                </div>
+                <div class="campo-web">
+                    <label for="webEmpresa">Empresa *</label>
+                    <input id="webEmpresa" autocomplete="organization" maxlength="80">
+                </div>
+                <div class="campo-web">
+                    <label for="webTipo">Tipo de empresa</label>
+                    <select id="webTipo">
+                        <option value="">Elija una opción</option>
+                        <option>Mensajería o courier</option>
+                        <option>Distribuidora o comercio con reparto</option>
+                        <option>Transporte de personas o carga</option>
+                        <option>Otra</option>
+                    </select>
+                </div>
+                <div class="campo-web">
+                    <label for="webRepartidores">Repartidores o vehículos</label>
+                    <select id="webRepartidores">
+                        <option value="">Elija una opción</option>
+                        <option>1 a 5</option>
+                        <option>6 a 15</option>
+                        <option>16 a 30</option>
+                        <option>Más de 30</option>
+                    </select>
+                </div>
+                <div class="campo-web ancho">
+                    <label for="webTelefono">Teléfono</label>
+                    <input id="webTelefono" type="tel" autocomplete="tel" maxlength="20">
+                </div>
+                <div class="campo-web ancho">
+                    <label for="webMensaje">¿Cómo entregan hoy y qué les gustaría mejorar?</label>
+                    <textarea id="webMensaje" rows="4" maxlength="800"></textarea>
+                </div>
+            </div>
+            <p class="formulario-error" id="webContactoError" role="alert"></p>
+            <div class="formulario-botones">
+                <button type="button" class="boton boton-naranja" data-enviar="whatsapp"><i class="bi bi-whatsapp"></i> Enviar por WhatsApp</button>
+                <button type="button" class="boton boton-borde" data-enviar="correo"><i class="bi bi-envelope"></i> Enviar por correo</button>
+            </div>
+        </form>
+
+        <aside class="ofrecemos">
+            <h2>Qué le ofrecemos</h2>
+            <ul>
+                <li><i class="bi bi-display"></i><span><strong>Demostración sin costo</strong>, con el logo y los colores de su empresa.</span></li>
+                <li><i class="bi bi-gear"></i><span><strong>Configuración con sus datos</strong>: tiendas, pilotos, rutas y tarifas.</span></li>
+                <li><i class="bi bi-mortarboard"></i><span><strong>Capacitación</strong> para su equipo y sus pilotos.</span></li>
+                <li><i class="bi bi-puzzle"></i><span><strong>Sin cambiar su sistema</strong> de ventas o facturación.</span></li>
+                <li><i class="bi bi-headset"></i><span><strong>Acompañamiento cercano</strong>, en español y en su horario.</span></li>
+            </ul>
+        </aside>
+    </div>
+</div>

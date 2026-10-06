@@ -3,229 +3,208 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!-- Estilos (el orden importa: si una regla se repite, gana la de más abajo)
-         variables.css   -> colores, fuentes y medidas con nombre
-         base.css        -> reinicio y fuente general
-         animaciones.css -> @keyframes compartidos
-         componentes.css -> botones, tablas, formularios, ventanas, avisos...
-         index.css       -> marco del index (encabezado, menú, pie)
-         encabezados.css -> imágenes del encabezado por marca y empresa (al final)
-         El CSS de cada sección (css/secciones/) lo carga js/pagina_inicial.js -->
-    <link rel="stylesheet" href="css/variables.css?v=2">
-    <link rel="stylesheet" href="css/base.css?v=3">
-    <link rel="stylesheet" href="css/animaciones.css?v=2">
-    <link rel="stylesheet" href="css/componentes.css?v=4">
-    <link rel="stylesheet" href="css/index.css?v=8">
-    <link rel="stylesheet" href="css/viajes.css?v=1">
+    <!-- ==================================================
+         PÁGINA WEB DE PRESENTACIÓN · ACACHETE Logistics
+         Está aparte de la app (app.html). Todo lo suyo vive en la carpeta web/:
+           web/css/web.css      -> colores, estilos e IMÁGENES (se cambian ahí)
+           web/js/web.js        -> imágenes que se turnan, ventanas internas y visor
+           web/paginas/*.html   -> Productos, Visión y Contacto (se abren en ventana)
+         Imágenes: img/web/
+         ================================================== -->
+    <title>ACACHETE Logistics · Control de entregas y transporte</title>
+    <meta name="description" content="ACACHETE Logistics: control de pedidos, entregas con prueba, pilotos, rutas, cobro contra entrega y transporte de personas para pymes, mensajerías y distribuidoras.">
+    <link rel="icon" type="image/png" href="img/web/a-icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <!-- Tablet y celular (carpeta responsive/): solo reglas @media, va al final.
-         ?v=N: subir el número al cambiar el archivo, para que los celulares no usen la copia vieja -->
-
-    <link rel="stylesheet" href="responsive/responsive.css?v=6">
-
-    <!-- Imágenes del encabezado de cada marca y empresa (logos e imagen del título).
-         Va al final para que sus reglas ganen. Se cambian SOLO ahí. -->
-    <link rel="stylesheet" href="css/encabezados.css?v=2">
-
-    <link rel="icon" type="image/png" href="img/logo.png">
-
-    <!-- Empresa activa (multimarca): colores, logo, título, pie, actividades y
-         base de datos. SIN defer, para que los colores se apliquen antes de
-         dibujar la página. Se configura en empresas/empresas.js -->
-    <script src="empresas/empresas.js"></script>
-
-    <!-- Sesión: SIN defer, para saber ANTES de dibujar la página si hay sesión.
-         Si no la hay, se marca <html class="sin-sesion"> (oculta el usuario y
-         los botones del pie sin que se vean un instante). -->
-    <script src="js/sesion.js"></script>
-    <script>
-        // Sin sesión -> html.sin-sesion | Con sesión -> html[data-rol="..."] (ver css/index.css)
-        const sesionInicial = obtenerSesion();
-        if (!sesionInicial) document.documentElement.classList.add('sin-sesion');
-        else document.documentElement.dataset.rol = sesionInicial.rol;
-    </script>
-
-    <!-- Scripts (se ejecutan en este orden)
-         supabase-js + js/supabase.js -> conexión con la base de datos (objeto "db")
-         avatar.js -> fotos de usuario (encabezado, perfil y usuarios)
-         componentes.js -> avisos, celdas y botones que usan varias secciones
-         palabras.js -> "Pedido" se lee "Viaje" (y "Piloto" "Conductor") si la actividad lo pide
-         notificaciones.js -> campana de notificaciones (antes de permisos.js, que la enciende)
-         permisos.js -> bloquea el menú según la sesión y pinta el usuario del encabezado
-         pagina_inicial.js -> carga las secciones en .cuerpo-principal (va al final)
-         Los JS propios de cada sección van en js/secciones/ y los carga pagina_inicial.js -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="js/supabase.js" defer></script>
-    <script src="js/avatar.js" defer></script>
-    <script src="js/componentes.js" defer></script>
-    <!-- Palabras de la actividad (Pedido -> Viaje, Piloto -> Conductor) en todo lo que se ve -->
-    <script src="js/palabras.js" defer></script>
-    <!-- Mapa gratis (Leaflet + OpenStreetMap), búsqueda de direcciones y distancia por calle -->
-    <script src="js/mapa.js" defer></script>
-    <script src="js/notificaciones.js" defer></script>
-    <!-- QR: lector con la cámara, QR de pedido / marcas de tienda / piloto del día (js/qr.js) -->
-    <script src="js/qr.js" defer></script>
-    <!-- Viajes (Transporte): estados, precios, Inicio y reporte de viajes (js/viajes-comun.js) -->
-    <script src="js/viajes-comun.js" defer></script>
-    <script src="js/permisos.js" defer></script>
-    <script src="js/date.js" defer></script>
-    <script src="js/menu-usuario.js" defer></script>
-    <script src="js/menu-animado.js" defer></script>
-    <script src="js/pagina_inicial.js" defer></script>
-    <!-- Botón ☰ del menú en tablet y celular (responsive/responsive.js) -->
-    <script src="responsive/responsive.js" defer></script>
-
-    <title>ACACHETE Logistics</title>
+    <link rel="stylesheet" href="web/css/web.css?v=6">
+    <script src="web/js/web.js?v=3" defer></script>
 </head>
 <body>
-    <header class="encabezado">
-        <!--area de logo-->
-        <div class="logo-slog">
-            <div class="logo-img logo-img-1"></div>
-            <div class="logo-img logo-img-2"></div>
-        </div>
 
-        <!--contenedor de titulos-->
-        <div class="cont-info">
-            <!--espacio de icono login info-->
-            <div class="icon-sec1">
-                <div id="log-sec"></div>
-            </div>
-
-            <!--titulos: imagen (css/encabezados.css, según la marca y la empresa activas)
-                o, si no tiene, el texto de empresas/empresas.js-->
-            <div class="titulos-primordial">
-                <div class="encabezado-imagen" aria-hidden="true"></div>
-                <h1 id="titulo-panel"></h1>
-                <h4 id="subti-panel"></h4>
-            </div>
-
-            <!--fecha y hora de la pagina-->
-            <div id="fecha-primordial">
-                <i class="bi bi-calendar3"></i>
-                <div class="containt-date">
-                    <div class="cal-textos">
-                        <div class="cal-mes-anio"></div>
-                        <div class="cal-dia"></div>
-                        <div class="cal-hora"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!--informacion y menu de logeo de usuario-->
-        <div class="info-user">
-            <!-- Escanear QR (js/qr.js): pedido -> su información | marcas de tienda -> el piloto marca |
-                 QR del día del piloto -> la tienda lo valida (nombre y foto) -->
-            <button type="button" class="noti-campana qr-boton" id="qrBoton" aria-label="Escanear QR" title="Escanear QR">
-                <i class="bi bi-qr-code-scan"></i>
+    <!-- ==================== CABECERA ==================== -->
+    <header class="sitio-cabecera">
+        <div class="contenedor">
+            <a href="#bienvenida" class="sitio-logo" aria-label="ACACHETE Logistics, inicio">
+                <img src="img/logo-web-slog.png" alt="ACACHETE Logistics · Operaciones que mueven su negocio">
+            </a>
+            <button type="button" class="sitio-menu-boton" id="menuBoton" aria-label="Abrir menú" aria-expanded="false">
+                <i class="bi bi-list"></i>
             </button>
-
-            <!-- Campana de notificaciones (js/notificaciones.js). El número rojo
-                 cuenta las no leídas; al hacer clic se abre la lista. -->
-            <button type="button" class="noti-campana" id="notiCampana" aria-label="Notificaciones" aria-controls="notiPanel">
-                <i class="bi bi-bell"></i>
-                <span class="noti-contador" id="notiContador" hidden>0</span>
-            </button>
-
-            <div class="noti-panel" id="notiPanel">
-                <div class="noti-panel-cabecera">
-                    <span class="noti-panel-titulo">Notificaciones</span>
-                    <button type="button" class="noti-marcar-todas" id="notiMarcarTodas">Marcar todas como leídas</button>
-                </div>
-                <div class="noti-lista" id="notiLista"></div>
-            </div>
-
-            <button class="user-trigger" id="userTrigger">
-                <div class="user-avatar"></div>
-                <span class="user-nombre">Nombre Usuario</span>
-                <span class="user-flecha">▾</span>
-            </button>
-
-            <div class="user-menu" id="userMenu">
-                <!-- Empresa con la que se trabaja (js/menu-usuario.js). El Desarrollador la elige. -->
-                <div class="user-menu-empresa" id="userEmpresa" hidden>
-                    <span class="user-menu-empresa-etiqueta">Empresa</span>
-                    <strong id="userEmpresaNombre"></strong>
-                    <select id="userEmpresaElegir" class="campo-input" aria-label="Empresa activa" hidden></select>
-                </div>
-                <a href="#perfil" class="user-menu-item">Mi perfil</a>
-                <a href="#configuracion" class="user-menu-item">Configuración</a>
-                <hr class="user-menu-divider">
-                <a href="#" class="user-menu-item user-menu-salir" id="btnCerrarSesion">Cerrar sesión</a>
-            </div>
+            <nav class="sitio-menu" id="menu" aria-label="Menú principal">
+                <a href="#bienvenida">Inicio</a>
+                <a href="#soluciones">Soluciones</a>
+                <button type="button" data-ventana="productos">Productos</button>
+                <button type="button" data-ventana="vision">Visión</button>
+                <button type="button" data-ventana="contacto">Contacto</button>
+                <button type="button" class="boton boton-naranja" data-ventana="app">
+                    <i class="bi bi-box-arrow-in-right"></i> Entrar a la app
+                </button>
+            </nav>
         </div>
     </header>
 
-    <main class="contenido">
-        <nav class="menu-lateral">
-            <ul class="menu-lista">
-                <li class="menu-item"><a href="#inicio"><i class="bi bi-house-door"></i> Inicio</a></li>
-                <li class="menu-item"><a href="#pedidos"><i class="bi bi-box-seam"></i> Pedidos</a></li>
-                <!-- Solo si la empresa hace viajes (Transporte); js/permisos.js la oculta si no -->
-                <li class="menu-item" hidden><a href="#viajes"><i class="bi bi-car-front"></i> Viajes</a></li>
-                <li class="menu-item"><a href="#pilotos"><i class="bi bi-person-badge"></i> Pilotos</a></li>
-                <li class="menu-item"><a href="#rutas"><i class="bi bi-signpost-split"></i> Rutas y asignaciones</a></li>
-                <li class="menu-item"><a href="#tiendas"><i class="bi bi-shop"></i> Tiendas</a></li>
-                <li class="menu-item"><a href="#reportes"><i class="bi bi-bar-chart"></i> Reportes</a></li>
-                <li class="menu-item"><a href="#usuarios"><i class="bi bi-people"></i> Usuarios</a></li>
-                <li class="menu-item"><a href="#configuracion"><i class="bi bi-gear"></i> Configuración</a></li>
-            </ul>
-        </nav>
+    <main>
+        <!-- ==================== BIENVENIDA ==================== -->
+        <section class="portada" id="bienvenida">
+            <!-- Imágenes que se turnan (se cambian en web/css/web.css: --img-portada-1, 2 y 3) -->
+            <div class="portada-imagen p1 activa"></div>
+            <div class="portada-imagen p2"></div>
+            <div class="portada-imagen p3"></div>
 
-        <div class="cuerpo-principal"></div>
-        
+            <div class="contenedor">
+                <div class="portada-contenido">
+                    <span class="portada-etiqueta">Gestión de entregas y transporte</span>
+                    <h1>Control total de sus entregas, <span>del local a la puerta</span> del cliente</h1>
+                    <p>Pedidos, pilotos, rutas, cobros y viajes en una sola plataforma, con la marca de su empresa.</p>
+                    <ul class="portada-claves">
+                        <li><i class="bi bi-check-circle-fill"></i> Seguimiento en todo momento</li>
+                        <li><i class="bi bi-check-circle-fill"></i> Entregas confirmadas</li>
+                        <li><i class="bi bi-check-circle-fill"></i> Cobros en orden</li>
+                    </ul>
+                    <div class="portada-acciones">
+                        <a href="#soluciones" class="boton boton-naranja"><i class="bi bi-grid"></i> Ver soluciones</a>
+                        <button type="button" class="boton boton-claro" data-ventana="contacto">
+                            <i class="bi bi-calendar-check"></i> Agendar una demostración
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="portada-puntos" id="portadaPuntos" aria-label="Cambiar imagen"></div>
+        </section>
+
+        <!-- ==================== SOLUCIONES (una página por tipo de empresa) ==================== -->
+        <section class="seccion" id="soluciones">
+            <div class="contenedor">
+                <div class="seccion-titulo">
+                    <span class="antetitulo">Soluciones</span>
+                    <h2>Elija su tipo de empresa</h2>
+                    <p>Vea cómo trabajaría su operación y qué funciones resuelven su día a día.</p>
+                </div>
+                <div class="soluciones">
+                    <button type="button" class="solucion" data-ventana="courier">
+                        <span class="solucion-icono"><i class="bi bi-bicycle"></i></span>
+                        <strong class="solucion-titulo">Mensajerías y couriers</strong>
+                        <span class="solucion-texto">Entregas con prueba y tarifas por distancia para cada comercio que atiende.</span>
+                        <span class="solucion-dirigido">
+                            <small>Ideal para</small>
+                            <span>Mensajerías</span><span>Couriers</span><span>Servicios de motorizados</span>
+                        </span>
+                        <span class="solucion-ir">Ver solución <i class="bi bi-arrow-right"></i></span>
+                    </button>
+                    <button type="button" class="solucion" data-ventana="distribuidora">
+                        <span class="solucion-icono"><i class="bi bi-shop"></i></span>
+                        <strong class="solucion-titulo">Distribuidoras y comercios</strong>
+                        <span class="solucion-texto">Tiendas, rutas, repartidores y cobros coordinados desde un solo lugar.</span>
+                        <span class="solucion-dirigido">
+                            <small>Ideal para</small>
+                            <span>Supermercados</span><span>Farmacias</span><span>Ferreterías</span><span>Distribuidoras</span>
+                        </span>
+                        <span class="solucion-ir">Ver solución <i class="bi bi-arrow-right"></i></span>
+                    </button>
+                    <button type="button" class="solucion" data-ventana="transporte">
+                        <span class="solucion-icono"><i class="bi bi-car-front"></i></span>
+                        <strong class="solucion-titulo">Transporte de personas</strong>
+                        <span class="solucion-texto">Reservas en línea con vehículo y conductor asignados automáticamente.</span>
+                        <span class="solucion-dirigido">
+                            <small>Ideal para</small>
+                            <span>Transporte de personal</span><span>Viajes programados</span><span>Clientes frecuentes</span>
+                        </span>
+                        <span class="solucion-ir">Ver solución <i class="bi bi-arrow-right"></i></span>
+                    </button>
+                </div>
+
+                <!-- Conozca más: abre cada ventana como una galería -->
+                <div class="galeria-sitio">
+                    <button type="button" class="foto" data-ventana="productos">
+                        <span class="foto-imagen"></span>
+                        <span class="foto-texto"><strong>Productos</strong><span>Cada función, explicada</span></span>
+                    </button>
+                    <button type="button" class="foto" data-ventana="vision">
+                        <span class="foto-imagen"></span>
+                        <span class="foto-texto"><strong>Visión</strong><span>Quiénes somos</span></span>
+                    </button>
+                    <button type="button" class="foto" data-ventana="app">
+                        <span class="foto-imagen"></span>
+                        <span class="foto-texto"><strong>La app</strong><span>Entre con su usuario</span></span>
+                    </button>
+                    <button type="button" class="foto" data-ventana="contacto">
+                        <span class="foto-imagen"></span>
+                        <span class="foto-texto"><strong>Contacto</strong><span>Agende una demostración</span></span>
+                    </button>
+                </div>
+            </div>
+        </section>
     </main>
 
-    <!-- Avisos emergentes de notificaciones nuevas (esquina inferior derecha) -->
-    <div class="noti-avisos" id="notiAvisos" aria-live="polite"></div>
-
-    <footer class="pie">
-        <div class="pie-spacer"></div>
-
-        <div class="pie-botones">
-            <button class="acceso-btn btn-crear">
-                <i class="bi bi-plus-circle"></i>
-                <span>Crear Pedido</span>
-            </button>
-            <!-- Cargar Pedidos: para compañías que reciben pedidos desde otra web o app.
-                 Solo G2 y G3 (css/index.css). Todavía sin función. -->
-            <button class="acceso-btn btn-cargar">
-                <i class="bi bi-upload"></i>
-                <span>Cargar Pedidos</span>
-            </button>
-            <button class="acceso-btn btn-piloto">
-                <i class="bi bi-person-check"></i>
-                <span>Asignar Piloto</span>
-            </button>
-            <button class="acceso-btn btn-hor">
-                <i class="bi bi-calendar-event"></i>
-                <span>Reasignar horario</span>
-            </button>
-            <!-- Los pedidos no se borran: se cancelan (o se anulan) -->
-            <button class="acceso-btn btn-del">
-                <i class="bi bi-slash-circle"></i>
-                <span>Cancelar pedido</span>
-            </button>
-            <button class="acceso-btn btn-chart">
-                <i class="bi bi-bar-chart-line"></i>
-                <span>Generar reporte</span>
-            </button>
-            <!-- Cotizador: calcula el precio de un envío de Encomiendas con las tarifas de
-                 Configuración. Solo si la empresa realiza Encomiendas (js/pagina_inicial.js) -->
-            <button class="acceso-btn btn-cotizar" hidden>
-                <i class="bi bi-calculator"></i>
-                <span>Cotizador</span>
-            </button>
+    <!-- ==================== PIE ==================== -->
+    <footer class="sitio-pie">
+        <div class="contenedor">
+            <div>
+                <img src="img/logo-web-slog.png" alt="ACACHETE Logistics">
+                <p>Control de entregas y transporte para pymes, mensajerías y distribuidoras. Operaciones que mueven su negocio.</p>
+            </div>
+            <div>
+                <h4>Navegación</h4>
+                <ul>
+                    <li><button type="button" data-ventana="courier">Mensajerías y couriers</button></li>
+                    <li><button type="button" data-ventana="distribuidora">Distribuidoras y comercios</button></li>
+                    <li><button type="button" data-ventana="transporte">Transporte de personas</button></li>
+                    <li><button type="button" data-ventana="productos">Productos</button></li>
+                    <li><button type="button" data-ventana="vision">Visión</button></li>
+                    <li><button type="button" data-ventana="contacto">Contacto</button></li>
+                    <li><button type="button" data-ventana="app">Entrar a la app</button></li>
+                </ul>
+            </div>
+            <div>
+                <h4>Contacto</h4>
+                <ul>
+                    <li><a href="mailto:acachetelogistics@gmail.com"><i class="bi bi-envelope"></i> acachetelogistics@gmail.com</a></li>
+                    <li><a href="tel:+50662381665"><i class="bi bi-telephone"></i> +506 6238 1665</a></li>
+                    <li><a href="https://wa.me/50662381665" target="_blank" rel="noopener"><i class="bi bi-whatsapp"></i> WhatsApp</a></li>
+                </ul>
+            </div>
+            <p class="pie-derechos">© <span id="anio">2026</span> ACACHETE Logistics. Todos los derechos reservados.</p>
         </div>
-
-        <!-- Las líneas las pone empresas/empresas.js (campo "pie") -->
-        <div class="info-empresa">
-            <span>Derechos Reservados Achete Logistics S.A.</span>
-        </div>
-
     </footer>
 
+    <!-- ==================== VENTANA INTERNA ====================
+         Productos, Visión y Contacto (web/paginas/) y la App (app.html) se abren
+         aquí, creciendo desde lo que se tocó (web/js/web.js). -->
+    <div class="ventana" id="ventana" role="dialog" aria-modal="true" aria-labelledby="ventanaTitulo" hidden>
+        <div class="ventana-fondo" data-cerrar></div>
+        <div class="ventana-panel" id="ventanaPanel">
+            <div class="ventana-barra">
+                <h2 id="ventanaTitulo"></h2>
+                <a id="ventanaPestana" href="app.html" target="_blank" rel="noopener" hidden>
+                    <i class="bi bi-box-arrow-up-right"></i> <span class="texto-boton">Abrir en pestaña nueva</span>
+                </a>
+                <button type="button" class="ventana-cerrar" data-cerrar aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+            </div>
+            <div class="ventana-cuerpo" id="ventanaCuerpo"></div>
+        </div>
+    </div>
+
+    <!-- ==================== VISOR DE PRODUCTOS (galería) ==================== -->
+    <div class="visor" id="visor" role="dialog" aria-modal="true" aria-labelledby="visorTitulo" hidden>
+        <div class="visor-fondo" data-cerrar-visor></div>
+        <button type="button" class="visor-cerrar" data-cerrar-visor aria-label="Cerrar"><i class="bi bi-x-lg"></i></button>
+        <button type="button" class="visor-flecha anterior" id="visorAnterior" aria-label="Producto anterior"><i class="bi bi-chevron-left"></i></button>
+        <div class="visor-marco">
+            <div class="visor-cabecera">
+                <span class="producto-icono" id="visorIcono"></span>
+                <div>
+                    <h3 id="visorTitulo"></h3>
+                    <p id="visorFrase"></p>
+                </div>
+                <span class="visor-contador" id="visorContador"></span>
+            </div>
+            <div class="visor-contenido" id="visorContenido"></div>
+            <div class="visor-pie" id="visorMiniaturas" aria-label="Productos"></div>
+        </div>
+        <button type="button" class="visor-flecha siguiente" id="visorSiguiente" aria-label="Producto siguiente"><i class="bi bi-chevron-right"></i></button>
+    </div>
 </body>
 </html>

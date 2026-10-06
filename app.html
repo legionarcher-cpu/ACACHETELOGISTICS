@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Estilos (el orden importa: si una regla se repite, gana la de más abajo)
+         variables.css   -> colores, fuentes y medidas con nombre
+         base.css        -> reinicio y fuente general
+         animaciones.css -> @keyframes compartidos
+         componentes.css -> botones, tablas, formularios, ventanas, avisos...
+         index.css       -> marco del index (encabezado, menú, pie)
+         encabezados.css -> imágenes del encabezado por marca y empresa (al final)
+         El CSS de cada sección (css/secciones/) lo carga js/pagina_inicial.js -->
+    <link rel="stylesheet" href="css/variables.css?v=2">
+    <link rel="stylesheet" href="css/base.css?v=3">
+    <link rel="stylesheet" href="css/animaciones.css?v=2">
+    <link rel="stylesheet" href="css/componentes.css?v=5">
+    <link rel="stylesheet" href="css/index.css?v=8">
+    <link rel="stylesheet" href="css/viajes.css?v=2">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Tablet y celular (carpeta responsive/): solo reglas @media, va al final.
+         ?v=N: subir el número al cambiar el archivo, para que los celulares no usen la copia vieja -->
+
+    <link rel="stylesheet" href="responsive/responsive.css?v=6">
+
+    <!-- Imágenes del encabezado de cada marca y empresa (logos e imagen del título).
+         Va al final para que sus reglas ganen. Se cambian SOLO ahí. -->
+    <link rel="stylesheet" href="css/encabezados.css?v=2">
+
+    <link rel="icon" type="image/png" href="img/logo.png">
+
+    <!-- Empresa activa (multimarca): colores, logo, título, pie, actividades y
+         base de datos. SIN defer, para que los colores se apliquen antes de
+         dibujar la página. Se configura en empresas/empresas.js -->
+    <script src="empresas/empresas.js"></script>
+
+    <!-- Sesión: SIN defer, para saber ANTES de dibujar la página si hay sesión.
+         Si no la hay, se marca <html class="sin-sesion"> (oculta el usuario y
+         los botones del pie sin que se vean un instante). -->
+    <script src="js/sesion.js"></script>
+    <script>
+        // Sin sesión -> html.sin-sesion | Con sesión -> html[data-rol="..."] (ver css/index.css)
+        const sesionInicial = obtenerSesion();
+        if (!sesionInicial) document.documentElement.classList.add('sin-sesion');
+        else document.documentElement.dataset.rol = sesionInicial.rol;
+    </script>
+
+    <!-- Scripts (se ejecutan en este orden)
+         supabase-js + js/supabase.js -> conexión con la base de datos (objeto "db")
+         avatar.js -> fotos de usuario (encabezado, perfil y usuarios)
+         componentes.js -> avisos, celdas y botones que usan varias secciones
+         palabras.js -> "Pedido" se lee "Viaje" (y "Piloto" "Conductor") si la actividad lo pide
+         notificaciones.js -> campana de notificaciones (antes de permisos.js, que la enciende)
+         permisos.js -> bloquea el menú según la sesión y pinta el usuario del encabezado
+         pagina_inicial.js -> carga las secciones en .cuerpo-principal (va al final)
+         Los JS propios de cada sección van en js/secciones/ y los carga pagina_inicial.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="js/supabase.js" defer></script>
+    <script src="js/avatar.js" defer></script>
+    <script src="js/componentes.js" defer></script>
+    <!-- Palabras de la actividad (Pedido -> Viaje, Piloto -> Conductor) en todo lo que se ve -->
+    <script src="js/palabras.js" defer></script>
+    <!-- Mapa gratis (Leaflet + OpenStreetMap), búsqueda de direcciones y distancia por calle -->
+    <script src="js/mapa.js" defer></script>
+    <script src="js/notificaciones.js" defer></script>
+    <!-- QR: lector con la cámara, QR de pedido / marcas de tienda / piloto del día (js/qr.js) -->
+    <script src="js/qr.js" defer></script>
+    <!-- Viajes (Transporte): estados, precios, Inicio y reporte de viajes (js/viajes-comun.js) -->
+    <script src="js/viajes-comun.js" defer></script>
+    <script src="js/permisos.js" defer></script>
+    <script src="js/date.js" defer></script>
+    <script src="js/menu-usuario.js" defer></script>
+    <script src="js/menu-animado.js" defer></script>
+    <script src="js/pagina_inicial.js" defer></script>
+    <!-- Botón ☰ del menú en tablet y celular (responsive/responsive.js) -->
+    <script src="responsive/responsive.js" defer></script>
+
+    <title>ACACHETE Logistics</title>
+</head>
+<body>
+    <header class="encabezado">
+        <!--area de logo-->
+        <div class="logo-slog">
+            <div class="logo-img logo-img-1"></div>
+            <div class="logo-img logo-img-2"></div>
+        </div>
+
+        <!--contenedor de titulos-->
+        <div class="cont-info">
+            <!--espacio de icono login info-->
+            <div class="icon-sec1">
+                <div id="log-sec"></div>
+            </div>
+
+            <!--titulos: imagen (css/encabezados.css, según la marca y la empresa activas)
+                o, si no tiene, el texto de empresas/empresas.js-->
+            <div class="titulos-primordial">
+                <div class="encabezado-imagen" aria-hidden="true"></div>
+                <h1 id="titulo-panel"></h1>
+                <h4 id="subti-panel"></h4>
+            </div>
+
+            <!--fecha y hora de la pagina-->
+            <div id="fecha-primordial">
+                <i class="bi bi-calendar3"></i>
+                <div class="containt-date">
+                    <div class="cal-textos">
+                        <div class="cal-mes-anio"></div>
+                        <div class="cal-dia"></div>
+                        <div class="cal-hora"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--informacion y menu de logeo de usuario-->
+        <div class="info-user">
+            <!-- Escanear QR (js/qr.js): pedido -> su información | marcas de tienda -> el piloto marca |
+                 QR del día del piloto -> la tienda lo valida (nombre y foto) -->
+            <button type="button" class="noti-campana qr-boton" id="qrBoton" aria-label="Escanear QR" title="Escanear QR">
+                <i class="bi bi-qr-code-scan"></i>
+            </button>
+
+            <!-- Campana de notificaciones (js/notificaciones.js). El número rojo
+                 cuenta las no leídas; al hacer clic se abre la lista. -->
+            <button type="button" class="noti-campana" id="notiCampana" aria-label="Notificaciones" aria-controls="notiPanel">
+                <i class="bi bi-bell"></i>
+                <span class="noti-contador" id="notiContador" hidden>0</span>
+            </button>
+
+            <div class="noti-panel" id="notiPanel">
+                <div class="noti-panel-cabecera">
+                    <span class="noti-panel-titulo">Notificaciones</span>
+                    <button type="button" class="noti-marcar-todas" id="notiMarcarTodas">Marcar todas como leídas</button>
+                </div>
+                <div class="noti-lista" id="notiLista"></div>
+            </div>
+
+            <button class="user-trigger" id="userTrigger">
+                <div class="user-avatar"></div>
+                <span class="user-nombre">Nombre Usuario</span>
+                <span class="user-flecha">▾</span>
+            </button>
+
+            <div class="user-menu" id="userMenu">
+                <!-- Empresa con la que se trabaja (js/menu-usuario.js). El Desarrollador la elige. -->
+                <div class="user-menu-empresa" id="userEmpresa" hidden>
+                    <span class="user-menu-empresa-etiqueta">Empresa</span>
+                    <strong id="userEmpresaNombre"></strong>
+                    <select id="userEmpresaElegir" class="campo-input" aria-label="Empresa activa" hidden></select>
+                </div>
+                <a href="#perfil" class="user-menu-item">Mi perfil</a>
+                <a href="#configuracion" class="user-menu-item">Configuración</a>
+                <hr class="user-menu-divider">
+                <a href="#" class="user-menu-item user-menu-salir" id="btnCerrarSesion">Cerrar sesión</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="contenido">
+        <nav class="menu-lateral">
+            <ul class="menu-lista">
+                <li class="menu-item"><a href="#inicio"><i class="bi bi-house-door"></i> Inicio</a></li>
+                <li class="menu-item"><a href="#pedidos"><i class="bi bi-box-seam"></i> Pedidos</a></li>
+                <!-- Solo si la empresa hace viajes (Transporte); js/permisos.js la oculta si no -->
+                <li class="menu-item" hidden><a href="#viajes"><i class="bi bi-car-front"></i> Viajes</a></li>
+                <li class="menu-item"><a href="#pilotos"><i class="bi bi-person-badge"></i> Pilotos</a></li>
+                <li class="menu-item"><a href="#rutas"><i class="bi bi-signpost-split"></i> Rutas y asignaciones</a></li>
+                <li class="menu-item"><a href="#tiendas"><i class="bi bi-shop"></i> Tiendas</a></li>
+                <li class="menu-item"><a href="#reportes"><i class="bi bi-bar-chart"></i> Reportes</a></li>
+                <li class="menu-item"><a href="#usuarios"><i class="bi bi-people"></i> Usuarios</a></li>
+                <li class="menu-item"><a href="#configuracion"><i class="bi bi-gear"></i> Configuración</a></li>
+            </ul>
+        </nav>
+
+        <div class="cuerpo-principal"></div>
+        
+    </main>
+
+    <!-- Avisos emergentes de notificaciones nuevas (esquina inferior derecha) -->
+    <div class="noti-avisos" id="notiAvisos" aria-live="polite"></div>
+
+    <footer class="pie">
+        <div class="pie-spacer"></div>
+
+        <div class="pie-botones">
+            <button class="acceso-btn btn-crear">
+                <i class="bi bi-plus-circle"></i>
+                <span>Crear Pedido</span>
+            </button>
+            <!-- Cargar Pedidos: para compañías que reciben pedidos desde otra web o app.
+                 Solo G2 y G3 (css/index.css). Todavía sin función. -->
+            <button class="acceso-btn btn-cargar">
+                <i class="bi bi-upload"></i>
+                <span>Cargar Pedidos</span>
+            </button>
+            <button class="acceso-btn btn-piloto">
+                <i class="bi bi-person-check"></i>
+                <span>Asignar Piloto</span>
+            </button>
+            <button class="acceso-btn btn-hor">
+                <i class="bi bi-calendar-event"></i>
+                <span>Reasignar horario</span>
+            </button>
+            <!-- Los pedidos no se borran: se cancelan (o se anulan) -->
+            <button class="acceso-btn btn-del">
+                <i class="bi bi-slash-circle"></i>
+                <span>Cancelar pedido</span>
+            </button>
+            <button class="acceso-btn btn-chart">
+                <i class="bi bi-bar-chart-line"></i>
+                <span>Generar reporte</span>
+            </button>
+            <!-- Cotizador: calcula el precio de un envío de Encomiendas con las tarifas de
+                 Configuración. Solo si la empresa realiza Encomiendas (js/pagina_inicial.js) -->
+            <button class="acceso-btn btn-cotizar" hidden>
+                <i class="bi bi-calculator"></i>
+                <span>Cotizador</span>
+            </button>
+        </div>
+
+        <!-- Las líneas las pone empresas/empresas.js (campo "pie") -->
+        <div class="info-empresa">
+            <span>Derechos Reservados Achete Logistics S.A.</span>
+        </div>
+
+    </footer>
+
+</body>
+</html>

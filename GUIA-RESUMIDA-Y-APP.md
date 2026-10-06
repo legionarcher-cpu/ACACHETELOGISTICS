@@ -11,7 +11,7 @@ conectar una app (del piloto o del cliente) a los mismos datos. El diseño origi
 
 | Pieza | Qué es |
 |---|---|
-| **Una sola página** | `index.html`. Encabezado, menú y pie quedan fijos; cada sección se carga en el centro sin recargar (`js/pagina_inicial.js`) |
+| **Una sola página** | `app.html`. Encabezado, menú y pie quedan fijos; cada sección se carga en el centro sin recargar (`js/pagina_inicial.js`) |
 | **Secciones** | Cada una son 3 archivos con el mismo nombre: `secciones/<nombre>.html`, `js/secciones/<nombre>.js`, `css/secciones/<nombre>.css` |
 | **Base de datos** | Supabase (PostgreSQL). La página se conecta directo con la clave pública (`js/supabase.js`). No hay servidor propio |
 | **Marcas** | Varias copias del sistema con su logo, colores y base: `empresas/empresas.js` |
@@ -29,10 +29,10 @@ Para abrirlo: Live Server en VS Code (con doble clic no cargan las secciones). D
 
 | Segmento | Qué hace | Dónde se modifica |
 |---|---|---|
-| **Imágenes del encabezado** | Imagen del título, logos de la esquina y logo chico, **según la marca y la empresa activas**; cambian al iniciar sesión o cambiar de empresa | **Solo** `css/encabezados.css`: una regla por marca (`html[data-marca="..."]`) y por empresa (`html[data-empresa="02"]`). Luego subir `?v=` en `index.html` |
+| **Imágenes del encabezado** | Imagen del título, logos de la esquina y logo chico, **según la marca y la empresa activas**; cambian al iniciar sesión o cambiar de empresa | **Solo** `css/encabezados.css`: una regla por marca (`html[data-marca="..."]`) y por empresa (`html[data-empresa="02"]`). Luego subir `?v=` en `app.html` |
 | Texto del título, pie, ícono de la pestaña | Si una marca no tiene imagen, se ve su título en texto | `empresas/empresas.js` (`titulo`, `subtitulo`, `pie`, `icono`) |
 | Colores | 7 colores con nombre (`--color-azul`, `--color-naranja`...) | Originales: `css/variables.css`. Por marca: `colores` en `empresas.js`. Por empresa interna: Tiendas → Empresas → "Paleta de colores" |
-| Menú lateral | Una opción por sección; con candado si el rol no puede entrar | `index.html` (opciones) y `js/sesion.js` (qué rol ve qué) |
+| Menú lateral | Una opción por sección; con candado si el rol no puede entrar | `app.html` (opciones) y `js/sesion.js` (qué rol ve qué) |
 | Botones del pie | Accesos rápidos (Crear Pedido / Viaje, Reportes, Cotizador...) | `BOTONES_PIE` en `js/pagina_inicial.js`; qué rol los ve, en `css/index.css` |
 | Campana | Avisos (pendientes por aprobar, cambios de pedidos y viajes) | `js/notificaciones.js` |
 | Escanear QR | Lee el QR de un pedido, de las marcas de la tienda o del piloto del día | `js/qr.js` |
@@ -42,7 +42,7 @@ Para abrirlo: Live Server en VS Code (con doble clic no cargan las secciones). D
 
 | Sección | Qué hace | Archivos (prefijo de clases) | Cómo se modifica lo más común |
 |---|---|---|---|
-| **Login** | Inicia sesión (la clave se compara cifrada en la base). Con Transporte: "Solicita tu usuario" para clientes | `loggin` (`login-`) | Textos en el HTML. Qué empresa recibe solicitudes: `registroClientes` en `empresas.js` o el enlace `#registro?empresa=02` |
+| **Login** | Inicia sesión (la clave se compara cifrada en la base). "Solicita tu usuario" para clientes de cualquier empresa con Transporte (escriben el código de su empresa) | `loggin` (`login-`) | Textos en el HTML. Dejar la empresa ya puesta: enlace `#registro?empresa=02` o `registroClientes: '02'` en `empresas.js`; ocultar el botón: `registroClientes: false` |
 | **Inicio** | Resumen del día, mapa, marcas del piloto. En empresas solo de Transporte, el resumen de viajes | `inicio` (`ini-`) | Tarjetas y mapa en `js/secciones/inicio.js`; mapa gratis o Google: `INI_MAPA` |
 | **Pedidos** | Crear, listar y avanzar pedidos (alistando → listo → en ruta → entregado), QR y código de respaldo, cobro con tarifas | `pedidos` (`ped-`) | Estados y acciones al inicio de `js/secciones/pedidos.js`; precios y mercadería en Configuración → Pedidos (sin código) |
 | **Viajes** | Transporte de personas y carga: el cliente solicita en 4 pasos, agenda, conductor y vehículo automáticos, cortesía | `viajes` (`via-`) + `js/viajes-comun.js` | Reglas, franjas de precio y costos en Configuración → Transporte (sin código) |
@@ -85,7 +85,7 @@ Para abrirlo: Live Server en VS Code (con doble clic no cargan las secciones). D
 
 | Quiero… | Cómo |
 |---|---|
-| Cambiar la imagen del encabezado de una empresa | `css/encabezados.css` → su bloque `html[data-empresa="ID"]` (agregarlo debajo del último si es nueva) → subir `?v=` en `index.html` |
+| Cambiar la imagen del encabezado de una empresa | `css/encabezados.css` → su bloque `html[data-empresa="ID"]` (agregarlo debajo del último si es nueva) → subir `?v=` en `app.html` |
 | Cambiar los colores de una empresa interna | Tiendas → Empresas → Modificar → Paleta de colores (la 01 queda siempre con los originales) |
 | Agregar un modelo de paleta | Una línea en `PALETAS_MODELO` (`empresas/empresas.js`): clave, texto y 2 colores |
 | Crear una empresa interna | Tiendas → Empresas → Nueva empresa (ID 02 en adelante, actividades y paleta) → "Trabajar con esta" → sus regiones, tiendas y usuarios |
@@ -94,7 +94,7 @@ Para abrirlo: Live Server en VS Code (con doble clic no cargan las secciones). D
 | Cambiar precios | Configuración → Pedidos (tarifas) o Configuración → Transporte (franjas por km) |
 | Que un rol no vea una sección | `js/sesion.js` → `SECCIONES_BLOQUEADAS_POR_ROL` |
 | Agregar una columna a una tabla | Al final de `sql/01` (bloque nuevo) y en su sección de `sql/00`. Si es en `usuarios`, luego `select public.usuarios_ocultar_clave();` |
-| Agregar una sección nueva | 3 archivos con el mismo nombre + opción en el menú de `index.html` (`docs/10-recetas.md`) |
+| Agregar una sección nueva | 3 archivos con el mismo nombre + opción en el menú de `app.html` (`docs/10-recetas.md`) |
 | Limpiar los datos de una empresa | `herramientas/vaciar_base_datos.sql` → escribir su ID y su nombre → Run en Supabase |
 
 ---
