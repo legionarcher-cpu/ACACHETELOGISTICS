@@ -79,7 +79,8 @@ registrarSeccion('reportes', (zona) => {
     // Piloto: SOLO sus pedidos y solo de los últimos 7 días (hoy y los 6 anteriores)
     const esPiloto = rolActual() === 'piloto';
     const REP_DIAS_PILOTO = 7;
-    const puedeExportar = esGeneral || !!regionG2 || esPiloto; // G3 solo ve; el piloto exporta lo suyo
+    // G3 solo ve; el piloto exporta lo suyo. Y solo si el plan de la empresa lo incluye (empresas/empresas.js)
+    const puedeExportar = (esGeneral || !!regionG2 || esPiloto) && (typeof funcionHabilitada !== 'function' || funcionHabilitada('exportar'));
 
     // ---------- Elementos ----------
     const selRegion = $('#repRegion');

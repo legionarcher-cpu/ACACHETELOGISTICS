@@ -163,6 +163,8 @@ registrarSeccion('clientes', (zona) => {
 
     // Viajes (Transporte): acceso del cliente y sus lugares Casa / Trabajo (sql/01 bloque 19)
     const conViajes = typeof empresaTieneViajes === 'function' && empresaTieneViajes();
+    // Usuario del cliente: si la empresa hace viajes o encomiendas ("Mis envíos", sql/01 bloque 23)
+    const conAcceso = conViajes || (typeof empresaTieneRecoleccion === 'function' && empresaTieneRecoleccion());
     let accesos = new Map();    // cliente_id -> { id, id_usuario } de su usuario
     let enAcceso = null;        // cliente de la ventana "Acceso y lugares"
 
@@ -306,7 +308,7 @@ registrarSeccion('clientes', (zona) => {
     // Usuarios de los clientes (rol cliente, sql/01 bloque 19): cliente_id -> { id, id_usuario, aprobado }
     async function cargarAccesos() {
         accesos = new Map();
-        if (!conViajes) return;
+        if (!conAcceso) return;
         const { data, error } = await db.from('usuarios').select('id, id_usuario, cliente_id, aprobado').eq('rol', 'cliente');
         if (!error) data.forEach((u) => accesos.set(u.cliente_id, u));
     }
@@ -407,10 +409,10 @@ registrarSeccion('clientes', (zona) => {
 
             // Viajes: usuario del cliente y Casa / Trabajo (solo quien administra, ya aprobado
             // y sin una solicitud de acceso por revisar: esa se aprueba con "Revisar")
-            if (conViajes && puedeAdministrar(c) && c.aprobado && !accesoPendiente(c)) {
+            if (conAcceso && puedeAdministrar(c) && c.aprobado && !accesoPendiente(c)) {
                 const acceso = accesos.get(c.id);
                 botones.push(crearBotonIcono('acceso', c.id, acceso ? 'bi-person-check' : 'bi-key',
-                    acceso ? `Acceso a viajes: ${acceso.id_usuario} · Casa y Trabajo` : 'Dar acceso a viajes y guardar Casa y Trabajo'));
+                    acceso ? `Acceso del cliente: ${acceso.id_usuario} · Casa y Trabajo` : 'Dar acceso al cliente (usuario) y guardar Casa y Trabajo'));
             }
 
             botones.push(crearBotonIcono('eliminar', c.id, 'bi-trash3',
@@ -511,7 +513,7 @@ registrarSeccion('clientes', (zona) => {
         if (boton.dataset.accion === 'revisar' && puedeAdministrar(cliente)) abrirRevision(cliente);
         if (boton.dataset.accion === 'editar' && puedeModificar(cliente)) abrirFormulario(cliente);
         if (boton.dataset.accion === 'eliminar' && puedeAdministrar(cliente)) pedirConfirmacion(cliente);
-        if (boton.dataset.accion === 'acceso' && conViajes && puedeAdministrar(cliente)) abrirAcceso(cliente);
+        if (boton.dataset.accion === 'acceso' && conAcceso && puedeAdministrar(cliente)) abrirAcceso(cliente);
     });
 
     // ==================================================
@@ -604,7 +606,7 @@ registrarSeccion('clientes', (zona) => {
 
     $('#cliAccesoQuitar').addEventListener('click', async () => {
         const acceso = enAcceso && accesos.get(enAcceso.id);
-        if (!acceso || !confirm(`¿Quitar el acceso de ${cliNombreCompleto(enAcceso)} (${acceso.id_usuario})? Ya no podrá entrar a solicitar viajes.`)) return;
+        if (!acceso || !confirm(`¿Quitar el acceso de ${cliNombreCompleto(enAcceso)} (${acceso.id_usuario})? Ya no podrá entrar a la app.`)) return;
         const { error } = await db.from('usuarios').delete().eq('id', acceso.id);
         if (error) { $('#cliAccesoError').textContent = 'No se pudo quitar el acceso.'; return; }
         accesoDialogo.close();
@@ -905,7 +907,7 @@ registrarSeccion('clientes', (zona) => {
             // Se registró solo desde el login (sql/01 bloque 20)
             revisarTexto.textContent = `"${cliNombreCompleto(cliente)}" (tel. ${cliente.telefono}` +
                 `${cliente.correo ? `, ${cliente.correo}` : ''}) se registró desde el login y pide el usuario ` +
-                `"${acceso.id_usuario}". Si lo apruebas, ya puede entrar a solicitar viajes. Si lo rechazas, se elimina.`;
+                `"${acceso.id_usuario}". Si lo apruebas, ya puede entrar a solicitar sus viajes o envíos. Si lo rechazas, se elimina.`;
             revisarCambios.hidden = true;
         } else if (!cliente.aprobado) {
             // Cliente nuevo
@@ -917,7 +919,7 @@ registrarSeccion('clientes', (zona) => {
             // Cliente que ya existía y pidió su usuario desde el login con el mismo teléfono
             revisarTexto.textContent = `Alguien con el teléfono de "${cliNombreCompleto(cliente)}" (${cliente.telefono}) ` +
                 `pidió el usuario "${acceso.id_usuario}" desde el login. ⚠ Confirma con el cliente que fue él antes de aprobar: ` +
-                'el usuario verá y pedirá viajes a su nombre. Si lo rechazas, solo se borra la solicitud de acceso.';
+                'el usuario verá y pedirá viajes o envíos a su nombre. Si lo rechazas, solo se borra la solicitud de acceso.';
             revisarCambios.hidden = true;
         } else {
             // Cambios propuestos: tabla Dato | Actual | Propuesto

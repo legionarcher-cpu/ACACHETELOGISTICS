@@ -299,7 +299,7 @@ function enlacesNavegacion(a, b) {
 //       entradaA: inputA, entradaB: inputB, // (opcional) sugerencias mientras se escribe
 //       alCambiar: (ruta) => { ... },  // { km, minutos, aproximada } o null
 //   });
-//   mapa.ponerA({ lat, lng }) / mapa.ponerB(...)   -> pone un punto (sin buscar)
+//   mapa.ponerA({ lat, lng }) / mapa.ponerB(...)   -> pone un punto (sin buscar; gana a una búsqueda en curso)
 //   mapa.ubicarA() / mapa.ubicarB()                 -> busca el texto y pone el punto
 //   mapa.puntos() -> { a, b } · mapa.ruta() -> la última ruta · mapa.limpiar()
 //   mapa.destruir()  -> en la limpieza de la sección
@@ -322,6 +322,7 @@ function crearMapaRuta(caja, opciones = {}) {
     let linea = null;
     let vigia = null;
     let pendiente = 0;   // para ignorar rutas viejas si se mueve rápido
+    const busqueda = { a: 0, b: 0 }; // para ignorar una búsqueda de dirección si mientras tanto se puso ese punto a mano
     let proximoClic = 'b';
     let resultados = { lado: null, lista: [] };
 
@@ -500,14 +501,16 @@ function crearMapaRuta(caja, opciones = {}) {
             return;
         }
         pintarEstado('Buscando la dirección...');
+        const turno = ++busqueda[lado];
         let lista = [];
         try {
             lista = await buscarDireccion(texto, { cerca: zonaVisible() });
         } catch (e) {
             console.error(e);
-            pintarEstado('No se pudo buscar la dirección (revisa internet). Puedes marcar el punto con un clic en el mapa.', 'error');
+            if (turno === busqueda[lado]) pintarEstado('No se pudo buscar la dirección (revisa internet). Puedes marcar el punto con un clic en el mapa.', 'error');
             return;
         }
+        if (turno !== busqueda[lado]) return; // mientras buscaba, el punto se puso a mano: gana ese
         if (!lista.length) {
             opcionesBusqueda.hidden = true;
             pintarEstado(`No se encontró "${texto}". Escribe barrio y cantón (ej. "Barrio Escalante, San José"), o marca el punto con un clic en el mapa.`, 'error');
@@ -528,8 +531,8 @@ function crearMapaRuta(caja, opciones = {}) {
     botonB.addEventListener('click', () => ubicar('b'));
 
     // Sugerencias mientras se escribe: al elegir una, el punto se pone en el mapa
-    if (o.entradaA) sugerirDirecciones(o.entradaA, { cerca: zonaVisible, alElegir: (r) => { opcionesBusqueda.hidden = true; poner('a', r); } });
-    if (o.entradaB) sugerirDirecciones(o.entradaB, { cerca: zonaVisible, alElegir: (r) => { opcionesBusqueda.hidden = true; poner('b', r); } });
+    if (o.entradaA) sugerirDirecciones(o.entradaA, { cerca: zonaVisible, alElegir: (r) => { opcionesBusqueda.hidden = true; busqueda.a++; poner('a', r); } });
+    if (o.entradaB) sugerirDirecciones(o.entradaB, { cerca: zonaVisible, alElegir: (r) => { opcionesBusqueda.hidden = true; busqueda.b++; poner('b', r); } });
 
     // ---------- Crear el mapa ----------
     cargarLeaflet().then(() => {
@@ -542,6 +545,7 @@ function crearMapaRuta(caja, opciones = {}) {
         mapa.on('mouseout', () => mapa.scrollWheelZoom.disable());
         mapa.on('click', (e) => {
             opcionesBusqueda.hidden = true;
+            busqueda[proximoClic]++;
             poner(proximoClic, { lat: e.latlng.lat, lng: e.latlng.lng });
         });
         // Si el mapa estaba oculto o cambia de tamaño, se reacomoda
@@ -557,8 +561,8 @@ function crearMapaRuta(caja, opciones = {}) {
     pintarEstado();
 
     return {
-        ponerA: (p) => poner('a', p),
-        ponerB: (p) => poner('b', p),
+        ponerA: (p) => { busqueda.a++; return poner('a', p); },
+        ponerB: (p) => { busqueda.b++; return poner('b', p); },
         ubicarA: () => ubicar('a'),
         ubicarB: () => ubicar('b'),
         puntos: () => ({ a: puntos.a, b: puntos.b }),

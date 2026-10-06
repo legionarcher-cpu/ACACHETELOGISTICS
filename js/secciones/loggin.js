@@ -228,13 +228,13 @@ registrarSeccion('loggin', (zona) => {
 });
 
 // ==================================================
-// SOLICITAR USUARIO (clientes de cualquier empresa con Transporte, sql/01 bloque 20)
+// SOLICITAR USUARIO (clientes de cualquier empresa con Transporte o Encomiendas, sql/01 bloques 20 y 23)
 //   "¿Eres cliente? Solicita tu usuario" aparece en el login de TODAS las marcas
 //   (salvo registroClientes: false en empresas/empresas.js). ¿De qué empresa?
 //     - enlace app.html#registro?empresa=02 (tarjeta, WhatsApp, QR) -> esa, ya puesta
 //     - registroClientes: '02' en la marca -> esa, ya puesta
 //     - si no -> el cliente escribe el CÓDIGO de su empresa (02, 03...), que ella le da
-//   La base revisa que la empresa esté activa y haga viajes (registro_clientes_empresa).
+//   La base revisa que la empresa esté activa y haga viajes o encomiendas (registro_clientes_empresa).
 //   La solicitud la guarda la base (solicitar_acceso_cliente): cliente y usuario
 //   quedan SIN APROBAR y se avisa al Administrador y al G1 de la empresa, que la
 //   aprueban en Clientes -> "Revisar".

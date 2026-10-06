@@ -213,31 +213,46 @@ registrarSeccion('configuracion', (zona) => {
     //   nombre: { permitido: () => true/false, abrir: () => { ...cargar datos... } }
     // ==================================================
 
+    // ¿El plan de la empresa incluye el módulo? (empresas/empresas.js: FUNCIONES_PLAN 'cfg_...')
+    const enPlan = (clave) => typeof funcionHabilitada !== 'function' || funcionHabilitada(clave);
+
     const CFG_MODULOS = {
         horarios: {
-            permitido: () => puedeRegional, // G2 entra, pero solo cambia lo de su región
+            permitido: () => puedeRegional && enPlan('cfg_horarios'), // G2 entra, pero solo cambia lo de su región
             abrir: () => cargarTodo(),
         },
         // Slots de despacho (js/secciones/configuracion/slots.js). G2 solo los ve.
         slots: {
-            permitido: () => puedeRegional && empresaTienePedidos(),
+            permitido: () => puedeRegional && empresaTienePedidos() && enPlan('cfg_slots'),
             abrir: () => abrirModuloExterno('slots'),
         },
         vehiculos: {
-            permitido: () => puedeRegional,
+            permitido: () => puedeRegional && enPlan('cfg_vehiculos'),
             abrir: () => cargarVehiculos(),
         },
         // Tarifas, descuentos, categorías... (js/secciones/configuracion/pedidos.js).
         // Una empresa solo de viajes (Transporte) no usa pedidos: no ve esta tarjeta.
         pedidos: {
-            permitido: () => puedeRegional && empresaTienePedidos(),
+            permitido: () => puedeRegional && empresaTienePedidos() && enPlan('cfg_pedidos'),
             abrir: () => abrirModuloExterno('pedidos'),
         },
-        // Agenda, franjas de precio, recargos, días cerrados, costos y cortesía
+        // Agenda, franjas de precio, recargos, días cerrados y cortesía
         // (js/secciones/configuracion/transporte.js). Solo si la empresa hace viajes.
         transporte: {
-            permitido: () => esGeneral && empresaTieneViajes(),
+            permitido: () => esGeneral && empresaTieneViajes() && enPlan('cfg_transporte'),
             abrir: () => abrirModuloExterno('transporte'),
+        },
+        // Calculador de costos: gastos del mes, combustible y costo por km de cada vehículo
+        // (js/secciones/configuracion/costos.js). Todas las empresas, si su plan lo incluye.
+        costos: {
+            permitido: () => esGeneral && enPlan('cfg_costos'),
+            abrir: () => abrirModuloExterno('costos'),
+        },
+        // Plan de pago de cada empresa y funciones habilitadas
+        // (js/secciones/configuracion/planes.js). SOLO el Desarrollador.
+        planes: {
+            permitido: () => esDesarrollador(),
+            abrir: () => abrirModuloExterno('planes'),
         },
         // Ventana flotante (js/secciones/configuracion/actividades.js). SOLO el Desarrollador.
         actividades: {

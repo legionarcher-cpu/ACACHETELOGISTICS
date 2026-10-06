@@ -213,6 +213,10 @@ registrarSeccion('pedidos', (zona) => {
     const puedeDespachar = puedeGestionar;
     // El horario del piloto (marca) solo lo ven el piloto y Admin G2 en adelante
     const verMarca = esPiloto || puedeAsignar;
+    // Solicitudes de envío de los clientes ("Mis envíos"): las aprueba o rechaza el Admin G3
+    // de la tienda o superior, si el plan de la empresa las incluye (sql/01 bloque 23)
+    const puedeAprobarSol = (esGeneral || !!regionG2 || esAdminG3())
+        && (typeof funcionHabilitada !== 'function' || funcionHabilitada('envios_clientes'));
 
     // ==================================================
     // AYUDAS
@@ -364,6 +368,8 @@ registrarSeccion('pedidos', (zona) => {
     // Pedidos del mismo día, sin entregar, cerca de una ruta { origen, a, b } (ver PED_RADIO_CERCANO_KM).
     // Devuelve [{ pedido: { id, codigo, estado, piloto_id, tienda_id }, km, mio, suyo }] o [] si falla.
     async function buscarCercanos(ruta, fecha, excluirId = null) {
+        // Solo si el plan de la empresa incluye "Pedidos cercanos" (empresas/empresas.js)
+        if (typeof funcionHabilitada === 'function' && !funcionHabilitada('pedidos_cercanos')) return [];
         if (!fecha || !pedPuntosDeRuta(ruta).length) return [];
         const { data, error } = await db.from('pedidos')
             .select('id, codigo, estado, piloto_id, tienda_id, detalle')
@@ -698,6 +704,103 @@ registrarSeccion('pedidos', (zona) => {
         dibujarLista();
         dibujarRutasDia();
     }
+
+    // ---------- Solicitudes de envío de los clientes (sql/01 bloque 23) ----------
+    // El cliente las hace en "Mis envíos" (js/secciones/envios.js). Aquí: las pendientes
+    // de las tiendas que el usuario ve. "Revisar y registrar" abre el formulario ya lleno
+    // (cargarSolicitudEnFormulario); "Rechazar" pide el motivo y se lo avisa al cliente.
+    let solicitudesPend = [];
+    const dlgSolRechazo = $('#pedSolRechazoDialogo');
+    let rechazando = null;
+
+    async function cargarSolicitudes() {
+        const caja = $('#pedSolicitudes');
+        if (!puedeAprobarSol) { caja.hidden = true; return; }
+        let q = db.from('pedido_solicitudes').select('*').eq('estado', 'pendiente')
+            .order('fecha').order('creado_en').limit(50);
+        if (!esGeneral) q = q.in('tienda_id', tiendas.length ? tiendas.map((t) => t.id) : [0]);
+        const { data, error } = await q;
+        if (error) {
+            // Sin el bloque 23 no hay solicitudes: no se muestra nada
+            if (!faltaTabla(error) && error.code !== '42703') console.error('Error al cargar las solicitudes de envío:', error);
+            caja.hidden = true;
+            return;
+        }
+        solicitudesPend = data;
+        caja.hidden = !data.length;
+        $('#pedSolCuenta').textContent = String(data.length);
+        $('#pedSolLista').replaceChildren(...data.map(filaSolicitud));
+        if (data.length && parametrosSeccion().get('solicitudes')) caja.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+
+    function filaSolicitud(s) {
+        const li = document.createElement('li');
+        li.className = 'ped-sol-item';
+        const textos = document.createElement('div');
+        textos.className = 'ped-sol-textos';
+        const titulo = document.createElement('strong');
+        titulo.textContent = `S-${s.id} · ${s.cliente_nombre} · para el ${fechaCorta(s.fecha)}`;
+        const ruta = document.createElement('span');
+        ruta.textContent = `A: ${s.recoleccion_direccion}${s.recoleccion_referencia ? ` (${s.recoleccion_referencia})` : ''} → `
+            + `B: ${s.entrega_direccion}${s.entrega_referencia ? ` (${s.entrega_referencia})` : ''}`;
+        const datos = document.createElement('small');
+        datos.textContent = [s.descripcion, plural(s.bultos, 'bulto', 'bultos'), s.peso_kg ? `${Number(s.peso_kg)} kg aprox.` : null,
+            s.km ? `${s.km} km` : null, s.tienda_id ? nombreTienda(s.tienda_id) : 'sin tienda', `tel. ${s.cliente_telefono}`]
+            .filter(Boolean).join(' · ');
+        textos.append(titulo, ruta, datos);
+        textos.setAttribute('data-sin-palabras', ''); // lo escribió el cliente: js/palabras.js no lo cambia
+
+        const botones = document.createElement('div');
+        botones.className = 'ped-sol-botones';
+        const revisar = document.createElement('a');
+        revisar.className = 'boton boton-principal boton-chico';
+        revisar.href = `#pedidos?nuevo=1&actividad=${encodeURIComponent(s.actividad)}&solicitud=${s.id}`;
+        revisar.innerHTML = '<i class="bi bi-check2-circle"></i> <span>Revisar y registrar</span>';
+        const rechazar = document.createElement('button');
+        rechazar.type = 'button';
+        rechazar.className = 'boton boton-secundario boton-chico';
+        rechazar.dataset.rechazarSol = s.id;
+        rechazar.innerHTML = '<i class="bi bi-x-circle"></i> <span>Rechazar</span>';
+        botones.append(revisar, rechazar);
+        li.append(textos, botones);
+        return li;
+    }
+
+    $('#pedSolLista').addEventListener('click', (e) => {
+        const b = e.target.closest('button[data-rechazar-sol]');
+        if (!b) return;
+        rechazando = solicitudesPend.find((s) => s.id === Number(b.dataset.rechazarSol)) || null;
+        if (!rechazando) return;
+        $('#pedSolRechazoTexto').textContent = `S-${rechazando.id} de ${rechazando.cliente_nombre}: ${rechazando.descripcion}.`;
+        $('#pedSolRechazoMotivo').value = '';
+        $('#pedSolRechazoError').textContent = '';
+        dlgSolRechazo.showModal();
+        $('#pedSolRechazoMotivo').focus();
+    });
+    $('#pedSolRechazoVolver').addEventListener('click', () => dlgSolRechazo.close());
+    $('#pedSolRechazoForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const s = rechazando;
+        const motivo = $('#pedSolRechazoMotivo').value.trim();
+        if (!s) return;
+        if (!motivo) { $('#pedSolRechazoError').textContent = 'Escribe el motivo: el cliente lo verá.'; return; }
+        const { data, error } = await db.from('pedido_solicitudes')
+            .update({ estado: 'rechazada', motivo, revisado_por: sesion.id || null, revisado_en: new Date().toISOString() })
+            .eq('id', s.id).eq('estado', 'pendiente').select('id');
+        if (error) { $('#pedSolRechazoError').textContent = 'No se pudo rechazar. Revisa la conexión.'; return; }
+        dlgSolRechazo.close();
+        if (!data.length) {
+            aviso.mostrar(`La solicitud S-${s.id} ya no estaba pendiente (la revisó otra persona o el cliente la canceló).`, 'error');
+        } else {
+            resolverPendientes('solicitud_envio', s.id);
+            await notificarResultado({
+                usuarioId: s.usuario_id, aprobado: false, enlace: '#envios', referenciaTipo: 'solicitud_envio', referenciaId: s.id,
+                titulo: 'Tu solicitud de envío no fue aprobada', mensaje: `S-${s.id} (${s.descripcion}): ${motivo}`,
+            });
+            aviso.mostrar(`Solicitud S-${s.id} rechazada. Se le avisó al cliente.`);
+        }
+        cargarSolicitudes();
+    });
 
     // Rutas que el usuario puede ver en la lista
     const rutasVisibles = () => (esPiloto ? rutas : rutas.filter((r) => tiendaPorId(r.tienda_id)));
@@ -1288,7 +1391,7 @@ registrarSeccion('pedidos', (zona) => {
         // Si cambia de dónde sale el pedido (tienda o recolección), se mueve el punto A
         if (mapaRuta && recoleccionAntes !== !origenEsTienda()) actualizarPuntoA();
         $('#pedCompraCaja').hidden = !usa('usa_compra');
-        $('#pedCobrarCompraCaja').hidden = !usa('usa_compra');
+        $('#pedPagadoCompraCaja').hidden = !usa('usa_compra');
         llenarDescuentos();
         actualizarRutas();
         recalcular();
@@ -1882,8 +1985,9 @@ registrarSeccion('pedidos', (zona) => {
         const desc = descuentos.find((d) => String(d.id) === selDescuento.value) || null;
         const descuentoEnvio = montoDescuento(desc, calc.envio); // js/componentes.js
         const costoEnvio = redondear(calc.envio - descuentoEnvio);
-        const cobrarEnvio = $('#pedCobrarEnvio').checked;
-        const cobrarCompra = usa('usa_compra') && $('#pedCobrarCompra').checked;
+        // Lo pagado en línea no lo cobra el piloto; sin marcar (por defecto) se cobra el total
+        const cobrarEnvio = !$('#pedPagadoEnvio').checked;
+        const cobrarCompra = usa('usa_compra') && !$('#pedPagadoCompra').checked;
         const total = redondear((cobrarEnvio ? costoEnvio : 0) + (cobrarCompra ? monto : 0));
 
         return { act, tarifa, peso, monto, calc, desc, montoDescuento: descuentoEnvio, costoEnvio, cobrarEnvio, cobrarCompra, total };
@@ -1955,9 +2059,18 @@ registrarSeccion('pedidos', (zona) => {
 
         $('#pedTotal').textContent = dinero(c.total);
 
+        // Pagado en línea: si no queda nada por cobrar, no se pide forma de pago ni "paga con"
+        const efectivo = form.querySelector('input[name="pedPago"]:checked').value === 'efectivo';
+        const pagadoAlgo = !c.cobrarEnvio || (usa('usa_compra') && !c.cobrarCompra);
+        const nadaQueCobrar = pagadoAlgo && c.total === 0;
+        $('#pedCampoFormaPago').hidden = nadaQueCobrar;
+        $('#pedCampoPagaCon').hidden = nadaQueCobrar || !efectivo;
+        $('#pedPagadoAyuda').textContent = nadaQueCobrar
+            ? '✔ Todo pagado en línea: el piloto no cobra nada al entregar.'
+            : pagadoAlgo ? `El piloto cobra solo lo pendiente: ${dinero(c.total)}.` : 'Sin marcar = el piloto cobra el total al entregar.';
+
         // Vuelto (efectivo)
         const pagaCon = numero($('#pedPagaCon'));
-        const efectivo = form.querySelector('input[name="pedPago"]:checked').value === 'efectivo';
         $('#pedVuelto').textContent = efectivo && pagaCon > 0
             ? (pagaCon >= c.total ? `Vuelto: ${dinero(pagaCon - c.total)}` : `⚠ Faltan ${dinero(c.total - pagaCon)}`)
             : '';
@@ -2133,6 +2246,119 @@ registrarSeccion('pedidos', (zona) => {
         if (error) console.error('Error al guardar la ubicación del cliente:', error);
     }
 
+    // ---------- Registrar desde una solicitud de un cliente (#pedidos?nuevo=1&solicitud=12) ----------
+    // Llena tienda, actividad, cliente, A y B (con los puntos que marcó el cliente), quién
+    // recibe, la fecha, un bulto con lo que dijo y las referencias en Notas. La tienda
+    // completa el peso real, la tarifa, la ruta o el piloto, y registra. Al registrar, la
+    // solicitud queda "aprobada" con su pedido y se le avisa al cliente (ver el submit).
+    let solicitudForm = null;
+
+    async function cargarSolicitudEnFormulario(id) {
+        const { data: s, error } = await db.from('pedido_solicitudes').select('*').eq('id', id).maybeSingle();
+        if (error || !s) {
+            aviso.mostrar(!error ? 'No se encontró la solicitud.'
+                : faltaTabla(error) ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 23: solicitudes de envío).'
+                    : 'No se pudo cargar la solicitud. Revisa la conexión.', 'error');
+            return;
+        }
+        if (s.estado !== 'pendiente') {
+            aviso.mostrar(`La solicitud S-${s.id} ya no está pendiente (${s.estado}).`, 'error');
+            return;
+        }
+        if (s.tienda_id && !tiendaPorId(s.tienda_id)) {
+            aviso.mostrar(`La solicitud S-${s.id} es de una tienda que no administras.`, 'error');
+            return;
+        }
+        solicitudForm = s;
+
+        // A primero: así, al cambiar de tienda, el punto de partida es la recolección (no la tienda)
+        inputRecoleccion.value = s.recoleccion_direccion;
+        if (s.tienda_id && tiendaElegida() !== s.tienda_id) {
+            selTienda.value = String(s.tienda_id);
+            await alCambiarTienda();
+        }
+        const radio = [...cajaActividades.querySelectorAll('input')].find((r) => r.value === s.actividad);
+        if (radio && !radio.checked) {
+            radio.checked = true;
+            alCambiarActividad();
+        }
+        inputRecoleccion.value = s.recoleccion_direccion;
+        actualizarCampoA();
+        inputDireccion.value = s.entrega_direccion;
+
+        // Cliente (su ficha; si no se pudo leer, sus datos escritos)
+        const cli = s.cliente_id ? await db.from('clientes').select('*').eq('id', s.cliente_id).maybeSingle() : { data: null };
+        if (cli.data) elegirCliente(cli.data);
+        else {
+            $('#pedClienteNombre').value = s.cliente_nombre;
+            $('#pedClienteTelefono').value = s.cliente_telefono;
+        }
+
+        // Quién recibe
+        if (s.recibe_nombre) {
+            const otro = form.querySelector('input[name="pedRecibe"][value="autorizado"]');
+            otro.checked = true;
+            otro.dispatchEvent(new Event('change', { bubbles: true }));
+            $('#pedRecibeNombre').value = s.recibe_nombre;
+            $('#pedRecibeTelefono').value = s.recibe_telefono || '';
+        }
+
+        // Fecha (si ya pasó, hoy) y lo que depende de ella
+        inputFecha.value = s.fecha < fechaHoy() ? fechaHoy() : s.fecha;
+        await actualizarMarcas();
+        actualizarPilotosRuta();
+
+        // Un bulto con lo que dijo el cliente (en la primera categoría de bultos de la actividad)
+        const catBulto = categorias.find((c) => c.actividad === s.actividad && c.tipo === 'bulto');
+        const casilla = catBulto ? cajaCategorias.querySelector(`input[value="${catBulto.id}"]`) : null;
+        if (casilla && !casilla.checked) {
+            casilla.checked = true;
+            casilla.dispatchEvent(new Event('change', { bubbles: true }));
+            const fila = cajaDetalleCat.querySelector(`[data-categoria="${catBulto.id}"] [data-filas] > .ped-fila`);
+            if (fila) {
+                fila.querySelector('[data-b="descripcion"]').value = s.descripcion.slice(0, 60);
+                fila.querySelector('[data-b="cantidad"]').value = s.bultos;
+                if (s.peso_kg) fila.querySelector('[data-b="peso"]').value = redondear(Number(s.peso_kg) / s.bultos);
+            }
+        }
+
+        // Referencias y nota del cliente
+        $('#pedNotas').value = [s.recoleccion_referencia ? `Recoger: ${s.recoleccion_referencia}` : null,
+            s.entrega_referencia ? `Entregar: ${s.entrega_referencia}` : null, s.notas].filter(Boolean).join(' · ').slice(0, 300);
+
+        // Puntos del mapa que marcó el cliente (ganan a cualquier búsqueda de dirección en curso)
+        if (mapaRuta) {
+            mapaRuta.etiquetas('Punto de partida', 'Entrega');
+            if (s.recoleccion_lat != null) mapaRuta.ponerA({ lat: Number(s.recoleccion_lat), lng: Number(s.recoleccion_lng) });
+            else mapaRuta.ubicarA();
+            if (s.entrega_lat != null) mapaRuta.ponerB({ lat: Number(s.entrega_lat), lng: Number(s.entrega_lng) });
+            else mapaRuta.ubicarB();
+        }
+        recalcular();
+
+        $('#pedSolFormTexto').textContent = `Solicitud S-${s.id} de ${s.cliente_nombre}: ${plural(s.bultos, 'bulto', 'bultos')} · ${s.descripcion}`
+            + `${s.peso_kg ? ` · ${Number(s.peso_kg)} kg aprox.` : ''}. Revisa el peso real, la tarifa y el piloto, y registra el pedido: `
+            + 'al registrarlo la solicitud queda aprobada y se le avisa al cliente. Las referencias quedaron en Notas.';
+        $('#pedSolForm').hidden = false;
+    }
+
+    // La solicitud del cliente pasa a "aprobada" con su pedido y se le avisa
+    async function aprobarSolicitud(s, pedidoCreado, fecha, total) {
+        const { data, error } = await db.from('pedido_solicitudes')
+            .update({ estado: 'aprobada', pedido_id: pedidoCreado.id, revisado_por: sesion.id || null, revisado_en: new Date().toISOString() })
+            .eq('id', s.id).eq('estado', 'pendiente').select('id');
+        if (error || !data.length) {
+            console.error('No se pudo marcar la solicitud como aprobada:', error || 'ya no estaba pendiente');
+            return;
+        }
+        resolverPendientes('solicitud_envio', s.id);
+        await notificarResultado({
+            usuarioId: s.usuario_id, aprobado: true, enlace: '#envios', referenciaTipo: 'solicitud_envio', referenciaId: s.id,
+            titulo: 'Tu envío fue aprobado',
+            mensaje: `S-${s.id} ya es el pedido ${pedidoCreado.codigo} para el ${fechaCorta(fecha)}.${Number(total) > 0 ? ` Total a pagar: ${dinero(total)}.` : ''}`,
+        });
+    }
+
     form.addEventListener('submit', async (evento) => {
         evento.preventDefault();
         if (!puedeGestionar) return;
@@ -2142,7 +2368,7 @@ registrarSeccion('pedidos', (zona) => {
         const tiendaId = tiendaElegida();
         const autorizado = form.querySelector('input[name="pedRecibe"]:checked').value === 'autorizado';
         const efectivo = form.querySelector('input[name="pedPago"]:checked').value === 'efectivo';
-        const pagaCon = efectivo ? numero($('#pedPagaCon')) : 0;
+        const pagaCon = efectivo && c.total > 0 ? numero($('#pedPagaCon')) : 0; // todo pagado en línea: no hay vuelto
 
         // Ruta y piloto: G2+ puede elegir el piloto a mano; si no, sale de la
         // ruta ese día (si hay varios, el que tenga menos pedidos)
@@ -2155,11 +2381,24 @@ registrarSeccion('pedidos', (zona) => {
 
         // Detalle propio de la actividad (JSON)
         const merc = leerMercaderia();
-        const detalle = { cobrar_envio: c.cobrarEnvio, categorias: merc.map((m) => m.categoria.nombre) };
+        const detalle = {
+            cobrar_envio: c.cobrarEnvio,
+            // Lo que el cliente ya pagó en línea (el piloto no lo cobra)
+            pagado_en_linea: { envio: !c.cobrarEnvio, compra: usa('usa_compra') && !c.cobrarCompra },
+            categorias: merc.map((m) => m.categoria.nombre),
+        };
         const conteo = merc.find((m) => m.tipo === 'conteo');
         if (conteo) detalle.abarrotes = conteo.conteo;
         const documentos = merc.find((m) => m.tipo === 'documento');
         if (documentos) detalle.documentos = documentos.documentos.cantidad;
+        // Viene de una solicitud del cliente ("Mis envíos"): su número y sus puntos de referencia
+        if (solicitudForm) {
+            detalle.solicitud = {
+                id: solicitudForm.id,
+                referencia_recoleccion: solicitudForm.recoleccion_referencia || null,
+                referencia_entrega: solicitudForm.entrega_referencia || null,
+            };
+        }
         // Puntos del mapa: A (tienda o recolección) y B (entrega), para el piloto y los reportes
         const puntos = mapaRuta ? mapaRuta.puntos() : {};
         if (puntos.a || puntos.b) {
@@ -2255,6 +2494,7 @@ registrarSeccion('pedidos', (zona) => {
                 detalle: {
                     marca: pedido.marca_numero, ruta: nombreRuta(rutaId),
                     piloto: pilotoId ? `${nombrePiloto(pilotoId) || ''}${pilotoManual ? '' : ' (de la ruta)'}` : null,
+                    ...(solicitudForm ? { solicitud: `S-${solicitudForm.id}` } : {}),
                     ...(cercanos.length ? {
                         cercanos: cercanos.slice(0, 5).map((x) => ({
                             pedido: x.pedido.codigo, km: Math.round(x.km * 100) / 100, piloto: x.pedido.piloto_id || null,
@@ -2269,6 +2509,12 @@ registrarSeccion('pedidos', (zona) => {
             sessionStorage.setItem('ped_aviso', `Pedido ${data.codigo} registrado, pero no se guardó todo el detalle. Revísalo.`);
         } else {
             sessionStorage.setItem('ped_aviso', `Pedido ${data.codigo} registrado.`);
+        }
+
+        // Desde una solicitud del cliente: queda aprobada y se le avisa
+        if (solicitudForm) {
+            await aprobarSolicitud(solicitudForm, data, inputFecha.value, c.total);
+            sessionStorage.setItem('ped_aviso', `${sessionStorage.getItem('ped_aviso') || ''} La solicitud S-${solicitudForm.id} quedó aprobada y se le avisó al cliente.`.trim());
         }
 
         // Avisos (js/notificaciones.js): sin piloto -> el G2 debe asignarlo; con piloto -> al piloto.
@@ -2455,7 +2701,14 @@ registrarSeccion('pedidos', (zona) => {
         dato(dl, 'Cliente', p.cliente_nombre);
         dato(dl, 'Teléfono', p.cliente_telefono);
         dato(dl, 'Punto de partida', p.direccion_recoleccion);
+        // Pedido que solicitó el cliente ("Mis envíos"): sus puntos de referencia, para el piloto
+        const sol = (p.detalle || {}).solicitud;
+        if (sol) dato(dl, 'Referencia al recoger', sol.referencia_recoleccion);
         dato(dl, 'Entrega en', p.direccion_entrega);
+        if (sol) {
+            dato(dl, 'Referencia al entregar', sol.referencia_entrega);
+            dato(dl, 'Solicitado por el cliente', `S-${sol.id}`);
+        }
         // Ruta del mapa (A -> B): distancia y enlaces para navegar (Google Maps / Waze)
         const ruta = (p.detalle || {}).ruta;
         if (ruta && ruta.b) {
@@ -2546,8 +2799,13 @@ registrarSeccion('pedidos', (zona) => {
         if (d.descuento) filaDesglose(tbody, `Descuento: ${d.descuento.nombre}`, `−${dinero(d.descuento.monto)}`);
         filaDesglose(tbody, 'Costo del envío', dinero(p.costo_envio));
         if (p.monto_compra != null) filaDesglose(tbody, 'Monto de la compra', dinero(p.monto_compra));
-        const cobra = [d.cobrar_envio !== false ? 'envío' : null, p.cobrar_compra ? 'compra' : null].filter(Boolean).join(' + ') || 'nada (ya pagado)';
-        filaDesglose(tbody, 'A cobrar al entregar', dinero(p.total_cobrar), `Cobra: ${cobra} · ${p.forma_pago === 'tarjeta' ? 'Tarjeta' : 'Efectivo'}`, 'ped-desglose-total');
+        const cobra = [d.cobrar_envio !== false ? 'envío' : null, p.cobrar_compra ? 'compra' : null].filter(Boolean).join(' + ') || 'nada';
+        // Pagado en línea: el envío si no se cobra; la compra si tiene monto y no se cobra
+        const pagado = [d.cobrar_envio === false ? 'envío' : null, p.monto_compra != null && !p.cobrar_compra ? 'compra' : null].filter(Boolean);
+        if (pagado.length) filaDesglose(tbody, `Pagado en línea: ${pagado.join(' y ')}`, '✔', 'El piloto no lo cobra', 'ped-desglose-pagado');
+        filaDesglose(tbody, 'A cobrar al entregar', dinero(p.total_cobrar),
+            p.total_cobrar > 0 ? `Cobra: ${cobra} · ${p.forma_pago === 'tarjeta' ? 'Tarjeta' : 'Efectivo'}` : 'Nada: todo pagado en línea',
+            'ped-desglose-total');
         if (p.paga_con) filaDesglose(tbody, `Paga con ${dinero(p.paga_con)}`, `Vuelto ${dinero(p.vuelto)}`);
     }
 
@@ -3470,20 +3728,23 @@ registrarSeccion('pedidos', (zona) => {
 
         const params = parametrosSeccion(); // js/pagina_inicial.js
         if (params.get('nuevo') && puedeGestionar) {
-            abrirNuevo();
+            await abrirNuevo();
+            // Registrar desde una solicitud de un cliente (Admin G3 o superior)
+            if (params.get('solicitud') && puedeAprobarSol) await cargarSolicitudEnFormulario(Number(params.get('solicitud')));
         } else if (params.get('id')) {
             abrirDetalle(Number(params.get('id')), params.get('qr') === '1', params.get('abrir'));
         } else {
             mostrarVista('pedLista');
             prepararFiltros();
             cargarLista();
+            cargarSolicitudes();
         }
     })();
 
     return () => {
         aviso.limpiar();
         apagarCamara();
-        [dlgQr, dlgAsignar, dlgAccion, dlgSlot, dlgEscaner].forEach((d) => { if (d.open) d.close(); });
+        [dlgQr, dlgAsignar, dlgAccion, dlgSlot, dlgEscaner, dlgSolRechazo].forEach((d) => { if (d.open) d.close(); });
         if (mapaRuta) mapaRuta.destruir();
     };
 });

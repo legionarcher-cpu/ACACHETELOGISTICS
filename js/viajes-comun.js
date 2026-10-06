@@ -374,7 +374,9 @@ function montarInicioViajes(zona) {
 
     // Accesos rápidos según quién entra
     const accesos = modo === 'cliente'
-        ? [['Solicitar viaje', 'bi-plus-circle', '#viajes?nuevo=1', true], ['Mis viajes', 'bi-list-ul', '#viajes']]
+        ? [['Solicitar viaje', 'bi-plus-circle', '#viajes?nuevo=1', true], ['Mis viajes', 'bi-list-ul', '#viajes'],
+            // La empresa también hace encomiendas: "Mis envíos" (js/secciones/envios.js)
+            tienePermiso('envios') ? ['Solicitar envío', 'bi-box-arrow-up-right', '#envios?nuevo=1'] : null].filter(Boolean)
         : modo === 'conductor'
             ? [['Mis viajes de hoy', 'bi-list-ul', '#viajes', true]]
             : [['Solicitar viaje', 'bi-plus-circle', '#viajes?nuevo=1', true], ['Agenda de viajes', 'bi-calendar3', '#viajes'],

@@ -198,11 +198,12 @@ function refrescarPalabras() {
 // PALABRAS DE CADA ACTIVIDAD (desde la base)
 // ==================================================
 
-// También guarda si cada actividad trabaja con viajes (usa_viajes, sql/01 bloque 19):
-// lo usan esActividadDeViajes() y empresaTieneViajes() de empresas/empresas.js.
+// También guarda si cada actividad trabaja con viajes (usa_viajes, sql/01 bloque 19) y si
+// recoge en un punto de partida (usa_recoleccion): lo usan esActividadDeViajes(),
+// empresaTieneViajes() y empresaTieneRecoleccion() de empresas/empresas.js.
 async function cargarPalabras() {
     const columnas = 'codigo, palabra_registro, palabra_registros, palabra_conductor, palabra_conductores';
-    let { data, error } = await db.from('actividades').select(`${columnas}, usa_viajes`);
+    let { data, error } = await db.from('actividades').select(`${columnas}, usa_viajes, usa_recoleccion`);
     if (error && error.code === '42703') ({ data, error } = await db.from('actividades').select(columnas)); // sin el bloque 19
     if (error) {
         // Falta el bloque 18 de sql/01: todas con las palabras de siempre
@@ -213,6 +214,7 @@ async function cargarPalabras() {
             registro: a.palabra_registro, registros: a.palabra_registros,
             conductor: a.palabra_conductor, conductores: a.palabra_conductores,
             viajes: a.usa_viajes === undefined ? null : !!a.usa_viajes,
+            recoleccion: a.usa_recoleccion === undefined ? null : !!a.usa_recoleccion, // "Mis envíos" del cliente
         }]));
     }
     try {

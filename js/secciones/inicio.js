@@ -97,7 +97,12 @@ const iniDinero = (n) => `₡${Math.round(Number(n || 0)).toLocaleString('es-CR'
 registrarSeccion('inicio', (zona) => {
 
     // Cliente con usuario o empresa solo de viajes (Transporte): el Inicio es el de
-    // viajes (montarInicioViajes, js/viajes-comun.js), con sus datos, no los de pedidos
+    // viajes (montarInicioViajes, js/viajes-comun.js), con sus datos, no los de pedidos.
+    // El cliente de una empresa sin viajes (solo encomiendas) va directo a "Mis envíos".
+    if (esCliente() && !empresaTieneViajes() && tienePermiso('envios')) {
+        location.replace('#envios'); // replace: "atrás" no vuelve a Inicio
+        return undefined;
+    }
     if (esCliente() || !empresaTienePedidos()) return montarInicioViajes(zona);
 
     const $ = (selector) => zona.querySelector(selector);

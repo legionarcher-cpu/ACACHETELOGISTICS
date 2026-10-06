@@ -1,0 +1,177 @@
+<!-- ==================================================
+     SECCIÓN: MIS ENVÍOS (solo el cliente con usuario)
+     Aparece si la empresa hace encomiendas (actividad con usa_recoleccion) y su plan
+     incluye "envios_clientes" (js/sesion.js: seccionAplica).
+     Guía: docs/secciones/envios.md · Tabla: pedido_solicitudes (sql/01 bloque 23).
+
+     El cliente pide que le recojan un paquete en A y lo entreguen en B, con puntos
+     de referencia para el piloto. La solicitud queda "pendiente" hasta que la tienda
+     (Admin G3 o superior) la revisa en Pedidos: al aprobarla se registra el pedido
+     y aquí se ve su avance; si la rechaza, se ve el motivo.
+
+     Parámetros: #envios?nuevo=1 (abre la solicitud).
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/envios.css (y css/viajes.css: pasos y puntos A/B)
+       Lógica          -> js/secciones/envios.js
+     Los ids empiezan con "env".
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a app.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina env">
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Mis envíos</h2>
+            <p id="envSubtitulo" class="pagina-subtitulo">Pide que recojamos tu paquete y lo entreguemos donde nos digas.</p>
+        </div>
+        <div class="pagina-acciones">
+            <button type="button" id="envNuevo" class="boton boton-principal">
+                <i class="bi bi-plus-circle"></i>
+                <span>Solicitar envío</span>
+            </button>
+        </div>
+    </div>
+
+    <p id="envAviso" class="aviso" role="status"></p>
+
+    <p id="envFaltaSql" class="env-nota" hidden>
+        <i class="bi bi-exclamation-triangle"></i>
+        Esta función todavía no está lista. Comunícate con la empresa.
+    </p>
+
+    <!-- ==================================================
+         LISTA: mis solicitudes y su avance
+         ================================================== -->
+    <div id="envVistaLista">
+        <section class="via-bloque">
+            <h3 class="via-bloque-titulo">En curso</h3>
+            <div id="envEnCurso" class="env-lista"></div>
+        </section>
+        <section id="envAnterioresCaja" class="via-bloque" hidden>
+            <h3 class="via-bloque-titulo">Anteriores</h3>
+            <div id="envAnteriores" class="env-lista"></div>
+        </section>
+    </div>
+
+    <!-- ==================================================
+         SOLICITAR UN ENVÍO (4 pasos)
+         ================================================== -->
+    <form id="envForm" class="env-form" hidden novalidate>
+
+        <!-- 1 · Qué envía -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">1</span> ¿Qué envías?</h3>
+            <div class="campos">
+                <div class="campo" id="envCampoActividad" hidden>
+                    <label for="envActividad" class="campo-etiqueta">Servicio *</label>
+                    <select id="envActividad" class="campo-input"></select>
+                </div>
+                <div class="campo" id="envCampoTienda" hidden>
+                    <label for="envTienda" class="campo-etiqueta">Sucursal *</label>
+                    <select id="envTienda" class="campo-input"></select>
+                </div>
+                <div class="campo campo-ancho">
+                    <label for="envDescripcion" class="campo-etiqueta">Descripción *</label>
+                    <input id="envDescripcion" type="text" maxlength="150" class="campo-input" placeholder="Ej. 2 cajas de ropa, un sobre con documentos">
+                </div>
+                <div class="campo">
+                    <label for="envBultos" class="campo-etiqueta">Cantidad de bultos *</label>
+                    <input id="envBultos" type="number" min="1" max="999" step="1" value="1" inputmode="numeric" class="campo-input">
+                </div>
+                <div class="campo">
+                    <label for="envPeso" class="campo-etiqueta">Peso aproximado (kg)</label>
+                    <input id="envPeso" type="number" min="0" max="5000" step="0.5" inputmode="decimal" class="campo-input" placeholder="Si lo sabes">
+                </div>
+            </div>
+        </section>
+
+        <!-- 2 · Recoger y entregar (A -> B con referencias) -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">2</span> ¿Dónde lo recogemos y a dónde lo llevamos?</h3>
+            <div class="via-puntos">
+                <div class="campo">
+                    <label for="envRecoger" class="campo-etiqueta"><b class="via-punto via-punto-a">A</b> Recoger en *</label>
+                    <input id="envRecoger" type="text" maxlength="200" class="campo-input"
+                           placeholder="Escribe la dirección o marca el punto en el mapa">
+                    <label for="envRecogerRef" class="campo-etiqueta env-ref-etiqueta">Punto de referencia</label>
+                    <input id="envRecogerRef" type="text" maxlength="200" class="campo-input"
+                           placeholder="Ej. casa verde de 2 pisos, frente a la escuela">
+                </div>
+                <div class="campo">
+                    <label for="envEntregar" class="campo-etiqueta"><b class="via-punto via-punto-b">B</b> Entregar en *</label>
+                    <input id="envEntregar" type="text" maxlength="200" class="campo-input"
+                           placeholder="Escribe la dirección o marca el punto en el mapa">
+                    <label for="envEntregarRef" class="campo-etiqueta env-ref-etiqueta">Punto de referencia</label>
+                    <input id="envEntregarRef" type="text" maxlength="200" class="campo-input"
+                           placeholder="Ej. portón negro, 100 m al sur del súper">
+                </div>
+            </div>
+            <div id="envMapa"></div>
+        </section>
+
+        <!-- 3 · Quién recibe -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">3</span> ¿Quién recibe?</h3>
+            <div class="campos">
+                <fieldset class="campo via-si-no campo-ancho">
+                    <legend class="campo-etiqueta">Recibe *</legend>
+                    <div class="via-si-no-opciones">
+                        <label><input type="radio" name="envRecibe" value="yo" checked> Yo mismo</label>
+                        <label><input type="radio" name="envRecibe" value="otra"> Otra persona</label>
+                    </div>
+                </fieldset>
+                <div class="campo" data-env-otra hidden>
+                    <label for="envRecibeNombre" class="campo-etiqueta">Nombre de quien recibe *</label>
+                    <input id="envRecibeNombre" type="text" maxlength="80" class="campo-input" autocomplete="off">
+                </div>
+                <div class="campo" data-env-otra hidden>
+                    <label for="envRecibeTelefono" class="campo-etiqueta">Teléfono de quien recibe *</label>
+                    <input id="envRecibeTelefono" type="tel" maxlength="20" class="campo-input" autocomplete="off" placeholder="Ej. 8888-1234">
+                </div>
+            </div>
+        </section>
+
+        <!-- 4 · Cuándo y enviar -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">4</span> ¿Para cuándo?</h3>
+            <div class="campos">
+                <div class="campo">
+                    <label for="envFecha" class="campo-etiqueta">Fecha de entrega *</label>
+                    <input id="envFecha" type="date" class="campo-input">
+                </div>
+                <div class="campo campo-ancho">
+                    <label for="envNotas" class="campo-etiqueta">Nota para la tienda o el piloto</label>
+                    <input id="envNotas" type="text" maxlength="200" class="campo-input" placeholder="Ej. llamar al llegar, es frágil">
+                </div>
+            </div>
+            <p class="env-nota">
+                <i class="bi bi-info-circle"></i>
+                La tienda revisa tu solicitud, confirma el precio y te avisa por la campana. Puedes seguir el avance aquí.
+            </p>
+            <p id="envFormError" class="form-error" role="alert"></p>
+            <div class="dialogo-botones">
+                <button type="button" id="envVolver" class="boton boton-secundario">Volver</button>
+                <button type="submit" id="envEnviar" class="boton boton-principal">
+                    <i class="bi bi-send"></i>
+                    <span>Enviar solicitud</span>
+                </button>
+            </div>
+        </section>
+    </form>
+</div>
+
+<!-- ==================================================
+     VENTANA: CANCELAR UNA SOLICITUD (solo las pendientes)
+     ================================================== -->
+<dialog id="envCancelarDialogo" class="dialogo dialogo-chico" aria-labelledby="envCancelarTitulo">
+    <h3 id="envCancelarTitulo" class="dialogo-titulo">Cancelar la solicitud</h3>
+    <p id="envCancelarTexto" class="dialogo-texto"></p>
+    <div class="dialogo-botones">
+        <button type="button" id="envCancelarNo" class="boton boton-secundario">No, volver</button>
+        <button type="button" id="envCancelarSi" class="boton boton-peligro">Cancelar la solicitud</button>
+    </div>
+</dialog>

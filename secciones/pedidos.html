@@ -98,6 +98,16 @@
             <a href="#pedidos" class="boton boton-secundario boton-chico">Salir</a>
         </p>
 
+        <!-- Solicitudes de envío de los clientes ("Mis envíos", sql/01 bloque 23): las ve el
+             Admin G3 (su tienda) o superior. "Revisar y registrar" abre el formulario ya lleno. -->
+        <section id="pedSolicitudes" class="tarjeta ped-sol" hidden>
+            <h3 class="ped-sol-titulo">
+                <i class="bi bi-inbox"></i> Solicitudes de envío de clientes
+                <span id="pedSolCuenta" class="etiqueta etiqueta-naranja">0</span>
+            </h3>
+            <ul id="pedSolLista" class="ped-sol-lista"></ul>
+        </section>
+
         <!-- Rutas del día y su piloto (lo que asignó el G2). Al Piloto: SU ruta del día -->
         <p id="pedRutasDia" class="ped-nota ped-rutas-dia" hidden></p>
 
@@ -137,6 +147,12 @@
                 <h2 class="pagina-titulo">Nuevo pedido</h2>
                 <p class="pagina-subtitulo">Los campos con * son obligatorios.</p>
             </div>
+        </div>
+
+        <!-- Solo al registrar desde una solicitud de un cliente (#pedidos?nuevo=1&solicitud=12) -->
+        <div id="pedSolForm" class="ped-solicitud" hidden>
+            <i class="bi bi-inbox"></i>
+            <p id="pedSolFormTexto"></p>
         </div>
 
         <form id="pedForm" class="ped-form" novalidate>
@@ -340,16 +356,18 @@
                         <label for="pedDescuento" class="campo-etiqueta">Descuento (máximo 1)</label>
                         <select id="pedDescuento" class="campo-input"></select>
                     </div>
+                    <!-- Pagado en línea: SIN marcar (por defecto, en todas las empresas) el piloto cobra el
+                         total al entregar. Se marca solo lo que el cliente ya pagó. -->
                     <div class="campo">
-                        <span class="campo-etiqueta">El piloto cobra al entregar</span>
+                        <span class="campo-etiqueta">¿El cliente ya pagó en línea?</span>
                         <div class="ped-opciones">
-                            <label class="ped-si-no"><input id="pedCobrarEnvio" type="checkbox" checked> El envío</label>
-                            <!-- Marcada por defecto: se desmarca si el cliente ya pagó la compra en línea -->
-                            <label class="ped-si-no" id="pedCobrarCompraCaja" hidden><input id="pedCobrarCompra" type="checkbox" checked> La compra</label>
+                            <label class="ped-pagado"><input id="pedPagadoEnvio" type="checkbox"> <i class="bi bi-patch-check"></i> Envío pagado</label>
+                            <!-- Solo actividades que usan "compra" (ej. Entregas de tienda) -->
+                            <label class="ped-pagado" id="pedPagadoCompraCaja" hidden><input id="pedPagadoCompra" type="checkbox"> <i class="bi bi-patch-check"></i> Compra pagada</label>
                         </div>
-                        <small class="campo-ayuda">Desmarca lo que el cliente ya pagó en línea.</small>
+                        <small class="campo-ayuda" id="pedPagadoAyuda">Sin marcar = el piloto cobra el total al entregar.</small>
                     </div>
-                    <div class="campo">
+                    <div class="campo" id="pedCampoFormaPago">
                         <span class="campo-etiqueta">Forma de pago</span>
                         <div class="ped-opciones">
                             <label class="ped-si-no"><input type="radio" name="pedPago" value="efectivo" checked> Efectivo</label>
@@ -565,6 +583,26 @@
         <div class="dialogo-botones">
             <button type="button" id="pedAccionCancelar" class="boton boton-secundario">Volver</button>
             <button type="submit" id="pedAccionSi" class="boton boton-principal">Confirmar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: RECHAZAR UNA SOLICITUD DE ENVÍO DE UN CLIENTE (el motivo le llega al cliente)
+     ================================================== -->
+<dialog id="pedSolRechazoDialogo" class="dialogo dialogo-chico" aria-labelledby="pedSolRechazoTitulo">
+    <form id="pedSolRechazoForm" novalidate>
+        <h3 id="pedSolRechazoTitulo" class="dialogo-titulo">Rechazar la solicitud</h3>
+        <p id="pedSolRechazoTexto" class="dialogo-texto"></p>
+        <div class="campo">
+            <label for="pedSolRechazoMotivo" class="campo-etiqueta">Motivo (lo verá el cliente) *</label>
+            <textarea id="pedSolRechazoMotivo" class="campo-input ped-textarea" maxlength="300" rows="3"
+                      placeholder="Ej. No llegamos a esa zona; esa fecha ya está llena, elige otra"></textarea>
+        </div>
+        <p id="pedSolRechazoError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="pedSolRechazoVolver" class="boton boton-secundario">Volver</button>
+            <button type="submit" class="boton boton-peligro">Rechazar</button>
         </div>
     </form>
 </dialog>

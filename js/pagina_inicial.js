@@ -384,9 +384,14 @@ function ajustarPie() {
         const boton = document.querySelector(`.pie ${selector}`);
         if (boton) boton.hidden = si;
     };
-    ocultar('.btn-cotizar', soloViajes || !empresaTieneActividad('encomiendas'));
-    ocultar('.btn-piloto', soloViajes);
+    // Plan de la empresa (empresas/empresas.js: funcionHabilitada)
+    const enPlan = (clave) => typeof funcionHabilitada !== 'function' || funcionHabilitada(clave);
+    ocultar('.btn-cotizar', soloViajes || !empresaTieneActividad('encomiendas') || !enPlan('cotizador'));
+    ocultar('.btn-piloto', soloViajes || !enPlan('rutas'));
     ocultar('.btn-cargar', soloViajes);
+    ocultar('.btn-chart', !enPlan('reportes'));
+    const qr = document.getElementById('qrBoton');
+    if (qr) qr.hidden = !enPlan('qr');
 }
 ajustarPie();
 Object.entries(BOTONES_PIE).forEach(([selector, destinoPedidos]) => {

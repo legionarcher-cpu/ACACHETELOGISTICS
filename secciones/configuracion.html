@@ -118,8 +118,28 @@
             <span class="cfg-modulo-icono"><i class="bi bi-car-front"></i></span>
             <span class="cfg-modulo-textos">
                 <span class="cfg-modulo-nombre">Transporte</span>
-                <span class="cfg-modulo-descripcion">Agenda de viajes, franjas de precio por km, recargos, días cerrados, costos del mes y viaje de cortesía.</span>
+                <span class="cfg-modulo-descripcion">Agenda de viajes, franjas de precio por km, recargos, días cerrados y viaje de cortesía.</span>
                 <span class="cfg-modulo-acceso">Administrador y Admin G1</span>
+            </span>
+            <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
+        </button>
+        <!-- Costos de operación: todas las empresas, si su plan lo incluye (js/secciones/configuracion/costos.js) -->
+        <button type="button" class="cfg-modulo-tarjeta" data-modulo="costos">
+            <span class="cfg-modulo-icono"><i class="bi bi-calculator"></i></span>
+            <span class="cfg-modulo-textos">
+                <span class="cfg-modulo-nombre">Costos de operación</span>
+                <span class="cfg-modulo-descripcion">Gastos del mes, combustible y lo que cuesta cada km, cada vehículo y cada entrega o viaje.</span>
+                <span class="cfg-modulo-acceso">Administrador y Admin G1</span>
+            </span>
+            <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
+        </button>
+        <!-- Planes y funciones: plan de pago de cada empresa (js/secciones/configuracion/planes.js) -->
+        <button type="button" class="cfg-modulo-tarjeta" data-modulo="planes">
+            <span class="cfg-modulo-icono"><i class="bi bi-ui-checks-grid"></i></span>
+            <span class="cfg-modulo-textos">
+                <span class="cfg-modulo-nombre">Planes y funciones</span>
+                <span class="cfg-modulo-descripcion">Plan de pago de cada empresa y qué funciones pueden usar sus administradores y usuarios.</span>
+                <span class="cfg-modulo-acceso">Solo Desarrollador</span>
             </span>
             <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
         </button>
@@ -671,7 +691,8 @@
     <!-- ==================================================
          MÓDULO: TRANSPORTE (solo si la empresa hace viajes; Administrador y Admin G1)
          Tablas de sql/01 bloque 19: transporte_config, transporte_franjas,
-         transporte_dias_cerrados y transporte_costos (+ datos de Transporte de vehiculos).
+         transporte_dias_cerrados. Los costos (transporte_costos) están en "Costos de operación";
+         aquí solo se usan para el margen de cada franja.
          Lógica: js/secciones/configuracion/transporte.js. Ids "cfgTra".
          ================================================== -->
     <section class="cfg-modulo" data-modulo="transporte" hidden>
@@ -720,7 +741,7 @@
                     </table>
                 </div>
                 <p class="cfg-tarjeta-texto">
-                    Margen: precio por km contra el costo de recorrer 1 km (gastos del mes ÷ horas y km, ver "Costos del mes").
+                    Margen: precio por km contra el costo de recorrer 1 km (Configuración → <strong>Costos de operación</strong>).
                 </p>
             </div>
 
@@ -850,71 +871,7 @@
                 </div>
             </div>
 
-            <!-- ---------- 4. Costos del mes ---------- -->
-            <div class="tarjeta cfg-tarjeta">
-                <div class="cfg-tarjeta-cabecera">
-                    <div>
-                        <h3 class="cfg-tarjeta-titulo">Costos del mes</h3>
-                        <p class="cfg-tarjeta-texto">
-                            Escribe el gasto de cada mes: el sistema lo <strong>divide</strong> para saber cuánto cuesta cada hora
-                            y cada km. <strong>Fijos</strong> (cuota, seguro, marchamo, salario…) ÷ horas de trabajo del mes = costo por hora.
-                            <strong>Variables</strong> (mantenimiento, llantas…) ÷ km del mes + combustible (precio del litro ÷ km por litro) = costo por km.
-                            Los gastos de "toda la empresa" se reparten igual entre los vehículos.
-                        </p>
-                    </div>
-                    <button type="button" id="cfgTraNuevoGasto" class="boton boton-principal boton-chico">
-                        <i class="bi bi-plus-lg"></i>
-                        <span>Nuevo gasto</span>
-                    </button>
-                </div>
-
-                <form id="cfgTraCombustible" class="cfg-tra-combustible" novalidate>
-                    <div class="campo">
-                        <label for="cfgTraLitro" class="campo-etiqueta">Precio del litro de combustible</label>
-                        <input id="cfgTraLitro" type="number" min="0" step="1" class="campo-input" data-cfg="precio_litro">
-                    </div>
-                    <button type="submit" class="boton boton-secundario boton-chico">Guardar</button>
-                </form>
-
-                <div id="cfgTraCostoEmpresa" class="resumen cfg-tra-resumen"></div>
-
-                <h4 class="cfg-tra-subtitulo">Por vehículo</h4>
-                <div class="tabla-caja">
-                    <table class="tabla cfg-tabla">
-                        <thead>
-                            <tr>
-                                <th>Vehículo</th>
-                                <th>Gasto fijo</th>
-                                <th>Gasto variable</th>
-                                <th>Horas / km al mes</th>
-                                <th>Costo por hora</th>
-                                <th>Costo por km</th>
-                                <th>Real (30 días)</th>
-                                <th class="tabla-col-acciones">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cfgTraCostosVehiculos"></tbody>
-                    </table>
-                </div>
-
-                <h4 class="cfg-tra-subtitulo">Gastos del mes</h4>
-                <div class="tabla-caja">
-                    <table class="tabla cfg-tabla">
-                        <thead>
-                            <tr>
-                                <th>Concepto</th>
-                                <th>Tipo</th>
-                                <th>Vehículo</th>
-                                <th>Monto al mes</th>
-                                <th class="tabla-col-acciones">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cfgTraGastos"></tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- ---------- 5. Días cerrados ---------- -->
+            <!-- ---------- 4. Días cerrados ---------- -->
             <div class="tarjeta cfg-tarjeta">
                 <div class="cfg-tarjeta-cabecera">
                     <div>
@@ -950,6 +907,147 @@
                 </div>
             </div>
         </div>
+    </section>
+
+    <!-- ==================================================
+         MÓDULO: COSTOS DE OPERACIÓN (todas las empresas, si su plan incluye "cfg_costos")
+         El gasto del mes se DIVIDE entre las horas y los km del mes -> costo por hora,
+         por km y por entrega o viaje (real: últimos 30 días).
+         Lógica: js/secciones/configuracion/costos.js. Ids "cfgCos".
+         ================================================== -->
+    <section class="cfg-modulo" data-modulo="costos" hidden>
+
+        <div class="cfg-modulo-cabecera">
+            <a href="#configuracion" class="cfg-volver"><i class="bi bi-arrow-left"></i> Configuración</a>
+            <h3 class="cfg-modulo-titulo"><i class="bi bi-calculator"></i> Costos de operación</h3>
+        </div>
+
+        <p id="cfgCosFaltaSql" class="cfg-nota" hidden>
+            <i class="bi bi-exclamation-triangle"></i>
+            Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloque 19: tablas de costos) en Supabase.
+        </p>
+
+        <div id="cfgCosContenido" class="cfg-tra">
+
+            <!-- ---------- 1. Resumen y combustible ---------- -->
+            <div class="tarjeta cfg-tarjeta">
+                <div class="cfg-tarjeta-cabecera">
+                    <div>
+                        <h3 class="cfg-tarjeta-titulo">Cuánto cuesta operar</h3>
+                        <p class="cfg-tarjeta-texto">
+                            Escribe el gasto de cada mes: el sistema lo <strong>divide</strong> para saber cuánto cuesta cada hora
+                            y cada km. <strong>Fijos</strong> (cuota, seguro, marchamo, salario…) ÷ horas de trabajo del mes = costo por hora.
+                            <strong>Variables</strong> (mantenimiento, llantas…) ÷ km del mes + combustible (precio del litro ÷ km por litro) = costo por km.
+                            Los gastos de "toda la empresa" se reparten igual entre los vehículos.
+                        </p>
+                    </div>
+                </div>
+
+                <div id="cfgCosResumen" class="resumen cfg-tra-resumen"></div>
+
+                <form id="cfgCosCombustible" class="cfg-tra-combustible" novalidate>
+                    <div class="campo">
+                        <label for="cfgCosLitro" class="campo-etiqueta">Precio del litro de combustible</label>
+                        <input id="cfgCosLitro" type="number" min="0" step="1" class="campo-input" data-cfg="precio_litro">
+                    </div>
+                    <div class="campo">
+                        <label for="cfgCosVelocidad" class="campo-etiqueta">Velocidad promedio (km/h)</label>
+                        <input id="cfgCosVelocidad" type="number" min="1" step="1" class="campo-input" data-cfg="velocidad_kmh">
+                    </div>
+                    <button type="submit" class="boton boton-secundario boton-chico">Guardar</button>
+                </form>
+                <p class="cfg-tarjeta-texto">
+                    La velocidad sirve para sumar el tiempo al costo de 1 km y para estimar los minutos de las entregas sin dato del mapa.
+                </p>
+            </div>
+
+            <!-- ---------- 2. Por vehículo ---------- -->
+            <div class="tarjeta cfg-tarjeta">
+                <div class="cfg-tarjeta-cabecera">
+                    <div>
+                        <h3 class="cfg-tarjeta-titulo">Por vehículo</h3>
+                        <p class="cfg-tarjeta-texto">
+                            Con el lápiz se escriben las horas y los km de cada mes y su rendimiento (km por litro).
+                            "Real" usa lo que hizo el vehículo en los últimos 30 días (entregas de su piloto y viajes terminados).
+                        </p>
+                    </div>
+                </div>
+                <div class="tabla-caja">
+                    <table class="tabla cfg-tabla">
+                        <thead>
+                            <tr>
+                                <th>Vehículo</th>
+                                <th>Gasto fijo</th>
+                                <th>Gasto variable</th>
+                                <th>Horas / km al mes</th>
+                                <th>Costo por hora</th>
+                                <th>Costo por km</th>
+                                <th>Real (30 días)</th>
+                                <th class="tabla-col-acciones">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cfgCosVehiculos"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ---------- 3. Gastos del mes ---------- -->
+            <div class="tarjeta cfg-tarjeta">
+                <div class="cfg-tarjeta-cabecera">
+                    <div>
+                        <h3 class="cfg-tarjeta-titulo">Gastos del mes</h3>
+                        <p class="cfg-tarjeta-texto">Lo que se paga cada mes. El combustible no se escribe aquí: se calcula solo.</p>
+                    </div>
+                    <button type="button" id="cfgCosNuevoGasto" class="boton boton-principal boton-chico">
+                        <i class="bi bi-plus-lg"></i>
+                        <span>Nuevo gasto</span>
+                    </button>
+                </div>
+                <div class="tabla-caja">
+                    <table class="tabla cfg-tabla">
+                        <thead>
+                            <tr>
+                                <th>Concepto</th>
+                                <th>Tipo</th>
+                                <th>Vehículo</th>
+                                <th>Monto al mes</th>
+                                <th class="tabla-col-acciones">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cfgCosGastos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================================================
+         MÓDULO: PLANES Y FUNCIONES (solo el Desarrollador)
+         Plan de pago de cada empresa y las funciones que pueden usar sus administradores
+         y usuarios (empresas.plan y empresas.funciones, sql/01 bloque 22).
+         Catálogo y planes: empresas/empresas.js (FUNCIONES_PLAN y PLANES).
+         Lógica: js/secciones/configuracion/planes.js. Ids "cfgPla".
+         ================================================== -->
+    <section class="cfg-modulo" data-modulo="planes" hidden>
+
+        <div class="cfg-modulo-cabecera">
+            <a href="#configuracion" class="cfg-volver"><i class="bi bi-arrow-left"></i> Configuración</a>
+            <h3 class="cfg-modulo-titulo"><i class="bi bi-ui-checks-grid"></i> Planes y funciones</h3>
+        </div>
+
+        <p id="cfgPlaFaltaSql" class="cfg-nota" hidden>
+            <i class="bi bi-exclamation-triangle"></i>
+            Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloque 22: plan de cada empresa) en Supabase.
+        </p>
+
+        <p class="cfg-nota">
+            <i class="bi bi-info-circle"></i>
+            Elige el plan de cada empresa: se marcan sus funciones. Si cambias alguna casilla queda como
+            <strong>Personalizado</strong>. Lo que no esté marcado desaparece para los administradores y usuarios
+            de esa empresa (menú, botones y tarjetas de Configuración). Tú, como Desarrollador, siempre lo ves todo.
+        </p>
+
+        <div id="cfgPlaLista" class="cfg-pla-lista"></div>
     </section>
 </div>
 
@@ -1269,7 +1367,7 @@
                 </div>
                 <small class="campo-ayuda campo-ancho">
                     Sin asientos el vehículo no recibe viajes con personas. Km por litro, horas y km del mes
-                    sirven para calcular el costo por hora y por km (Configuración → Transporte → Costos).
+                    sirven para calcular el costo por hora y por km (Configuración → Costos de operación).
                 </small>
             </fieldset>
             <div class="campo-ancho">
@@ -1348,14 +1446,15 @@
     </form>
 </dialog>
 
-<dialog id="cfgTraGastoDialogo" class="dialogo" aria-labelledby="cfgTraGastoTitulo">
-    <form id="cfgTraGastoForm" class="dialogo-form" novalidate>
-        <h3 id="cfgTraGastoTitulo" class="dialogo-titulo">Nuevo gasto</h3>
+<!-- Ventanas del módulo Costos de operación (js/secciones/configuracion/costos.js) -->
+<dialog id="cfgCosGastoDialogo" class="dialogo" aria-labelledby="cfgCosGastoTitulo">
+    <form id="cfgCosGastoForm" class="dialogo-form" novalidate>
+        <h3 id="cfgCosGastoTitulo" class="dialogo-titulo">Nuevo gasto</h3>
         <div class="campos">
             <div class="campo campo-ancho">
-                <label for="cfgTraGaConcepto" class="campo-etiqueta">Concepto *</label>
-                <input id="cfgTraGaConcepto" type="text" maxlength="60" class="campo-input" list="cfgTraConceptos" placeholder="Ej. Seguro">
-                <datalist id="cfgTraConceptos">
+                <label for="cfgCosGaConcepto" class="campo-etiqueta">Concepto *</label>
+                <input id="cfgCosGaConcepto" type="text" maxlength="60" class="campo-input" list="cfgCosConceptos" placeholder="Ej. Seguro">
+                <datalist id="cfgCosConceptos">
                     <option value="Cuota del vehículo"></option>
                     <option value="Seguro"></option>
                     <option value="Marchamo"></option>
@@ -1368,51 +1467,51 @@
                 </datalist>
             </div>
             <div class="campo">
-                <label for="cfgTraGaTipo" class="campo-etiqueta">Tipo *</label>
-                <select id="cfgTraGaTipo" class="campo-input">
-                    <option value="fijo">Fijo (se paga aunque no haya viajes)</option>
+                <label for="cfgCosGaTipo" class="campo-etiqueta">Tipo *</label>
+                <select id="cfgCosGaTipo" class="campo-input">
+                    <option value="fijo">Fijo (se paga aunque no haya trabajo)</option>
                     <option value="variable">Variable (depende de los km)</option>
                 </select>
             </div>
             <div class="campo">
-                <label for="cfgTraGaMonto" class="campo-etiqueta">Monto al mes *</label>
-                <input id="cfgTraGaMonto" type="number" min="0" step="100" class="campo-input">
+                <label for="cfgCosGaMonto" class="campo-etiqueta">Monto al mes *</label>
+                <input id="cfgCosGaMonto" type="number" min="0" step="100" class="campo-input">
             </div>
             <div class="campo campo-ancho">
-                <label for="cfgTraGaVehiculo" class="campo-etiqueta">Vehículo</label>
-                <select id="cfgTraGaVehiculo" class="campo-input"></select>
+                <label for="cfgCosGaVehiculo" class="campo-etiqueta">Vehículo</label>
+                <select id="cfgCosGaVehiculo" class="campo-input"></select>
                 <small class="campo-ayuda">"Toda la empresa" se reparte igual entre los vehículos. El combustible se calcula solo (precio del litro ÷ km por litro).</small>
             </div>
         </div>
-        <p id="cfgTraGaError" class="form-error" role="alert"></p>
+        <p id="cfgCosGaError" class="form-error" role="alert"></p>
         <div class="dialogo-botones">
-            <button type="button" id="cfgTraGaCancelar" class="boton boton-secundario">Cancelar</button>
-            <button type="submit" id="cfgTraGaGuardar" class="boton boton-principal">Guardar</button>
+            <button type="button" id="cfgCosGaCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="cfgCosGaGuardar" class="boton boton-principal">Guardar</button>
         </div>
     </form>
 </dialog>
 
-<dialog id="cfgTraVehDialogo" class="dialogo dialogo-chico" aria-labelledby="cfgTraVehTitulo">
-    <form id="cfgTraVehForm" class="dialogo-form" novalidate>
-        <h3 id="cfgTraVehTitulo" class="dialogo-titulo">Datos de costos</h3>
+<dialog id="cfgCosVehDialogo" class="dialogo dialogo-chico" aria-labelledby="cfgCosVehTitulo">
+    <form id="cfgCosVehForm" class="dialogo-form" novalidate>
+        <h3 id="cfgCosVehTitulo" class="dialogo-titulo">Datos de costos</h3>
         <div class="campos">
             <div class="campo">
-                <label for="cfgTraVeHoras" class="campo-etiqueta">Horas de trabajo al mes</label>
-                <input id="cfgTraVeHoras" type="number" min="0" step="1" class="campo-input">
+                <label for="cfgCosVeHoras" class="campo-etiqueta">Horas de trabajo al mes</label>
+                <input id="cfgCosVeHoras" type="number" min="0" step="1" class="campo-input">
             </div>
             <div class="campo">
-                <label for="cfgTraVeKm" class="campo-etiqueta">Km al mes (estimado)</label>
-                <input id="cfgTraVeKm" type="number" min="0" step="1" class="campo-input">
+                <label for="cfgCosVeKm" class="campo-etiqueta">Km al mes (estimado)</label>
+                <input id="cfgCosVeKm" type="number" min="0" step="1" class="campo-input">
             </div>
             <div class="campo">
-                <label for="cfgTraVeLitro" class="campo-etiqueta">Km por litro</label>
-                <input id="cfgTraVeLitro" type="number" min="0" step="0.1" class="campo-input">
+                <label for="cfgCosVeLitro" class="campo-etiqueta">Km por litro</label>
+                <input id="cfgCosVeLitro" type="number" min="0" step="0.1" class="campo-input">
             </div>
         </div>
-        <p class="campo-ayuda">Ej. 26 días × 10 horas = 260 horas. Con un mes de viajes, la tabla muestra también lo real.</p>
-        <p id="cfgTraVeError" class="form-error" role="alert"></p>
+        <p class="campo-ayuda">Ej. 26 días × 10 horas = 260 horas. Con un mes de entregas o viajes, la tabla muestra también lo real.</p>
+        <p id="cfgCosVeError" class="form-error" role="alert"></p>
         <div class="dialogo-botones">
-            <button type="button" id="cfgTraVeCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="button" id="cfgCosVeCancelar" class="boton boton-secundario">Cancelar</button>
             <button type="submit" class="boton boton-principal">Guardar</button>
         </div>
     </form>

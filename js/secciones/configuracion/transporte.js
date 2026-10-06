@@ -9,15 +9,14 @@
    Qué se configura (todo es de la empresa activa):
      1. Franjas y precio (transporte_franjas): precio por km según la hora de recogida,
         cargo base y mínimo; días de la semana. No se enciman (lo revisa también la base).
-        Margen de cada franja contra el costo de recorrer 1 km.
+        Margen de cada franja contra el costo de recorrer 1 km (gastos y vehículos de
+        Configuración -> Costos de operación, js/secciones/configuracion/costos.js;
+        fórmula: costosPorVehiculo de js/viajes-comun.js).
      2. Recargos, agenda y cortesía (transporte_config): recargos fijos, minutos para
         llegar al punto A y colchón, anticipación, plazo para cambiar o cancelar,
         zona horaria y reglas del viaje de cortesía.
      3. Simulador km × franja (no se guarda).
-     4. Costos del mes (transporte_costos + datos de cada vehículo): el gasto del mes se
-        DIVIDE entre las horas y los km del mes -> costo por hora y por km, estimado y real
-        (viajes terminados de los últimos 30 días). Fórmulas: costosPorVehiculo (js/viajes-comun.js).
-     5. Días cerrados (transporte_dias_cerrados).
+     4. Días cerrados (transporte_dias_cerrados).
    La base usa estas mismas reglas al reservar (viaje_precio, viajes_horas_disponibles).
    ================================================== */
 
@@ -30,13 +29,8 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
     let config = { ...VIA_CONFIG_BASE };
     let franjas = [];
     let cerrados = [];
-    let costos = [];
-    let vehiculos = [];
-    let viajes30 = [];
-    let resumenCostos = { porVehiculo: new Map(), empresa: {} };
+    let resumenCostos = { porVehiculo: new Map(), empresa: {} }; // solo para el margen de las franjas
     let editandoFranja = null;
-    let editandoGasto = null;
-    let editandoVehiculo = null;
     let activo = true;
 
     const faltaSql = (e) => !!e && ['42P01', 'PGRST205', '42703', 'PGRST200'].includes(e.code);
@@ -53,14 +47,12 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
     // ==================================================
 
     async function cargar() {
-        const hace30 = new Date(Date.now() - 30 * 86400000).toISOString();
-        const [cfg, fr, ce, co, ve, vi] = await Promise.all([
+        const [cfg, fr, ce, co, ve] = await Promise.all([
             db.from('transporte_config').select('*').maybeSingle(),
             db.from('transporte_franjas').select('*').order('desde'),
             db.from('transporte_dias_cerrados').select('fecha, motivo').gte('fecha', viaFechaISO(new Date(), -7)).order('fecha'),
             db.from('transporte_costos').select('*').order('concepto'),
-            db.from('vehiculos').select('id, placa, marca, estado, horas_mes, km_mes, km_por_litro').order('placa'),
-            db.from('viajes').select('vehiculo_id, estado, km, minutos').eq('estado', 'terminado').gte('inicio', hace30),
+            db.from('vehiculos').select('id, horas_mes, km_mes, km_por_litro'),
         ]);
         if (!activo) return;
         const error = cfg.error || fr.error || ce.error || co.error || ve.error;
@@ -73,19 +65,15 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
         config = { ...VIA_CONFIG_BASE, ...(cfg.data || {}) };
         franjas = fr.data;
         cerrados = ce.data;
-        costos = co.data;
-        vehiculos = ve.data;
-        viajes30 = vi.error ? [] : vi.data;
-        resumenCostos = costosPorVehiculo(vehiculos, costos, config, viajes30);
+        resumenCostos = costosPorVehiculo(ve.data, co.data, config);
         pintarReglas();
         dibujarFranjas();
         dibujarSimulador();
-        dibujarCostos();
         dibujarCerrados();
     }
 
     // ==================================================
-    // 2. REGLAS (recargos, agenda, cortesía, combustible)
+    // 2. REGLAS (recargos, agenda, cortesía)
     // ==================================================
 
     const camposConfig = () => [...seccion.querySelectorAll('[data-cfg]')];
@@ -98,7 +86,7 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
         });
     }
 
-    // Guarda los campos de un formulario (las reglas o el combustible)
+    // Guarda los campos del formulario de reglas
     async function guardarConfig(form, errorCaja) {
         if (errorCaja) errorCaja.textContent = '';
         const datos = {};
@@ -133,10 +121,6 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
     enSeccion('#cfgTraReglas').addEventListener('submit', (e) => {
         e.preventDefault();
         guardarConfig(e.target, enSeccion('#cfgTraReglasError'));
-    });
-    enSeccion('#cfgTraCombustible').addEventListener('submit', (e) => {
-        e.preventDefault();
-        guardarConfig(e.target, null);
     });
 
     // ==================================================
@@ -314,147 +298,7 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
     ['#cfgTraSimHasta', '#cfgTraSimCada'].forEach((s) => enSeccion(s).addEventListener('input', dibujarSimulador));
 
     // ==================================================
-    // 4. COSTOS DEL MES
-    // ==================================================
-
-    const textoVehiculo = (id) => {
-        const v = vehiculos.find((x) => x.id === id);
-        return v ? `${v.placa} · ${v.marca}` : 'Toda la empresa';
-    };
-
-    function dibujarCostos() {
-        const e = resumenCostos.empresa;
-        const cuadro = (titulo, valor, detalle) => {
-            const d = viaElemento('div', 'resumen-item via-kpi');
-            d.append(viaElemento('span', 'resumen-texto', titulo), viaElemento('span', 'resumen-numero', valor), viaElemento('span', 'via-kpi-detalle', detalle));
-            return d;
-        };
-        enSeccion('#cfgTraCostoEmpresa').replaceChildren(
-            cuadro('Gasto del mes', dinero((e.fijos || 0) + (e.variables || 0)), `Fijo ${dinero(e.fijos)} · variable ${dinero(e.variables)}`),
-            cuadro('Costo por hora', e.costoHora ? dinero(e.costoHora) : '—', e.costoHora ? 'Gasto fijo ÷ horas del mes' : 'Falta: horas al mes de los vehículos'),
-            cuadro('Costo por km', e.costoKm ? dinero(e.costoKm) : '—', 'Variable ÷ km del mes + combustible'),
-            cuadro('Costo de 1 km (con el tiempo)', e.costoKmTotal ? dinero(e.costoKmTotal) : '—', `A ${config.velocidad_kmh} km/h. Compárelo con el precio por km`),
-        );
-
-        const cuerpoV = enSeccion('#cfgTraCostosVehiculos');
-        cuerpoV.replaceChildren();
-        if (!vehiculos.length) cuerpoV.appendChild(crearFilaVacia('No hay vehículos (Configuración → Vehículos).', 8));
-        vehiculos.forEach((v) => {
-            const c = resumenCostos.porVehiculo.get(v.id) || {};
-            const tr = document.createElement('tr');
-            tr.appendChild(crearCelda(`${v.placa} · ${v.marca}`));
-            tr.appendChild(crearCelda(dinero(c.fijos)));
-            tr.appendChild(crearCelda(dinero(c.variables)));
-            tr.appendChild(crearCelda([v.horas_mes ? `${v.horas_mes} h` : 'sin horas', v.km_mes ? `${v.km_mes} km` : 'sin km',
-                v.km_por_litro ? `${v.km_por_litro} km/l` : null].filter(Boolean).join(' · ')));
-            tr.appendChild(crearCelda(c.costoHora != null ? dinero(c.costoHora) : '—'));
-            tr.appendChild(crearCelda(c.costoKm ? dinero(c.costoKm) : '—'));
-            tr.appendChild(crearCelda(c.viajesReal
-                ? `${plural(c.viajesReal, 'viaje', 'viajes')}: ${Math.round(c.horasReal * 10) / 10} h, ${Math.round(c.kmReal)} km → `
-                    + `${c.costoHoraReal != null ? `${dinero(c.costoHoraReal)}/h` : '—'} · ${c.costoKmReal != null ? `${dinero(c.costoKmReal)}/km` : '—'}`
-                : 'Sin viajes terminados'));
-            tr.appendChild(crearCeldaAcciones(crearBotonIcono('editar-vehiculo', v.id, 'bi-pencil', 'Horas, km y rendimiento')));
-            cuerpoV.appendChild(tr);
-        });
-
-        const cuerpoG = enSeccion('#cfgTraGastos');
-        cuerpoG.replaceChildren();
-        if (!costos.length) cuerpoG.appendChild(crearFilaVacia('Sin gastos. Usa "Nuevo gasto" (ej. Seguro, fijo, ₡45000 al mes).', 5));
-        costos.forEach((g) => {
-            const tr = document.createElement('tr');
-            tr.appendChild(crearCelda(g.concepto));
-            tr.appendChild(g.tipo === 'fijo' ? crearCeldaEtiqueta('Fijo', 'etiqueta-azul') : crearCeldaEtiqueta('Variable', 'etiqueta-naranja'));
-            tr.appendChild(crearCelda(textoVehiculo(g.vehiculo_id)));
-            tr.appendChild(crearCelda(dinero(g.monto_mes)));
-            tr.appendChild(crearCeldaAcciones(
-                crearBotonIcono('editar-gasto', g.id, 'bi-pencil', 'Modificar gasto'),
-                crearBotonIcono('eliminar-gasto', g.id, 'bi-trash3', 'Eliminar gasto')));
-            cuerpoG.appendChild(tr);
-        });
-    }
-
-    // ---------- Gasto ----------
-    function abrirGasto(g = null) {
-        editandoGasto = g;
-        $('#cfgTraGastoTitulo').textContent = g ? `Modificar gasto: ${g.concepto}` : 'Nuevo gasto';
-        $('#cfgTraGaError').textContent = '';
-        $('#cfgTraGaConcepto').value = g ? g.concepto : '';
-        $('#cfgTraGaTipo').value = g ? g.tipo : 'fijo';
-        $('#cfgTraGaMonto').value = g ? g.monto_mes : '';
-        const sel = $('#cfgTraGaVehiculo');
-        sel.replaceChildren(new Option('Toda la empresa', ''), ...vehiculos.map((v) => new Option(`${v.placa} · ${v.marca}`, v.id)));
-        sel.value = g && g.vehiculo_id ? String(g.vehiculo_id) : '';
-        $('#cfgTraGastoDialogo').showModal();
-        $('#cfgTraGaConcepto').focus();
-    }
-
-    $('#cfgTraGastoForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const error = $('#cfgTraGaError');
-        const concepto = $('#cfgTraGaConcepto').value.trim();
-        const monto = Number($('#cfgTraGaMonto').value);
-        if (!concepto) { error.textContent = 'Escribe el concepto.'; return; }
-        if ($('#cfgTraGaMonto').value.trim() === '' || !Number.isFinite(monto) || monto < 0) { error.textContent = 'Escribe el monto del mes (0 o más).'; return; }
-        const datos = { concepto, tipo: $('#cfgTraGaTipo').value, monto_mes: monto, vehiculo_id: Number($('#cfgTraGaVehiculo').value) || null };
-        const { error: err } = editandoGasto
-            ? await db.from('transporte_costos').update(datos).eq('id', editandoGasto.id)
-            : await db.from('transporte_costos').insert(datos);
-        if (err) { error.textContent = viaErrorTexto(err, 'guardar el gasto'); return; }
-        $('#cfgTraGastoDialogo').close();
-        aviso.mostrar(editandoGasto ? 'Gasto actualizado.' : 'Gasto agregado.');
-        cargar();
-    });
-    $('#cfgTraGaCancelar').addEventListener('click', () => $('#cfgTraGastoDialogo').close());
-    enSeccion('#cfgTraNuevoGasto').addEventListener('click', () => abrirGasto());
-
-    enSeccion('#cfgTraGastos').addEventListener('click', (e) => {
-        const b = e.target.closest('button[data-accion]');
-        if (!b) return;
-        const g = costos.find((x) => x.id === Number(b.dataset.id));
-        if (!g) return;
-        if (b.dataset.accion === 'editar-gasto') abrirGasto(g);
-        if (b.dataset.accion === 'eliminar-gasto') {
-            pedirConfirmacion(`¿Eliminar el gasto "${g.concepto}" (${dinero(g.monto_mes)} al mes)?`, async () => {
-                const { error } = await db.from('transporte_costos').delete().eq('id', g.id);
-                if (error) { errorBase(error, 'eliminar el gasto'); return; }
-                aviso.mostrar('Gasto eliminado.');
-                cargar();
-            });
-        }
-    });
-
-    // ---------- Horas, km y rendimiento de un vehículo ----------
-    enSeccion('#cfgTraCostosVehiculos').addEventListener('click', (e) => {
-        const b = e.target.closest('button[data-accion="editar-vehiculo"]');
-        if (!b) return;
-        const v = vehiculos.find((x) => x.id === Number(b.dataset.id));
-        if (!v) return;
-        editandoVehiculo = v;
-        $('#cfgTraVehTitulo').textContent = `Costos de ${v.placa}`;
-        $('#cfgTraVeError').textContent = '';
-        $('#cfgTraVeHoras').value = v.horas_mes ?? '';
-        $('#cfgTraVeKm').value = v.km_mes ?? '';
-        $('#cfgTraVeLitro').value = v.km_por_litro ?? '';
-        $('#cfgTraVehDialogo').showModal();
-    });
-
-    $('#cfgTraVehForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!editandoVehiculo) return;
-        const leer = (s) => { const t = $(s).value.trim(); return t === '' ? null : Number(t); };
-        const datos = { horas_mes: leer('#cfgTraVeHoras'), km_mes: leer('#cfgTraVeKm'), km_por_litro: leer('#cfgTraVeLitro') };
-        if (Object.values(datos).some((n) => n !== null && (!Number.isFinite(n) || n < 0))) { $('#cfgTraVeError').textContent = 'Usa números mayores o iguales a 0.'; return; }
-        if (datos.km_por_litro === 0) datos.km_por_litro = null;
-        const { error } = await db.from('vehiculos').update(datos).eq('id', editandoVehiculo.id);
-        if (error) { $('#cfgTraVeError').textContent = viaErrorTexto(error, 'guardar los datos del vehículo'); return; }
-        $('#cfgTraVehDialogo').close();
-        aviso.mostrar(`Datos de ${editandoVehiculo.placa} guardados.`);
-        cargar();
-    });
-    $('#cfgTraVeCancelar').addEventListener('click', () => $('#cfgTraVehDialogo').close());
-
-    // ==================================================
-    // 5. DÍAS CERRADOS
+    // 4. DÍAS CERRADOS
     // ==================================================
 
     function dibujarCerrados() {
@@ -503,6 +347,7 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
 
     return () => {
         activo = false;
-        ['#cfgTraFranjaDialogo', '#cfgTraGastoDialogo', '#cfgTraVehDialogo'].forEach((s) => { const d = $(s); if (d && d.open) d.close(); });
+        const d = $('#cfgTraFranjaDialogo');
+        if (d && d.open) d.close();
     };
 });

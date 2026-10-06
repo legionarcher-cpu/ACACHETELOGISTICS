@@ -199,16 +199,16 @@
 </dialog>
 
 <!-- ==================================================
-     VENTANA: ACCESO Y LUGARES (solo si la empresa hace viajes; sql/01 bloque 19)
-     Usuario del cliente (rol "cliente": entra a Inicio, Viajes y Mi perfil para
-     solicitar sus viajes) y sus lugares Casa y Trabajo. Lógica: js/secciones/clientes.js
+     VENTANA: ACCESO Y LUGARES (si la empresa hace viajes o encomiendas; sql/01 bloques 19 y 23)
+     Usuario del cliente (rol "cliente": entra a Inicio, Viajes / Mis envíos y Mi perfil
+     para solicitar sus viajes o envíos) y sus lugares Casa y Trabajo. Lógica: js/secciones/clientes.js
      ================================================== -->
 <dialog id="cliAcceso" class="dialogo" aria-labelledby="cliAccesoTitulo">
     <form id="cliAccesoForm" class="dialogo-form" novalidate>
         <h3 id="cliAccesoTitulo" class="dialogo-titulo">Acceso y lugares</h3>
 
         <fieldset class="cli-acceso-grupo">
-            <legend class="campo-etiqueta">Usuario para solicitar viajes</legend>
+            <legend class="campo-etiqueta">Usuario para solicitar viajes o envíos</legend>
             <!-- Sin usuario -->
             <div id="cliAccesoNuevo" class="campos">
                 <div class="campo">

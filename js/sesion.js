@@ -43,7 +43,7 @@ const SECCIONES_LIBRES = ['inicio', 'perfil'];
 // Para restringir otro rol, agregar una línea, ej.:  empleado: ['pedidos'],
 const SECCIONES_POR_ROL = {
     piloto: ['inicio', 'pedidos', 'reportes', 'viajes'], // Reportes: solo sus pedidos de los últimos 7 días; Viajes: los suyos
-    cliente: ['inicio', 'viajes'],                       // solicita y sigue SUS viajes (sql/01 bloque 19)
+    cliente: ['inicio', 'viajes', 'envios'],             // solicita y sigue SUS viajes (sql/01 bloque 19) y SUS envíos (bloque 23)
 };
 
 // Secciones que dependen de lo que hace la empresa (empresas/empresas.js):
@@ -51,6 +51,9 @@ const SECCIONES_POR_ROL = {
 //   pedidos, rutas, cotizador   -> solo si hace pedidos (una empresa solo de Transporte no los usa)
 const SECCIONES_DE_VIAJES = ['viajes'];
 const SECCIONES_DE_PEDIDOS = ['pedidos', 'rutas', 'cotizador'];
+
+// Secciones que dependen del PLAN de la empresa (empresas/empresas.js: FUNCIONES_PLAN)
+const SECCIONES_DEL_PLAN = ['pedidos', 'viajes', 'pilotos', 'rutas', 'reportes', 'cotizador'];
 
 // Secciones BLOQUEADAS según el rol: puede abrir todo MENOS estas
 // (aparecen con candado en el menú). Útil cuando es más corto decir
@@ -129,6 +132,8 @@ function datosEmpresaSesion(empresa) {
         ? {
             id: empresa.id, codigo: empresa.codigo || null, nombre: empresa.nombre,
             actividades: empresa.actividades || [], colores: empresa.colores || {},
+            // plan de pago y funciones habilitadas (sql/01 bloque 22); null = todas
+            plan: empresa.plan || 'completo', funciones: Array.isArray(empresa.funciones) ? empresa.funciones : null,
         }
         : null;
 }
@@ -208,8 +213,14 @@ function clienteActual() {
     return sesion ? sesion.cliente_id || null : null;
 }
 
-// ¿La sección tiene sentido para lo que hace la empresa? (Viajes / Pedidos)
+// ¿La sección tiene sentido para lo que hace la empresa? (Viajes / Pedidos) ¿y su plan la incluye?
 function seccionAplica(seccion) {
+    if (SECCIONES_DEL_PLAN.includes(seccion) && typeof funcionHabilitada === 'function' && !funcionHabilitada(seccion)) return false;
+    // "Mis envíos": solo el cliente, si la empresa hace encomiendas y su plan lo incluye (sql/01 bloque 23)
+    if (seccion === 'envios') {
+        return esCliente() && typeof empresaTieneRecoleccion === 'function' && empresaTieneRecoleccion()
+            && (typeof funcionHabilitada !== 'function' || funcionHabilitada('envios_clientes'));
+    }
     if (SECCIONES_DE_VIAJES.includes(seccion) && typeof empresaTieneViajes === 'function') return empresaTieneViajes();
     if (SECCIONES_DE_PEDIDOS.includes(seccion) && typeof empresaTienePedidos === 'function') return empresaTienePedidos();
     return true;
