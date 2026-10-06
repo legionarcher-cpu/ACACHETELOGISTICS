@@ -6,7 +6,7 @@
    en el recuadro del calendario del encabezado, y los
    actualiza cada segundo.
 
-   Dónde se usa: index.html, dentro de #fecha-primordial:
+   Dónde se usa: app.html, dentro de #fecha-primordial:
      .cal-mes-anio  -> "SEP 2026"
      .cal-dia       -> "28"
      .cal-hora      -> "14:05"
@@ -31,7 +31,7 @@ function actualizarFecha() {
     // - Para formato 12 h (a. m./p. m.): agregar  hour12: true
     const hora = ahora.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
 
-    // Si se renombran estas clases en index.html, cambiarlas también aquí.
+    // Si se renombran estas clases en app.html, cambiarlas también aquí.
     document.querySelector('.cal-mes-anio').textContent = `${mes} ${anio}`;
     document.querySelector('.cal-dia').textContent = dia;
     document.querySelector('.cal-hora').textContent = hora;

@@ -1,6 +1,6 @@
 <!-- ==================================================
      SECCIÓN: LOGIN
-     Se carga dentro de .cuerpo-principal de index.html cuando
+     Se carga dentro de .cuerpo-principal de app.html cuando
      no hay sesión (lo decide js/pagina_inicial.js). El fondo
      azul llena todo el cuerpo principal; encabezado, menú
      (bloqueado) y pie del index siguen visibles alrededor.
@@ -12,7 +12,7 @@
      ================================================== -->
 
 <!-- Si alguien abre este archivo directamente (ej. "Open with Live Server"
-     sobre él), se ve sin estilos ni imagen. Esta línea lo manda a index.html.
+     sobre él), se ve sin estilos ni imagen. Esta línea lo manda a app.html.
      Cuando index lo carga en .cuerpo-principal NO se ejecuta (innerHTML no
      ejecuta scripts), así que no afecta. Copiarla en cada sección nueva. -->
 <script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>

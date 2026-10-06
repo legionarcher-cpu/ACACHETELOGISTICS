@@ -9,7 +9,7 @@
      - js/secciones/loggin.js   -> valida usuario y clave
      - js/secciones/usuarios.js -> lista, crea, modifica y elimina usuarios
 
-   Necesita: la librería de Supabase cargada antes en index.html
+   Necesita: la librería de Supabase cargada antes en app.html
    (https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2).
 
    Dónde se sacan estos datos:

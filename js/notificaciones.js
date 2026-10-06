@@ -41,7 +41,7 @@
      tienda cancela               -> G2 + el piloto (info)
      Los "pendiente" se cierran solos (resolverPendientes) cuando alguien hace lo pedido.
 
-   HTML: index.html (.noti-*) | Estilos: css/index.css (bloque "NOTIFICACIONES")
+   HTML: app.html (.noti-*) | Estilos: css/index.css (bloque "NOTIFICACIONES")
    Necesita: js/supabase.js (db) y js/sesion.js cargados antes.
    La enciende/apaga js/permisos.js (aplicarPermisos) según haya sesión.
    ================================================== */

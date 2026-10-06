@@ -20,7 +20,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-# Carpeta raíz del proyecto (la de index.html)
+# Carpeta raíz del proyecto (la de app.html)
 RAIZ = Path(__file__).resolve().parent.parent
 ARCHIVO_EMPRESAS = RAIZ / 'empresas' / 'empresas.js'
 ARCHIVO_SUPABASE = RAIZ / 'js' / 'supabase.js'

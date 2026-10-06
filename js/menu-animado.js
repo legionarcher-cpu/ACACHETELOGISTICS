@@ -7,7 +7,7 @@
    otra vez al iniciar sesión (js/secciones/loggin.js),
    para que se note que las opciones se desbloquearon.
 
-   Dónde se usa: index.html, en los <li class="menu-item">
+   Dónde se usa: app.html, en los <li class="menu-item">
    de .menu-lateral.
 
    Estilos relacionados (css/index.css, bloque "Menú lateral"):

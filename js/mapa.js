@@ -19,7 +19,7 @@
    tocar las secciones. Si OSRM no responde, se usa la línea recta × 1.3
    y se avisa que es aproximada.
 
-   Se carga en index.html después de componentes.js.
+   Se carga en app.html después de componentes.js.
    ================================================== */
 
 // Centro y acercamiento iniciales (San José, Costa Rica)

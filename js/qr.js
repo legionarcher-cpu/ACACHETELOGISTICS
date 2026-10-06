@@ -560,7 +560,7 @@ async function qrLeerPiloto(token) {
     return { tipo: 'ok', mensaje: 'Compara la foto con la persona. Si coincide, el piloto ya puede marcar.', nodo: ficha };
 }
 
-// Botón "Escanear QR" del encabezado (index.html)
+// Botón "Escanear QR" del encabezado (app.html)
 document.addEventListener('DOMContentLoaded', () => {
     const b = document.getElementById('qrBoton');
     if (b) b.addEventListener('click', escanearQrGeneral);

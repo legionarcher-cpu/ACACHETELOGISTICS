@@ -6,7 +6,7 @@
    sobre el avatar y nombre del usuario (esquina superior
    derecha), y maneja el botón "Cerrar sesión".
 
-   Dónde se usa: index.html, dentro de .info-user:
+   Dónde se usa: app.html, dentro de .info-user:
      #userTrigger     -> botón con avatar + nombre (abre/cierra)
      #userMenu        -> el menú desplegable
      #btnCerrarSesion -> opción "Cerrar sesión"

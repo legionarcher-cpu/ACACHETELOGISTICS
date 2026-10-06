@@ -21,7 +21,7 @@
    avanzar el estado pasa por las funciones de la base (revisan las reglas y
    evitan que dos clientes tomen la misma hora).
 
-   Se carga en index.html después de js/qr.js.
+   Se carga en app.html después de js/qr.js.
    ================================================== */
 
 const VIA_MONEDA = '₡';

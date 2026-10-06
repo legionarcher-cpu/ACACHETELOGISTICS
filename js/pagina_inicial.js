@@ -2,7 +2,7 @@
    CARGADOR DE SECCIONES
    ACACHETE LOGISTICS
 
-   Qué hace: index.html es la ÚNICA página del sistema.
+   Qué hace: app.html es la ÚNICA página del sistema.
    Todas las pantallas (incluido el login) se cargan
    DENTRO del <div class="cuerpo-principal">, sin recargar
    la página. El encabezado, el menú y el pie se quedan
@@ -20,11 +20,11 @@
 
    ---------------------------------------------------
    CÓMO AGREGAR UNA SECCIÓN NUEVA (ej. "facturas"):
-     1. En index.html, agregar al menú:
+     1. En app.html, agregar al menú:
           <li class="menu-item"><a href="#facturas">...</a></li>
      2. Crear secciones/facturas.html con SOLO el contenido
         (sin <html>, <head> ni <body>). Su única etiqueta <script>
-        debe ser la línea que redirige a index.html si alguien abre
+        debe ser la línea que redirige a app.html si alguien abre
         el archivo directamente (copiarla de secciones/loggin.html).
      3. (Opcional) css/secciones/facturas.css -> TODO lo propio de la
         sección (estructura, textos y animaciones). Antes, revisar
@@ -45,7 +45,7 @@
         El archivo se descarga una sola vez; la función se ejecuta
         CADA VEZ que se muestra la sección (porque el HTML es nuevo).
      (Opcional) Parámetros: una sección puede recibir datos en el #, ej.
-        index.html#facturas?tienda=3  ->  parametrosSeccion().get('tienda') = "3"
+        app.html#facturas?tienda=3  ->  parametrosSeccion().get('tienda') = "3"
      (Opcional) Si la sección no va en el menú y se abre desde otra,
         agregarla a SECCION_DEL_MENU (más abajo) para resaltar su "madre".
      5. (Solo si USAR_PERMISOS = true en js/sesion.js) agregar 'facturas'
@@ -58,12 +58,12 @@
    un aviso 404 en la consola la primera vez. Es normal.
 
    IMPORTANTE: el proyecto debe abrirse con un servidor
-   local (ej. Live Server en VS Code). Si se abre index.html
+   local (ej. Live Server en VS Code). Si se abre app.html
    con doble clic (file://), el navegador bloquea fetch y
    las secciones no cargan.
    ================================================== */
 
-// Div de index.html donde se muestran las secciones
+// Div de app.html donde se muestran las secciones
 const contenedor = document.querySelector('.cuerpo-principal');
 
 // Sección que se muestra después de iniciar sesión si la URL no tiene #.
@@ -288,7 +288,7 @@ function seccionDesdeHash() {
 
 // ---------- Parámetros de una sección ----------
 // El # puede llevar datos extra después de "?", ej.:
-//   index.html#clientes?tienda=3&nuevo=1
+//   app.html#clientes?tienda=3&nuevo=1
 // nombreSeccionDeHash() -> "clientes"
 // parametrosSeccion()   -> URLSearchParams: .get('tienda') = "3", .get('nuevo') = "1"
 function nombreSeccionDeHash() {

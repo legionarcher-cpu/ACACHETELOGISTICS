@@ -3,7 +3,7 @@
    ACACHETE LOGISTICS
 
    Archivo aparte: NO modifica los CSS existentes. Solo agrega reglas
-   dentro de @media. Se enlaza en index.html DESPUÉS de css/index.css,
+   dentro de @media. Se enlaza en app.html DESPUÉS de css/index.css,
    junto con responsive/responsive.js (botón ☰ del menú).
 
    Medidas en rem (ver css/base.css). En computadora 1rem crece con la

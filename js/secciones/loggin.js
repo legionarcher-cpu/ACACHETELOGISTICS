@@ -211,7 +211,7 @@ registrarSeccion('loggin', (zona) => {
             aplicarPermisos();
             animarMenu(); // repite la cascada para que se note el desbloqueo (js/menu-animado.js)
 
-            // Si la URL ya pedía una sección (ej. index.html#pedidos) y el usuario
+            // Si la URL ya pedía una sección (ej. app.html#pedidos) y el usuario
             // puede verla, se abre esa; si no, la sección inicial.
             // irA y SECCION_INICIAL están en js/pagina_inicial.js.
             // (nombreSeccionDeHash quita los parámetros: "clientes?tienda=1" -> "clientes")
@@ -231,7 +231,7 @@ registrarSeccion('loggin', (zona) => {
 // SOLICITAR USUARIO (clientes de cualquier empresa con Transporte, sql/01 bloque 20)
 //   "¿Eres cliente? Solicita tu usuario" aparece en el login de TODAS las marcas
 //   (salvo registroClientes: false en empresas/empresas.js). ¿De qué empresa?
-//     - enlace index.html#registro?empresa=02 (tarjeta, WhatsApp, QR) -> esa, ya puesta
+//     - enlace app.html#registro?empresa=02 (tarjeta, WhatsApp, QR) -> esa, ya puesta
 //     - registroClientes: '02' en la marca -> esa, ya puesta
 //     - si no -> el cliente escribe el CÓDIGO de su empresa (02, 03...), que ella le da
 //   La base revisa que la empresa esté activa y haga viajes (registro_clientes_empresa).
