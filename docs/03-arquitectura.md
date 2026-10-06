@@ -3,7 +3,7 @@
 ## Carpetas
 
 ```
-index.html                 Única página: encabezado, menú, pie y el espacio de las secciones
+app.html                 Única página: encabezado, menú, pie y el espacio de las secciones
 empresas/empresas.js       Empresas (multimarca) y empresa activa
 secciones/<nombre>.html    Contenido de cada pantalla (sin <html>/<head>/<body>)
 css/
@@ -41,7 +41,7 @@ img/                       Logos e imágenes
 docs/                      Esta documentación
 ```
 
-## Orden de carga (`index.html`)
+## Orden de carga (`app.html`)
 
 1. **CSS**: variables → base → animaciones → componentes → index → Bootstrap Icons → responsive.
    Si una regla se repite, gana la que se carga después. El CSS de cada sección lo agrega el cargador.

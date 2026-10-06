@@ -25,7 +25,7 @@ Parámetros: `#viajes?nuevo=1` abre la solicitud · `#viajes?id=15` muestra ese 
 | Cómo | Dónde |
 |---|---|
 | Se lo crea la empresa | Clientes → botón de llave **"Acceso y lugares"** |
-| **Lo solicita él mismo** (sql/01 bloque 20) | Enlace **`index.html#registro?empresa=02`** (en la tarjeta, WhatsApp o un QR) o "¿Eres cliente? Solicita tu usuario" en el login si la marca tiene `registroClientes: '02'` en `empresas/empresas.js`. Queda pendiente y se aprueba en Clientes → **Revisar**. Detalle: [login-y-perfil.md](login-y-perfil.md) |
+| **Lo solicita él mismo** (sql/01 bloque 20) | "¿Eres cliente? Solicita tu usuario" en el login de cualquier marca: escribe el **código de su empresa** (o le llega puesto con el enlace **`app.html#registro?empresa=02`**). Sirve para todas las empresas activas con Transporte. Queda pendiente y se aprueba en Clientes → **Revisar**. Detalle: [login-y-perfil.md](login-y-perfil.md) |
 
 ## Solicitud en 4 pasos
 

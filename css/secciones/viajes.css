@@ -301,7 +301,7 @@
 
 .via-horas-fila {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(5.556rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(5.556rem, 100%), 1fr));
     gap: 0.444rem;
 }
 

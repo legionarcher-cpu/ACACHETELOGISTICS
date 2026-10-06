@@ -14,7 +14,7 @@
 /* Tarjetas en columnas que se acomodan al ancho */
 .cfg-inicio {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(15.556rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(15.556rem, 100%), 1fr));
     gap: 0.889rem;
 }
 
@@ -348,7 +348,7 @@
 /* ---------- Calculadora de precios (Python) ---------- */
 .cfg-calc-controles {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(12.778rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(12.778rem, 100%), 1fr));
     gap: 0.667rem;
     align-items: end;
 }
@@ -760,7 +760,7 @@
 
 .cfg-tra-grupos {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
     gap: 0.889rem;
 }
 
@@ -805,7 +805,7 @@
 
 .cfg-tra-resumen {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
     margin: 0.667rem 0;
 }
 

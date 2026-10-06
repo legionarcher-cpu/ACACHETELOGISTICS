@@ -120,7 +120,7 @@
 /* Vehículo nuevo: tipo | marca | placa (en pantallas angostas bajan solos) */
 .usr-vehiculo-nuevo {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr));
     gap: 0.667rem;
     margin-top: 0.222rem;
 }

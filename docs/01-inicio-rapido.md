@@ -11,10 +11,10 @@
 ## Abrir el sistema
 
 1. Abrir la carpeta del proyecto en VS Code.
-2. Clic derecho en `index.html` → **Open with Live Server**.
+2. Clic derecho en `app.html` → **Open with Live Server**.
 3. Se abre `http://127.0.0.1:5500/index.html` con el login.
 
-> ⚠ No abrir `index.html` con doble clic (`file://`): el navegador bloquea la carga de las secciones
+> ⚠ No abrir `app.html` con doble clic (`file://`): el navegador bloquea la carga de las secciones
 > y de Python. Siempre con Live Server (o publicado en internet).
 
 ## Primer ingreso

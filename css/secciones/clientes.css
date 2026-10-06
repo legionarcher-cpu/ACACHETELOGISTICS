@@ -51,7 +51,7 @@
 /* Casillas de tiendas: en columnas que se acomodan al ancho */
 .cli-tiendas {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(15rem, 100%), 1fr));
     gap: 0.444rem;
     max-height: 14rem;
     overflow-y: auto; /* si hay muchas tiendas, scroll dentro */
@@ -105,7 +105,7 @@
 
 .cli-regiones {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(11rem, 100%), 1fr));
     gap: 0.667rem;
 }
 
@@ -156,7 +156,7 @@
 /* Monto mínimo y máximo a prestar (dos campos lado a lado) */
 .cli-montos {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr));
     gap: 0.667rem;
 }
 

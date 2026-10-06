@@ -30,7 +30,7 @@
    Sin imagen grande (ninguna regla para esa marca o empresa): se ve el título en texto
    ("titulo" y "subtitulo" de empresas/empresas.js).
 
-   Después de cambiar este archivo: subir el ?v= de encabezados.css en index.html
+   Después de cambiar este archivo: subir el ?v= de encabezados.css en app.html
    (así los celulares no usan la copia vieja) y recargar con Ctrl + F5.
    ================================================== */
 
@@ -44,7 +44,7 @@
 #log-sec    { background-image: url("../img/logo.png"); }
 
 html[data-marca="acachete"] .encabezado-imagen {
-    background-image: url("../img/encabezado-ach-banner.jpg");
+    background-image: url("../img/web/encabezado.jpg");
 }
 
 
@@ -96,7 +96,7 @@ html[data-empresa="03"] #log-sec    { background-image: url("../img/logo-03.png"
 
 /* ==================================================
    CÓMO SE DIBUJA (no hace falta tocar desde aquí)
-   .encabezado-imagen está dentro de .titulos-primordial (index.html). Si su
+   .encabezado-imagen está dentro de .titulos-primordial (app.html). Si su
    imagen no es "none", empresas/empresas.js le pone "con-imagen" al recuadro:
    se muestra la imagen y el título queda solo para lectores de pantalla.
    La imagen de la regla no se pinta en .encabezado-imagen (tamaño 0); la heredan

@@ -1,6 +1,6 @@
 # Encabezado, menú, pie y notificaciones (marco del index)
 
-Lo que se ve siempre, alrededor de las secciones. HTML en `index.html`, estilos en `css/index.css`.
+Lo que se ve siempre, alrededor de las secciones. HTML en `app.html`, estilos en `css/index.css`.
 
 ## Encabezado
 
@@ -22,7 +22,7 @@ Lo que se ve siempre, alrededor de las secciones. HTML en `index.html`, estilos 
   recorta, por defecto) y `--encabezado-enfoque: 50% 60%;` (qué parte se ve con `cover`).
 - Sin regla de imagen se ve el título en texto. El ícono de la pestaña del navegador no se puede poner desde CSS:
   es `icono` en `empresas.js`.
-- Después de cambiarlo: subir `?v=` de `encabezados.css` en `index.html` y recargar con Ctrl + F5.
+- Después de cambiarlo: subir `?v=` de `encabezados.css` en `app.html` y recargar con Ctrl + F5.
 | Fecha y hora | Mes/año, día y hora; se actualiza cada segundo | `js/date.js` |
 | Campana | Notificaciones (ver abajo) | `js/notificaciones.js` |
 | Usuario | Foto o iniciales + nombre; menú: **Empresa** ("01 · Empresa principal"; el Desarrollador la cambia con un selector), Mi perfil, Configuración, Cerrar sesión | `js/permisos.js`, `js/menu-usuario.js` |
@@ -60,4 +60,4 @@ Lo que se ve siempre, alrededor de las secciones. HTML en `index.html`, estilos 
 - Solo reglas `@media` (≤1200, ≤900, ≤600, ≤420 px); en computadora no cambia nada.
 - ≤ 900 px: botón ☰ abre el menú como panel con fondo oscuro (se cierra al elegir, con Escape o al
   tocar el fondo); los botones del pie quedan solo con icono (nombre como globo).
-- Al cambiar `responsive.css`, subir el número `?v=N` en `index.html` para que los celulares no usen la copia vieja.
+- Al cambiar `responsive.css`, subir el número `?v=N` en `app.html` para que los celulares no usen la copia vieja.

@@ -2,13 +2,13 @@
    MARCO DEL INDEX (encabezado, menú lateral, cuerpo y pie)
    ACACHETE LOGISTICS
 
-   Todo lo de index.html: estructura, textos y animaciones
+   Todo lo de app.html: estructura, textos y animaciones
    juntos, agrupados por parte de la pantalla.
    NO poner aquí estilos de las secciones: esos van en
    css/secciones/<nombre>.css (o en css/componentes.css si
    varias secciones los comparten).
 
-   ORGANIZACIÓN DE LOS CSS (orden de carga en index.html):
+   ORGANIZACIÓN DE LOS CSS (orden de carga en app.html):
      1. variables.css   -> colores, fuentes y medidas con nombre
      2. base.css        -> reinicio y fuente general
      3. animaciones.css -> @keyframes compartidos
@@ -807,7 +807,7 @@ body {
 
 /* ==================================================
    SIN SESIÓN (mientras se ve el login)
-   La clase "sin-sesion" va en <html> (la pone index.html al
+   La clase "sin-sesion" va en <html> (la pone app.html al
    cargar y js/permisos.js al iniciar/cerrar sesión).
    Se ocultan el usuario del encabezado y los botones del pie,
    porque sin sesión no hacen nada. visibility (en vez de
@@ -824,7 +824,7 @@ html.sin-sesion .pie-botones {
 
 /* ==================================================
    SEGÚN EL ROL
-   <html data-rol="..."> lo pone index.html al cargar y
+   <html data-rol="..."> lo pone app.html al cargar y
    js/permisos.js al iniciar/cerrar sesión.
    ================================================== */
 

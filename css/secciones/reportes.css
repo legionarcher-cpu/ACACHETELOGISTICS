@@ -117,7 +117,7 @@
 
 .rep-kpis {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(9.444rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(9.444rem, 100%), 1fr));
     gap: 0.667rem;
 }
 
@@ -163,7 +163,7 @@
 
 .rep-record-datos {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(11.111rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(11.111rem, 100%), 1fr));
     gap: 0.556rem 1.111rem;
     margin: 0;
 }
@@ -198,7 +198,7 @@
 
 .rep-graficas {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(21.111rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(21.111rem, 100%), 1fr));
     gap: 0.889rem;
 }
 

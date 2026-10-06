@@ -4,7 +4,7 @@ Después de cada receta: probar la sección con [11-pruebas.md](11-pruebas.md).
 
 ## Agregar una sección nueva (ej. "facturas")
 
-1. `index.html` → menú: `<li class="menu-item"><a href="#facturas"><i class="bi bi-receipt"></i> Facturas</a></li>`
+1. `app.html` → menú: `<li class="menu-item"><a href="#facturas"><i class="bi bi-receipt"></i> Facturas</a></li>`
 2. `secciones/facturas.html` → solo el contenido. Primera línea: la redirección
    (`<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>`).
 3. `css/secciones/facturas.css` (opcional) → clases con prefijo `fac-`. Usar antes `componentes.css`.

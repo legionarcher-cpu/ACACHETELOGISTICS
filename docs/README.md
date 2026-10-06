@@ -8,6 +8,8 @@ servidor propio.
 > Esta carpeta explica **cómo está hecho hoy** y **dónde tocar** para cambiarlo.
 > **Resumen de todo en un solo archivo** (qué hace cada parte, cómo modificarla y cómo ligar una app):
 > [GUIA-RESUMIDA-Y-APP.md](../GUIA-RESUMIDA-Y-APP.md), en la raíz.
+> **Página web de presentación** (aparte de la app): `index.html` en la raíz + carpeta `web/` (ver
+> [web/LEEME.md](../web/LEEME.md)).
 > El documento de diseño original (ideas, fases, decisiones) es
 > [PROPUESTA-ESTRUCTURADA-V2.md](../PROPUESTA-ESTRUCTURADA-V2.md), en la raíz; se conserva como
 > historia. Si algo no coincide, manda esta carpeta.
@@ -50,7 +52,7 @@ servidor propio.
 ## El sistema en una imagen
 
 ```
-                 ┌──────────── index.html (única página) ────────────┐
+                 ┌──────────── app.html (única página) ────────────┐
 empresas.js ──►  │ Encabezado: logo ACACHETE + logo empresa, título,  │
 (qué empresa)    │             fecha, campana, usuario                │
                  │ Menú lateral │  .cuerpo-principal  ◄── secciones/  │

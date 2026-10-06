@@ -91,4 +91,4 @@ Antes de crear un estilo nuevo, buscar aquí: casi todo ya existe.
 - Animaciones y transiciones: respetar las que existen (cambiar la duración de salida de sección exige
   cambiar también `DURACION_SALIDA` en `pagina_inicial.js`).
 - Responsive: reglas nuevas solo dentro de los `@media` de `responsive.css`; las de secciones con el
-  prefijo `html body` para ganarle al CSS de la sección; subir `?v=N` en `index.html`.
+  prefijo `html body` para ganarle al CSS de la sección; subir `?v=N` en `app.html`.

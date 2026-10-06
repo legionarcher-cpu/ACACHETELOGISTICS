@@ -2,7 +2,7 @@
    EMPRESAS (MULTIMARCA)
    ACACHETE LOGISTICS
 
-   El mismo sistema (UN solo index.html) sirve a varias empresas. Cada
+   El mismo sistema (UN solo app.html) sirve a varias empresas. Cada
    empresa (marca) se define AQUÍ: textos, colores, pie y base de datos.
    Se elige cuál usa esta copia del sistema con EMPRESA_ACTIVA.
    No hace falta otro index: la página toma de aquí lo de la marca activa.
@@ -40,7 +40,7 @@
                     Transporte (la base lo revisa). Sin el campo: el cliente escribe
                     el código de su empresa (02, 03...). '02' = ya va puesta esa
                     empresa (no se pregunta). false = el botón no aparece.
-                    El enlace index.html#registro?empresa=02 también la deja puesta.
+                    El enlace app.html#registro?empresa=02 también la deja puesta.
                     La solicitud se aprueba en Clientes -> "Revisar" (sql/01 bloque 20).
      supabase    -> base de datos de la empresa ({ url, anonKey }).
                     Vacío = la de js/supabase.js. Una empresa nueva usa una base
@@ -59,7 +59,7 @@
      - COLORES_POR_EMPRESA, más abajo: respaldo escrito a mano (si la base no tiene
        la paleta; la de la base gana).
 
-   Se carga en index.html ANTES que todo lo demás (sin defer), así los
+   Se carga en app.html ANTES que todo lo demás (sin defer), así los
    colores se aplican antes de dibujar la página.
    ================================================== */
 

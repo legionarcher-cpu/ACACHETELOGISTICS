@@ -164,7 +164,7 @@
 /* Tarjetas para elegir la actividad */
 .ped-actividades {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(13.333rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(13.333rem, 100%), 1fr));
     gap: 0.667rem;
 }
 
@@ -321,7 +321,7 @@
 /* Conteo de abarrotes: 4 números + alcohol */
 .ped-conteo {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(7.778rem, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(7.778rem, 100%), 1fr));
     align-items: end;
     gap: 0.667rem;
 }
@@ -416,7 +416,7 @@
 
 .ped-detalle-rejilla {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(18.889rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(18.889rem, 100%), 1fr));
     gap: 0.889rem;
     align-items: start;
 }

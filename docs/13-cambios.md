@@ -2,6 +2,50 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-05 · Web: portada compacta y una página de solución por tipo de empresa
+
+Sin SQL. Recargar con **Ctrl + F5**.
+
+- Portada más compacta: bienvenida (con los 3 beneficios en una línea), una sola sección "Soluciones" y la galería
+  "Conozca más". Se quitó la sección "Para quién", que repetía lo mismo.
+- **Mensajerías, Distribuidoras y Transporte abren cada una su propia página** (`web/paginas/solucion-*.html`): lo que
+  resolvemos (antes / con ACACHETE), así trabaja su operación, funciones incluidas explicadas, un destacado y el llamado
+  a la demostración (con enlace al detalle de cada función ya filtrado).
+- Visión: se quitaron "Hacia dónde vamos" y "Para quién".
+- Menú de arriba: nueva opción "Soluciones"; el pie enlaza las tres soluciones.
+
+## 2026-10-05 · Revisión responsive (web y app) en 12 resoluciones
+
+Sin SQL. Recargar con **Ctrl + F5**.
+
+- Medido en 320, 360, 390 y 414 px (celular), 844 × 390 (celular acostado), 768, 820 y 1024 px (tablet) y 1280, 1366,
+  1440 y 1920 px: la web (portada, Productos, Visión, Contacto, la App en ventana, el visor) y todas las secciones de la
+  app, sus formularios y el login. Ninguna página queda con scroll horizontal; las tablas se desplazan dentro de su caja.
+- Corregido: Contacto de la web en celulares (las listas desplegables ensanchaban el formulario); visor de productos en
+  celular angosto (título) y en pantallas bajas (más compacto); lista de tiendas del formulario de Clientes en 320 px.
+- Las columnas automáticas de todos los CSS (`repeat(auto-fit, minmax(Xrem, 1fr))`) ya no superan el ancho de la
+  pantalla: `minmax(min(Xrem, 100%), 1fr)`. En computadora no cambia nada.
+
+## 2026-10-05 · La página web carga primero: la app ahora es `app.html`
+
+Sin SQL. Recargar con **Ctrl + F5**.
+
+- **`index.html` es la página web de presentación** (antes `web.html`), así abre primero en cualquier servidor.
+  **La app ahora es `app.html`** (antes `index.html`). Se actualizaron todas las referencias (las secciones,
+  comentarios y documentación).
+- Enlaces viejos de la app (`index.html#registro?empresa=02`, `index.html#pedidos`...) se pasan solos a `app.html`.
+- Página de inicio más liviana: 3 beneficios con textos nuevos ("Entregas confirmadas", etc.), "Para quién" sin listas
+  y la galería. "Cómo funciona" pasó a la ventana Productos.
+
+## 2026-10-05 · Solicitud de usuario para todas las empresas
+
+Sin SQL. Subir `secciones/loggin.html`, `js/secciones/loggin.js` y `empresas/empresas.js`; recargar con **Ctrl + F5**.
+
+- "¿Eres cliente? Solicita tu usuario" aparece **siempre** en el login. Si la empresa no viene en el enlace
+  (`#registro?empresa=02`) ni en la marca (`registroClientes: '02'`), el formulario pide el **código de la empresa**
+  y muestra su nombre al confirmarlo. Vale para todas las empresas activas con Transporte (lo revisa la base).
+- `registroClientes: false` en una marca oculta el botón.
+
 ## 2026-10-05 · Imágenes del encabezado solo desde `css/encabezados.css`
 
 Sin SQL. Recargar con **Ctrl + F5**.
@@ -40,7 +84,7 @@ Sin SQL. Recargar con **Ctrl + F5**.
 - **Paleta de cada empresa interna:** Tiendas → Empresas → Nueva / Modificar pide la **paleta de colores**
   (modelo o 2 colores propios). Se guarda en `empresas.colores` y la página se pinta con ella **al iniciar sesión**
   con un usuario de esa empresa (por su ID); al cerrar sesión vuelven los de la marca.
-- **Logos por marca** en `empresas/empresas.js` (`logo`, `logoFondo`, `icono`): un solo `index.html` para todas
+- **Logos por marca** en `empresas/empresas.js` (`logo`, `logoFondo`, `icono`): un solo `app.html` para todas
   las marcas (no hace falta un index por empresa).
 - **`herramientas\empresas.bat`**: una sola herramienta (sin Python) para nueva empresa con logos y paleta, cambiar
   su base, su paleta, sus logos o la empresa activa. Reemplaza a `python/nueva_empresa.py` y
@@ -63,7 +107,7 @@ Los usuarios siguen entrando con la **misma contraseña** (se cifra la que ya te
 - **`herramientas/vaciar_base_datos.sql` pregunta qué empresa:** se escribe el ID (`'02'`) y su nombre exacto para
   confirmar; borra solo lo de esa empresa (puede conservar sus Administradores). Para toda la base: `'TODAS'` +
   `'BORRAR TODO'`. Sin escribir la empresa se detiene sin borrar.
-- **El cliente solicita su usuario** (empresas con Transporte): enlace `index.html#registro?empresa=02` o
+- **El cliente solicita su usuario** (empresas con Transporte): enlace `app.html#registro?empresa=02` o
   "¿Eres cliente? Solicita tu usuario" en el login (`registroClientes` en `empresas/empresas.js`). Queda pendiente;
   aviso al Administrador y G1; se aprueba en **Clientes → Revisar**. Ver [secciones/viajes.md](secciones/viajes.md).
 

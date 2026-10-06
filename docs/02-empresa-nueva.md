@@ -10,7 +10,7 @@ Hay **dos formas** de tener varias empresas:
 Las dos se combinan: una marca (copia) puede tener varias empresas internas.
 
 **Cada marca se configura en `empresas/empresas.js`** (textos, colores, pie y base) y **sus imágenes de
-encabezado en `css/encabezados.css`**. No hace falta otro `index.html` por empresa: el mismo index toma de ahí lo
+encabezado en `css/encabezados.css`**. No hace falta otro `app.html` por empresa: el mismo index toma de ahí lo
 de la marca activa (así una corrección del sistema sirve para todas las marcas a la vez).
 
 ## Qué define cada empresa
@@ -111,7 +111,7 @@ colores: {
 
 ## Cómo funciona por dentro
 
-`empresas/empresas.js` se carga en `index.html` **antes que todo** (sin `defer`):
+`empresas/empresas.js` se carga en `app.html` **antes que todo** (sin `defer`):
 1. Aplica los `colores` al instante (antes de dibujar la página), con la paleta de la empresa de la sesión
    si hay (`aplicarColoresEmpresa`; `js/sesion.js` la vuelve a llamar al entrar, cambiar de empresa y salir).
 2. Marca en `<html>` la marca (`data-marca`) y la empresa de la sesión (`data-empresa`): con eso

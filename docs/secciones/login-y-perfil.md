@@ -23,10 +23,12 @@
 
 ### Solicitar usuario (clientes de empresas con Transporte)
 
-- Se abre con el enlace **`index.html#registro?empresa=02`** (tarjeta, WhatsApp, QR) o con "¿Eres cliente?
-  Solicita tu usuario" debajo de Ingresar, si la marca tiene `registroClientes: '02'` en `empresas/empresas.js`.
-  Solo aparece si esa empresa está **activa y hace viajes** (`registro_clientes_empresa`); si no, el enlace avisa
-  que no es válido.
+- **Para todas las empresas** activas con Transporte: "¿Eres cliente? Solicita tu usuario" aparece siempre debajo
+  de Ingresar (se oculta solo con `registroClientes: false` en `empresas/empresas.js`). La empresa:
+  - con el enlace **`app.html#registro?empresa=02`** (tarjeta, WhatsApp, QR) ya va puesta;
+  - con `registroClientes: '02'` en la marca, también;
+  - si no, el cliente escribe el **código de su empresa** (2 números, se lo da la empresa) y ve su nombre al
+    confirmarlo. La base revisa que esté **activa y haga viajes** (`registro_clientes_empresa`).
 - Datos: nombre*, primer apellido*, segundo apellido, teléfono* (8+ dígitos), correo, usuario* (se le agrega el ID:
   `aramirez02`) y contraseña* (6+, se repite). Campo trampa oculto contra robots.
 - Lo guarda la base (`solicitar_acceso_cliente`): cliente (si su teléfono no existía, en la primera tienda activa) +

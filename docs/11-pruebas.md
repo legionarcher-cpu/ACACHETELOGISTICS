@@ -309,9 +309,12 @@ Antes: abrir `herramientas/prueba_logica_viajes.html` (doble clic): todo debe de
 - [ ] `herramientas/vaciar_base_datos.sql` sin escribir la empresa: se detiene sin borrar. Con un ID que no existe o un
       nombre que no coincide: se detiene. Con ID + nombre correctos (en una base de PRUEBA): solo esa empresa queda en
       0 en la comprobación; las demás conservan sus datos y los Administradores de la limpiada siguen entrando.
-- [ ] `index.html#registro?empresa=02` (sin sesión): abre "Solicitar usuario · Clientes de ...". Con una empresa sin
+- [ ] `app.html#registro?empresa=02` (sin sesión): abre "Solicitar usuario · Clientes de ...". Con una empresa sin
       Transporte o inexistente: "Este enlace de registro no es válido".
-- [ ] Con `registroClientes: '02'` en la marca: el login muestra "¿Eres cliente? Solicita tu usuario"; vacío: no aparece.
+- [ ] El login de cualquier marca muestra "¿Eres cliente? Solicita tu usuario" (con `registroClientes: false`, no).
+      Sin enlace: pide el código de la empresa; al escribir `02` muestra "✔ Transportes Otoya..."; un código sin
+      Transporte o inexistente: "Ese código no recibe solicitudes". Con `#registro?empresa=02` o
+      `registroClientes: '02'` el código no se pregunta.
 - [ ] Enviar la solicitud: "Solicitud enviada · Tu usuario será aramirez02". Al intentar entrar: "Tu solicitud
       todavía está en revisión". Repetir con el mismo teléfono: "Ya hay un usuario o una solicitud...".
 - [ ] El Administrador y el G1 reciben "Solicitud de acceso a viajes"; en Clientes sale "Nuevo · pendiente" con

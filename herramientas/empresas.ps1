@@ -7,7 +7,7 @@
 #       powershell -ExecutionPolicy Bypass -File herramientas\empresas.ps1)
 #
 # Se guarda en empresas/empresas.js (la página lo lee al abrir; no hace falta
-# otro index.html por empresa). Opciones:
+# otro app.html por empresa). Opciones:
 #   1. Nueva empresa: nombre, actividad, pie, base de datos y PALETA DE COLORES
 #      (2 colores: principal y botones -> las 7 de la marca; los modelos se leen
 #      de PALETAS_MODELO en empresas/empresas.js). Su IMAGEN DE ENCABEZADO se

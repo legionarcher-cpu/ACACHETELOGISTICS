@@ -4,7 +4,7 @@
 
    Tarjeta de viaje, cortesía, Inicio de viajes y reporte de viajes
    (js/viajes-comun.js). Se usan en Inicio, Viajes y Reportes, por eso se
-   cargan siempre (index.html). Lo propio de la sección Viajes (solicitud
+   cargan siempre (app.html). Lo propio de la sección Viajes (solicitud
    en 4 pasos, horas) está en css/secciones/viajes.css. Clases "via-".
    Colores: variables de css/variables.css (cambian con la paleta de la empresa).
    ================================================== */
@@ -12,7 +12,7 @@
 /* ---------- Tarjetas y columnas ---------- */
 .via-columnas {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(22rem, 100%), 1fr));
     gap: 0.889rem;
     align-items: start;
 }
@@ -256,7 +256,7 @@
 /* ---------- Cuadros con número (reporte de viajes) ---------- */
 .via-kpis {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr));
     gap: 0.889rem;
     margin: 0.889rem 0;
 }

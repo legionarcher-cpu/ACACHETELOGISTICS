@@ -937,7 +937,7 @@ html:not([data-rol="desarrollador"]) [data-solo-desarrollador] {
 
 .resumen {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(7.778rem, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(7.778rem, 100%), 1fr));
     gap: 0.667rem;
 }
 
