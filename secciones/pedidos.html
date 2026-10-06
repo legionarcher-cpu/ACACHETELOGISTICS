@@ -233,6 +233,15 @@
                         </button>
                     </div>
 
+                    <!-- Pedidos del mismo día, sin entregar, cerca de esta recolección o entrega
+                         (js/secciones/pedidos.js: PED_RADIO_CERCANO_KM). Sugiere el mismo piloto
+                         para hacerlos en un solo viaje. -->
+                    <div class="campo campo-ancho ped-cercanos" id="pedCercanos" hidden>
+                        <p class="ped-cercanos-titulo"><i class="bi bi-signpost-2"></i> <strong>Pedidos cerca de este recorrido</strong></p>
+                        <ul id="pedCercanosLista" class="ped-cercanos-lista"></ul>
+                        <small class="campo-ayuda" id="pedCercanosAyuda"></small>
+                    </div>
+
                     <div class="campo campo-ancho">
                         <span class="campo-etiqueta">¿Quién recibe? *</span>
                         <div class="ped-opciones">
