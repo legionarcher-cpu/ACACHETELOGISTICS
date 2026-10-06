@@ -886,3 +886,74 @@
         padding: 1rem;
     }
 }
+
+/* ==================================================
+   PEDIDOS CERCANOS (un solo viaje): formulario y detalle
+   js/secciones/pedidos.js -> pintarCercanos / mostrarCercanosDetalle
+   ================================================== */
+.ped-cercanos {
+    padding: 0.778rem 0.889rem;
+    background-color: var(--color-azul-claro);
+    border: 1px solid #CFE0F3;
+    border-left: 0.222rem solid var(--color-azul);
+    border-radius: var(--radio);
+}
+
+.ped-cercanos-titulo {
+    margin: 0 0 0.444rem;
+    display: flex;
+    align-items: center;
+    gap: 0.444rem;
+    color: var(--color-azul-marino);
+    font-size: 0.95rem;
+}
+
+.ped-cercanos-titulo i {
+    color: var(--color-azul);
+}
+
+.ped-cercanos-lista {
+    list-style: none;
+    margin: 0 0 0.333rem;
+    padding: 0;
+    display: grid;
+    gap: 0.444rem;
+}
+
+.ped-cercanos-lista li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.444rem 0.889rem;
+    padding: 0.556rem 0.667rem;
+    background-color: var(--color-blanco);
+    border-radius: var(--radio);
+}
+
+.ped-cercanos-lista li > span {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ped-cercanos-lista strong {
+    font-size: 0.9rem;
+    color: var(--color-texto);
+}
+
+.ped-cercanos-lista small {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+/* Detalle: un enlace por pedido cercano */
+.ped-cercanos-detalle {
+    display: flex;
+    flex-direction: column;
+    gap: 0.222rem;
+}
+
+.ped-cercanos-detalle a {
+    color: var(--color-azul);
+}
