@@ -105,6 +105,58 @@ const PED_POR_ALISTAR = ['registrado', 'recibido_bodega', 'asignado', 'reprogram
 // Estados en los que el pedido todavía no salió (se puede asignar o cancelar)
 const PED_ANTES_DE_SALIR = [...PED_POR_ALISTAR, 'alistando', 'listo_despacho', 'recibido_ruta', 'cargado'];
 
+// ---------- PEDIDOS CERCANOS (aprovechar un mismo viaje) ----------
+// Al registrar un pedido (y en su detalle) se buscan los pedidos del MISMO DÍA, todavía
+// sin entregar, cuya recolección o entrega quede a menos de PED_RADIO_CERCANO_KM en línea
+// recta de la recolección o la entrega de este. Se sugiere el mismo piloto y se le avisa.
+// (Cuando A es la tienda no se compara: todos los pedidos de la tienda salen de ahí.)
+const PED_RADIO_CERCANO_KM = 1;   // subir o bajar para el plan piloto
+const PED_PENDIENTES_DE_VIAJE = [...PED_ANTES_DE_SALIR, 'en_ruta', 'en_entrega'];
+
+// Kilómetros en línea recta entre dos puntos { lat, lng }
+function pedKmRecta(a, b) {
+    const rad = (g) => (g * Math.PI) / 180;
+    const dLat = rad(b.lat - a.lat);
+    const dLng = rad(b.lng - a.lng);
+    const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 6371 * 2 * Math.asin(Math.sqrt(h));
+}
+
+// Puntos que cuentan de una ruta { origen, a, b }: la recolección (si no es la tienda) y la entrega
+function pedPuntosDeRuta(ruta) {
+    if (!ruta) return [];
+    return [
+        ruta.origen === 'recoleccion' && ruta.a ? { tipo: 'recoleccion', punto: ruta.a } : null,
+        ruta.b ? { tipo: 'entrega', punto: ruta.b } : null,
+    ].filter(Boolean);
+}
+
+// Pedidos de "otros" cercanos a la ruta: [{ pedido, km, mio, suyo }] del más cercano al más lejano.
+// mio / suyo: 'recoleccion' | 'entrega' (qué punto de cada uno queda cerca)
+function pedCercanosDe(ruta, otros, radioKm = PED_RADIO_CERCANO_KM) {
+    const mios = pedPuntosDeRuta(ruta);
+    if (!mios.length) return [];
+    const cercanos = [];
+    otros.forEach((o) => {
+        let mejor = null;
+        mios.forEach((m) => pedPuntosDeRuta((o.detalle || {}).ruta).forEach((s) => {
+            const km = pedKmRecta(m.punto, s.punto);
+            if (km <= radioKm && (!mejor || km < mejor.km)) mejor = { km, mio: m.tipo, suyo: s.tipo };
+        }));
+        if (mejor) cercanos.push({ pedido: o, ...mejor });
+    });
+    return cercanos.sort((x, y) => x.km - y.km);
+}
+
+// "600 m" / "1.2 km"
+const pedTextoDistancia = (km) => (km < 1 ? `${Math.max(10, Math.round(km * 100) * 10)} m` : `${km.toFixed(1)} km`);
+
+// "La entrega queda a 600 m de la recolección de P-000123"
+function pedTextoCercano(c, sujeto = 'Esta') {
+    const nombre = { recoleccion: 'recolección', entrega: 'entrega' };
+    return `${sujeto} ${nombre[c.mio]} queda a ${pedTextoDistancia(c.km)} de la ${nombre[c.suyo]} de ${c.pedido.codigo}`;
+}
+
 // Descarga un script una sola vez (librerías gratis de jsDelivr)
 const pedScripts = new Map();
 function cargarScriptPed(url, global) {
@@ -307,6 +359,20 @@ registrarSeccion('pedidos', (zona) => {
         if (error) return ids[0];
         const carga = (id) => data.filter((p) => p.piloto_id === id && p.id !== excluirPedido).length;
         return ids.reduce((mejor, id) => (carga(id) < carga(mejor) ? id : mejor), ids[0]);
+    }
+
+    // Pedidos del mismo día, sin entregar, cerca de una ruta { origen, a, b } (ver PED_RADIO_CERCANO_KM).
+    // Devuelve [{ pedido: { id, codigo, estado, piloto_id, tienda_id }, km, mio, suyo }] o [] si falla.
+    async function buscarCercanos(ruta, fecha, excluirId = null) {
+        if (!fecha || !pedPuntosDeRuta(ruta).length) return [];
+        const { data, error } = await db.from('pedidos')
+            .select('id, codigo, estado, piloto_id, tienda_id, detalle')
+            .eq('fecha_entrega', fecha).eq('anulado', false).in('estado', PED_PENDIENTES_DE_VIAJE).limit(500);
+        if (error) {
+            console.error('Error al buscar pedidos cercanos:', error);
+            return [];
+        }
+        return pedCercanosDe(ruta, data.filter((p) => p.id !== excluirId));
     }
 
     // Actividades de una tienda: TODAS las activas de la empresa (se eligen en
@@ -916,8 +982,83 @@ registrarSeccion('pedidos', (zona) => {
                 rutaForm = ruta;
                 actualizarBotonUbicacionTienda();
                 recalcular();
+                programarCercanos();
             },
         });
+    }
+
+    // ---------- Pedidos cercanos (un solo viaje) ----------
+    // Con A o B ubicados y la fecha elegida, se muestran los pedidos del mismo día, sin
+    // entregar, que quedan cerca (PED_RADIO_CERCANO_KM). G2 o superior puede asignar el
+    // nuevo pedido al mismo piloto con un toque; al registrarlo se avisa (ver más abajo).
+    let cercanosForm = [];        // [{ pedido, km, mio, suyo }]
+    let cercanosTemporizador = null;
+    let cercanosConsulta = 0;
+
+    function rutaDelFormulario() {
+        const puntos = mapaRuta ? mapaRuta.puntos() : {};
+        return { origen: origenEsTienda() ? 'tienda' : 'recoleccion', a: puntos.a || null, b: puntos.b || null };
+    }
+
+    function programarCercanos() {
+        clearTimeout(cercanosTemporizador);
+        cercanosTemporizador = setTimeout(actualizarCercanos, 500);
+    }
+
+    function textoPilotoCercano(id) {
+        return id ? (nombrePiloto(id) || 'otro piloto') : 'sin piloto';
+    }
+
+    // El piloto puede no estar en la lista del formulario (ej. de otra tienda): se agrega
+    function elegirPilotoCercano(id) {
+        if (![...selPiloto.options].some((o) => o.value === String(id))) {
+            selPiloto.appendChild(new Option(`${textoPilotoCercano(id)} · pedido cercano`, id));
+        }
+        selPiloto.value = String(id);
+        selPiloto.dispatchEvent(new Event('change'));
+        pintarCercanos();
+    }
+
+    function pintarCercanos() {
+        const caja = $('#pedCercanos');
+        const lista = $('#pedCercanosLista');
+        lista.replaceChildren();
+        caja.hidden = !cercanosForm.length;
+        if (!cercanosForm.length) return;
+        cercanosForm.slice(0, 5).forEach((c) => {
+            const li = document.createElement('li');
+            const textos = document.createElement('span');
+            const titulo = document.createElement('strong');
+            titulo.textContent = pedTextoCercano(c);
+            const detalle = document.createElement('small');
+            const estado = (PED_ESTADOS[c.pedido.estado] || {}).texto || c.pedido.estado;
+            detalle.textContent = `Piloto: ${textoPilotoCercano(c.pedido.piloto_id)} · ${estado} · ${nombreTienda(c.pedido.tienda_id)}`;
+            textos.append(titulo, detalle);
+            li.appendChild(textos);
+            if (puedeAsignar && c.pedido.piloto_id) {
+                const elegido = selPiloto.value === String(c.pedido.piloto_id);
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.className = `boton boton-chico ${elegido ? 'boton-secundario' : 'boton-principal'}`;
+                b.disabled = elegido;
+                b.innerHTML = elegido ? '<i class="bi bi-check2"></i> ' : '<i class="bi bi-person-check"></i> ';
+                b.append(elegido ? 'Asignado a este piloto' : `Asignar a ${textoPilotoCercano(c.pedido.piloto_id)}`);
+                b.addEventListener('click', () => elegirPilotoCercano(c.pedido.piloto_id));
+                li.appendChild(b);
+            }
+            lista.appendChild(li);
+        });
+        $('#pedCercanosAyuda').textContent = puedeAsignar
+            ? 'Asignarlo al mismo piloto permite atender estos pedidos en un solo viaje. Al registrarlo se le avisa.'
+            : 'Al registrar el pedido se avisará para que se valore asignarlo al mismo piloto.';
+    }
+
+    async function actualizarCercanos() {
+        const consulta = ++cercanosConsulta;
+        const encontrados = await buscarCercanos(rutaDelFormulario(), inputFecha.value);
+        if (consulta !== cercanosConsulta) return; // ya cambió algo más
+        cercanosForm = encontrados;
+        pintarCercanos();
     }
 
     // Punto A según la tienda y la recolección
@@ -1404,7 +1545,8 @@ registrarSeccion('pedidos', (zona) => {
     });
 
     selTienda.addEventListener('change', alCambiarTienda);
-    inputFecha.addEventListener('change', () => { actualizarMarcas(); actualizarPilotosRuta(); });
+    inputFecha.addEventListener('change', () => { actualizarMarcas(); actualizarPilotosRuta(); programarCercanos(); });
+    selPiloto.addEventListener('change', () => { if (cercanosForm.length) pintarCercanos(); });
 
     // Input numérico de las filas (cantidad o peso)
     function inputNumero(clave, dato, valor, etiqueta, entero) {
@@ -2100,6 +2242,11 @@ registrarSeccion('pedidos', (zona) => {
             return;
         }
 
+        // Pedidos del mismo día cerca de este (se guardan en la línea de tiempo para medir el plan piloto)
+        const cercanos = await buscarCercanos(detalle.ruta, inputFecha.value, data.id);
+        const conMiPiloto = pilotoId ? cercanos.filter((x) => x.pedido.piloto_id === pilotoId) : [];
+        const conOtroPiloto = cercanos.filter((x) => x.pedido.piloto_id && x.pedido.piloto_id !== pilotoId);
+
         // Artículos y línea de tiempo
         const [art, his] = await Promise.all([
             db.from('pedido_articulos').insert(armarArticulos(data.id)),
@@ -2108,6 +2255,12 @@ registrarSeccion('pedidos', (zona) => {
                 detalle: {
                     marca: pedido.marca_numero, ruta: nombreRuta(rutaId),
                     piloto: pilotoId ? `${nombrePiloto(pilotoId) || ''}${pilotoManual ? '' : ' (de la ruta)'}` : null,
+                    ...(cercanos.length ? {
+                        cercanos: cercanos.slice(0, 5).map((x) => ({
+                            pedido: x.pedido.codigo, km: Math.round(x.km * 100) / 100, piloto: x.pedido.piloto_id || null,
+                        })),
+                        mismo_piloto: conMiPiloto.length > 0,
+                    } : {}),
                 },
             }),
         ]);
@@ -2118,20 +2271,35 @@ registrarSeccion('pedidos', (zona) => {
             sessionStorage.setItem('ped_aviso', `Pedido ${data.codigo} registrado.`);
         }
 
-        // Avisos (js/notificaciones.js): sin piloto -> el G2 debe asignarlo; con piloto -> al piloto
+        // Avisos (js/notificaciones.js): sin piloto -> el G2 debe asignarlo; con piloto -> al piloto.
+        // Pedidos cercanos: al piloto se le dice que puede aprovechar el viaje; si el más cercano
+        // lo lleva otro piloto, se sugiere al G2 asignárselo (o reasignarlo) para un solo viaje.
         const enlace = `#pedidos?id=${data.id}`;
+        const sugerencia = (x) => `${pedTextoCercano(x, 'Su')} (piloto ${textoPilotoCercano(x.pedido.piloto_id)})`;
         if (!pilotoId) {
             await avisar({
                 tiendaId, a: ['g2'], tipo: 'pendiente', enlace, referenciaTipo: 'pedido_asignar', referenciaId: data.id,
-                titulo: 'Pedido nuevo sin piloto',
-                mensaje: `${nombreTienda(tiendaId)} registró el pedido ${data.codigo} para el ${fechaCorta(inputFecha.value)}. Asígnale piloto y horario.`,
+                titulo: conOtroPiloto.length ? 'Pedido nuevo sin piloto, cerca de otro recorrido' : 'Pedido nuevo sin piloto',
+                mensaje: `${nombreTienda(tiendaId)} registró el pedido ${data.codigo} para el ${fechaCorta(inputFecha.value)}. ` +
+                    (conOtroPiloto.length
+                        ? `Sugerencia: ${sugerencia(conOtroPiloto[0])}; asignárselo permite un solo viaje.`
+                        : 'Asígnale piloto y horario.'),
             });
         } else {
             await avisar({
                 usuarios: [pilotoId], enlace, referenciaTipo: 'pedido', referenciaId: data.id,
-                titulo: 'Nuevo pedido asignado',
-                mensaje: `Tienes el pedido ${data.codigo} (${nombreTienda(tiendaId)}) para el ${fechaCorta(inputFecha.value)}.`,
+                titulo: conMiPiloto.length ? 'Nuevo pedido cerca de tu recorrido' : 'Nuevo pedido asignado',
+                mensaje: `Tienes el pedido ${data.codigo} (${nombreTienda(tiendaId)}) para el ${fechaCorta(inputFecha.value)}.` +
+                    (conMiPiloto.length ? ` ${pedTextoCercano(conMiPiloto[0], 'Su')}: aprovecha el mismo viaje.` : ''),
             });
+            // Quedó con un piloto, pero lo más cercano lo lleva otro: se sugiere al G2 revisarlo
+            if (!conMiPiloto.length && conOtroPiloto.length) {
+                await avisar({
+                    tiendaId, a: ['g2'], tipo: 'info', enlace, referenciaTipo: 'pedido', referenciaId: data.id,
+                    titulo: 'Pedido cerca de otro recorrido',
+                    mensaje: `${data.codigo} quedó con ${textoPilotoCercano(pilotoId)}, pero ${sugerencia(conOtroPiloto[0]).charAt(0).toLowerCase()}${sugerencia(conOtroPiloto[0]).slice(1)}. Valora reasignarlo para un solo viaje.`,
+                });
+            }
         }
         location.hash = `pedidos?id=${data.id}&qr=1`;
     });
@@ -2224,6 +2392,31 @@ registrarSeccion('pedidos', (zona) => {
     }
 
     // Lista "Etiqueta: valor"
+    // "Cerca de este pedido": se agrega la fila y se llena al llegar la respuesta. Al piloto solo
+    // se le muestran sus propios pedidos cercanos (los que puede aprovechar en su viaje).
+    function mostrarCercanosDetalle(dl, p, ruta) {
+        const caja = document.createElement('span');
+        caja.className = 'ped-cercanos-detalle';
+        caja.textContent = 'Buscando...';
+        dato(dl, 'Cerca de este pedido', caja);
+        const dd = caja.parentElement;
+        const dt = dd ? dd.previousElementSibling : null;
+        buscarCercanos(ruta, p.fecha_entrega, p.id).then((lista) => {
+            const visibles = esPiloto ? lista.filter((x) => x.pedido.piloto_id === sesion.id) : lista;
+            if (!visibles.length) { // nada cerca: la fila no se muestra
+                if (dt) dt.remove();
+                if (dd) dd.remove();
+                return;
+            }
+            caja.replaceChildren(...visibles.slice(0, 5).map((x) => {
+                const a = document.createElement('a');
+                a.href = `#pedidos?id=${x.pedido.id}`;
+                a.textContent = `${pedTextoCercano(x, 'Su')} · piloto ${esPiloto ? 'tú' : textoPilotoCercano(x.pedido.piloto_id)}`;
+                return a;
+            }));
+        });
+    }
+
     function dato(dl, etiqueta, valor) {
         if (valor == null || valor === '') return;
         const dt = document.createElement('dt');
@@ -2290,6 +2483,8 @@ registrarSeccion('pedidos', (zona) => {
         if (verMarca) dato(dl, 'Horario del piloto', textoMarca(p));
         dato(dl, 'Ruta', nombreRuta(p.ruta_id));
         dato(dl, 'Piloto', esPiloto ? sesion.nombre : (nombrePiloto(p.piloto_id) || 'Sin asignar'));
+        // Pedidos del mismo día, sin entregar, cerca de este (para hacerlos en un solo viaje)
+        if (ruta && !p.anulado && PED_PENDIENTES_DE_VIAJE.includes(p.estado)) mostrarCercanosDetalle(dl, p, ruta);
         dato(dl, 'Peso total', kilos(p.peso_total_kg));
         if (p.lleva_alcohol) {
             const e = document.createElement('span');
