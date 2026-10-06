@@ -107,6 +107,24 @@ luego se resta el descuento (% o monto, máx. 1)
 
 La misma fórmula está en `python/tarifas.py` (calculadora de Configuración). **Si se cambia una, cambiar la otra.**
 
+### Pedidos cercanos: aprovechar un mismo viaje
+
+Al ubicar A o B en el mapa (o cambiar la fecha) el formulario busca los pedidos **del mismo día, todavía sin
+entregar** (`PED_PENDIENTES_DE_VIAJE`), cuya recolección o entrega quede a menos de **`PED_RADIO_CERCANO_KM`**
+(1 km en línea recta, arriba de `js/secciones/pedidos.js`) de la recolección o la entrega del nuevo. Cuando A es la
+tienda no se compara (todos salen de ahí).
+
+| Dónde | Qué hace |
+|---|---|
+| Formulario | Recuadro "Pedidos cerca de este recorrido" (hasta 5): "Esta entrega queda a 600 m de la recolección de P-000123 · Piloto: Juan · En ruta". G2 o superior: botón **"Asignar a Juan"** (pone ese piloto) |
+| Al registrar, con piloto | Si un pedido cercano es **del mismo piloto**, su aviso dice "Nuevo pedido cerca de tu recorrido … aprovecha el mismo viaje". Si lo cercano lo lleva **otro piloto**, aviso al G2: "Pedido cerca de otro recorrido … valora reasignarlo" |
+| Al registrar, sin piloto | El aviso "Pedido nuevo sin piloto" al G2 incluye la sugerencia: "su entrega queda a 600 m de … (piloto Juan); asignárselo permite un solo viaje" |
+| Detalle | Fila **"Cerca de este pedido"** con enlaces a los cercanos (al piloto, solo los suyos) |
+| Historial | El evento `registrado` guarda `cercanos` (pedido, km, piloto) y `mismo_piloto`: sirve para medir el plan piloto |
+
+Funciones: `pedKmRecta`, `pedCercanosDe`, `pedTextoCercano` (arriba del archivo) y `buscarCercanos`, `pintarCercanos`,
+`mostrarCercanosDetalle` (dentro de la sección). Fase siguiente: orden sugerido de paradas por piloto.
+
 ## Estados y acciones del detalle (`PED_ACCIONES`)
 
 ```

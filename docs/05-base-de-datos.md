@@ -55,7 +55,14 @@ sql/01_actualizacion_base_existente.sql", falta la actualización.
 **`empresas`** (sql/01 bloque 16) — empresas internas: `id`, `codigo` (ID de 2 números, `01`, único; va al
 final de sus usuarios), `nombre` (único), `actividades` (`{tienda,encomiendas}`, al menos una), `activa`
 (inactiva = sus usuarios no entran), `colores` (paleta: `{"color-azul": "#5A6B34", ...}`, `{}` = la de la marca;
-se pinta al iniciar sesión con un usuario de la empresa; bloque 21), `creado_en`. La primera es la "Empresa principal" (`01`).
+se pinta al iniciar sesión con un usuario de la empresa; bloque 21), `plan` (`basico` | `profesional` | `completo` |
+`personalizado`, por defecto `completo`) y `funciones` (lista de funciones habilitadas, null = todas; bloque 22,
+Configuración → Planes y funciones), `creado_en`. La primera es la "Empresa principal" (`01`).
+
+**`pedido_solicitudes`** (sql/01 bloque 23) — envíos que pide el cliente en "Mis envíos": tienda, actividad, cliente y
+su usuario, recolección y entrega (dirección, **referencia**, lat/lng), km, minutos, quién recibe, fecha, descripción,
+bultos, peso, notas, `estado` (`pendiente` | `aprobada` | `rechazada` | `cancelada`), `motivo`, `pedido_id` (el pedido
+que se registró al aprobarla), `revisado_por`, `revisado_en`. Ver [secciones/envios.md](secciones/envios.md).
 **`empresa_id`** (obligatorio) en `regiones`, `tiendas`, `clientes`, `rutas`, `vehiculos`, `pedidos`,
 `categorias_mercaderia`, `tarifas` y `descuentos`; en `usuarios` es obligatorio salvo para el Desarrollador.
 Valor por defecto: `empresa_principal()`. Triggers: pedidos y rutas toman la de su tienda; tiendas y

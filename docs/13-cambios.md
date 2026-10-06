@@ -2,6 +2,62 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-06 · Encomiendas: el cliente solicita recolección y entrega ("Mis envíos")
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 23** (instalación nueva: `sql/00`, sección 16).
+
+- Tabla `pedido_solicitudes`. El cliente con usuario de una empresa con encomiendas (actividad con
+  `usa_recoleccion`) ve **Mis envíos** (`secciones/envios.html`, `js/secciones/envios.js`): qué envía, A (recoger) y
+  B (entregar) con **puntos de referencia** y los puntos en el mapa, quién recibe y la fecha. Ve el avance y puede
+  cancelar las pendientes.
+- Aviso (campana) al **Admin G3** de su tienda; sin G3, al G2 de la región; si tampoco, al Administrador y G1.
+- **Pedidos → "Solicitudes de envío de clientes"** (G3 o superior): **Revisar y registrar** abre "Nuevo pedido" ya
+  lleno (cliente, A y B con sus puntos, quién recibe, fecha, un bulto y las referencias en Notas). Al registrarlo la
+  solicitud queda aprobada y siguen los avisos de siempre (piloto, G2, pedidos cercanos); al cliente le llega
+  "Tu envío fue aprobado". **Rechazar** pide el motivo y se lo avisa.
+- El detalle del pedido muestra las referencias al recoger y al entregar (para el piloto).
+- La **solicitud de usuario** desde el login ahora también la reciben las empresas de encomiendas, y en Clientes se
+  puede dar o aprobar el acceso del cliente en esas empresas.
+- Plan: función nueva **"El cliente solicita envíos"** (`envios_clientes`; Profesional y Completo).
+- `js/mapa.js`: un punto puesto a mano gana a una búsqueda de dirección que todavía no terminó.
+
+## 2026-10-06 · Planes y funciones por empresa; Costos de operación para todas
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 22** (en una instalación nueva ya va en `sql/00`, sección 15).
+Las empresas que ya existían quedan en plan **Completo** (no cambia nada hasta que se les asigne otro).
+
+- `empresas.plan` (`basico` | `profesional` | `completo` | `personalizado`) y `empresas.funciones` (lista; null = todas).
+- **Configuración → Planes y funciones** (solo el Desarrollador): una tarjeta por empresa con el plan y las casillas
+  de cada función (Secciones, Configuración, Extras). Elegir un plan marca sus funciones; cambiar una casilla lo deja
+  en Personalizado. Catálogo y planes: `FUNCIONES_PLAN` y `PLANES` en `empresas/empresas.js` (ahí se editan).
+- Lo que el plan no incluye desaparece para los administradores y usuarios de esa empresa (`funcionHabilitada`):
+  secciones del menú, botones del pie, botón QR, tarjetas de Configuración, exportar en Reportes, pedidos cercanos.
+  La base respeta "Solicitud de usuario de clientes" (`registro_clientes_empresa` y `solicitar_acceso_cliente`).
+- **Configuración → Costos de operación** (`js/secciones/configuracion/costos.js`): el calculador de costos salió de
+  Transporte y ahora lo tienen todas las empresas (si su plan lo incluye). Suma el **costo por entrega o viaje** de los
+  últimos 30 días: pedidos entregados (vehículo del piloto, `distancia_km` y minutos del mapa) y viajes terminados.
+  Transporte conserva el margen de cada franja.
+
+## 2026-10-06 · Pedidos: "Pagado en línea"
+
+Sin SQL. Subir `js/secciones/pedidos.js`, `secciones/pedidos.html` y `css/secciones/pedidos.css`; Ctrl + F5.
+
+- En Cobro, las casillas "El piloto cobra al entregar" (marcadas, había que desmarcar) se cambiaron por
+  **"¿El cliente ya pagó en línea?": Envío pagado / Compra pagada**, **sin marcar por defecto** = el piloto cobra el
+  total, igual en todas las empresas. Marcadas se ponen verdes; si todo está pagado se ocultan Forma de pago y Paga con.
+- El pedido guarda `detalle.pagado_en_linea` y el detalle muestra "Pagado en línea: envío / compra".
+
+## 2026-10-06 · Pedidos cercanos: aprovechar un mismo viaje (fase 1)
+
+Sin SQL. Subir `js/secciones/pedidos.js`, `secciones/pedidos.html` y `css/secciones/pedidos.css`; Ctrl + F5.
+
+- Al registrar un pedido se buscan los del mismo día, sin entregar, cuya recolección o entrega quede a menos de 1 km
+  (`PED_RADIO_CERCANO_KM`). El formulario los muestra y el G2 puede **asignar el mismo piloto** con un toque.
+- Avisos: al piloto ("Nuevo pedido cerca de tu recorrido"), o al G2 con la sugerencia de piloto si no tiene o si lo
+  cercano lo lleva otro.
+- Detalle del pedido: fila "Cerca de este pedido". El historial guarda los cercanos para medir el plan piloto.
+  Ver [secciones/pedidos.md](secciones/pedidos.md), "Pedidos cercanos".
+
 ## 2026-10-05 · Web: portada compacta y una página de solución por tipo de empresa
 
 Sin SQL. Recargar con **Ctrl + F5**.

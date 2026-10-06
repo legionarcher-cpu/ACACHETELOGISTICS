@@ -147,6 +147,51 @@ const PALETAS_MODELO = {
 };
 
 
+// FUNCIONES QUE SE HABILITAN SEGÚN EL PLAN DE PAGO (Configuración -> Planes y funciones,
+// solo el Desarrollador). Lo que el plan de una empresa no incluye desaparece para sus
+// administradores y usuarios. Inicio, Tiendas, Clientes, Usuarios y Mi perfil son de todos.
+//   clave: { texto, grupo, ayuda }  (la clave no se cambia: va guardada en la base)
+const FUNCIONES_PLAN = {
+    // Secciones del menú
+    pedidos:            { grupo: 'Secciones', texto: 'Pedidos' },
+    viajes:             { grupo: 'Secciones', texto: 'Viajes (transporte)' },
+    pilotos:            { grupo: 'Secciones', texto: 'Pilotos' },
+    rutas:              { grupo: 'Secciones', texto: 'Rutas y asignaciones' },
+    reportes:           { grupo: 'Secciones', texto: 'Reportes' },
+    cotizador:          { grupo: 'Secciones', texto: 'Cotizador' },
+    // Módulos de Configuración
+    cfg_horarios:       { grupo: 'Configuración', texto: 'Horarios de pilotos' },
+    cfg_slots:          { grupo: 'Configuración', texto: 'Slots de despacho' },
+    cfg_vehiculos:      { grupo: 'Configuración', texto: 'Vehículos' },
+    cfg_pedidos:        { grupo: 'Configuración', texto: 'Tarifas y mercadería' },
+    cfg_transporte:     { grupo: 'Configuración', texto: 'Transporte (franjas y agenda)' },
+    cfg_costos:         { grupo: 'Configuración', texto: 'Costos de operación' },
+    // Funciones extra
+    exportar:           { grupo: 'Extras', texto: 'Exportar reportes (Excel y PDF)' },
+    qr:                 { grupo: 'Extras', texto: 'Escanear códigos QR' },
+    pedidos_cercanos:   { grupo: 'Extras', texto: 'Pedidos cercanos (un solo viaje)' },
+    registro_clientes:  { grupo: 'Extras', texto: 'Solicitud de usuario de clientes' },
+    envios_clientes:    { grupo: 'Extras', texto: 'El cliente solicita envíos (recolección y entrega)' },
+};
+
+// PLANES: qué funciones trae cada uno ('*' = todas). Para cambiar un plan, editar su lista.
+// Al elegir un plan en Configuración se marcan sus funciones; después se pueden ajustar
+// a mano (queda "Personalizado").
+const PLANES = {
+    basico: {
+        texto: 'Básico',
+        funciones: ['pedidos', 'viajes', 'pilotos', 'reportes', 'qr',
+            'cfg_horarios', 'cfg_vehiculos', 'cfg_pedidos', 'cfg_transporte'],
+    },
+    profesional: {
+        texto: 'Profesional',
+        funciones: ['pedidos', 'viajes', 'pilotos', 'rutas', 'reportes', 'cotizador', 'qr', 'exportar', 'pedidos_cercanos', 'envios_clientes',
+            'cfg_horarios', 'cfg_slots', 'cfg_vehiculos', 'cfg_pedidos', 'cfg_transporte', 'cfg_costos'],
+    },
+    completo: { texto: 'Completo', funciones: '*' },
+};
+
+
 // ==================================================
 // Desde aquí no hace falta tocar nada
 // ==================================================
@@ -173,6 +218,17 @@ function empresaTieneActividad(codigo) {
 // Deja solo las actividades de la empresa: [{ codigo, ... }] -> [{ codigo, ... }]
 function actividadesDeLaEmpresa(actividades) {
     return (actividades || []).filter((a) => empresaTieneActividad(a.codigo));
+}
+
+// ¿El plan de la empresa de la sesión incluye esta función? (FUNCIONES_PLAN, sql/01 bloque 22)
+// El Desarrollador lo ve todo. Sin lista de funciones (null, plan "Completo" o base sin
+// el bloque 22) está todo habilitado.
+function funcionHabilitada(clave) {
+    const sesion = typeof obtenerSesion === 'function' ? obtenerSesion() : null;
+    if (sesion && sesion.rol === 'desarrollador') return true;
+    const empresa = empresaDeLaSesion();
+    const lista = empresa && empresa.funciones;
+    return !Array.isArray(lista) || lista.includes(clave);
 }
 
 // ---------- Viajes o pedidos (sql/01 bloque 19) ----------
@@ -203,6 +259,18 @@ function empresaTieneViajes() {
 function empresaTienePedidos() {
     const codigos = codigosActividadesEmpresa();
     return !codigos.length || codigos.some((c) => !esActividadDeViajes(c));
+}
+
+// ¿La actividad recoge en un punto de partida (usa_recoleccion, ej. Encomiendas)?
+// js/palabras.js trae el dato de la base; mientras no lo tenga, se deduce por el código.
+function esActividadDeRecoleccion(codigo) {
+    const info = typeof palabrasActividades !== 'undefined' ? palabrasActividades[codigo] : null;
+    return info && info.recoleccion != null ? !!info.recoleccion : (USO_ANTERIOR.usa_recoleccion || []).includes(codigo);
+}
+
+// ¿La empresa hace envíos con recolección? (el cliente con usuario los solicita en "Mis envíos")
+function empresaTieneRecoleccion() {
+    return codigosActividadesEmpresa().some((c) => !esActividadDeViajes(c) && esActividadDeRecoleccion(c));
 }
 
 // Actividades de la empresa que trabajan con PEDIDOS (las pestañas de Pedidos, Rutas,

@@ -62,6 +62,19 @@ si se tocó Pedidos o Inicio). Tener la consola abierta (F12): no debe aparecer 
 - [ ] El mapa no tapa el menú del usuario, la campana ni el menú ☰ en celular; se reacomoda al cambiar el tamaño.
 - [ ] Salir de Inicio y volver: el mapa aparece de nuevo sin errores en la consola.
 
+## Pedidos cercanos (plan piloto: un solo viaje)
+- [ ] Registrar una encomienda con recolección y entrega en el mapa (piloto Juan, hoy).
+- [ ] Registrar otra para hoy con la recolección o la entrega a menos de 1 km: aparece "Pedidos cerca de este
+      recorrido" con el primero, su piloto y su estado. Una a más de 1 km: no aparece.
+- [ ] Como G2: "Asignar a Juan" pone ese piloto y el botón queda "Asignado a este piloto". Registrar: Juan recibe
+      "Nuevo pedido cerca de tu recorrido … aprovecha el mismo viaje".
+- [ ] Como Empleado (sin elegir piloto): el G2 recibe "Pedido nuevo sin piloto, cerca de otro recorrido" con la sugerencia.
+- [ ] Con otro piloto asignado: el G2 recibe "Pedido cerca de otro recorrido … valora reasignarlo".
+- [ ] Detalle del pedido: fila "Cerca de este pedido" con enlaces; el piloto solo ve los suyos. Un pedido entregado o
+      cancelado ya no aparece como cercano.
+- [ ] Pedidos que salen de la tienda (A = tienda): no se consideran cercanos solo por salir del mismo lugar.
+- [ ] Medición: en el historial del pedido (evento "registrado") quedan los cercanos y si quedó con el mismo piloto.
+
 ## Pedidos
 - [ ] Lista: una **pestaña por actividad** con su número; cada pestaña muestra solo sus pedidos, sus
       rutas y su columna (Tienda: "Compra" + "Lleva alcohol"; Encomiendas: "Peso", "Punto de partida:" y el
@@ -72,8 +85,9 @@ si se tocó Pedidos o Inicio). Tener la consola abierta (F12): no debe aparecer 
       cambiado a mano, monto de compra, envío gratis, cobrar la compra, vuelto.
 - [ ] Abarrotes con 5 cajas y 2 bolsas: en el detalle salen dos líneas, "Cajas · 5" y "Bolsas · 2" (no "Cant. 1"),
       y el peso total suma el peso aproximado. Escribir 2.5 cajas muestra un mensaje y no guarda.
-- [ ] "El piloto cobra al entregar": envío y compra vienen **marcados**; al escribir el monto de compra el total
-      a cobrar lo incluye. Desmarcar "La compra" (pagó en línea) la quita del total y del vuelto.
+- [ ] "¿El cliente ya pagó en línea?": "Envío pagado" y "Compra pagada" vienen **sin marcar** y el total a cobrar
+      incluye todo (en todas las empresas). Marcar "Compra pagada" la quita del total; marcar todo deja ₡0, el botón
+      verde, "Todo pagado en línea" y oculta Forma de pago y Paga con. En el detalle sale "Pagado en línea: …".
 - [ ] Nuevo pedido **Encomiendas**: punto de partida, cajas con tamaño y peso, documentos, línea blanca;
       estado inicial "En bodega" sin piloto.
 - [ ] Horario lleno no se puede elegir; ruta sugiere el piloto; descuento aplica; total correcto.
@@ -247,6 +261,28 @@ si se tocó Pedidos o Inicio). Tener la consola abierta (F12): no debe aparecer 
       escribe a mano; código repetido o inválido avisa; con "Agregarla a la empresa" aparece enseguida su pestaña en
       Pedidos y su casilla en Tiendas → Empresas. Las que la empresa no hace dicen "No la realiza esta empresa".
 - [ ] Palabras: escribir solo el singular (o solo el plural) avisa; guardar "viaje / viajes" muestra "Se llama: viaje…".
+- [ ] Costos de operación (empresa de pedidos y de transporte): nuevo gasto fijo y variable, horas/km/km por litro de un
+      vehículo y precio del litro → cambian costo por hora y por km; "Costo por entrega" con pedidos entregados de 30 días.
+- [ ] Transporte ya no muestra "Costos del mes"; la columna Margen de las franjas sigue saliendo.
+
+## Mis envíos: el cliente solicita recolección y entrega (sql/01 bloque 23)
+- [ ] Cliente de una empresa de encomiendas: el menú muestra "Mis envíos"; sin viajes, Inicio lo lleva ahí.
+- [ ] Solicitar: sin ubicar A o B en el mapa no deja enviar; "Otra persona" pide nombre y teléfono.
+- [ ] Al enviar, al G3 de la tienda le llega "Solicitud de envío de un cliente" (sin G3: al G2).
+- [ ] Pedidos (G3): la bandeja la muestra; "Revisar y registrar" abre el formulario lleno con A y B en los puntos del
+      cliente, el bulto y las referencias en Notas. Registrar → el cliente ve "Aprobada", el pedido y su avance.
+- [ ] El detalle del pedido muestra "Referencia al recoger / al entregar"; el piloto recibe su aviso de siempre.
+- [ ] Rechazar con motivo → el cliente recibe el aviso y ve el motivo. Cancelar una pendiente desde Mis envíos.
+- [ ] Login → "Solicita tu usuario" con el código de una empresa solo de encomiendas: la acepta; se aprueba en Clientes.
+
+## Planes y funciones (sql/01 bloque 22)
+- [ ] Sin el bloque 22, Configuración → Planes y funciones avisa "Falta ejecutar ... bloque 22".
+- [ ] Las empresas existentes salen en Completo (16 de 16).
+- [ ] Elegir Básico marca sus funciones; quitar una casilla pasa a Personalizado; Guardar avisa.
+- [ ] Entrar con un Administrador de esa empresa: no ve Rutas, Cotizador, Slots, Costos ni el botón Exportar;
+      el pie no muestra Asignar Piloto ni Cotizador. El Desarrollador sigue viendo todo.
+- [ ] Sin "Solicitud de usuario de clientes", `#registro?empresa=02` dice que la empresa no recibe solicitudes.
+- [ ] Volver a Completo: todo reaparece (cerrar sesión y entrar, o F5).
 
 ## Transporte: Pedido → Viaje (sql/01 bloque 18)
 - [ ] Ejecutar el bloque 18: aparece la actividad Transporte con "Se llama: viaje · conductor".

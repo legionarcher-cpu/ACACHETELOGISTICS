@@ -112,6 +112,12 @@ begin
         get diagnostics n = row_count; raise notice '  cortesías: %', n;
     end if;
 
+    -- Solicitudes de envío de los clientes (sql/01 bloque 23)
+    if to_regclass('public.pedido_solicitudes') is not null then
+        delete from public.pedido_solicitudes where empresa_id = v_id;
+        get diagnostics n = row_count; raise notice '  solicitudes de envío: %', n;
+    end if;
+
     -- Pedidos (su historial, artículos, entregas y evidencias se van con ellos)
     delete from public.pedidos where empresa_id = v_id;
     get diagnostics n = row_count; raise notice '  pedidos: %', n;

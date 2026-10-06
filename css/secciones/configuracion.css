@@ -827,6 +827,25 @@
     gap: 0.222rem 0.889rem;
 }
 
+/* ---------- Planes y funciones (js/secciones/configuracion/planes.js) ---------- */
+.cfg-pla-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.889rem;
+    margin-top: 0.889rem;
+}
+
+.cfg-pla-plan {
+    min-width: min(12rem, 100%);
+}
+
+.cfg-pla-grupos {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr));
+    gap: 0.889rem;
+    margin-top: 0.667rem;
+}
+
 /* Datos de Transporte en la ventana del vehículo */
 .cfg-veh-transporte {
     display: grid;

@@ -1,0 +1,198 @@
+/* ==================================================
+   SECCIÓN: MIS ENVÍOS (cliente)
+   ACACHETE LOGISTICS
+
+   Lista de solicitudes y solicitud en 4 pasos. Clases "env-".
+   Los pasos, los puntos A/B y las opciones Sí/No usan los mismos nombres que
+   Viajes (via-paso, via-puntos...); como css/secciones/viajes.css solo se carga
+   en Viajes, aquí se repiten dentro de .env.
+   ================================================== */
+
+.env,
+.env-form,
+#envVistaLista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.889rem;
+}
+
+/* ---------- Partes en común con Viajes ---------- */
+.env .via-bloque {
+    display: flex;
+    flex-direction: column;
+    gap: 0.556rem;
+}
+
+.env .via-bloque-titulo {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--color-azul-marino);
+}
+
+.env .via-paso {
+    display: flex;
+    flex-direction: column;
+    gap: 0.778rem;
+    padding: 1.111rem;
+}
+
+.env .via-paso-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.556rem;
+    margin: 0;
+    font-size: 1.05rem;
+    color: var(--color-azul-marino);
+}
+
+.env .via-paso-numero {
+    flex: none;
+    display: inline-grid;
+    place-items: center;
+    width: 1.778rem;
+    height: 1.778rem;
+    font-size: 0.9rem;
+    color: var(--color-blanco);
+    background-color: var(--color-naranja);
+    border-radius: 50%;
+}
+
+.env .via-si-no {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.env .via-si-no-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.667rem;
+}
+
+.env .via-si-no-opciones label {
+    display: flex;
+    align-items: center;
+    gap: 0.333rem;
+    padding: 0.444rem 0.889rem;
+    background-color: var(--color-fondo);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+    cursor: pointer;
+}
+
+.env .via-si-no-opciones label:has(input:checked) {
+    color: var(--color-azul-marino);
+    background-color: var(--color-azul-claro);
+    border-color: var(--color-azul);
+}
+
+.env .via-puntos {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 0.889rem;
+}
+
+.env .via-puntos .campo-etiqueta {
+    display: flex;
+    align-items: center;
+    gap: 0.444rem;
+}
+
+.env-ref-etiqueta {
+    margin-top: 0.444rem;
+    font-size: 0.85rem;
+}
+
+/* ---------- Notas ---------- */
+.env-nota {
+    margin: 0;
+    padding: 0.556rem 0.778rem;
+    font-size: 0.85rem;
+    color: var(--color-azul-marino);
+    background-color: var(--color-azul-claro);
+    border-left: 0.222rem solid var(--color-azul);
+    border-radius: var(--radio);
+}
+
+/* ---------- Tarjeta de una solicitud ---------- */
+.env-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.667rem;
+}
+
+.env-tarjeta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.389rem;
+    padding: 0.889rem;
+    border-left: 0.333rem solid var(--color-naranja);
+}
+
+.env-aprobada  { border-left-color: var(--color-verde); }
+.env-rechazada { border-left-color: var(--color-rojo); }
+.env-cancelada { border-left-color: var(--color-gris); opacity: 0.85; }
+
+.env-tarjeta-cabecera {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.444rem;
+}
+
+.env-fecha {
+    margin: 0;
+    font-weight: 600;
+    color: var(--color-azul-marino);
+}
+
+.env-fecha::first-letter {
+    text-transform: uppercase;
+}
+
+.env-tarjeta .via-ruta span {
+    display: flex;
+    flex-direction: column;
+}
+
+.env-ref {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+.env-datos,
+.env-pedido,
+.env-motivo,
+.env-espera {
+    margin: 0;
+    font-size: 0.85rem;
+    overflow-wrap: anywhere;
+}
+
+.env-pedido {
+    color: var(--color-azul-marino);
+}
+
+.env-motivo {
+    color: var(--color-rojo);
+}
+
+.env-espera {
+    color: var(--color-gris);
+}
+
+.env-botones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem;
+}
+
+@media (max-width: 700px) {
+    .env .via-puntos {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .env .via-paso {
+        padding: 0.889rem;
+    }
+}

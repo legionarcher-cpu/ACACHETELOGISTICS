@@ -957,3 +957,124 @@
 .ped-cercanos-detalle a {
     color: var(--color-azul);
 }
+
+/* ==================================================
+   SOLICITUDES DE ENVÍO DE LOS CLIENTES (bandeja de la lista)
+   js/secciones/pedidos.js -> cargarSolicitudes / filaSolicitud
+   ================================================== */
+.ped-sol {
+    padding: 0.889rem;
+    border-left: 0.333rem solid var(--color-naranja);
+}
+
+.ped-sol-titulo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.444rem;
+    margin: 0 0 0.556rem;
+    font-size: 1rem;
+    color: var(--color-azul-marino);
+}
+
+.ped-sol-titulo i {
+    color: var(--color-naranja);
+}
+
+.ped-sol-lista {
+    display: grid;
+    gap: 0.444rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.ped-sol-item {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.556rem 0.889rem;
+    padding: 0.667rem 0.778rem;
+    background-color: var(--color-fondo);
+    border-radius: var(--radio);
+}
+
+.ped-sol-textos {
+    display: flex;
+    flex: 1 1 18rem;
+    flex-direction: column;
+    gap: 0.111rem;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.ped-sol-textos strong {
+    font-size: 0.92rem;
+}
+
+.ped-sol-textos span {
+    font-size: 0.85rem;
+}
+
+.ped-sol-textos small {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
+.ped-sol-botones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem;
+}
+
+/* Aviso arriba del formulario al registrar desde una solicitud */
+#pedSolForm {
+    margin-bottom: 0.889rem;
+}
+
+/* ==================================================
+   PAGADO EN LÍNEA (formulario y desglose)
+   Sin marcar (por defecto) el piloto cobra el total; marcado = ya pagado
+   ================================================== */
+.ped-pagado {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.444rem;
+    padding: 0.444rem 0.778rem;
+    border: 1px solid var(--color-borde);
+    border-radius: 999px;
+    background-color: var(--color-blanco);
+    font-size: 0.9rem;
+    color: var(--color-texto);
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.ped-pagado input {
+    accent-color: var(--color-verde);
+}
+
+.ped-pagado i {
+    color: var(--color-gris);
+}
+
+.ped-pagado:hover {
+    border-color: var(--color-verde);
+}
+
+.ped-pagado:has(input:checked) {
+    background-color: var(--color-verde-claro);
+    border-color: var(--color-verde);
+    color: var(--color-verde);
+    font-weight: 600;
+}
+
+.ped-pagado:has(input:checked) i {
+    color: var(--color-verde);
+}
+
+.ped-desglose-pagado td {
+    color: var(--color-verde);
+    font-weight: 600;
+}
