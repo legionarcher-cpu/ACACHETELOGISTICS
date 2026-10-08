@@ -122,6 +122,14 @@ begin
     delete from public.pedidos where empresa_id = v_id;
     get diagnostics n = row_count; raise notice '  pedidos: %', n;
 
+    -- Cierres y tipos de caja (sql/01 bloque 24)
+    if to_regclass('public.cierres_caja') is not null then
+        delete from public.cierres_caja where empresa_id = v_id;
+        get diagnostics n = row_count; raise notice '  cierres de caja: %', n;
+        update public.usuarios set caja_id = null where empresa_id = v_id;
+        delete from public.cajas where empresa_id = v_id;
+    end if;
+
     -- Rutas (y sus pilotos por ruta)
     delete from public.rutas where empresa_id = v_id;
     get diagnostics n = row_count; raise notice '  rutas: %', n;

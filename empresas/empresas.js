@@ -159,6 +159,7 @@ const FUNCIONES_PLAN = {
     rutas:              { grupo: 'Secciones', texto: 'Rutas y asignaciones' },
     reportes:           { grupo: 'Secciones', texto: 'Reportes' },
     cotizador:          { grupo: 'Secciones', texto: 'Cotizador' },
+    caja:               { grupo: 'Secciones', texto: 'Caja de pilotos y conductores' },
     // Módulos de Configuración
     cfg_horarios:       { grupo: 'Configuración', texto: 'Horarios de pilotos' },
     cfg_slots:          { grupo: 'Configuración', texto: 'Slots de despacho' },
@@ -185,7 +186,7 @@ const PLANES = {
     },
     profesional: {
         texto: 'Profesional',
-        funciones: ['pedidos', 'viajes', 'pilotos', 'rutas', 'reportes', 'cotizador', 'qr', 'exportar', 'pedidos_cercanos', 'envios_clientes',
+        funciones: ['pedidos', 'viajes', 'pilotos', 'rutas', 'reportes', 'cotizador', 'caja', 'qr', 'exportar', 'pedidos_cercanos', 'envios_clientes',
             'cfg_horarios', 'cfg_slots', 'cfg_vehiculos', 'cfg_pedidos', 'cfg_transporte', 'cfg_costos'],
     },
     completo: { texto: 'Completo', funciones: '*' },

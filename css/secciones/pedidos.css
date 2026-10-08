@@ -604,6 +604,20 @@
     margin-top: 0.778rem;
 }
 
+/* "Entregado": cómo pagó el cliente (Caja del piloto) */
+.ped-accion-cobro {
+    margin: 0.778rem 0 0;
+    padding: 0;
+    border: none;
+}
+
+.ped-accion-cobro-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem 0.889rem;
+    margin-top: 0.333rem;
+}
+
 .ped-textarea {
     height: auto;
     padding: 0.556rem 0.667rem;

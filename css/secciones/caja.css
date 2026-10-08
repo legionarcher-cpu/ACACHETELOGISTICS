@@ -1,0 +1,202 @@
+/* ==================================================
+   SECCIÓN: CAJA DE PILOTOS Y CONDUCTORES
+   ACACHETE LOGISTICS (basada en el cierre de caja de SISCED)
+
+   Solo lo PROPIO de secciones/caja.html (clases "caj-"). Lo común
+   (página, resumen, tablas, ventanas) viene de css/componentes.css.
+   ================================================== */
+
+.caj {
+    display: flex;
+    flex-direction: column;
+    gap: 0.889rem;
+}
+
+.caj-piloto {
+    min-width: min(16rem, 100%);
+    max-width: 100%;
+}
+
+.caj-contenido {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Nota azul claro / alerta naranja */
+.caj-nota {
+    margin: 0;
+    padding: 0.556rem 0.778rem;
+    background-color: var(--color-azul-claro);
+    border-left: 0.222rem solid var(--color-azul);
+    border-radius: var(--radio);
+    font-size: 0.85rem;
+    color: var(--color-azul-marino);
+}
+
+.caj-nota i {
+    margin-right: 0.333rem;
+}
+
+.caj-nota-alerta {
+    background-color: var(--color-naranja-claro);
+    border-left-color: var(--color-naranja);
+    color: #8A3A06;
+}
+
+/* ---------- Piloto elegido ---------- */
+.caj-piloto-datos {
+    display: flex;
+    align-items: center;
+    gap: 0.889rem;
+    padding: 1rem 1.222rem;
+}
+
+.caj-piloto-textos {
+    min-width: 0;
+}
+
+.caj-nombre {
+    display: block;
+    font-size: 1.05rem;
+    color: var(--color-texto);
+}
+
+.caj-detalle {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+    overflow-wrap: anywhere;
+}
+
+/* Los cuadros de totales no filtran */
+.caj-resumen .resumen-item {
+    cursor: default;
+}
+
+.caj-resumen .resumen-numero {
+    font-size: 1.35rem;
+}
+
+/* ---------- Tarjetas ---------- */
+.caj-tarjeta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.667rem;
+}
+
+.caj-tarjeta-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.667rem;
+}
+
+.caj-tarjeta-titulo {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--color-texto);
+}
+
+.caj-ayuda {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+.caj-filtro-forma {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem 0.889rem;
+    font-size: 0.9rem;
+}
+
+.caj-filtro-forma label {
+    display: flex;
+    align-items: center;
+    gap: 0.278rem;
+    cursor: pointer;
+}
+
+/* ---------- Tablas ---------- */
+.caj-tabla {
+    min-width: 44rem;
+}
+
+.caj-col-monto,
+.caj-tabla td.caj-col-monto {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.caj-col-check,
+.caj-tabla td.caj-col-check {
+    text-align: center;
+    width: 6rem;
+}
+
+.caj-forma {
+    min-width: 8.5rem;
+    padding-top: 0.222rem;
+    padding-bottom: 0.222rem;
+}
+
+.caj-check {
+    width: 1.222rem;
+    height: 1.222rem;
+    accent-color: var(--color-verde);
+    cursor: pointer;
+}
+
+.caj-fila-verificada td {
+    background-color: var(--color-verde-claro, rgba(22, 163, 74, 0.08));
+}
+
+.caj-texto-sobra { color: var(--color-verde); font-weight: 600; }
+.caj-texto-falta { color: var(--color-rojo, #B91C1C); font-weight: 600; }
+
+/* ---------- Arqueo ---------- */
+.caj-diferencia {
+    display: flex;
+    align-items: center;
+    min-height: 2.222rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-gris);
+}
+
+.caj-diferencia-ok    { color: var(--color-verde); }
+.caj-diferencia-sobra { color: var(--color-azul); }
+.caj-diferencia-falta { color: var(--color-rojo, #B91C1C); }
+
+/* ---------- Ventana de confirmar ---------- */
+.caj-confirmar-lista {
+    margin: 0 0 0.667rem;
+    padding: 0;
+    list-style: none;
+}
+
+.caj-confirmar-lista li {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.333rem 0;
+    border-bottom: 1px solid var(--color-borde);
+    font-size: 0.9rem;
+}
+
+.caj-confirmar-lista li:last-child {
+    border-bottom: none;
+}
+
+@media (max-width: 600px) {
+    .caj-piloto {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .caj-piloto-datos {
+        padding: 0.889rem;
+    }
+}

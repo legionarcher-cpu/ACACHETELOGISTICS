@@ -63,6 +63,12 @@ Configuración → Planes y funciones), `creado_en`. La primera es la "Empresa p
 su usuario, recolección y entrega (dirección, **referencia**, lat/lng), km, minutos, quién recibe, fecha, descripción,
 bultos, peso, notas, `estado` (`pendiente` | `aprobada` | `rechazada` | `cancelada`), `motivo`, `pedido_id` (el pedido
 que se registró al aprobarla), `revisado_por`, `revisado_en`. Ver [secciones/envios.md](secciones/envios.md).
+
+**`cajas`** y **`cierres_caja`** (sql/01 bloque 24) — caja de pilotos y conductores: tipos de caja (nombre, monto);
+`usuarios.caja_id` / `caja_monto` (fondo de cada piloto); `pedidos.cobro_forma` y `viajes.cobro_forma` (efectivo, sinpe,
+tarjeta) y su `cierre_id`. Cada cierre guarda fondo, efectivo, sinpe, tarjeta, efectivo contado, diferencia, cantidad,
+notas y quién cerró. Se crean solo con la función `caja_cerrar` (la página solo lee `cierres_caja`).
+Ver [secciones/caja.md](secciones/caja.md).
 **`empresa_id`** (obligatorio) en `regiones`, `tiendas`, `clientes`, `rutas`, `vehiculos`, `pedidos`,
 `categorias_mercaderia`, `tarifas` y `descuentos`; en `usuarios` es obligatorio salvo para el Desarrollador.
 Valor por defecto: `empresa_principal()`. Triggers: pedidos y rutas toman la de su tienda; tiendas y

@@ -2,6 +2,20 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-08 · Caja de pilotos y conductores (como en SISCED)
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 24** (instalación nueva: `sql/00`, sección 17).
+
+- Sección nueva **Caja** (`#caja`): fondo de caja, cobros sin cerrar (pedidos entregados y viajes terminados), SINPE y
+  tarjeta "Verificado", arqueo con diferencia y **Cerrar caja** (función `caja_cerrar` en la base, todo o nada).
+  Cierres anteriores. G3 cierra los de su tienda, G2 los de su región, G1 y Administrador todos; el piloto ve la suya.
+- **Configuración → Cajas**: tipos de caja (nombre y monto) y el fondo de cada piloto o conductor.
+- **Entregado**: si el pedido tiene monto a cobrar, el piloto marca cómo pagó el cliente (efectivo, SINPE o tarjeta).
+  El detalle del pedido muestra "Cómo pagó" y si su caja ya se cerró.
+- Plan: función nueva **"Caja de pilotos y conductores"** (`caja`; Profesional y Completo). Se habilita o quita por
+  empresa en Configuración → Planes y funciones.
+- Ver [secciones/caja.md](secciones/caja.md).
+
 ## 2026-10-06 · Encomiendas: el cliente solicita recolección y entrega ("Mis envíos")
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 23** (instalación nueva: `sql/00`, sección 16).

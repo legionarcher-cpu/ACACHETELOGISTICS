@@ -265,6 +265,15 @@ si se tocó Pedidos o Inicio). Tener la consola abierta (F12): no debe aparecer 
       vehículo y precio del litro → cambian costo por hora y por km; "Costo por entrega" con pedidos entregados de 30 días.
 - [ ] Transporte ya no muestra "Costos del mes"; la columna Margen de las franjas sigue saliendo.
 
+## Caja de pilotos y conductores (sql/01 bloque 24)
+- [ ] Configuración → Cajas: crear "Caja básica ₡50 000", asignarla a un piloto; cambiar el monto del tipo cambia su fondo.
+- [ ] Piloto: marcar Entregado un pedido con cobro → pide Efectivo / SINPE / Tarjeta; el detalle muestra "Cómo pagó".
+- [ ] Caja (G3): el piloto aparece con "N cobros sin cerrar"; efectivo a entregar = fondo + efectivo.
+- [ ] SINPE sin verificar no entra al cierre; al marcar Verificado sí. Cambiar la forma de un cobro recalcula.
+- [ ] Efectivo contado → Cuadra / Sobrante / Faltante. Cerrar caja → aparece en Cierres anteriores y los cobros salen.
+- [ ] G3 de otra tienda no ve al piloto; el piloto ve su caja sin arqueo ni botón de cerrar.
+- [ ] Empresa con el plan sin "Caja": no aparece en el menú ni la tarjeta Cajas.
+
 ## Mis envíos: el cliente solicita recolección y entrega (sql/01 bloque 23)
 - [ ] Cliente de una empresa de encomiendas: el menú muestra "Mis envíos"; sin viajes, Inicio lo lleva ahí.
 - [ ] Solicitar: sin ubicar A o B en el mapa no deja enviar; "Otra persona" pide nombre y teléfono.
