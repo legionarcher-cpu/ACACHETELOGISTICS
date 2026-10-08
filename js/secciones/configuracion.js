@@ -248,6 +248,12 @@ registrarSeccion('configuracion', (zona) => {
             permitido: () => esGeneral && enPlan('cfg_costos'),
             abrir: () => abrirModuloExterno('costos'),
         },
+        // Tipos de caja y fondo de cada piloto (js/secciones/configuracion/cajas.js).
+        // El cierre se hace en la sección Caja. Si el plan de la empresa incluye "caja".
+        cajas: {
+            permitido: () => esGeneral && enPlan('caja'),
+            abrir: () => abrirModuloExterno('cajas'),
+        },
         // Plan de pago de cada empresa y funciones habilitadas
         // (js/secciones/configuracion/planes.js). SOLO el Desarrollador.
         planes: {

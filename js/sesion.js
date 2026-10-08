@@ -42,7 +42,7 @@ const SECCIONES_LIBRES = ['inicio', 'perfil'];
 // Si un rol NO aparece aquí, puede abrir todas.
 // Para restringir otro rol, agregar una línea, ej.:  empleado: ['pedidos'],
 const SECCIONES_POR_ROL = {
-    piloto: ['inicio', 'pedidos', 'reportes', 'viajes'], // Reportes: solo sus pedidos de los últimos 7 días; Viajes: los suyos
+    piloto: ['inicio', 'pedidos', 'reportes', 'viajes', 'caja'], // Reportes: solo sus pedidos de los últimos 7 días; Viajes: los suyos; Caja: la suya (solo ver)
     cliente: ['inicio', 'viajes', 'envios'],             // solicita y sigue SUS viajes (sql/01 bloque 19) y SUS envíos (bloque 23)
 };
 
@@ -53,13 +53,13 @@ const SECCIONES_DE_VIAJES = ['viajes'];
 const SECCIONES_DE_PEDIDOS = ['pedidos', 'rutas', 'cotizador'];
 
 // Secciones que dependen del PLAN de la empresa (empresas/empresas.js: FUNCIONES_PLAN)
-const SECCIONES_DEL_PLAN = ['pedidos', 'viajes', 'pilotos', 'rutas', 'reportes', 'cotizador'];
+const SECCIONES_DEL_PLAN = ['pedidos', 'viajes', 'pilotos', 'rutas', 'reportes', 'cotizador', 'caja'];
 
 // Secciones BLOQUEADAS según el rol: puede abrir todo MENOS estas
 // (aparecen con candado en el menú). Útil cuando es más corto decir
 // lo que NO puede ver. Ej.:  empleado: ['usuarios', 'reportes'],
 const SECCIONES_BLOQUEADAS_POR_ROL = {
-    empleado: ['usuarios', 'pilotos', 'reportes', 'rutas'], // sin Usuarios, Pilotos, Reportes ni Rutas
+    empleado: ['usuarios', 'pilotos', 'reportes', 'rutas', 'caja'], // sin Usuarios, Pilotos, Reportes, Rutas ni Caja
     admin_g3: ['usuarios', 'configuracion'],                 // sin Usuarios ni Configuración
 };
 

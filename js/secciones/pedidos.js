@@ -2746,6 +2746,9 @@ registrarSeccion('pedidos', (zona) => {
             dato(dl, 'Alcohol', e);
         }
         dato(dl, 'Notas', p.notas);
+        // Caja del piloto (sql/01 bloque 24): cómo pagó el cliente y si ya se cerró
+        if (p.cobro_forma) dato(dl, 'Cómo pagó', { efectivo: 'Efectivo', sinpe: 'SINPE Móvil', tarjeta: 'Tarjeta' }[p.cobro_forma] || p.cobro_forma);
+        if (p.cierre_id) dato(dl, 'Caja del piloto', `Cerrada (cierre #${p.cierre_id})`);
         // El código de respaldo no se le muestra al piloto (lo da el cliente)
         if (!esPiloto) {
             dato(dl, 'Código de respaldo', p.codigo_telefono && p.codigo_telefono !== p.codigo_respaldo
@@ -3082,6 +3085,14 @@ registrarSeccion('pedidos', (zona) => {
         const pideEdad = accion.id === 'entregado' && pedido.lleva_alcohol;
         $('#pedAccionEdadCaja').hidden = !pideEdad;
         $('#pedAccionEdad').checked = false;
+        // Entregado con monto a cobrar: cómo pagó el cliente (lo usa la Caja del piloto)
+        const pideCobro = accion.id === 'entregado' && Number(pedido.total_cobrar) > 0;
+        $('#pedAccionCobroCaja').hidden = !pideCobro;
+        if (pideCobro) {
+            $('#pedAccionCobroTexto').textContent = `Cobraste ${dinero(pedido.total_cobrar)}: ¿cómo pagó el cliente?`;
+            const prevista = pedido.forma_pago === 'tarjeta' ? 'tarjeta' : 'efectivo';
+            dlgAccion.querySelectorAll('input[name="pedAccionCobro"]').forEach((r) => { r.checked = r.value === prevista; });
+        }
         $('#pedAccionError').textContent = '';
         const si = $('#pedAccionSi');
         si.className = `boton ${accion.clase === 'boton-peligro' ? 'boton-peligro' : 'boton-principal'}`;
@@ -3117,7 +3128,16 @@ registrarSeccion('pedidos', (zona) => {
             if (!resultado) await cerrarSolicitud(false, motivo);
         } else {
             const cambios = accion.nuevo === 'cancelado' ? { motivo_cancelacion: motivo } : {};
-            resultado = await cambiarEstado(accion.nuevo, cambios, motivo ? (accion.motivo === 'requerido' ? { motivo } : { nota: motivo }) : {});
+            const cobro = !$('#pedAccionCobroCaja').hidden && dlgAccion.querySelector('input[name="pedAccionCobro"]:checked');
+            if (cobro) cambios.cobro_forma = cobro.value;
+            const detalleEv = motivo ? (accion.motivo === 'requerido' ? { motivo } : { nota: motivo }) : {};
+            if (cobro) detalleEv.cobro = cobro.value;
+            resultado = await cambiarEstado(accion.nuevo, cambios, detalleEv);
+            // Base sin el bloque 24 (no existe cobro_forma): se marca igual, sin la forma de cobro
+            if (resultado && cambios.cobro_forma && ['42703', 'PGRST204'].includes(resultado.code)) {
+                delete cambios.cobro_forma;
+                resultado = await cambiarEstado(accion.nuevo, cambios, detalleEv);
+            }
             // Entregado por el piloto desde el panel: se guarda un cierre mínimo
             // (la app guardará además el QR / código, la satisfacción y las fotos)
             if (!resultado && accion.id === 'entregado') {

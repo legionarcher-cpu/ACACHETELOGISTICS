@@ -424,6 +424,22 @@ registrarSeccion('empresas-internas', (zona) => {
 
         if (boton.dataset.accion === 'eliminar') {
             if (!confirm(`¿Eliminar la empresa ${empresa.codigo} · "${empresa.nombre}"? No se puede deshacer.`)) return;
+            // ¿Tiene datos de trabajo? (clientes, pedidos, vehículos, rutas, viajes): entonces no se borra
+            const conDatos = [];
+            for (const [tabla, texto] of [['clientes', 'clientes'], ['pedidos', 'pedidos'], ['vehiculos', 'vehículos'], ['rutas', 'rutas'], ['viajes', 'viajes']]) {
+                const r = await db.fromTodas(tabla).select('id').eq('empresa_id', empresa.id).limit(1);
+                if (!r.error && r.data.length) conDatos.push(texto);
+            }
+            if (conDatos.length) {
+                aviso.mostrar(`No se puede eliminar: tiene ${conDatos.join(', ')}. Márcala Inactiva o límpiala con herramientas/vaciar_base_datos.sql.`, 'error');
+                return;
+            }
+            // Solo le queda la configuración que se copió al crearla: se borra primero
+            // (los artículos frecuentes se van con sus categorías)
+            for (const tabla of ['tarifas', 'descuentos', 'categorias_mercaderia']) {
+                const r = await db.fromTodas(tabla).delete().eq('empresa_id', empresa.id);
+                if (r.error) console.error(`Error al borrar ${tabla} de la empresa:`, r.error);
+            }
             const { error } = await db.from('empresas').delete().eq('id', empresa.id);
             if (error) {
                 console.error('Error al eliminar la empresa:', error);

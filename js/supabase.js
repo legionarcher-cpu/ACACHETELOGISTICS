@@ -56,6 +56,7 @@ const TABLAS_POR_EMPRESA = new Set([
     'regiones', 'tiendas', 'usuarios', 'clientes', 'rutas', 'vehiculos', 'pedidos',
     'categorias_mercaderia', 'tarifas', 'descuentos',
     'pedido_solicitudes', // solicitudes de envío de los clientes (sql/01 bloque 23)
+    'cajas', 'cierres_caja', // caja de pilotos y conductores (sql/01 bloque 24)
     // Transporte (sql/01 bloque 19)
     'viajes', 'cortesias', 'transporte_config', 'transporte_franjas', 'transporte_dias_cerrados', 'transporte_costos',
 ]);

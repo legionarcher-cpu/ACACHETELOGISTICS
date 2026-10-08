@@ -1,0 +1,175 @@
+<!-- ==================================================
+     SECCIÓN: CAJA DE PILOTOS Y CONDUCTORES (como en SISCED)
+     Guía: docs/secciones/caja.md · Tablas: cajas, cierres_caja (sql/01 bloque 24).
+     Aparece si el plan de la empresa incluye "caja" (Configuración -> Planes y funciones).
+
+     - Fondo de caja del piloto (Configuración -> Cajas).
+     - Cobros sin cerrar: sus pedidos entregados con monto a cobrar y sus viajes
+       terminados. Cómo pagó el cliente lo marca el piloto al entregar (se puede corregir aquí).
+     - SINPE y tarjeta: se marcan "Verificado" al verlos en el banco; solo los
+       verificados entran al cierre.
+     - Arqueo: efectivo contado contra fondo + efectivo cobrado = diferencia.
+     - Cerrar caja: lo guarda la base (caja_cerrar), todo o nada.
+     Quién: G3 su tienda | G2 su región | G1 y Administrador todos | el piloto ve la suya (solo ver).
+     #caja?piloto=8 abre directo ese piloto.
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/caja.css (clases "caj-")
+       Lógica          -> js/secciones/caja.js
+     Los ids empiezan con "caj".
+     ================================================== -->
+
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina caj">
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Caja</h2>
+            <p id="cajSubtitulo" class="pagina-subtitulo">Cargando...</p>
+        </div>
+        <div class="pagina-acciones">
+            <select id="cajPiloto" class="campo-input filtro caj-piloto" aria-label="Piloto o conductor">
+                <option value="">Elige un piloto</option>
+            </select>
+            <button type="button" id="cajCerrar" class="boton boton-principal" disabled>
+                <i class="bi bi-lock"></i>
+                <span>Cerrar caja</span>
+            </button>
+        </div>
+    </div>
+
+    <p id="cajAviso" class="aviso" role="status"></p>
+
+    <p id="cajFaltaSql" class="caj-nota caj-nota-alerta" hidden>
+        <i class="bi bi-exclamation-triangle"></i>
+        Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloque 24: caja) en Supabase.
+    </p>
+
+    <p id="cajSinPiloto" class="caj-nota">
+        <i class="bi bi-info-circle"></i>
+        Elige un piloto o conductor para ver su fondo de caja y lo que tiene cobrado sin cerrar.
+    </p>
+
+    <div id="cajContenido" class="caj-contenido" hidden>
+
+        <!-- Datos del piloto -->
+        <div class="tarjeta caj-piloto-datos">
+            <span id="cajAvatar" class="avatar"></span>
+            <div class="caj-piloto-textos">
+                <strong id="cajNombre" class="caj-nombre"></strong>
+                <span id="cajDetalle" class="caj-detalle"></span>
+            </div>
+        </div>
+
+        <!-- Totales -->
+        <div class="resumen caj-resumen">
+            <div class="resumen-item resumen-azul">
+                <span id="cajFondo" class="resumen-numero">₡0</span>
+                <span class="resumen-texto">Fondo de caja</span>
+            </div>
+            <div class="resumen-item resumen-verde">
+                <span id="cajEfectivo" class="resumen-numero">₡0</span>
+                <span id="cajEfectivoTexto" class="resumen-texto">Efectivo cobrado</span>
+            </div>
+            <div class="resumen-item resumen-morada">
+                <span id="cajOtros" class="resumen-numero">₡0</span>
+                <span id="cajOtrosTexto" class="resumen-texto">SINPE y tarjeta</span>
+            </div>
+            <div class="resumen-item resumen-naranja">
+                <span id="cajEsperado" class="resumen-numero">₡0</span>
+                <span class="resumen-texto">Efectivo a entregar (fondo + efectivo)</span>
+            </div>
+        </div>
+
+        <!-- Cobros sin cerrar -->
+        <div class="tarjeta caj-tarjeta">
+            <div class="caj-tarjeta-cabecera">
+                <h3 class="caj-tarjeta-titulo">Cobros sin cerrar</h3>
+                <div class="caj-filtro-forma" role="group" aria-label="Forma de pago">
+                    <label><input type="radio" name="cajForma" value="" checked> Todos</label>
+                    <label><input type="radio" name="cajForma" value="efectivo"> Efectivo</label>
+                    <label><input type="radio" name="cajForma" value="sinpe"> SINPE</label>
+                    <label><input type="radio" name="cajForma" value="tarjeta"> Tarjeta</label>
+                </div>
+            </div>
+            <p id="cajAyuda" class="caj-ayuda">
+                Marca <strong>Verificado</strong> cuando el SINPE o el pago con tarjeta aparezca en el banco.
+                Solo los verificados entran al cierre; los demás quedan para el siguiente.
+                Si el cliente pagó distinto a lo marcado, cambia la forma.
+            </p>
+            <div class="tabla-caja">
+                <table class="tabla caj-tabla">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Pedido / viaje</th>
+                            <th>Cliente</th>
+                            <th>Forma</th>
+                            <th class="caj-col-monto">Monto</th>
+                            <th class="caj-col-check">Verificado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cajCobros"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Arqueo (solo quien cierra) -->
+        <div id="cajArqueoCaja" class="tarjeta caj-tarjeta">
+            <h3 class="caj-tarjeta-titulo">Arqueo de efectivo</h3>
+            <div class="campos caj-arqueo">
+                <div class="campo">
+                    <label for="cajContado" class="campo-etiqueta">Efectivo contado (₡) *</label>
+                    <input id="cajContado" type="number" min="0" step="0.01" class="campo-input" inputmode="decimal">
+                    <small class="campo-ayuda">Todo el efectivo que entrega, con el fondo incluido.</small>
+                </div>
+                <div class="campo">
+                    <span class="campo-etiqueta">Diferencia</span>
+                    <span id="cajDiferencia" class="caj-diferencia">—</span>
+                </div>
+                <div class="campo campo-ancho">
+                    <label for="cajNotas" class="campo-etiqueta">Notas</label>
+                    <input id="cajNotas" type="text" class="campo-input" maxlength="300" autocomplete="off"
+                           placeholder="Ej. faltante por cambio, billete dañado...">
+                </div>
+            </div>
+        </div>
+
+        <!-- Cierres anteriores -->
+        <div class="tarjeta caj-tarjeta">
+            <h3 class="caj-tarjeta-titulo">Cierres anteriores</h3>
+            <div class="tabla-caja">
+                <table class="tabla caj-tabla">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Cobros</th>
+                            <th class="caj-col-monto">Fondo</th>
+                            <th class="caj-col-monto">Efectivo</th>
+                            <th class="caj-col-monto">SINPE</th>
+                            <th class="caj-col-monto">Tarjeta</th>
+                            <th class="caj-col-monto">Contado</th>
+                            <th class="caj-col-monto">Diferencia</th>
+                            <th>Cerró</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cajCierres"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================================================
+     VENTANA: CONFIRMAR CIERRE
+     ================================================== -->
+<dialog id="cajConfirmar" class="dialogo dialogo-chico" aria-labelledby="cajConfirmarTitulo">
+    <h3 id="cajConfirmarTitulo" class="dialogo-titulo">Cerrar caja</h3>
+    <ul id="cajConfirmarLista" class="caj-confirmar-lista"></ul>
+    <p id="cajConfirmarNota" class="dialogo-texto"></p>
+    <div class="dialogo-botones">
+        <button type="button" id="cajConfirmarNo" class="boton boton-secundario">Cancelar</button>
+        <button type="button" id="cajConfirmarSi" class="boton boton-principal">Cerrar caja</button>
+    </div>
+</dialog>

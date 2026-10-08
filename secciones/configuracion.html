@@ -133,6 +133,16 @@
             </span>
             <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
         </button>
+        <!-- Cajas: tipos de caja y fondo de cada piloto (js/secciones/configuracion/cajas.js) -->
+        <button type="button" class="cfg-modulo-tarjeta" data-modulo="cajas">
+            <span class="cfg-modulo-icono"><i class="bi bi-safe"></i></span>
+            <span class="cfg-modulo-textos">
+                <span class="cfg-modulo-nombre">Cajas</span>
+                <span class="cfg-modulo-descripcion">Tipos de caja (ej. Caja básica ₡50 000) y el fondo de caja de cada piloto o conductor.</span>
+                <span class="cfg-modulo-acceso">Administrador y Admin G1</span>
+            </span>
+            <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
+        </button>
         <!-- Planes y funciones: plan de pago de cada empresa (js/secciones/configuracion/planes.js) -->
         <button type="button" class="cfg-modulo-tarjeta" data-modulo="planes">
             <span class="cfg-modulo-icono"><i class="bi bi-ui-checks-grid"></i></span>
@@ -1022,6 +1032,82 @@
     </section>
 
     <!-- ==================================================
+         MÓDULO: CAJAS (si el plan de la empresa incluye "caja"; Administrador y Admin G1)
+         Tipos de caja (tabla cajas) y fondo de cada piloto (usuarios.caja_id / caja_monto),
+         sql/01 bloque 24. El cierre se hace en la sección Caja.
+         Lógica: js/secciones/configuracion/cajas.js. Ids "cfgCaj".
+         ================================================== -->
+    <section class="cfg-modulo" data-modulo="cajas" hidden>
+
+        <div class="cfg-modulo-cabecera">
+            <a href="#configuracion" class="cfg-volver"><i class="bi bi-arrow-left"></i> Configuración</a>
+            <h3 class="cfg-modulo-titulo"><i class="bi bi-safe"></i> Cajas</h3>
+        </div>
+
+        <p id="cfgCajFaltaSql" class="cfg-nota" hidden>
+            <i class="bi bi-exclamation-triangle"></i>
+            Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloque 24: caja) en Supabase.
+        </p>
+
+        <div id="cfgCajContenido" class="cfg-tra">
+            <div class="tarjeta cfg-tarjeta">
+                <div class="cfg-tarjeta-cabecera">
+                    <div>
+                        <h3 class="cfg-tarjeta-titulo">Tipos de caja</h3>
+                        <p class="cfg-tarjeta-texto">
+                            Montos de fondo que se repiten (ej. "Caja básica" ₡50 000). Al cambiar el monto de un tipo,
+                            cambia el fondo de todos los pilotos que lo usan.
+                        </p>
+                    </div>
+                    <button type="button" id="cfgCajNueva" class="boton boton-principal boton-chico">
+                        <i class="bi bi-plus-lg"></i>
+                        <span>Nueva caja</span>
+                    </button>
+                </div>
+                <div class="tabla-caja">
+                    <table class="tabla cfg-tabla">
+                        <thead>
+                            <tr>
+                                <th>Caja</th>
+                                <th>Monto</th>
+                                <th>Pilotos</th>
+                                <th class="tabla-col-acciones">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cfgCajTipos"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tarjeta cfg-tarjeta">
+                <div class="cfg-tarjeta-cabecera">
+                    <div>
+                        <h3 class="cfg-tarjeta-titulo">Fondo de cada piloto o conductor</h3>
+                        <p class="cfg-tarjeta-texto">
+                            El dinero con el que sale (para dar vuelto). En el cierre de caja debe entregar
+                            el fondo + el efectivo que cobró. Elige un tipo de caja o escribe un monto propio.
+                        </p>
+                    </div>
+                </div>
+                <div class="tabla-caja">
+                    <table class="tabla cfg-tabla">
+                        <thead>
+                            <tr>
+                                <th>Piloto</th>
+                                <th>Tienda</th>
+                                <th>Tipo de caja</th>
+                                <th>Fondo</th>
+                                <th class="tabla-col-acciones">Guardar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cfgCajPilotos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================================================
          MÓDULO: PLANES Y FUNCIONES (solo el Desarrollador)
          Plan de pago de cada empresa y las funciones que pueden usar sus administradores
          y usuarios (empresas.plan y empresas.funciones, sql/01 bloque 22).
@@ -1442,6 +1528,28 @@
         <div class="dialogo-botones">
             <button type="button" id="cfgTraFrCancelar" class="boton boton-secundario">Cancelar</button>
             <button type="submit" id="cfgTraFrGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Ventana del módulo Cajas (js/secciones/configuracion/cajas.js) -->
+<dialog id="cfgCajDialogo" class="dialogo dialogo-chico" aria-labelledby="cfgCajTitulo">
+    <form id="cfgCajForm" class="dialogo-form" novalidate>
+        <h3 id="cfgCajTitulo" class="dialogo-titulo">Nueva caja</h3>
+        <div class="campos">
+            <div class="campo campo-ancho">
+                <label for="cfgCajNombre" class="campo-etiqueta">Nombre *</label>
+                <input id="cfgCajNombre" type="text" maxlength="40" class="campo-input" placeholder="Ej. Caja básica">
+            </div>
+            <div class="campo campo-ancho">
+                <label for="cfgCajMonto" class="campo-etiqueta">Monto del fondo *</label>
+                <input id="cfgCajMonto" type="number" min="0" step="100" class="campo-input" inputmode="decimal">
+            </div>
+        </div>
+        <p id="cfgCajError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="cfgCajCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" class="boton boton-principal">Guardar</button>
         </div>
     </form>
 </dialog>

@@ -575,6 +575,16 @@
             <label for="pedAccionMotivo" id="pedAccionMotivoEtiqueta" class="campo-etiqueta">Motivo</label>
             <textarea id="pedAccionMotivo" class="campo-input ped-textarea" maxlength="300" rows="3"></textarea>
         </div>
+        <!-- Solo al marcar "Entregado" un pedido con monto a cobrar: cómo pagó el cliente
+             (pedidos.cobro_forma; lo usa la Caja del piloto, sql/01 bloque 24) -->
+        <fieldset id="pedAccionCobroCaja" class="ped-accion-cobro" hidden>
+            <legend id="pedAccionCobroTexto" class="campo-etiqueta">¿Cómo pagó el cliente?</legend>
+            <div class="ped-accion-cobro-opciones">
+                <label class="ped-si-no"><input type="radio" name="pedAccionCobro" value="efectivo"> Efectivo</label>
+                <label class="ped-si-no"><input type="radio" name="pedAccionCobro" value="sinpe"> SINPE Móvil</label>
+                <label class="ped-si-no"><input type="radio" name="pedAccionCobro" value="tarjeta"> Tarjeta</label>
+            </div>
+        </fieldset>
         <!-- Solo al marcar "Entregado" un pedido con alcohol -->
         <label id="pedAccionEdadCaja" class="ped-si-no" hidden>
             <input id="pedAccionEdad" type="checkbox"> Confirmo que quien recibió es mayor de edad
