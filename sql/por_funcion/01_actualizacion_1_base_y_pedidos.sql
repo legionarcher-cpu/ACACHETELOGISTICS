@@ -71,6 +71,7 @@
 --  32. Artículos de venta: unidad de medida y costo de cada presentación.
 --  33. QR del piloto: la tienda lo escanea y con "Validar y marcar" valida y marca su horario.
 --  34. QR fijo de la tienda (en su Inicio): el piloto lo escanea y se marca solo.
+--  35. QR fijo: solo marca si el GPS del piloto está en la tienda (radio_marca_m).
 -- ==================================================
 
 

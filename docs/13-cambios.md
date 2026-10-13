@@ -2,6 +2,22 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · QR fijo: solo se marca estando en la tienda (GPS)
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 35** (va en el mismo archivo que el 34:
+`sql/por_funcion/01_actualizacion_12_qr_fijo_tienda.sql`; instalación nueva: `sql/00`, sección 28).
+
+- Al escanear el QR fijo, el celular del piloto manda su ubicación (GPS) y `marcar_por_qr_fijo` mide la
+  distancia a la tienda (`tiendas.lat/lng`). Más lejos que el radio = no marca ("Estás a 1112 m de la tienda...").
+  Se descuenta la precisión del GPS hasta 50 m. Sin permiso de ubicación o sin GPS: no marca.
+- **Radio**: `configuracion.radio_marca_m` (150 m por defecto); Administrador y G1 lo cambian en la tarjeta del QR
+  del Inicio ("Distancia máxima para marcar").
+- **Ubicación de la tienda**: la tarjeta dice si falta; "Usar mi ubicación actual" (Administrador, G1, G3) guarda el
+  GPS del dispositivo como la de la tienda. Sin ubicación, el QR fijo no marca.
+- Cada marca guarda dónde se hizo: `marcas_piloto.lat`, `lng`, `distancia_m`.
+- "Validar y marcar" (la tienda escanea al piloto en persona) y el QR del mes no cambian.
+- `VERSION_APP` = `20261013j`.
+
 ## 2026-10-13 · QR fijo de la tienda (marca automática)
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 34** (=

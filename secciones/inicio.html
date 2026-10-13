@@ -86,7 +86,7 @@
                 <h3 id="iniQrTiendaTitulo" class="ini-tarjeta-titulo"><i class="bi bi-qr-code"></i> QR de marcas de la tienda</h3>
                 <p class="ini-tarjeta-nota">
                     Imprímelo y déjalo visible. El piloto lo escanea al llegar y su horario se marca solo,
-                    con la fecha y la hora del sistema. No cambia.
+                    con la fecha y la hora del sistema, solo si su GPS dice que está en la tienda. No cambia.
                 </p>
             </div>
             <select id="iniQrTiendaSel" class="campo-input filtro" aria-label="Tienda del QR" hidden></select>
@@ -95,10 +95,21 @@
             <canvas id="iniQrTiendaLienzo" class="ini-qr-tienda-lienzo" aria-label="QR de marcas de la tienda"></canvas>
             <div class="ini-qr-tienda-lado">
                 <strong id="iniQrTiendaNombre"></strong>
+                <!-- Solo marca estando en la tienda (GPS, sql/01 bloque 35): su ubicación y el radio -->
+                <p id="iniQrTiendaUbicacion" class="ini-tarjeta-nota"></p>
+                <div id="iniQrTiendaRadioCaja" class="ini-qr-radio" hidden>
+                    <label for="iniQrTiendaRadio">Distancia máxima para marcar</label>
+                    <input id="iniQrTiendaRadio" type="number" min="30" max="2000" step="10" class="campo-input" inputmode="numeric">
+                    <span>m</span>
+                    <button type="button" id="iniQrTiendaRadioGuardar" class="boton boton-secundario boton-chico">Guardar</button>
+                </div>
                 <p id="iniQrTiendaAviso" class="aviso" role="status"></p>
                 <div class="ini-marcas-botones">
                     <button type="button" id="iniQrTiendaImprimir" class="boton boton-principal boton-chico">
                         <i class="bi bi-printer"></i> <span>Ver, descargar o imprimir</span>
+                    </button>
+                    <button type="button" id="iniQrTiendaUbicar" class="boton boton-secundario boton-chico" hidden>
+                        <i class="bi bi-geo-alt"></i> <span>Usar mi ubicación actual</span>
                     </button>
                     <button type="button" id="iniQrTiendaNuevo" class="boton boton-secundario boton-chico" hidden>
                         <i class="bi bi-arrow-repeat"></i> <span>Generar uno nuevo</span>

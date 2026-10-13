@@ -704,3 +704,20 @@ a.ini-fila:hover {
     flex-direction: column;
     gap: 0.5rem;
 }
+
+/* Distancia máxima para marcar y aviso si falta la ubicación de la tienda (sql/01 bloque 35) */
+.ini-qr-radio {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem;
+    align-items: center;
+    font-size: 0.889rem;
+}
+
+.ini-qr-radio input {
+    width: 6rem;
+}
+
+.ini-qr-falta {
+    color: var(--color-naranja-oscuro);
+}

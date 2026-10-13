@@ -35,6 +35,7 @@
 --   25. Artículos de venta: unidad y costo de cada presentación
 --   26. QR del piloto: validar y marcar en un solo paso
 --   27. QR fijo de la tienda: el piloto lo escanea y se marca solo
+--   28. QR fijo: solo marca estando en la tienda (GPS)
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:

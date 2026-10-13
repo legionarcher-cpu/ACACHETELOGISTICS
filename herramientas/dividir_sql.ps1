@@ -36,7 +36,7 @@ $GRUPOS = @{
         @{ nombre = 'tiendas_region_opcional'; bloques = 24..24; que = 'Tiendas sin región (opcional) y usuarios sin región (jperez01)' },
         @{ nombre = 'articulos_de_venta';    bloques = 25..25; que = 'Artículos de venta: unidad y costo de cada presentación' },
         @{ nombre = 'qr_validar_y_marcar';   bloques = 26..26; que = 'QR del piloto: validar y marcar en un solo paso' },
-        @{ nombre = 'qr_fijo_tienda';        bloques = 27..27; que = 'QR fijo de la tienda: el piloto lo escanea y se marca solo' }
+        @{ nombre = 'qr_fijo_tienda';        bloques = 27..28; que = 'QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS)' }
     )
     '01_actualizacion_base_existente' = @(
         @{ nombre = 'base_y_pedidos';        bloques = 0..15;  que = 'Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR' },
@@ -50,7 +50,7 @@ $GRUPOS = @{
         @{ nombre = 'tiendas_region_opcional'; bloques = 31..31; que = 'Tiendas sin región (opcional) y usuarios sin región (jperez01)' },
         @{ nombre = 'articulos_de_venta';    bloques = 32..32; que = 'Artículos de venta: unidad y costo de cada presentación' },
         @{ nombre = 'qr_validar_y_marcar';   bloques = 33..33; que = 'QR del piloto: validar y marcar en un solo paso' },
-        @{ nombre = 'qr_fijo_tienda';        bloques = 34..34; que = 'QR fijo de la tienda: el piloto lo escanea y se marca solo' }
+        @{ nombre = 'qr_fijo_tienda';        bloques = 34..35; que = 'QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS)' }
     )
 }
 

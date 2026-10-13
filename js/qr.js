@@ -448,10 +448,22 @@ async function mostrarPedidoQr(pedidoId) {
 async function qrLeerMarca(texto, justificacion = null) {
     const s = obtenerSesion() || {};
     if (rolActual() !== 'piloto') return { tipo: 'error', mensaje: 'Este es el QR de marcas de la tienda: lo escanean los pilotos al llegar.' };
-    // QR FIJO de la tienda (su Inicio, sql/01 bloque 34): marca con la hora del sistema, sin validación previa.
+    // QR FIJO de la tienda (su Inicio, sql/01 bloque 34): marca con la hora del sistema, sin validación
+    // previa, SOLO estando en la tienda: se manda la ubicación del celular (bloque 35).
     // QR del MES (Tiendas): el piloto debe estar validado hoy.
     const fijo = texto.startsWith(QR_PREFIJO.tienda);
-    const { data, error } = await db.rpc(fijo ? 'marcar_por_qr_fijo' : 'marcar_por_qr', { p_piloto: s.id || 0, p_qr: texto, p_justificacion: justificacion });
+    const datos = { p_piloto: s.id || 0, p_qr: texto, p_justificacion: justificacion };
+    if (fijo) {
+        qrEstado('Revisando tu ubicación (GPS)...');
+        const pos = await qrPosicion();
+        if (pos.error) return { tipo: 'error', mensaje: pos.error };
+        Object.assign(datos, { p_lat: pos.lat, p_lng: pos.lng, p_precision: pos.precision });
+    }
+    let { data, error } = await db.rpc(fijo ? 'marcar_por_qr_fijo' : 'marcar_por_qr', datos);
+    // Base con el bloque 34 pero sin el 35 (no recibe la ubicación): se marca sin revisarla
+    if (fijo && error && (error.code === 'PGRST202' || error.code === '42883')) {
+        ({ data, error } = await db.rpc('marcar_por_qr_fijo', { p_piloto: datos.p_piloto, p_qr: texto, p_justificacion: justificacion }));
+    }
     if (error) {
         console.error('Error al marcar con QR:', error);
         if (error.code === 'P0001' && error.message.startsWith('JUSTIFICAR:')) {
@@ -471,8 +483,29 @@ async function qrLeerMarca(texto, justificacion = null) {
     window.dispatchEvent(new CustomEvent('acachete:marca')); // Inicio recarga "Mis marcas de hoy"
     return {
         tipo: 'ok', cerrar: 2500,
-        mensaje: `✔ Horario ${m.numero} marcado a las ${hora}${m.a_tiempo ? '' : ' (marca tardía, justificada)'} · Se avisó a la tienda para despachar tus pedidos.`,
+        mensaje: `✔ Horario ${m.numero} marcado a las ${hora}${m.a_tiempo ? '' : ' (marca tardía, justificada)'}` +
+            `${m.distancia_m != null ? ` · a ${m.distancia_m} m de la tienda` : ''} · Se avisó a la tienda para despachar tus pedidos.`,
     };
+}
+
+// Ubicación del celular (GPS) -> { lat, lng, precision } o { error: 'texto' }.
+// La usan la marca con el QR fijo (aquí) y "Usar mi ubicación actual" del Inicio de la tienda.
+function qrPosicion() {
+    return new Promise((resolve) => {
+        if (!navigator.geolocation) {
+            resolve({ error: 'Este celular o navegador no da la ubicación: no se puede marcar con el QR de la tienda.' });
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, precision: Math.round(p.coords.accuracy || 0) }),
+            (e) => resolve({
+                error: e.code === 1 ? 'No hay permiso para la ubicación: actívalo en el navegador para poder marcar (solo se marca estando en la tienda).'
+                    : e.code === 3 ? 'El GPS tardó demasiado. Sal a un lugar abierto o activa la ubicación precisa e intenta de nuevo.'
+                    : 'No se pudo obtener tu ubicación. Activa el GPS e intenta de nuevo.',
+            }),
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 15000 },
+        );
+    });
 }
 
 // Formulario "¿Por qué llegas tarde?" dentro del lector (marca tardía)

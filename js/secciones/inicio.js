@@ -1244,10 +1244,22 @@ registrarSeccion('inicio', (zona) => {
     let qrTiendaTexto = '';
     const tiendaDelQr = () => Number($('#iniQrTiendaSel').value) || tiendaActual() || null;
 
+    // ¿La tienda tiene su ubicación? Sin ella el QR fijo no marca (sql/01 bloque 35)
+    function pintarUbicacionTienda() {
+        const t = tiendas.find((x) => x.id === tiendaDelQr());
+        const p = $('#iniQrTiendaUbicacion');
+        const tiene = t && t.lat != null && t.lng != null;
+        p.textContent = tiene
+            ? `📍 Ubicación de la tienda guardada (${Number(t.lat).toFixed(5)}, ${Number(t.lng).toFixed(5)}). Solo se marca estando cerca.`
+            : '⚠ Falta la ubicación de la tienda: sin ella los pilotos no pueden marcar con este QR. Estando en la tienda, presiona "Usar mi ubicación actual".';
+        p.classList.toggle('ini-qr-falta', !tiene);
+    }
+
     async function pintarQrTienda(nuevo = false) {
         const id = tiendaDelQr();
         const t = tiendas.find((x) => x.id === id);
         $('#iniQrTiendaNombre').textContent = t ? `${t.codigo} · ${t.nombre}` : '';
+        pintarUbicacionTienda();
         qrTiendaTexto = '';
         if (!id) return;
         const { data, error } = await db.rpc('qr_tienda_fija', { p_tienda: id, p_nuevo: nuevo });
@@ -1277,9 +1289,59 @@ registrarSeccion('inicio', (zona) => {
         sel.replaceChildren(...propias.map((t) => new Option(`${t.codigo} · ${t.nombre}`, t.id)));
         sel.hidden = propias.length <= 1;
         $('#iniQrTiendaNuevo').hidden = !(esGeneral || esG3);
+        $('#iniQrTiendaUbicar').hidden = !(esGeneral || esG3);
         $('#iniQrTienda').hidden = false;
         pintarQrTienda();
+        if (esGeneral) cargarRadioMarca();
     }
+
+    // Distancia máxima para marcar (configuracion 'radio_marca_m'; Administrador y G1)
+    async function cargarRadioMarca() {
+        const { data, error } = await db.from('configuracion').select('valor').eq('clave', 'radio_marca_m').maybeSingle();
+        if (!activa || error) return;
+        $('#iniQrTiendaRadio').value = data ? Number(data.valor) : 150;
+        $('#iniQrTiendaRadioCaja').hidden = false;
+    }
+
+    $('#iniQrTiendaRadioGuardar').addEventListener('click', async () => {
+        if (!esGeneral) return;
+        const n = Math.round(Number($('#iniQrTiendaRadio').value));
+        if (!(n >= 30 && n <= 2000)) { avisoQrTienda.mostrar('La distancia va de 30 a 2000 m.', 'error'); return; }
+        const { error } = await db.from('configuracion').upsert({ clave: 'radio_marca_m', valor: n }, { onConflict: 'clave' });
+        if (error) {
+            console.error('Error al guardar la distancia para marcar:', error);
+            avisoQrTienda.mostrar('No se pudo guardar la distancia.', 'error');
+            return;
+        }
+        avisoQrTienda.mostrar(`Listo: los pilotos marcan hasta a ${n} m de la tienda.`);
+    });
+
+    // "Usar mi ubicación actual": guarda el GPS de este dispositivo como la ubicación de la tienda
+    $('#iniQrTiendaUbicar').addEventListener('click', async () => {
+        if (!(esGeneral || esG3)) return;
+        const t = tiendas.find((x) => x.id === tiendaDelQr());
+        if (!t) return;
+        if (!confirm(`¿Estás EN la tienda ${t.codigo} · ${t.nombre}? Se guardará tu ubicación actual como la de la tienda (los pilotos solo marcan cerca de ese punto).`)) return;
+        const boton = $('#iniQrTiendaUbicar');
+        boton.disabled = true;
+        avisoQrTienda.mostrar('Buscando tu ubicación (GPS)...');
+        const pos = await qrPosicion(); // js/qr.js
+        boton.disabled = false;
+        if (!activa) return;
+        if (pos.error) { avisoQrTienda.mostrar(pos.error, 'error'); return; }
+        if (pos.precision > 100 && !confirm(`El GPS tiene poca precisión ahora (±${pos.precision} m). ¿Guardarla de todos modos? (Mejor intenta junto a una ventana o afuera.)`)) return;
+        const lat = Math.round(pos.lat * 1e6) / 1e6;
+        const lng = Math.round(pos.lng * 1e6) / 1e6;
+        const { error } = await db.from('tiendas').update({ lat, lng }).eq('id', t.id);
+        if (error) {
+            console.error('Error al guardar la ubicación de la tienda:', error);
+            avisoQrTienda.mostrar('No se pudo guardar la ubicación de la tienda.', 'error');
+            return;
+        }
+        Object.assign(t, { lat, lng });
+        pintarUbicacionTienda();
+        avisoQrTienda.mostrar(`Ubicación de ${t.codigo} guardada (±${pos.precision} m).`);
+    });
 
     $('#iniQrTiendaSel').addEventListener('change', () => pintarQrTienda());
     $('#iniQrTiendaImprimir').addEventListener('click', () => {
