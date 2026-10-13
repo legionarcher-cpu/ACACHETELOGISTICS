@@ -165,8 +165,10 @@ dirección, **ubicación** (coordenadas o enlace de Google Maps) y sus tiendas c
 El recorrido completo de un pedido:
 
 ```
-Registrado → Asignado → Alistando → Listo para despachar → Cargado → En ruta → Entregando → Entregado
-                                                              └─ No salió a ruta        └─ No entregado
+Registrado → Asignado → Alistando → Listo para despachar
+   → Cargado → En ruta → Entregando → Entregado
+Si el piloto no lo cargó al salir: "No salió a ruta"
+Si no se pudo entregar: "No entregado"
 ```
 
 ### Paso 1 · El piloto llega y marca su horario
