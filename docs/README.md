@@ -5,6 +5,9 @@ Sistema web para coordinar **pedidos, entregas, pilotos, rutas y tiendas** de un
 ([secciones/empresas-internas.md](secciones/empresas-internas.md)), y **multimarca** (otra copia con su logo y colores). Funciona en el navegador, guarda todo en **Supabase** (PostgreSQL) y no necesita
 servidor propio.
 
+> **Manual para quienes USAN el sistema** (administración, tienda y pilotos), paso a paso desde la puesta en
+> marcha hasta la entrega y los cierres: [MANUAL-DE-USO.md](MANUAL-DE-USO.md).
+>
 > Esta carpeta explica **cómo está hecho hoy** y **dónde tocar** para cambiarlo.
 > **Resumen de todo en un solo archivo** (qué hace cada parte, cómo modificarla y cómo ligar una app):
 > [GUIA-RESUMIDA-Y-APP.md](../GUIA-RESUMIDA-Y-APP.md), en la raíz.
