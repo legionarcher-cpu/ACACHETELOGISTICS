@@ -2,6 +2,20 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · Logos de empresa por número interno (no por ID)
+
+Sin SQL.
+
+- **Problema:** las imágenes del encabezado de cada empresa iban por su ID (`html[data-empresa="02"]`). Al borrar
+  una empresa su ID se vuelve a usar, y la nueva (ej. "Corporación Dinant", 02) heredaba los logos de la borrada
+  (Transportes Otoya-Valverde). En la base no quedaba nada de las borradas (revisado).
+- **Ahora:** `empresas/empresas.js` marca también `data-empresa-id` (empresas.id, nunca se repite) y
+  `css/encabezados.css` usa `html[data-empresa-id="N"]`. Se quitó la regla vieja de la 02.
+- **Empresa sin logos propios:** usa el encabezado y los logos de ACACHETE (los de la 01).
+- Tiendas → Empresas muestra el **N.º interno** de cada una; al eliminar una empresa recuerda borrar su bloque
+  de `css/encabezados.css`.
+- `VERSION_APP` = `20261013f`.
+
 ## 2026-10-13 · Configuración → Artículos de venta y precios
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 32** (=

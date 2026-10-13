@@ -45,6 +45,12 @@
     color: var(--color-naranja);
 }
 
+/* Número interno (el de sus logos en css/encabezados.css) */
+.emp-interno {
+    font-weight: 400;
+    color: var(--color-gris);
+}
+
 /* Empresa con la que trabaja el Desarrollador */
 .emp-actual td:nth-child(2) {
     font-weight: 700;

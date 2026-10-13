@@ -113,7 +113,14 @@ registrarSeccion('empresas-internas', (zona) => {
             const tr = document.createElement('tr');
             if (e.id === actual) tr.classList.add('emp-actual');
 
-            tr.appendChild(crearCelda(e.codigo, 'texto-codigo emp-col-id'));
+            // ID + número interno (el de sus logos en css/encabezados.css: nunca se repite)
+            const tdId = crearCelda(e.codigo, 'texto-codigo emp-col-id');
+            const interno = document.createElement('small');
+            interno.className = 'emp-interno';
+            interno.textContent = `N.º ${e.id}`;
+            interno.title = `Número interno ${e.id}: con él se ponen sus logos (css/encabezados.css, html[data-empresa-id="${e.id}"]). No se repite aunque se borre la empresa.`;
+            tdId.append(document.createElement('br'), interno);
+            tr.appendChild(tdId);
             const tdNombre = document.createElement('td');
             // Punto con su paleta (principal y botones); sin paleta propia, los de la marca
             const c = { ...(e.colores || {}) }; // copia: no se toca la fila cargada
@@ -448,7 +455,9 @@ registrarSeccion('empresas-internas', (zona) => {
                     : 'No se pudo eliminar la empresa.', 'error');
                 return;
             }
-            aviso.mostrar(`Empresa "${empresa.nombre}" eliminada.`);
+            // Sus logos (si tenía) van por su número interno: no pasan a otra empresa
+            aviso.mostrar(`Empresa "${empresa.nombre}" eliminada. Si tenía logos propios, borra su bloque ` +
+                `html[data-empresa-id="${empresa.id}"] de css/encabezados.css.`);
             cargar();
         }
     });

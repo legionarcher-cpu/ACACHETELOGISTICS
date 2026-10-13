@@ -29,7 +29,7 @@ Para abrirlo: Live Server en VS Code (con doble clic no cargan las secciones). D
 
 | Segmento | Qué hace | Dónde se modifica |
 |---|---|---|
-| **Imágenes del encabezado** | Imagen del título, logos de la esquina y logo chico, **según la marca y la empresa activas**; cambian al iniciar sesión o cambiar de empresa | **Solo** `css/encabezados.css`: una regla por marca (`html[data-marca="..."]`) y por empresa (`html[data-empresa="02"]`). Luego subir `?v=` en `app.html` |
+| **Imágenes del encabezado** | Imagen del título, logos de la esquina y logo chico, **según la marca y la empresa activas**; cambian al iniciar sesión o cambiar de empresa | **Solo** `css/encabezados.css`: una regla por marca (`html[data-marca="..."]`) y por empresa, con su número interno (`html[data-empresa-id="5"]`). Luego subir `?v=` en `app.html` |
 | Texto del título, pie, ícono de la pestaña | Si una marca no tiene imagen, se ve su título en texto | `empresas/empresas.js` (`titulo`, `subtitulo`, `pie`, `icono`) |
 | Colores | 7 colores con nombre (`--color-azul`, `--color-naranja`...) | Originales: `css/variables.css`. Por marca: `colores` en `empresas.js`. Por empresa interna: Tiendas → Empresas → "Paleta de colores" |
 | Menú lateral | Una opción por sección; con candado si el rol no puede entrar | `app.html` (opciones) y `js/sesion.js` (qué rol ve qué) |
@@ -85,7 +85,7 @@ Para abrirlo: Live Server en VS Code (con doble clic no cargan las secciones). D
 
 | Quiero… | Cómo |
 |---|---|
-| Cambiar la imagen del encabezado de una empresa | `css/encabezados.css` → su bloque `html[data-empresa="ID"]` (agregarlo debajo del último si es nueva) → subir `?v=` en `app.html` |
+| Cambiar la imagen del encabezado de una empresa | `css/encabezados.css` → su bloque `html[data-empresa-id="N.º interno"]` (el N.º de Tiendas → Empresas; agregarlo debajo del último si es nueva; sin bloque usa las de ACACHETE) → subir `?v=` en `app.html` |
 | Cambiar los colores de una empresa interna | Tiendas → Empresas → Modificar → Paleta de colores (la 01 queda siempre con los originales) |
 | Agregar un modelo de paleta | Una línea en `PALETAS_MODELO` (`empresas/empresas.js`): clave, texto y 2 colores |
 | Crear una empresa interna | Tiendas → Empresas → Nueva empresa (ID 02 en adelante, actividades y paleta) → "Trabajar con esta" → sus regiones, tiendas y usuarios |

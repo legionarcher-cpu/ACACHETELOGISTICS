@@ -10,9 +10,14 @@
 
    Se eligen según lo que está activo (lo marca empresas/empresas.js en <html>):
      html[data-marca="otoya-valverde"] -> la MARCA (EMPRESA_ACTIVA de empresas/empresas.js)
-     html[data-empresa="01"]           -> la EMPRESA INTERNA de la sesión (Tiendas -> Empresas).
-                                          Cambia al iniciar sesión, al cambiar de empresa
-                                          (Desarrollador) y al cerrar sesión (vuelve la marca).
+     html[data-empresa-id="5"]         -> la EMPRESA INTERNA de la sesión, por su NÚMERO INTERNO
+                                          (Tiendas -> Empresas lo muestra: "N.º 5"). Cambia al
+                                          iniciar sesión, al cambiar de empresa (Desarrollador) y
+                                          al cerrar sesión (vuelve la marca).
+                                          ⚠ NO usar el ID ("02"): al borrar una empresa su ID se
+                                          puede volver a usar y la nueva heredaría sus imágenes.
+                                          El número interno nunca se repite.
+     html[data-empresa="01"]           -> solo para la empresa principal (siempre la 01).
 
    Orden: lo de más abajo gana. Por eso van: 1) ACACHETE (por defecto),
    2) por marca, 3) por empresa interna.
@@ -62,8 +67,10 @@ html[data-marca="otoya-valverde"] .encabezado-imagen {
 
 
 /* ==================================================
-   3. POR EMPRESA INTERNA (html[data-empresa="ID de Tiendas -> Empresas"])
+   3. POR EMPRESA INTERNA (html[data-empresa-id="N.º interno de Tiendas -> Empresas"])
       Gana sobre la marca: es lo que se ve al iniciar sesión con un usuario de esa empresa.
+      Una empresa SIN regla aquí usa las imágenes de ACACHETE (sección 1).
+      Al borrar una empresa, borrar también su bloque de aquí.
    ================================================== */
 
 /* ---------- 01 · Empresa principal (SIEMPRE ACACHETE, en cualquier marca) ----------
@@ -77,20 +84,28 @@ html[data-empresa="01"] .logo-img-1 { background-image: url("../img/logo-web-slo
 html[data-empresa="01"] .logo-img-2 { background-image: url("../img/encabezado-ak7.jpg"); }
 html[data-empresa="01"] #log-sec    { background-image: url("../img/logo.png"); }
 
-/* ---------- 02 · Transportes Otoya-Valverde ---------- */
-html[data-empresa="02"] .encabezado-imagen {
-    background-image: url("../img/img-encabezado.jpg");
-    --encabezado-ajuste: contain;
+/* ---------- Toda empresa interna SIN regla propia: las de ACACHETE (como la 01) ----------
+   Una empresa nueva se ve con el encabezado y los logos de ACACHETE hasta que se le agregue
+   su bloque abajo (que gana por ir después). */
+html[data-empresa-id] .encabezado-imagen {
+    background-image: url("../img/encabezado-ach-banner.jpg");
+    --encabezado-ajuste: cover;
 }
-html[data-empresa="02"] #log-sec    { background-image: url("../img/logootavas.png"); }
-html[data-empresa="02"] .logo-img-2 { background-image: url("../img/logo-otvaas.jpg"); }
+html[data-empresa-id] .logo-img-1 { background-image: url("../img/logo-web-slog.png"); }
+html[data-empresa-id] .logo-img-2 { background-image: url("../img/encabezado-ak7.jpg"); }
+html[data-empresa-id] #log-sec    { background-image: url("../img/logo.png"); }
 
-/* Ejemplo para otra empresa (quitar los comentarios y cambiar el ID y las imágenes):
-html[data-empresa="03"] .encabezado-imagen {
-    background-image: url("../img/encabezado-03.jpg");
+/* (La regla de la antigua 02 · Transportes Otoya-Valverde se quitó: esa empresa se borró y su
+   ID 02 ahora es de otra. Sus imágenes siguen en img/ y en la marca "otoya-valverde".) */
+
+/* Ejemplo para otra empresa (quitar los comentarios y cambiar el número y las imágenes;
+   el número interno sale en Tiendas -> Empresas, "N.º 5"):
+html[data-empresa-id="5"] .encabezado-imagen {
+    background-image: url("../img/encabezado-5.jpg");
 }
-html[data-empresa="03"] .logo-img-2 { background-image: url("../img/logo-03.png"); }
-html[data-empresa="03"] #log-sec    { background-image: url("../img/logo-03.png"); }
+html[data-empresa-id="5"] .logo-img-1 { background-image: url("../img/logo-5.png"); }
+html[data-empresa-id="5"] .logo-img-2 { background-image: url("../img/logo-5-b.png"); }
+html[data-empresa-id="5"] #log-sec    { background-image: url("../img/logo-5-chico.png"); }
 */
 
 

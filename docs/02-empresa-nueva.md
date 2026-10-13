@@ -32,7 +32,9 @@ de la marca activa (así una corrección del sistema sirve para todas las marcas
 - `EMPRESA_ACTIVA` (arriba del archivo) elige cuál usa esta copia del sistema.
 - **Imágenes del encabezado** (imagen del título, logos de la esquina y logo chico): **solo en
   `css/encabezados.css`**, una regla por marca (`html[data-marca="otoya-valverde"]`) y por empresa interna
-  (`html[data-empresa="01"]`); la de la empresa gana y se ve al iniciar sesión con uno de sus usuarios. Ver
+  por su **número interno** (`html[data-empresa-id="5"]`, el "N.º" de Tiendas → Empresas; nunca se repite, así una
+  empresa nueva que reciba el ID de una borrada no hereda sus logos). Una empresa sin regla usa las imágenes de
+  ACACHETE. La de la empresa gana y se ve al iniciar sesión con uno de sus usuarios. Ver
   [secciones/marco-del-index.md](secciones/marco-del-index.md). El logo del cuadro del login sigue siendo el de
   ACACHETE (marca de la casa).
 - `actividades`: `'tienda'` = Entregas de tienda (supermercado), `'encomiendas'` = Encomiendas.

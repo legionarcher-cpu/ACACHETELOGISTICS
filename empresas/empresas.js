@@ -407,7 +407,10 @@ aplicarColoresEmpresa();
 // Las IMÁGENES del encabezado (imagen del título y logos) están SOLO en
 // css/encabezados.css. Aquí se marca en <html>:
 //   data-marca   -> la marca de esta copia (EMPRESA_ACTIVA)
-//   data-empresa -> el ID de la empresa interna de la sesión ('01'...; sin sesión, no hay)
+//   data-empresa    -> el ID de la empresa interna de la sesión ('01'...; sin sesión, no hay)
+//   data-empresa-id -> su NÚMERO INTERNO (empresas.id: 1, 5...). Las imágenes de cada empresa
+//                      van por este número: nunca se repite, así una empresa nueva que reciba el
+//                      ID ('02') de una borrada NO hereda sus logos (sin regla: los de ACACHETE).
 // y css/encabezados.css elige con ellos las imágenes. Se llama al cargar y desde
 // js/sesion.js cada vez que cambia la sesión (entrar, cambiar de empresa, salir).
 function aplicarEncabezadoEmpresa() {
@@ -416,6 +419,8 @@ function aplicarEncabezadoEmpresa() {
     const empresa = empresaDeLaSesion();
     if (empresa && empresa.codigo) raiz.dataset.empresa = empresa.codigo;
     else delete raiz.dataset.empresa;
+    if (empresa && empresa.id) raiz.dataset.empresaId = String(empresa.id);
+    else delete raiz.dataset.empresaId;
 
     // ¿Esa marca o empresa tiene imagen de título? Con imagen, el texto no se ve
     const caja = document.querySelector('.titulos-primordial');
