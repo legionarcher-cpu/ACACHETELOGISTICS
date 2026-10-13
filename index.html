@@ -11,14 +11,101 @@
            web/paginas/*.html   -> Productos, Visión y Contacto (se abren en ventana)
          Imágenes: img/web/
          ================================================== -->
-    <title>ACACHETE Logistics · Control de entregas y transporte</title>
-    <meta name="description" content="ACACHETE Logistics: control de pedidos, entregas con prueba, pilotos, rutas, cobro contra entrega y transporte de personas para pymes, mensajerías y distribuidoras.">
+    <!-- ========== BUSCADORES (Google) Y REDES: título, descripción e imagen al compartir ==========
+         Título: ~60 letras; descripción: ~155. Imagen al compartir (1200x630): img/web/compartir.jpg.
+         Las demás piezas: robots.txt, sitemap.xml y _headers (raíz). Guía: docs/17-google.md -->
+    <title>ACACHETE Logistics | Software de logística y entregas en Costa Rica</title>
+    <meta name="description" content="Software de logística en Costa Rica: pedidos, entregas con foto, pilotos, rutas, cobros y caja para distribuidoras, mensajerías y transporte.">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://acachetelogistics.com/">
+    <meta name="theme-color" content="#001C3B">
+
+    <!-- Al compartir el enlace (WhatsApp, Facebook, LinkedIn, X) -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="ACACHETE Logistics">
+    <meta property="og:locale" content="es_CR">
+    <meta property="og:url" content="https://acachetelogistics.com/">
+    <meta property="og:title" content="ACACHETE Logistics | Software de logística y entregas">
+    <meta property="og:description" content="Pedidos, pilotos, rutas, entregas con foto, cobros y caja en una sola plataforma, con la marca de su empresa.">
+    <meta property="og:image" content="https://acachetelogistics.com/img/web/compartir.jpg">
+    <meta property="og:image:width" content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:image:alt" content="ACACHETE Logistics · Software de logística y control de entregas">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="ACACHETE Logistics | Software de logística y entregas">
+    <meta name="twitter:description" content="Pedidos, pilotos, rutas, entregas con foto, cobros y caja en una sola plataforma.">
+    <meta name="twitter:image" content="https://acachetelogistics.com/img/web/compartir.jpg">
+
+    <!-- Datos para Google: la empresa, el sitio y el software (schema.org) -->
+    <script type="application/ld+json">
+    {
+        "@context": "https://schema.org",
+        "@graph": [
+            {
+                "@type": "Organization",
+                "@id": "https://acachetelogistics.com/#empresa",
+                "name": "ACACHETE Logistics",
+                "url": "https://acachetelogistics.com/",
+                "logo": "https://acachetelogistics.com/img/logo.png",
+                "image": "https://acachetelogistics.com/img/web/compartir.jpg",
+                "slogan": "Operaciones que mueven su negocio",
+                "description": "Software de logística y control de entregas para distribuidoras, mensajerías y empresas de transporte en Costa Rica.",
+                "email": "acachetelogistics@gmail.com",
+                "telephone": "+506 6238 1665",
+                "areaServed": { "@type": "Country", "name": "Costa Rica" },
+                "address": { "@type": "PostalAddress", "addressCountry": "CR" },
+                "contactPoint": {
+                    "@type": "ContactPoint",
+                    "contactType": "ventas",
+                    "telephone": "+506 6238 1665",
+                    "email": "acachetelogistics@gmail.com",
+                    "availableLanguage": "es"
+                }
+            },
+            {
+                "@type": "WebSite",
+                "@id": "https://acachetelogistics.com/#sitio",
+                "url": "https://acachetelogistics.com/",
+                "name": "ACACHETE Logistics",
+                "inLanguage": "es-CR",
+                "publisher": { "@id": "https://acachetelogistics.com/#empresa" }
+            },
+            {
+                "@type": "SoftwareApplication",
+                "name": "ACACHETE Logistics",
+                "applicationCategory": "BusinessApplication",
+                "applicationSubCategory": "Software de logística y gestión de entregas",
+                "operatingSystem": "Web (navegador en computadora y celular)",
+                "url": "https://acachetelogistics.com/",
+                "image": "https://acachetelogistics.com/img/web/compartir.jpg",
+                "description": "Control de pedidos, pilotos, rutas, entregas con foto y comprobante de pago, cobro contra entrega, cierre de caja, distribuidora con bodega del día y transporte de personas.",
+                "featureList": "Pedidos y despacho, Asignación de pilotos y rutas, Entregas con foto y QR, Comprobante de pago (efectivo, voucher o SINPE), Cierre de caja de pilotos, Marcas con QR y GPS, Distribuidora con bodega del día, Transporte de personas, Reportes y Excel",
+                "publisher": { "@id": "https://acachetelogistics.com/#empresa" }
+            },
+            {
+                "@type": "FAQPage",
+                "mainEntity": [
+                    { "@type": "Question", "name": "¿Qué es ACACHETE Logistics?",
+                      "acceptedAnswer": { "@type": "Answer", "text": "Es un software de logística en la nube para controlar pedidos, pilotos, rutas, entregas y cobros desde el navegador o el celular, con la marca de su empresa." } },
+                    { "@type": "Question", "name": "¿Para qué tipo de empresas sirve?",
+                      "acceptedAnswer": { "@type": "Answer", "text": "Para distribuidoras, supermercados, farmacias, ferreterías y comercios con reparto, mensajerías y couriers, y empresas de transporte de personas en Costa Rica." } },
+                    { "@type": "Question", "name": "¿Cómo se comprueba que el pedido se entregó?",
+                      "acceptedAnswer": { "@type": "Answer", "text": "El piloto valida la entrega con el QR o un código del pedido y toma fotos de lo entregado y del comprobante de pago: el efectivo, el voucher de la tarjeta o el comprobante de SINPE Móvil." } },
+                    { "@type": "Question", "name": "¿Cómo se controla el dinero que cobran los pilotos?",
+                      "acceptedAnswer": { "@type": "Answer", "text": "Cada piloto tiene su caja: el sistema suma lo cobrado en efectivo, SINPE y tarjeta, la tienda verifica los SINPE con su comprobante y al cerrar la caja queda registrado cualquier faltante o sobrante con su motivo." } },
+                    { "@type": "Question", "name": "¿Hay que instalar algo?",
+                      "acceptedAnswer": { "@type": "Answer", "text": "No. Funciona en el navegador de la computadora o del celular, sin instalar nada. Ofrecemos una demostración sin costo con el logo y los colores de su empresa." } }
+                ]
+            }
+        ]
+    }
+    </script>
     <link rel="icon" type="image/png" href="img/web/a-icon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&display=swap">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-    <link rel="stylesheet" href="web/css/web.css?v=6">
+    <link rel="stylesheet" href="web/css/web.css?v=7">
     <script src="web/js/web.js?v=3" defer></script>
 </head>
 <body>
@@ -134,6 +221,82 @@
                         <span class="foto-imagen"></span>
                         <span class="foto-texto"><strong>Contacto</strong><span>Agende una demostración</span></span>
                     </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== QUÉ HACE EL SOFTWARE + PREGUNTAS FRECUENTES ====================
+             Texto que Google lee (lo que se abre en ventanas no lo ve). Las preguntas deben ser
+             las mismas que las del bloque "FAQPage" del <head>: si se cambia una, cambiar las dos. -->
+        <section class="seccion seccion-clara" id="software-logistica">
+            <div class="contenedor">
+                <div class="seccion-titulo">
+                    <span class="antetitulo">Software de logística</span>
+                    <h2>Software de logística y control de entregas en Costa Rica</h2>
+                    <p>ACACHETE Logistics organiza todo el recorrido del pedido: desde que se registra en la tienda hasta que
+                    el piloto lo entrega, cobra y cierra su caja. Funciona en el navegador de la computadora y del celular.</p>
+                </div>
+
+                <div class="funciones-web">
+                    <article class="funcion-web">
+                        <i class="bi bi-box-seam"></i>
+                        <h3>Pedidos y despacho</h3>
+                        <p>Registro de pedidos con cliente, dirección y mercadería; slots de despacho y carga con evidencia.</p>
+                    </article>
+                    <article class="funcion-web">
+                        <i class="bi bi-signpost-split"></i>
+                        <h3>Pilotos, rutas y GPS</h3>
+                        <p>Asignación por ruta, día o semana, mapa de entregas, ubicación del piloto y marcas de horario con QR.</p>
+                    </article>
+                    <article class="funcion-web">
+                        <i class="bi bi-camera"></i>
+                        <h3>Entregas con prueba</h3>
+                        <p>Validación con QR o código, fotos de lo entregado y del comprobante de pago: efectivo, voucher o SINPE Móvil.</p>
+                    </article>
+                    <article class="funcion-web">
+                        <i class="bi bi-cash-stack"></i>
+                        <h3>Cobros y cierre de caja</h3>
+                        <p>Cobro contra entrega, verificación de SINPE y cierre de caja por piloto con faltantes, sobrantes y su motivo.</p>
+                    </article>
+                    <article class="funcion-web">
+                        <i class="bi bi-shop"></i>
+                        <h3>Distribuidoras</h3>
+                        <p>Productos con precios e IVA, bodega del día por ruta, venta en ruta, entregas parciales y devoluciones.</p>
+                    </article>
+                    <article class="funcion-web">
+                        <i class="bi bi-car-front"></i>
+                        <h3>Transporte de personas</h3>
+                        <p>Viajes programados con vehículo y conductor, franjas de precio, costos por vehículo y reportes.</p>
+                    </article>
+                </div>
+
+                <div class="faq-web">
+                    <h2>Preguntas frecuentes</h2>
+                    <details>
+                        <summary>¿Qué es ACACHETE Logistics?</summary>
+                        <p>Es un software de logística en la nube para controlar pedidos, pilotos, rutas, entregas y cobros desde
+                        el navegador o el celular, con la marca de su empresa.</p>
+                    </details>
+                    <details>
+                        <summary>¿Para qué tipo de empresas sirve?</summary>
+                        <p>Para distribuidoras, supermercados, farmacias, ferreterías y comercios con reparto, mensajerías y
+                        couriers, y empresas de transporte de personas en Costa Rica.</p>
+                    </details>
+                    <details>
+                        <summary>¿Cómo se comprueba que el pedido se entregó?</summary>
+                        <p>El piloto valida la entrega con el QR o un código del pedido y toma fotos de lo entregado y del
+                        comprobante de pago: el efectivo, el voucher de la tarjeta o el comprobante de SINPE Móvil.</p>
+                    </details>
+                    <details>
+                        <summary>¿Cómo se controla el dinero que cobran los pilotos?</summary>
+                        <p>Cada piloto tiene su caja: el sistema suma lo cobrado en efectivo, SINPE y tarjeta, la tienda verifica
+                        los SINPE con su comprobante y al cerrar la caja queda registrado cualquier faltante o sobrante con su motivo.</p>
+                    </details>
+                    <details>
+                        <summary>¿Hay que instalar algo?</summary>
+                        <p>No. Funciona en el navegador de la computadora o del celular, sin instalar nada. Ofrecemos una
+                        demostración sin costo con el logo y los colores de su empresa.</p>
+                    </details>
                 </div>
             </div>
         </section>

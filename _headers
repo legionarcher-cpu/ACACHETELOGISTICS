@@ -1,0 +1,23 @@
+# Encabezados que agrega Cloudflare a cada archivo publicado (wrangler.jsonc).
+# X-Robots-Tag: noindex = que Google NO lo muestre en sus resultados.
+# La app y sus pantallas internas no son para buscadores (piden usuario y clave);
+# las ventanas de la web (web/paginas) son pedazos que se abren dentro de index.html.
+# Guía: docs/17-google.md
+
+/app
+  X-Robots-Tag: noindex, nofollow
+
+/app.html
+  X-Robots-Tag: noindex, nofollow
+
+/secciones/*
+  X-Robots-Tag: noindex, nofollow
+
+/web/paginas/*
+  X-Robots-Tag: noindex
+
+/empresas/*
+  X-Robots-Tag: noindex, nofollow
+
+/python/*
+  X-Robots-Tag: noindex, nofollow

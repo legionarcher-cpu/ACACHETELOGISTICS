@@ -1,0 +1,11 @@
+# robots.txt · https://acachetelogistics.com
+# Los buscadores (Google, Bing...) pueden revisar todo el sitio.
+# La app (app.html) y sus pantallas NO salen en los resultados: llevan "noindex"
+# (archivo _headers y <meta name="robots"> de app.html). No se bloquean aquí a
+# propósito: si se bloquearan, Google no podría leer ese "noindex".
+# Guía: docs/17-google.md
+
+User-agent: *
+Allow: /
+
+Sitemap: https://acachetelogistics.com/sitemap.xml

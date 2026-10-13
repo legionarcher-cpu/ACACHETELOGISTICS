@@ -1037,3 +1037,92 @@ h1, h2, h3, h4 {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
     html { scroll-behavior: auto; }
 }
+
+
+/* ==================================================
+   QUÉ HACE EL SOFTWARE + PREGUNTAS FRECUENTES (index.html, #software-logistica)
+   Texto que leen los buscadores (Google no abre las ventanas)
+   ================================================== */
+.funciones-web {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+}
+.funcion-web {
+    padding: 1.4rem 1.4rem 1.25rem;
+    background: var(--web-fondo);
+    border: 1px solid var(--web-borde);
+    border-radius: var(--web-radio-grande);
+}
+.funcion-web i {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    margin-bottom: 0.75rem;
+    border-radius: var(--web-radio);
+    background: var(--web-naranja-claro);
+    color: var(--web-naranja);
+    font-size: 1.25rem;
+}
+.funcion-web h3 {
+    margin: 0 0 0.4rem;
+    font-size: 1.05rem;
+    color: var(--web-azul-marino);
+}
+.funcion-web p {
+    margin: 0;
+    color: var(--web-gris);
+    font-size: 0.95rem;
+    line-height: 1.55;
+}
+
+.faq-web {
+    max-width: 48rem;
+    margin: 3rem auto 0;
+}
+.faq-web h2 {
+    text-align: center;
+    font-size: clamp(1.4rem, 2.6vw, 1.9rem);
+    margin: 0 0 1.25rem;
+}
+.faq-web details {
+    border: 1px solid var(--web-borde);
+    border-radius: var(--web-radio);
+    background: var(--web-blanco);
+    margin-bottom: 0.75rem;
+}
+.faq-web summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--web-texto);
+    list-style: none;
+}
+.faq-web summary::-webkit-details-marker { display: none; }
+.faq-web summary::after {
+    content: "+";
+    flex: none;
+    font-size: 1.4rem;
+    line-height: 1;
+    color: var(--web-naranja);
+}
+.faq-web details[open] summary::after { content: "−"; }
+.faq-web details p {
+    margin: 0;
+    padding: 0 1.25rem 1.1rem;
+    color: var(--web-gris);
+    line-height: 1.6;
+}
+
+@media (max-width: 900px) {
+    .funciones-web { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 560px) {
+    .funciones-web { grid-template-columns: 1fr; }
+}

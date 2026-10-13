@@ -37,6 +37,7 @@ servidor propio.
 | 14 | [14-transporte.md](14-transporte.md) | Actividad Transporte (viajes, rol cliente, franjas, costos, cortesía): **hecho** (fases 1 a 7; seguridad parcial) |
 | 15 | [15-distribuidora.md](15-distribuidora.md) | Distribuidora: productos, precios con IVA, bodega del día por ruta, carga, entrega parcial, venta en ruta, devolución y cierres |
 | 16 | [16-modo-mixto.md](16-modo-mixto.md) | **Estatus** del modo mixto: nube + instalado en la PC, licencias y actualizaciones firmadas (diseño, sin código) |
+| 17 | [17-google.md](17-google.md) | Aparecer en Google: títulos, datos estructurados, robots.txt, sitemap.xml, `_headers` y Search Console |
 
 ### Guías por sección (carpeta `secciones/`)
 
