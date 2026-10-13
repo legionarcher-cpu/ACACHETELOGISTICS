@@ -1,4 +1,4 @@
--- 10 de 10 · sql/01_actualizacion_base_existente.sql · Artículos de venta: unidad y costo de cada presentación (bloques 32 a 32).
+-- 10 de 11 · sql/01_actualizacion_base_existente.sql · Artículos de venta: unidad y costo de cada presentación (bloques 32 a 32).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -20,3 +20,6 @@ alter table public.producto_presentaciones drop constraint if exists presentacio
 alter table public.producto_presentaciones add constraint presentaciones_costo_valido check (costo is null or costo >= 0);
 
 notify pgrst, 'reload schema';
+
+
+

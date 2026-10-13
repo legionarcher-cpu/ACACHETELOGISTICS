@@ -2,6 +2,21 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · QR del piloto: "Validar y marcar" en un solo paso
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 33** (=
+`sql/por_funcion/01_actualizacion_11_qr_validar_y_marcar.sql`; instalación nueva: `sql/00`, sección 26).
+
+- La tienda escanea "Mi QR del día" del piloto: sale su ficha (foto, nombre, tienda y el horario que puede marcar,
+  a tiempo o tardío) con el botón **Validar y marcar**. Valida al piloto y marca su horario abierto en un solo paso
+  (`piloto_qr_info`, `validar_y_marcar_piloto`) y avisa a la tienda para despachar.
+- Marca tardía: en la misma ficha se escribe el motivo; sin motivo no se guarda nada (todo o nada).
+- Sin horario abierto, o si ya lo marcó: solo se valida y se dice por qué.
+- La marca queda con la tienda de quien escanea (si no tiene, la del piloto).
+- El QR de marcas de la tienda sigue funcionando igual (el piloto ya validado lo escanea para marcar).
+- Sin el bloque 33 la página solo valida, como antes.
+- `VERSION_APP` = `20261013h`.
+
 ## 2026-10-13 · Logos de empresa por número interno (no por ID)
 
 Sin SQL.

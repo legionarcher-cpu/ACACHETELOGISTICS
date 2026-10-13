@@ -1,4 +1,4 @@
--- 8 de 10 · sql/01_actualizacion_base_existente.sql · Carga con evidencia por pedido, salida a ruta por slot y caja por actividad (bloques 29 a 30).
+-- 8 de 11 · sql/01_actualizacion_base_existente.sql · Carga con evidencia por pedido, salida a ruta por slot y caja por actividad (bloques 29 a 30).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

@@ -1,4 +1,4 @@
--- 10 de 11 · sql/00_instalacion_completa.sql · Tiendas sin región (opcional) y usuarios sin región (jperez01) (secciones 24 a 24).
+-- 10 de 12 · sql/00_instalacion_completa.sql · Tiendas sin región (opcional) y usuarios sin región (jperez01) (secciones 24 a 24).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

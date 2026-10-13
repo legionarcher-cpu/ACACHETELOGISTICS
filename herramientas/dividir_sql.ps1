@@ -34,7 +34,8 @@ $GRUPOS = @{
         @{ nombre = 'tiendas_codigo_y_rutas'; bloques = 21..21; que = 'Código de tienda libre (sin región) y tiendas con o sin rutas' },
         @{ nombre = 'despacho_carga_y_salida'; bloques = 22..23; que = 'Carga con evidencia por pedido, salida a ruta por slot y caja por actividad' },
         @{ nombre = 'tiendas_region_opcional'; bloques = 24..24; que = 'Tiendas sin región (opcional) y usuarios sin región (jperez01)' },
-        @{ nombre = 'articulos_de_venta';    bloques = 25..25; que = 'Artículos de venta: unidad y costo de cada presentación' }
+        @{ nombre = 'articulos_de_venta';    bloques = 25..25; que = 'Artículos de venta: unidad y costo de cada presentación' },
+        @{ nombre = 'qr_validar_y_marcar';   bloques = 26..26; que = 'QR del piloto: validar y marcar en un solo paso' }
     )
     '01_actualizacion_base_existente' = @(
         @{ nombre = 'base_y_pedidos';        bloques = 0..15;  que = 'Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR' },
@@ -46,7 +47,8 @@ $GRUPOS = @{
         @{ nombre = 'tiendas_codigo_y_rutas'; bloques = 28..28; que = 'Código de tienda libre (sin región) y tiendas con o sin rutas' },
         @{ nombre = 'despacho_carga_y_salida'; bloques = 29..30; que = 'Carga con evidencia por pedido, salida a ruta por slot y caja por actividad' },
         @{ nombre = 'tiendas_region_opcional'; bloques = 31..31; que = 'Tiendas sin región (opcional) y usuarios sin región (jperez01)' },
-        @{ nombre = 'articulos_de_venta';    bloques = 32..32; que = 'Artículos de venta: unidad y costo de cada presentación' }
+        @{ nombre = 'articulos_de_venta';    bloques = 32..32; que = 'Artículos de venta: unidad y costo de cada presentación' },
+        @{ nombre = 'qr_validar_y_marcar';   bloques = 33..33; que = 'QR del piloto: validar y marcar en un solo paso' }
     )
 }
 

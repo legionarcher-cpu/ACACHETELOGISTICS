@@ -15,10 +15,13 @@
                                      (marcar_por_qr) + aviso a la tienda.
      ACACHETE-PILOTO:<token>          QR del día del piloto (qr_piloto_dia; lo da
                                      el G2 en Rutas y asignaciones y el piloto
-                                     lo ve en su Inicio). La TIENDA lo escanea al
-                                     empezar el día: sale su nombre y su foto y
-                                     queda validado (validar_piloto). Sin esa
-                                     validación el piloto no puede marcar.
+                                     lo ve en su Inicio). La TIENDA lo escanea:
+                                     sale su foto, su nombre y el horario que
+                                     puede marcar, con el botón "Validar y
+                                     marcar" (validar_y_marcar_piloto, sql/01
+                                     bloque 33): queda validado y marcado en un
+                                     solo paso. Sin validación el piloto no puede
+                                     marcar con el QR de la tienda.
 
    Funciones que usan las secciones:
      escanearQrGeneral()            -> botón "Escanear QR" del encabezado
@@ -324,7 +327,7 @@ function escanearQrGeneral() {
         titulo: 'Escanear QR',
         ayuda: piloto
             ? 'Escanea el QR de marcas de la tienda (para marcar tu llegada) o el QR de un pedido.'
-            : 'Escanea el QR del día de un piloto (para validarlo) o el QR de un pedido.',
+            : 'Escanea el QR del día de un piloto (para validarlo y marcar su llegada) o el QR de un pedido.',
         alLeer: qrLeerGeneral,
     });
 }
@@ -460,7 +463,7 @@ async function qrLeerMarca(texto, justificacion = null) {
     window.dispatchEvent(new CustomEvent('acachete:marca')); // Inicio recarga "Mis marcas de hoy"
     return {
         tipo: 'ok', cerrar: 2500,
-        mensaje: `✔ Horario ${m.numero} marcado a las ${hora}${m.a_tiempo ? '' : ' (marca tardía, justificada)'}. Se avisó a la tienda para despachar tus pedidos.`,
+        mensaje: `✔ Horario ${m.numero} marcado a las ${hora}${m.a_tiempo ? '' : ' (marca tardía, justificada)'} · Se avisó a la tienda para despachar tus pedidos.`,
     };
 }
 
@@ -532,9 +535,132 @@ async function qrAvisarLlegada(numero, tiendaQr, s, justificacion = null) {
 }
 
 // ---------- QR del día del PILOTO (lo escanea la tienda) ----------
+// Sale su ficha (foto, nombre, tienda y el horario que puede marcar ahora) con el botón
+// "Validar y marcar": valida al piloto Y marca su horario en un solo paso (sql/01
+// bloque 33: piloto_qr_info + validar_y_marcar_piloto). Marca tardía: se escribe el
+// motivo en la misma ficha. Sin el bloque 33: solo valida, como antes.
 async function qrLeerPiloto(token) {
-    const s = obtenerSesion() || {};
     if (rolActual() === 'piloto') return { tipo: 'error', mensaje: 'Este es un QR de piloto: lo escanea la tienda para validarlo.' };
+    const { data, error } = await db.rpc('piloto_qr_info', { p_token: token });
+    if (error && (error.code === 'PGRST202' || error.code === '42883')) return qrLeerPilotoSoloValidar(token);
+    if (error) {
+        console.error('Error al leer el QR del piloto:', error);
+        return {
+            tipo: 'error',
+            mensaje: error.code === 'P0001' ? error.message
+                : error.code === '22P02' ? 'Ese QR de piloto no es válido.' : 'No se pudo leer el QR. Revisa la conexión.',
+        };
+    }
+    const p = (data || [])[0];
+    if (!p) return { tipo: 'error', mensaje: 'No se encontró ese piloto.' };
+    const horaDe = (t) => (t ? String(t).slice(0, 5) : '');
+    const puedeMarcar = p.horario != null && !p.ya_marcado;
+
+    // Ficha: foto grande + nombre + tienda, para comparar con la persona
+    const ficha = document.createElement('div');
+    ficha.className = 'qr-ficha';
+    const foto = document.createElement('span');
+    foto.className = 'avatar avatar-grande';
+    if (typeof pintarAvatar === 'function') pintarAvatar(foto, p.nombre, p.foto_url); // js/avatar.js
+    ficha.appendChild(foto);
+    qrTexto(ficha, 'strong', p.nombre, 'qr-ficha-nombre');
+    if (p.tienda) qrTexto(ficha, 'span', p.tienda, 'qr-ficha-tienda');
+    if (p.validado_en) {
+        const h = new Date(p.validado_en).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
+        qrTexto(ficha, 'span', `Ya validado hoy (${h})`, 'etiqueta etiqueta-verde');
+    }
+    qrTexto(ficha, 'span', p.horario == null ? 'No hay un horario abierto para marcar ahora.'
+        : p.ya_marcado ? `Ya marcó el horario ${p.horario}.`
+        : p.tarde ? `Horario ${p.horario} · MARCA TARDÍA (la hora de inicio era ${horaDe(p.inicio_hasta)})`
+        : `Horario ${p.horario} · a tiempo`, `qr-ficha-horario${p.tarde ? ' qr-ficha-tarde' : ''}`);
+
+    // Ya validado y sin nada que marcar: solo se informa
+    if (p.validado_en && !puedeMarcar) {
+        return { tipo: 'ok', mensaje: 'El piloto ya está validado hoy y no tiene un horario por marcar ahora.', nodo: ficha };
+    }
+
+    // Motivo (solo marca tardía) y botón
+    const form = document.createElement('form');
+    form.className = 'qr-justificar';
+    form.noValidate = true;
+    const area = document.createElement('textarea');
+    const campoMotivo = document.createElement('div');
+    campoMotivo.className = 'campo';
+    campoMotivo.hidden = !p.tarde;
+    const etiqueta = document.createElement('label');
+    etiqueta.className = 'campo-etiqueta';
+    etiqueta.textContent = 'Motivo de la marca tardía *';
+    area.className = 'campo-input';
+    area.rows = 2;
+    area.maxLength = 200;
+    area.placeholder = 'Ej. tráfico en la ruta 1, falla del vehículo...';
+    etiqueta.htmlFor = area.id = 'qrJustificacionPiloto';
+    campoMotivo.append(etiqueta, area);
+    const boton = document.createElement('button');
+    boton.type = 'submit';
+    boton.className = 'boton boton-principal';
+    boton.innerHTML = `<i class="bi bi-check2-circle"></i> <span>${puedeMarcar ? 'Validar y marcar' : 'Validar'}</span>`;
+    form.append(campoMotivo, boton);
+    ficha.appendChild(form);
+
+    form.addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        const motivo = area.value.trim();
+        if (!campoMotivo.hidden && motivo.length < 5) {
+            qrEstado('Escribe el motivo de la marca tardía (al menos 5 letras).', 'error');
+            area.focus();
+            return;
+        }
+        boton.disabled = true;
+        const r = await qrValidarYMarcar(token, motivo || null);
+        boton.disabled = false;
+        if (r.justificar) {
+            campoMotivo.hidden = false;
+            qrEstado(r.mensaje, 'error');
+            area.focus();
+            return;
+        }
+        qrEstado(r.mensaje, r.tipo);
+        if (r.tipo === 'ok') {
+            form.hidden = true;
+            if (navigator.vibrate) navigator.vibrate(120);
+            setTimeout(() => { const d = document.getElementById('qrLectorDialogo'); if (d && d.open) d.close(); }, 3500);
+        }
+    });
+
+    return {
+        tipo: 'ok',
+        mensaje: `Compara la foto con la persona y presiona "${puedeMarcar ? 'Validar y marcar' : 'Validar'}".`,
+        nodo: ficha,
+    };
+}
+
+// Valida al piloto y marca su horario abierto (todo o nada). Avisa a la tienda para despachar.
+async function qrValidarYMarcar(token, justificacion) {
+    const s = obtenerSesion() || {};
+    const { data, error } = await db.rpc('validar_y_marcar_piloto', { p_token: token, p_usuario: s.id || null, p_justificacion: justificacion });
+    if (error) {
+        console.error('Error al validar y marcar:', error);
+        if (error.code === 'P0001' && error.message.startsWith('JUSTIFICAR:')) {
+            return { tipo: 'error', justificar: true, mensaje: error.message.slice('JUSTIFICAR:'.length) };
+        }
+        return { tipo: 'error', mensaje: error.code === 'P0001' ? error.message : 'No se pudo validar. Revisa la conexión.' };
+    }
+    const m = (data || [])[0];
+    if (!m) return { tipo: 'error', mensaje: 'No se pudo validar.' };
+    if (m.numero == null) return { tipo: 'ok', mensaje: `✔ ${m.nombre} validado. ${m.nota || ''}`.trim() };
+    const hora = new Date(m.marcado_en).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
+    await qrAvisarLlegada(m.numero, m.tienda_id, { id: m.piloto_id, nombre: m.nombre }, m.a_tiempo ? null : m.justificacion);
+    window.dispatchEvent(new CustomEvent('acachete:marca'));
+    return {
+        tipo: 'ok',
+        mensaje: `✔ ${m.nombre} validado y marcado: horario ${m.numero} a las ${hora}${m.a_tiempo ? '' : ' (marca tardía)'} · Se avisó a la tienda para despachar sus pedidos.`,
+    };
+}
+
+// Sin el bloque 33 de sql/01: solo valida (el piloto marca con el QR de la tienda)
+async function qrLeerPilotoSoloValidar(token) {
+    const s = obtenerSesion() || {};
     const { data, error } = await db.rpc('validar_piloto', { p_token: token, p_usuario: s.id || null });
     if (error) {
         console.error('Error al validar piloto:', error);

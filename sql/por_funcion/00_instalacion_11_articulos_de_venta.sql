@@ -1,4 +1,4 @@
--- 11 de 11 · sql/00_instalacion_completa.sql · Artículos de venta: unidad y costo de cada presentación (secciones 25 a 25).
+-- 11 de 12 · sql/00_instalacion_completa.sql · Artículos de venta: unidad y costo de cada presentación (secciones 25 a 25).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -20,3 +20,6 @@ alter table public.producto_presentaciones drop constraint if exists presentacio
 alter table public.producto_presentaciones add constraint presentaciones_costo_valido check (costo is null or costo >= 0);
 
 notify pgrst, 'reload schema';
+
+
+

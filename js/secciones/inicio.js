@@ -1097,10 +1097,11 @@ registrarSeccion('inicio', (zona) => {
     // ==================================================
     // MIS MARCAS DE HOY (solo el PILOTO)
     //   Las marcas del día salen de marcas_del_dia (Configuración -> Horarios).
-    //   SE MARCA CON QR (js/qr.js): al llegar, el piloto escanea el QR de marcas de la
-    //   tienda (cambia cada mes) y la base marca sola el horario abierto (marcar_por_qr,
-    //   hora de Costa Rica) y avisa a la tienda para despachar. Antes, la tienda debe
-    //   haberlo VALIDADO hoy con su "Mi QR del día" (nombre y foto).
+    //   SE MARCA CON QR (js/qr.js), de dos formas:
+    //   - La tienda escanea "Mi QR del día" del piloto y presiona "Validar y marcar":
+    //     valida y marca el horario abierto en un solo paso (sql/01 bloque 33).
+    //   - O el piloto (ya validado hoy) escanea el QR de marcas de la tienda (cambia cada
+    //     mes, marcar_por_qr). En los dos se usa la hora de Costa Rica y se avisa a la tienda.
     //   El piloto ve solo "HORA INICIO" (inicio_hasta) y "TERMINA" (fin); "inicia desde"
     //   (desde cuándo se puede marcar) solo lo ven G2 o superior.
     //   Se redibuja cada 30 s y se recarga al marcar (evento "acachete:marca").
@@ -1131,10 +1132,10 @@ registrarSeccion('inicio', (zona) => {
             linea.textContent = 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 14: QR).';
             linea.className = 'ini-validacion pendiente';
         } else if (val.data && val.data.validado_en) {
-            linea.textContent = `✔ La tienda te validó hoy a las ${new Date(val.data.validado_en).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}. Ya puedes marcar.`;
+            linea.textContent = `✔ La tienda te validó hoy a las ${new Date(val.data.validado_en).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}. Para tus otros horarios, muestra "Mi QR del día" en la tienda (o escanea su QR de marcas).`;
             linea.className = 'ini-validacion hecha';
         } else {
-            linea.textContent = 'Primero muestra "Mi QR del día" en la tienda para que te validen; después podrás marcar.';
+            linea.textContent = 'Al llegar, muestra "Mi QR del día" en la tienda: con "Validar y marcar" quedas validado y marcado.';
             linea.className = 'ini-validacion pendiente';
         }
         if (mar.error) {

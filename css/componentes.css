@@ -1163,6 +1163,21 @@ html:not([data-rol="desarrollador"]) [data-solo-desarrollador] {
     color: var(--color-gris);
 }
 
+/* Horario que se marcará al validar (QR del piloto, js/qr.js) */
+.qr-ficha-horario {
+    font-weight: 600;
+    color: var(--color-texto);
+}
+
+.qr-ficha-tarde {
+    color: var(--color-naranja-oscuro);
+}
+
+.qr-ficha .qr-justificar {
+    align-self: stretch;
+    text-align: left;
+}
+
 /* Marca tardía: "¿Por qué llegas tarde?" dentro del lector */
 .qr-justificar {
     display: flex;

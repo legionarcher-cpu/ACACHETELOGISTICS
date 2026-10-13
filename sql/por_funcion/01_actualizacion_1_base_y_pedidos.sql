@@ -1,4 +1,4 @@
--- 1 de 10 · sql/01_actualizacion_base_existente.sql · Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR (bloques 0 a 15).
+-- 1 de 11 · sql/01_actualizacion_base_existente.sql · Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR (bloques 0 a 15).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -69,6 +69,7 @@
 --  30. Caja de pilotos como parte de cada actividad (actividades.usa_caja).
 --  31. Tiendas: la región es opcional y los usuarios ya no llevan la región (jperez01).
 --  32. Artículos de venta: unidad de medida y costo de cada presentación.
+--  33. QR del piloto: la tienda lo escanea y con "Validar y marcar" valida y marca su horario.
 -- ==================================================
 
 
