@@ -13,6 +13,11 @@
                                      Tiendas. El PILOTO lo escanea al llegar y
                                      se marca solo el horario abierto
                                      (marcar_por_qr) + aviso a la tienda.
+     ACACHETE-TIENDA:<tienda>:<código> QR FIJO de la tienda (qr_tienda_fija, sql/01
+                                     bloque 34): siempre en el Inicio de la tienda,
+                                     se imprime una vez. El PILOTO lo escanea y se
+                                     marca solo con la hora del sistema, sin
+                                     validación previa (marcar_por_qr_fijo).
      ACACHETE-PILOTO:<token>          QR del día del piloto (qr_piloto_dia; lo da
                                      el G2 en Rutas y asignaciones y el piloto
                                      lo ve en su Inicio). La TIENDA lo escanea:
@@ -36,7 +41,7 @@
 
 const QR_LIB_DIBUJAR = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
 const QR_LIB_LEER = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-const QR_PREFIJO = { pedido: 'ACACHETE-PEDIDO:', marca: 'ACACHETE-MARCA:', piloto: 'ACACHETE-PILOTO:' };
+const QR_PREFIJO = { pedido: 'ACACHETE-PEDIDO:', marca: 'ACACHETE-MARCA:', tienda: 'ACACHETE-TIENDA:', piloto: 'ACACHETE-PILOTO:' };
 
 // Texto y color de cada estado del pedido (los mismos de js/secciones/pedidos.js)
 const QR_ESTADOS = {
@@ -334,7 +339,7 @@ function escanearQrGeneral() {
 
 async function qrLeerGeneral(texto) {
     if (texto.startsWith(QR_PREFIJO.pedido)) return qrLeerPedido(texto.slice(QR_PREFIJO.pedido.length));
-    if (texto.startsWith(QR_PREFIJO.marca)) return qrLeerMarca(texto);
+    if (texto.startsWith(QR_PREFIJO.marca) || texto.startsWith(QR_PREFIJO.tienda)) return qrLeerMarca(texto);
     if (texto.startsWith(QR_PREFIJO.piloto)) return qrLeerPiloto(texto.slice(QR_PREFIJO.piloto.length));
     return { tipo: 'error', mensaje: 'Ese QR no es del sistema.' };
 }
@@ -443,7 +448,10 @@ async function mostrarPedidoQr(pedidoId) {
 async function qrLeerMarca(texto, justificacion = null) {
     const s = obtenerSesion() || {};
     if (rolActual() !== 'piloto') return { tipo: 'error', mensaje: 'Este es el QR de marcas de la tienda: lo escanean los pilotos al llegar.' };
-    const { data, error } = await db.rpc('marcar_por_qr', { p_piloto: s.id || 0, p_qr: texto, p_justificacion: justificacion });
+    // QR FIJO de la tienda (su Inicio, sql/01 bloque 34): marca con la hora del sistema, sin validación previa.
+    // QR del MES (Tiendas): el piloto debe estar validado hoy.
+    const fijo = texto.startsWith(QR_PREFIJO.tienda);
+    const { data, error } = await db.rpc(fijo ? 'marcar_por_qr_fijo' : 'marcar_por_qr', { p_piloto: s.id || 0, p_qr: texto, p_justificacion: justificacion });
     if (error) {
         console.error('Error al marcar con QR:', error);
         if (error.code === 'P0001' && error.message.startsWith('JUSTIFICAR:')) {
@@ -452,7 +460,7 @@ async function qrLeerMarca(texto, justificacion = null) {
         return {
             tipo: 'error',
             mensaje: error.code === 'P0001' ? error.message
-                : error.code === 'PGRST202' || error.code === '42883' ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloques 14 y 15: QR y marca tardía).'
+                : error.code === 'PGRST202' || error.code === '42883' ? (fijo ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 34: QR fijo de la tienda).' : 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloques 14 y 15: QR y marca tardía).')
                     : 'No se pudo marcar. Revisa la conexión.',
         };
     }

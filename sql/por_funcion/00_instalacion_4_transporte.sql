@@ -1,4 +1,4 @@
--- 4 de 12 · sql/00_instalacion_completa.sql · Viajes, rol cliente, franjas, costos y cortesía (secciones 13 a 13).
+-- 4 de 13 · sql/00_instalacion_completa.sql · Viajes, rol cliente, franjas, costos y cortesía (secciones 13 a 13).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

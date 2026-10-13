@@ -77,6 +77,37 @@
         </section>
     </div>
 
+    <!-- TODOS MENOS EL PILOTO: QR FIJO de la tienda (sql/01 bloque 34). No cambia: se imprime una
+         vez y se deja visible. El piloto lo escanea y se marca solo con la hora del sistema.
+         G3 y Empleado: el de su tienda. Administrador, G1 y G2: eligen la tienda. Lo arma inicio.js -->
+    <section id="iniQrTienda" class="tarjeta ini-tarjeta ini-qr-tienda" aria-labelledby="iniQrTiendaTitulo" hidden>
+        <div class="ini-tarjeta-cabecera">
+            <div>
+                <h3 id="iniQrTiendaTitulo" class="ini-tarjeta-titulo"><i class="bi bi-qr-code"></i> QR de marcas de la tienda</h3>
+                <p class="ini-tarjeta-nota">
+                    Imprímelo y déjalo visible. El piloto lo escanea al llegar y su horario se marca solo,
+                    con la fecha y la hora del sistema. No cambia.
+                </p>
+            </div>
+            <select id="iniQrTiendaSel" class="campo-input filtro" aria-label="Tienda del QR" hidden></select>
+        </div>
+        <div class="ini-qr-tienda-cuerpo">
+            <canvas id="iniQrTiendaLienzo" class="ini-qr-tienda-lienzo" aria-label="QR de marcas de la tienda"></canvas>
+            <div class="ini-qr-tienda-lado">
+                <strong id="iniQrTiendaNombre"></strong>
+                <p id="iniQrTiendaAviso" class="aviso" role="status"></p>
+                <div class="ini-marcas-botones">
+                    <button type="button" id="iniQrTiendaImprimir" class="boton boton-principal boton-chico">
+                        <i class="bi bi-printer"></i> <span>Ver, descargar o imprimir</span>
+                    </button>
+                    <button type="button" id="iniQrTiendaNuevo" class="boton boton-secundario boton-chico" hidden>
+                        <i class="bi bi-arrow-repeat"></i> <span>Generar uno nuevo</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- MAPA (todos): entregas de hoy (punto B de cada pedido, de color según su estado),
          las tiendas y la lista de pilotos de hoy. Gratis: Leaflet + OpenStreetMap (INI_MAPA).
          Filtros de región y tienda según el rol. -->

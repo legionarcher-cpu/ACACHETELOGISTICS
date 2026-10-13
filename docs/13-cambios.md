@@ -2,6 +2,21 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · QR fijo de la tienda (marca automática)
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 34** (=
+`sql/por_funcion/01_actualizacion_12_qr_fijo_tienda.sql`; instalación nueva: `sql/00`, sección 27).
+
+- Cada tienda tiene un **QR fijo** (`qr_tienda_fija`, tabla `qr_tiendas_fijo`) que no cambia cada mes. Se ve
+  siempre en el **Inicio** (G3 y Empleado: su tienda; Administrador, G1 y G2: eligen la tienda) con
+  "Ver, descargar o imprimir". El botón QR de Tiendas también muestra este.
+- El piloto lo escanea ("Escanear QR") y su horario abierto se **marca solo con la fecha y la hora del sistema**
+  (hora de Costa Rica), **sin validación previa** (`marcar_por_qr_fijo`). Marca tardía: pide el motivo. Se avisa
+  a la tienda para despachar.
+- **Generar uno nuevo** (Administrador, G1 y G3): el impreso deja de servir (por si se copió o se perdió).
+- El QR del mes y "Validar y marcar" con el QR del piloto siguen funcionando.
+- `VERSION_APP` = `20261013i`.
+
 ## 2026-10-13 · QR del piloto: "Validar y marcar" en un solo paso
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 33** (=

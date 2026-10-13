@@ -30,6 +30,7 @@
 --   24. Tiendas: la región es opcional y los usuarios no llevan la región
 --   25. Artículos de venta: unidad y costo de cada presentación
 --   26. QR del piloto: validar y marcar en un solo paso
+--   27. QR fijo de la tienda: el piloto lo escanea y se marca solo
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:
@@ -5216,5 +5217,117 @@ $$;
 grant execute on function public.piloto_qr_info(uuid) to anon;
 grant execute on function public.validar_y_marcar_piloto(uuid, bigint, text) to anon;
 revoke execute on function public.piloto_horario_abierto(bigint) from anon, public;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 27. QR FIJO DE LA TIENDA: EL PILOTO LO ESCANEA Y SE MARCA SOLO (sql/01 bloque 34)
+--   Cada tienda tiene un QR FIJO ("ACACHETE-TIENDA:<tienda>:<código>") que no cambia
+--   cada mes: se ve siempre en el Inicio de la tienda y se imprime una vez. El piloto
+--   lo escanea y la base marca SOLA su horario abierto con la fecha y la hora del
+--   sistema (hora de Costa Rica), SIN validación previa. Marca tardía: pide el motivo.
+--   - qr_tienda_fija(tienda, nuevo): devuelve el QR; nuevo = true genera otro código
+--     (el impreso deja de servir; por si se copió o se perdió).
+--   - marcar_por_qr_fijo(piloto, qr, justificacion): la marca.
+--   El QR del mes (qr_marca_mes / marcar_por_qr) sigue funcionando como antes.
+--   Se puede repetir.
+-- ==================================================
+
+create table if not exists public.qr_tiendas_fijo (
+    tienda_id  bigint primary key references public.tiendas(id) on delete cascade,
+    codigo     text not null,
+    creado_en  timestamptz not null default now()
+);
+alter table public.qr_tiendas_fijo enable row level security; -- sin acceso directo: solo por las funciones
+
+create or replace function public.qr_tienda_fija(p_tienda bigint, p_nuevo boolean default false)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_codigo text;
+begin
+    if not exists (select 1 from public.tiendas t where t.id = p_tienda) then
+        raise exception 'La tienda no existe.' using errcode = 'P0001';
+    end if;
+    if p_nuevo then
+        delete from public.qr_tiendas_fijo where tienda_id = p_tienda;
+    end if;
+    select codigo into v_codigo from public.qr_tiendas_fijo where tienda_id = p_tienda;
+    if v_codigo is null then
+        insert into public.qr_tiendas_fijo (tienda_id, codigo)
+        values (p_tienda, substr(md5(random()::text || clock_timestamp()::text || p_tienda::text), 1, 20))
+        on conflict (tienda_id) do nothing;
+        select codigo into v_codigo from public.qr_tiendas_fijo where tienda_id = p_tienda;
+    end if;
+    return 'ACACHETE-TIENDA:' || p_tienda || ':' || v_codigo;
+end;
+$$;
+
+create or replace function public.marcar_por_qr_fijo(p_piloto bigint, p_qr text, p_justificacion text default null)
+returns table (numero smallint, marcado_en timestamptz, a_tiempo boolean, tienda_id bigint, justificacion text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+    v_ahora   timestamp := public.ahora_local();
+    v_hoy     date := v_ahora::date;
+    v_hora    time := v_ahora::time;
+    v_partes  text[] := string_to_array(coalesce(p_qr, ''), ':');
+    v_tienda  bigint;
+    v_proxima time;
+    m         record;
+begin
+    if coalesce(array_length(v_partes, 1), 0) <> 3 or v_partes[1] <> 'ACACHETE-TIENDA' or v_partes[2] !~ '^[0-9]+$' then
+        raise exception 'Ese no es un QR de tienda.' using errcode = 'P0001';
+    end if;
+    v_tienda := v_partes[2]::bigint;
+    if not exists (select 1 from public.qr_tiendas_fijo q where q.tienda_id = v_tienda and q.codigo = v_partes[3]) then
+        raise exception 'Este QR de la tienda ya no sirve (se generó uno nuevo). Escanea el que está en la tienda.' using errcode = 'P0001';
+    end if;
+    if not exists (select 1 from public.usuarios u where u.id = p_piloto and u.rol = 'piloto') then
+        raise exception 'Solo los pilotos marcan con este QR.' using errcode = 'P0001';
+    end if;
+
+    delete from public.marcas_piloto mp where mp.fecha < date_trunc('month', v_ahora)::date;
+
+    select x.* into m from public.marcas_del_dia(v_hoy) x
+     where v_hora between x.inicio_desde and x.fin
+       and not exists (select 1 from public.marcas_piloto mp
+                        where mp.piloto_id = p_piloto and mp.fecha = v_hoy and mp.numero = x.numero)
+     order by x.numero
+     limit 1;
+    if not found then
+        select min(x.inicio_hasta) into v_proxima from public.marcas_del_dia(v_hoy) x where x.inicio_desde > v_hora;
+        raise exception '%', case when v_proxima is null
+            then 'No hay ningún horario abierto para marcar ahora (o ya lo marcaste).'
+            else 'Todavía no se puede marcar: el próximo horario tiene hora de inicio ' || to_char(v_proxima, 'HH24:MI') || '.' end
+            using errcode = 'P0001';
+    end if;
+
+    if v_hora > m.inicio_hasta and coalesce(btrim(p_justificacion), '') = '' then
+        raise exception 'JUSTIFICAR:Horario % · la hora de inicio era %. Es una marca tardía: escribe por qué.',
+            m.numero, to_char(m.inicio_hasta, 'HH24:MI') using errcode = 'P0001';
+    end if;
+
+    insert into public.marcas_piloto (piloto_id, fecha, numero, a_tiempo, justificacion)
+    values (p_piloto, v_hoy, m.numero, v_hora <= m.inicio_hasta,
+            case when v_hora > m.inicio_hasta then left(btrim(p_justificacion), 200) end);
+
+    return query
+        select mp.numero, mp.marcado_en, mp.a_tiempo, v_tienda, mp.justificacion
+          from public.marcas_piloto mp
+         where mp.piloto_id = p_piloto and mp.fecha = v_hoy and mp.numero = m.numero;
+end;
+$$;
+
+grant execute on function public.qr_tienda_fija(bigint, boolean) to anon;
+grant execute on function public.marcar_por_qr_fijo(bigint, text, text) to anon;
 
 notify pgrst, 'reload schema';

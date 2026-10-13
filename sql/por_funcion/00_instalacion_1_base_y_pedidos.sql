@@ -1,4 +1,4 @@
--- 1 de 12 · sql/00_instalacion_completa.sql · Regiones, tiendas, vehículos, usuarios, clientes, configuración, horarios, actividades, rutas, pedidos (secciones 1 a 9).
+-- 1 de 13 · sql/00_instalacion_completa.sql · Regiones, tiendas, vehículos, usuarios, clientes, configuración, horarios, actividades, rutas, pedidos (secciones 1 a 9).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -34,6 +34,7 @@
 --   24. Tiendas: la región es opcional y los usuarios no llevan la región
 --   25. Artículos de venta: unidad y costo de cada presentación
 --   26. QR del piloto: validar y marcar en un solo paso
+--   27. QR fijo de la tienda: el piloto lo escanea y se marca solo
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:

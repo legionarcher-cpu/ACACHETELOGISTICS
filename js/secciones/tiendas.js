@@ -299,9 +299,23 @@ registrarSeccion('tiendas', (zona) => {
         if (boton.dataset.accion === 'eliminar' && admin) pedirConfirmacion(tienda);
     });
 
-    // QR de marcas del mes de una tienda (sql: qr_marca_mes). Cambia solo el día 1 de cada mes:
-    // el del mes anterior deja de servir. Los pilotos lo escanean al llegar ("Escanear QR")
+    // QR de marcas de una tienda: el FIJO (qr_tienda_fija, sql/01 bloque 34; el mismo del Inicio
+    // de la tienda): no cambia y el piloto se marca solo al escanearlo. Sin el bloque 34, el del
+    // mes (qr_marca_mes): cambia el día 1 y el piloto debe estar validado.
     async function mostrarQrMarcas(t) {
+        const fijo = await db.rpc('qr_tienda_fija', { p_tienda: t.id, p_nuevo: false });
+        if (!fijo.error) {
+            mostrarQrEnVentana({ // js/qr.js
+                titulo: `QR de marcas · ${t.codigo}`,
+                subtitulo: t.nombre,
+                texto: fijo.data,
+                nota: 'Imprímelo y déjalo visible en la tienda. No cambia: el piloto lo escanea al llegar y su horario ' +
+                    'se marca solo con la fecha y la hora del sistema. (Para cambiarlo: Inicio de la tienda → "Generar uno nuevo".)',
+                archivo: `qr-tienda-${t.codigo}`,
+            });
+            return;
+        }
+        if (!['PGRST202', '42883'].includes(fijo.error.code)) console.error('Error al obtener el QR fijo:', fijo.error);
         const { data, error } = await db.rpc('qr_marca_mes', { p_tienda: t.id });
         if (error) {
             console.error('Error al obtener el QR de marcas:', error);

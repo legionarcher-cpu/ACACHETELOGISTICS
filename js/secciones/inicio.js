@@ -1100,8 +1100,9 @@ registrarSeccion('inicio', (zona) => {
     //   SE MARCA CON QR (js/qr.js), de dos formas:
     //   - La tienda escanea "Mi QR del día" del piloto y presiona "Validar y marcar":
     //     valida y marca el horario abierto en un solo paso (sql/01 bloque 33).
-    //   - O el piloto (ya validado hoy) escanea el QR de marcas de la tienda (cambia cada
-    //     mes, marcar_por_qr). En los dos se usa la hora de Costa Rica y se avisa a la tienda.
+    //   - O el piloto escanea el QR FIJO de la tienda (su Inicio, bloque 34): se marca solo,
+    //     sin validación previa (marcar_por_qr_fijo). El QR del mes (Tiendas) también sirve si ya
+    //     está validado (marcar_por_qr). Siempre hora de Costa Rica y aviso a la tienda.
     //   El piloto ve solo "HORA INICIO" (inicio_hasta) y "TERMINA" (fin); "inicia desde"
     //   (desde cuándo se puede marcar) solo lo ven G2 o superior.
     //   Se redibuja cada 30 s y se recarga al marcar (evento "acachete:marca").
@@ -1132,10 +1133,10 @@ registrarSeccion('inicio', (zona) => {
             linea.textContent = 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 14: QR).';
             linea.className = 'ini-validacion pendiente';
         } else if (val.data && val.data.validado_en) {
-            linea.textContent = `✔ La tienda te validó hoy a las ${new Date(val.data.validado_en).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}. Para tus otros horarios, muestra "Mi QR del día" en la tienda (o escanea su QR de marcas).`;
+            linea.textContent = `✔ La tienda te validó hoy a las ${new Date(val.data.validado_en).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}. Para marcar, escanea el QR de la tienda o muestra "Mi QR del día".`;
             linea.className = 'ini-validacion hecha';
         } else {
-            linea.textContent = 'Al llegar, muestra "Mi QR del día" en la tienda: con "Validar y marcar" quedas validado y marcado.';
+            linea.textContent = 'Al llegar, escanea el QR de la tienda (se marca solo) o muestra "Mi QR del día" para que te validen y marquen.';
             linea.className = 'ini-validacion pendiente';
         }
         if (mar.error) {
@@ -1209,7 +1210,7 @@ registrarSeccion('inicio', (zona) => {
     // qrLeerMarca -> marcar_por_qr + qrAvisarLlegada). Al terminar, qr.js lanza "acachete:marca".
     $('#iniEscanearMarca').addEventListener('click', () => abrirLectorQr({
         titulo: 'Marcar llegada',
-        ayuda: 'Escanea el QR de marcas que está en la tienda.',
+        ayuda: 'Escanea el QR de marcas que está en la tienda: tu horario se marca solo con la hora del sistema.',
         alLeer: qrLeerGeneral,
     }));
 
@@ -1230,6 +1231,72 @@ registrarSeccion('inicio', (zona) => {
             nota: 'Muéstralo en la tienda al empezar el día: lo escanean y confirman su foto. Solo sirve hoy.',
             archivo: `mi-qr-${hoy}`,
         });
+    });
+
+    // ==================================================
+    // QR FIJO DE LA TIENDA (todos menos el piloto; sql/01 bloque 34)
+    //   No cambia: se imprime una vez. El piloto lo escanea y se marca solo con la hora
+    //   del sistema (js/qr.js -> marcar_por_qr_fijo). "Generar uno nuevo" invalida el
+    //   impreso (Administrador, G1 y G3).
+    // ==================================================
+
+    const avisoQrTienda = crearAviso($('#iniQrTiendaAviso'), 6000);
+    let qrTiendaTexto = '';
+    const tiendaDelQr = () => Number($('#iniQrTiendaSel').value) || tiendaActual() || null;
+
+    async function pintarQrTienda(nuevo = false) {
+        const id = tiendaDelQr();
+        const t = tiendas.find((x) => x.id === id);
+        $('#iniQrTiendaNombre').textContent = t ? `${t.codigo} · ${t.nombre}` : '';
+        qrTiendaTexto = '';
+        if (!id) return;
+        const { data, error } = await db.rpc('qr_tienda_fija', { p_tienda: id, p_nuevo: nuevo });
+        if (!activa) return;
+        if (error) {
+            console.error('Error al obtener el QR de la tienda:', error);
+            avisoQrTienda.mostrar(error.code === 'PGRST202' || error.code === '42883'
+                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 34: QR fijo de la tienda).'
+                : 'No se pudo obtener el QR de la tienda.', 'error');
+            return;
+        }
+        qrTiendaTexto = data;
+        try {
+            await qrDibujar($('#iniQrTiendaLienzo'), data, 220); // js/qr.js
+        } catch (e) {
+            console.error(e);
+            avisoQrTienda.mostrar('No se pudo dibujar el QR (revisa la conexión a internet).', 'error');
+        }
+        if (nuevo) avisoQrTienda.mostrar('QR nuevo generado: imprímelo y cambia el que estaba en la tienda (ese ya no sirve).');
+    }
+
+    function prepararQrTienda() {
+        if (esPiloto || typeof qrDibujar !== 'function') return;
+        const propias = (esG3 || esEmpleado) ? tiendas.filter((t) => t.id === tiendaActual()) : tiendas;
+        if (!propias.length) return;
+        const sel = $('#iniQrTiendaSel');
+        sel.replaceChildren(...propias.map((t) => new Option(`${t.codigo} · ${t.nombre}`, t.id)));
+        sel.hidden = propias.length <= 1;
+        $('#iniQrTiendaNuevo').hidden = !(esGeneral || esG3);
+        $('#iniQrTienda').hidden = false;
+        pintarQrTienda();
+    }
+
+    $('#iniQrTiendaSel').addEventListener('change', () => pintarQrTienda());
+    $('#iniQrTiendaImprimir').addEventListener('click', () => {
+        if (!qrTiendaTexto) return;
+        const t = tiendas.find((x) => x.id === tiendaDelQr()) || {};
+        mostrarQrEnVentana({ // js/qr.js
+            titulo: 'QR de marcas',
+            subtitulo: t.codigo ? `${t.codigo} · ${t.nombre}` : '',
+            texto: qrTiendaTexto,
+            nota: 'Piloto: escanéalo al llegar con "Escanear QR". Tu horario se marca solo con la fecha y la hora del sistema.',
+            archivo: `qr-tienda-${t.codigo || 'tienda'}`,
+        });
+    });
+    $('#iniQrTiendaNuevo').addEventListener('click', () => {
+        if (!(esGeneral || esG3)) return; // solo Administrador, G1 y G3
+        if (!confirm('¿Generar un QR nuevo? El que está impreso en la tienda dejará de servir y habrá que imprimir el nuevo.')) return;
+        pintarQrTienda(true);
     });
 
     // ==================================================
@@ -1284,6 +1351,7 @@ registrarSeccion('inicio', (zona) => {
         }
         if (!activa) return;
         prepararFiltrosMapa();
+        prepararQrTienda();
         mostrarMapa();
         await actualizar();
         if (esPiloto) { cargarMiRuta(); cargarMarcas(); }
@@ -1309,6 +1377,7 @@ registrarSeccion('inicio', (zona) => {
         aviso.limpiar();
         avisoRuta.limpiar();
         avisoMarcas.limpiar();
+        avisoQrTienda.limpiar();
         if (grafica) grafica.destroy();
         // Al salir de Inicio se quita el mapa libre (se vuelve a crear al entrar)
         if (vigiaTamano) vigiaTamano.disconnect();

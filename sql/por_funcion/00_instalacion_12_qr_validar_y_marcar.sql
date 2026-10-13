@@ -1,4 +1,4 @@
--- 12 de 12 · sql/00_instalacion_completa.sql · QR del piloto: validar y marcar en un solo paso (secciones 26 a 26).
+-- 12 de 13 · sql/00_instalacion_completa.sql · QR del piloto: validar y marcar en un solo paso (secciones 26 a 26).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -134,3 +134,6 @@ grant execute on function public.validar_y_marcar_piloto(uuid, bigint, text) to 
 revoke execute on function public.piloto_horario_abierto(bigint) from anon, public;
 
 notify pgrst, 'reload schema';
+
+
+

@@ -1,4 +1,4 @@
--- 11 de 11 · sql/01_actualizacion_base_existente.sql · QR del piloto: validar y marcar en un solo paso (bloques 33 a 33).
+-- 11 de 12 · sql/01_actualizacion_base_existente.sql · QR del piloto: validar y marcar en un solo paso (bloques 33 a 33).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -134,3 +134,6 @@ grant execute on function public.validar_y_marcar_piloto(uuid, bigint, text) to 
 revoke execute on function public.piloto_horario_abierto(bigint) from anon, public;
 
 notify pgrst, 'reload schema';
+
+
+
