@@ -9,7 +9,8 @@
 
    ⚠ Las IMÁGENES DEL ENCABEZADO (imagen del título y logos) NO van aquí:
    se eligen SOLO en css/encabezados.css, por marca (data-marca) y por
-   empresa interna (data-empresa), y cambian al iniciar sesión o cambiar de empresa.
+   empresa interna (data-empresa-id: su número interno, que no se repite), y
+   cambian al iniciar sesión o cambiar de empresa. Sin regla: los de ACACHETE.
 
    Para agregar una empresa nueva, cambiar su base, su paleta o la activa
    SIN escribir código: doble clic en  herramientas\empresas.bat
@@ -80,18 +81,19 @@ const EMPRESAS = {
         colores: {},
     },
 
-    // ---------- Transportes Otoya-Valverde & Asociados ----------
+    // ---------- Corporación Dinant ----------
     'Corporacion-Dinant': {
         nombre: 'Corporacion-Dinant',
         titulo: 'Corporacion-Dinant',
         subtitulo: 'Panel de Control de Operaciones',
-        // Imágenes del encabezado: css/encabezados.css (html[data-marca="otoya-valverde"])
+        // Imágenes del encabezado: css/encabezados.css (html[data-marca="Corporacion-Dinant"]);
+        // sin regla propia usa las de ACACHETE
         pie: [
             'Derechos Reservados Achete Logistics S.A.',
             'Propiedad Reservada para Corporacion-Dinant',
         ],
-        actividades: ['tienda', 'encomiendas', 'encomiendas'],
-        // ID de la empresa interna de Transportes Otoya (Tiendas -> Empresas: la 02; la 01 es
+        actividades: ['tienda', 'encomiendas'],
+        // ID de la empresa interna de Corporación Dinant (Tiendas -> Empresas: la 02; la 01 es
         // siempre la empresa principal): sus clientes solicitan su usuario desde el login
         registroClientes: '02',
         supabase: { url: '', anonKey: '' },
