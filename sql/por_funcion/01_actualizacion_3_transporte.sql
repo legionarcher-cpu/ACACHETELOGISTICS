@@ -1,4 +1,4 @@
--- 3 de 12 · sql/01_actualizacion_base_existente.sql · Viajes, rol cliente, franjas, costos y cortesía (bloques 19 a 19).
+-- 3 de 13 · sql/01_actualizacion_base_existente.sql · Viajes, rol cliente, franjas, costos y cortesía (bloques 19 a 19).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

@@ -1,0 +1,89 @@
+/* ==================================================
+   SECCIÓN: VISITAS (pestaña de Tiendas, solo Desarrollador)
+   ACACHETE LOGISTICS
+
+   Solo lo PROPIO de secciones/visitas.html (clases "vis-").
+   ================================================== */
+
+.vis-nota {
+    margin: 0;
+    padding: 0.556rem 0.778rem;
+    background-color: var(--color-azul-claro);
+    border-left: 0.222rem solid var(--color-azul);
+    border-radius: var(--radio);
+    font-size: 0.85rem;
+    color: var(--color-azul-marino);
+}
+
+.vis-nota i {
+    margin-right: 0.333rem;
+}
+
+.vis-nota-alerta {
+    background-color: var(--color-naranja-claro);
+    border-left-color: var(--color-naranja);
+    color: #B34A07;
+}
+
+.vis-nota[hidden] {
+    display: none;
+}
+
+/* Los cuadros de totales solo informan (no son filtros) */
+.vis-resumen .resumen-item {
+    cursor: default;
+}
+
+.vis-resumen .resumen-item:hover {
+    box-shadow: var(--sombra-tarjeta);
+}
+
+.vis-tabla {
+    min-width: 52rem;
+}
+
+.tabla-caja[hidden] {
+    display: none;
+}
+
+.vis-col-numero,
+.vis-tabla td.vis-col-numero {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.vis-tabla td.vis-col-fecha {
+    white-space: nowrap;
+}
+
+/* Nombre debajo del usuario */
+.vis-sub {
+    display: block;
+    color: var(--color-gris);
+    font-size: 0.8rem;
+}
+
+.vis-col-ip {
+    white-space: nowrap;
+    font-family: var(--fuente-codigo);
+    font-size: 0.85rem;
+}
+
+.vis-col-ip a {
+    color: var(--color-azul);
+}
+
+.vis-col-ip small {
+    color: var(--color-gris);
+}
+
+.vis-mas {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+    text-align: center;
+}
+
+.vis-mas[hidden] {
+    display: none;
+}

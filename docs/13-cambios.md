@@ -2,6 +2,22 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · Reporte de visitas (solo Desarrollador)
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 36** (=
+`sql/por_funcion/01_actualizacion_13_visitas.sql`; instalación nueva: `sql/00`, sección 29).
+
+- Tabla `visitas`: cada **ingreso** (al iniciar sesión, `js/secciones/loggin.js`) y cada **pantalla** abierta
+  (`js/pagina_inicial.js`) se anota con `registrarVisita` (`js/sesion.js`): usuario, empresa, dispositivo
+  ("Android · celular"), navegador, si es la app instalada, y la **IP y el país** (los toma la base de la llamada).
+- **Se guarda 3 días**: cada registro y cada reporte borran lo más viejo.
+- Pestaña **Tiendas → Visitas** (`secciones/visitas.html`), solo el Desarrollador: totales, vista "Por usuario"
+  (agrupada por empresa: ingresos, pantallas, último acceso, pantalla más usada, dispositivo, IP) y "Detalle";
+  filtros por empresa, tipo, día y búsqueda; Excel. Tocar una IP abre su ciudad aproximada (ipinfo.io).
+- La tabla no se lee directo desde la web: solo con `reporte_visitas`, que exige rol Desarrollador. Las visitas
+  del Desarrollador no se anotan. Sin el bloque 36 la app funciona igual (no anota nada).
+- `VERSION_APP` = `20261013k`.
+
 ## 2026-10-13 · QR fijo: solo se marca estando en la tienda (GPS)
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 35** (va en el mismo archivo que el 34:

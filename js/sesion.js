@@ -214,6 +214,49 @@ function clienteActual() {
     return sesion ? sesion.cliente_id || null : null;
 }
 
+// ---------- Visitas (sql/01 bloque 36) ----------
+// Cada ingreso y cada pantalla abierta se anota en la tabla visitas (la IP y el país
+// los pone la base). El reporte solo lo ve el Desarrollador (Tiendas -> Visitas) y
+// se guarda 3 días. Las visitas del Desarrollador no se anotan. Si falla, no se avisa.
+
+// Sistema, tipo de equipo, navegador y si se abrió desde la app instalada
+function datosDispositivo() {
+    const ua = navigator.userAgent || '';
+    const ipad = /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    const so = /Android/.test(ua) ? 'Android' : /iPhone|iPod/.test(ua) ? 'iPhone' : ipad ? 'iPad'
+        : /Windows/.test(ua) ? 'Windows' : /Macintosh|Mac OS X/.test(ua) ? 'Mac' : /CrOS/.test(ua) ? 'Chromebook'
+        : /Linux/.test(ua) ? 'Linux' : 'Otro';
+    const equipo = /Mobi|iPhone|iPod/.test(ua) ? 'celular' : (so === 'Android' || ipad) ? 'tableta' : 'PC';
+    const navegadores = [
+        ['Edge', /Edg(?:A|iOS)?\/(\d+)/], ['Samsung Internet', /SamsungBrowser\/(\d+)/], ['Opera', /OPR\/(\d+)/],
+        ['Firefox', /(?:Firefox|FxiOS)\/(\d+)/], ['Chrome', /(?:Chrome|CriOS)\/(\d+)/], ['Safari', /Version\/(\d+).*Safari/],
+    ];
+    const [nombre, version] = navegadores.map(([n, re]) => [n, (ua.match(re) || [])[1]]).find(([, v]) => v) || ['Otro'];
+    let app = navigator.standalone === true;
+    try { app = app || matchMedia('(display-mode: standalone)').matches; } catch { /* navegador viejo */ }
+    return { dispositivo: `${so} · ${equipo}`, navegador: version ? `${nombre} ${version}` : nombre, app };
+}
+
+let ultimaVisita = { clave: '', hora: 0 };
+
+// tipo: 'ingreso' (al iniciar sesión) o 'pantalla' (al abrir una sección)
+function registrarVisita(tipo, seccion = null) {
+    const sesion = obtenerSesion();
+    if (!sesion || !sesion.id || sesion.rol === 'desarrollador' || typeof db === 'undefined') return;
+    // La misma pantalla abierta dos veces seguidas (ej. al volver a cargar) cuenta una vez
+    const clave = `${sesion.id}:${tipo}:${seccion}`;
+    if (clave === ultimaVisita.clave && Date.now() - ultimaVisita.hora < 5000) return;
+    ultimaVisita = { clave, hora: Date.now() };
+    const d = datosDispositivo();
+    db.rpc('registrar_visita', {
+        p_usuario: sesion.id, p_tipo: tipo, p_seccion: seccion,
+        p_dispositivo: d.dispositivo, p_navegador: d.navegador, p_app: d.app,
+    }).then(({ error }) => {
+        // PGRST202 / 42883: la base todavía no tiene el bloque 36
+        if (error && !['PGRST202', '42883'].includes(error.code)) console.warn('No se anotó la visita:', error.message);
+    }, () => { /* sin conexión: no importa */ });
+}
+
 // ¿La sección tiene sentido para lo que hace la empresa? (Viajes / Pedidos) ¿y su plan la incluye?
 function seccionAplica(seccion) {
     if (SECCIONES_DEL_PLAN.includes(seccion) && typeof funcionHabilitada === 'function' && !funcionHabilitada(seccion)) return false;
@@ -251,8 +294,8 @@ function tienePermiso(seccion) {
     // El conductor (piloto) de una empresa solo de viajes no tiene reporte: el de Reportes es de pedidos
     if (seccion === 'reportes' && sesion.rol === 'piloto' && typeof empresaTienePedidos === 'function' && !empresaTienePedidos()) return false;
 
-    // Empresas internas (pestaña Empresas de Tiendas): solo el Desarrollador
-    if (seccion === 'empresas-internas') return sesion.rol === 'desarrollador';
+    // Empresas internas y Visitas (pestañas de Tiendas): solo el Desarrollador
+    if (seccion === 'empresas-internas' || seccion === 'visitas') return sesion.rol === 'desarrollador';
 
     const delRol = SECCIONES_POR_ROL[sesion.rol];
     if (delRol) return delRol.includes(seccion);

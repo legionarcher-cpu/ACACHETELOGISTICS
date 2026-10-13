@@ -1,4 +1,4 @@
--- 2 de 12 · sql/01_actualizacion_base_existente.sql · Empresas internas, usuarios con el ID de la empresa y palabras por actividad (bloques 16 a 18).
+-- 2 de 13 · sql/01_actualizacion_base_existente.sql · Empresas internas, usuarios con el ID de la empresa y palabras por actividad (bloques 16 a 18).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

@@ -48,6 +48,7 @@ servidor propio.
 [Pilotos](secciones/pilotos.md) ·
 [Tiendas y Clientes](secciones/tiendas-y-clientes.md) ·
 [Empresas internas](secciones/empresas-internas.md) ·
+[Visitas (solo Desarrollador)](secciones/visitas.md) ·
 [Usuarios](secciones/usuarios.md) ·
 [Reportes](secciones/reportes.md) ·
 [Configuración](secciones/configuracion.md) ·

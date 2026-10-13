@@ -181,6 +181,17 @@ Admin G2 en adelante.
 Ninguno de los QR lleva datos personales: solo un código que la base reconoce. El QR del pedido es
 `ACACHETE-PEDIDO:<token_qr>`.
 
+### Visitas (solo Desarrollador; sql/01 bloque 36)
+
+| Tabla | Qué guarda |
+|---|---|
+| `visitas` | Cada ingreso y cada pantalla abierta: `usuario_id`, `empresa_id`, `tipo` (`ingreso` / `pantalla`), `seccion`, `dispositivo`, `navegador`, `app` (app instalada), `ip`, `pais`, `creado_en`. **Solo 3 días**: lo más viejo se borra al anotar y al pedir el reporte. Sin acceso directo desde la web |
+
+| Función | Qué hace |
+|---|---|
+| `registrar_visita(usuario, tipo, seccion, dispositivo, navegador, app)` | La llama la página (`registrarVisita` en `js/sesion.js`). La IP y el país los toma de la llamada (`request.headers`). No anota al Desarrollador |
+| `reporte_visitas(usuario, empresa)` | Las visitas con empresa, usuario, rol y tienda (máx. 5000). Solo responde si `usuario` es Desarrollador |
+
 ### Slots (rango de horario de despacho del pedido; sql/01 bloque 12)
 
 | Tabla | Qué guarda |

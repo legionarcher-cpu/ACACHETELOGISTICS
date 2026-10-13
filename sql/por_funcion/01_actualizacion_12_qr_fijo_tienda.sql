@@ -1,4 +1,4 @@
--- 12 de 12 · sql/01_actualizacion_base_existente.sql · QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS) (bloques 34 a 35).
+-- 12 de 13 · sql/01_actualizacion_base_existente.sql · QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS) (bloques 34 a 35).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -128,7 +128,7 @@ notify pgrst, 'reload schema';
 --   Se puede repetir.
 -- ==================================================
 
-insert into public.configuracion (clave, valor) values ('radio_marca_m', '50') on conflict (clave) do nothing;
+insert into public.configuracion (clave, valor) values ('radio_marca_m', '150') on conflict (clave) do nothing;
 
 alter table public.marcas_piloto
     add column if not exists lat         double precision,
@@ -222,3 +222,6 @@ $$;
 grant execute on function public.marcar_por_qr_fijo(bigint, text, text, double precision, double precision, double precision) to anon;
 
 notify pgrst, 'reload schema';
+
+
+

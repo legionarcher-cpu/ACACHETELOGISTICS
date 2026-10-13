@@ -39,6 +39,7 @@ Cada usuario es de **una empresa interna** y todo lo que ve es de esa empresa (v
 | Usuarios | ✔ | ✔ | ✔ | 🔒 | 🔒 | 🔒 |
 | Configuración | Todo | Casi todo | Parte | 🔒 | 🔒 | 🔒 |
 | Tiendas → Empresas | Solo Desarrollador | — | — | — | — | — |
+| Tiendas → Visitas (quién entra, desde dónde y a qué pantallas; 3 días) | Solo Desarrollador | — | — | — | — | — |
 
 🔒 = candado en el menú (`js/sesion.js`: `SECCIONES_POR_ROL`, `SECCIONES_BLOQUEADAS_POR_ROL`). La opción
 "Configuración" del menú del usuario también se oculta a quien no tiene permiso (`js/permisos.js`).

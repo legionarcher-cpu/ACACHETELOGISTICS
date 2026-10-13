@@ -169,6 +169,7 @@ let limpiezaActual = null;
 const SECCION_DEL_MENU = {
     clientes: 'tiendas',
     'empresas-internas': 'tiendas', // pestaña Empresas (solo Desarrollador)
+    visitas: 'tiendas',             // pestaña Visitas (solo Desarrollador)
 };
 
 // Secciones que cambiaron de nombre: un enlace o marcador viejo abre la nueva
@@ -266,6 +267,7 @@ async function cargarSeccion(nombre) {
         ]);
         if (id !== cargaActual) return; // el usuario ya pidió otra sección
         mostrarContenido(html, estilo, nombre);
+        if (nombre !== SECCION_LOGIN) registrarVisita('pantalla', nombre); // reporte de Visitas (js/sesion.js)
     } catch {
         // No existe secciones/<nombre>.html o hubo un error de red.
         // Para cambiar el mensaje de error, editar el texto de abajo.

@@ -197,6 +197,7 @@ registrarSeccion('loggin', (zona) => {
             empresa: datosEmpresaSesion(encontrado.empresas), // { id, codigo, nombre, actividades } (js/sesion.js)
             cliente_id: encontrado.cliente_id || null, // solo el rol cliente: su fila en la tabla clientes
         });
+        registrarVisita('ingreso'); // reporte de Visitas del Desarrollador (js/sesion.js)
 
         botonIngresar.textContent = 'Ingresando...';
 

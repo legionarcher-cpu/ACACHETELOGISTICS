@@ -1,4 +1,4 @@
--- 1 de 12 · sql/01_actualizacion_base_existente.sql · Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR (bloques 0 a 15).
+-- 1 de 13 · sql/01_actualizacion_base_existente.sql · Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR (bloques 0 a 15).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -72,6 +72,7 @@
 --  33. QR del piloto: la tienda lo escanea y con "Validar y marcar" valida y marca su horario.
 --  34. QR fijo de la tienda (en su Inicio): el piloto lo escanea y se marca solo.
 --  35. QR fijo: solo marca si el GPS del piloto está en la tienda (radio_marca_m).
+--  36. Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (se guardan 3 días).
 -- ==================================================
 
 

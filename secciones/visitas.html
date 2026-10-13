@@ -1,0 +1,144 @@
+<!-- ==================================================
+     SECCIÓN: VISITAS (#visitas; pestaña "Visitas" de Tiendas, SOLO el Desarrollador)
+     Guía: docs/secciones/visitas.md. Tabla visitas (sql/01 bloque 36).
+
+     Quién entró al sistema, de qué empresa, desde qué dispositivo y dirección (IP)
+     y a qué pantallas. Se guardan solo los últimos 3 días (la base borra lo viejo).
+     Las anota js/sesion.js (registrarVisita) al iniciar sesión y al abrir cada pantalla.
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/visitas.css (clases "vis-")
+       Lógica          -> js/secciones/visitas.js
+     Los ids empiezan con "vis".
+     ================================================== -->
+
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina">
+
+    <nav class="pestanas" aria-label="Tiendas, clientes y empresas">
+        <a href="#tiendas" class="pestana"><i class="bi bi-shop"></i> <span>Tiendas</span></a>
+        <a href="#clientes" class="pestana"><i class="bi bi-people"></i> <span>Clientes</span></a>
+        <a href="#empresas-internas" class="pestana" data-solo-desarrollador><i class="bi bi-buildings"></i> <span>Empresas</span></a>
+        <a href="#visitas" class="pestana activo" aria-current="page" data-solo-desarrollador><i class="bi bi-eye"></i> <span>Visitas</span></a>
+    </nav>
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Visitas</h2>
+            <p id="visContador" class="pagina-subtitulo">Cargando visitas...</p>
+        </div>
+        <div class="pagina-acciones">
+            <button type="button" id="visActualizar" class="boton boton-secundario">
+                <i class="bi bi-arrow-clockwise"></i>
+                <span>Actualizar</span>
+            </button>
+            <button type="button" id="visExcel" class="boton boton-principal">
+                <i class="bi bi-file-earmark-excel"></i>
+                <span>Exportar Excel</span>
+            </button>
+        </div>
+    </div>
+
+    <p id="visAviso" class="aviso" role="status"></p>
+
+    <p id="visFaltaSql" class="vis-nota vis-nota-alerta" hidden>
+        <i class="bi bi-exclamation-triangle"></i>
+        Falta ejecutar el bloque 36 de <strong>sql/01_actualizacion_base_existente.sql</strong>
+        (o <strong>sql/por_funcion/01_actualizacion_13_visitas.sql</strong>) para registrar y ver las visitas.
+    </p>
+
+    <p class="vis-nota">
+        <i class="bi bi-info-circle"></i>
+        Se guardan solo los <strong>últimos 3 días</strong>: lo anterior se borra solo. La IP da la ubicación
+        aproximada (el proveedor de internet); toca una IP para ver su ciudad. Tus propias visitas no se anotan.
+    </p>
+
+    <!-- Totales de lo filtrado -->
+    <div class="resumen vis-resumen" aria-live="polite">
+        <div class="resumen-item">
+            <span class="resumen-numero" data-total="ingresos">0</span>
+            <span class="resumen-texto">Ingresos</span>
+        </div>
+        <div class="resumen-item resumen-azul">
+            <span class="resumen-numero" data-total="pantallas">0</span>
+            <span class="resumen-texto">Pantallas abiertas</span>
+        </div>
+        <div class="resumen-item resumen-verde">
+            <span class="resumen-numero" data-total="usuarios">0</span>
+            <span class="resumen-texto">Usuarios</span>
+        </div>
+        <div class="resumen-item resumen-naranja">
+            <span class="resumen-numero" data-total="empresas">0</span>
+            <span class="resumen-texto">Empresas</span>
+        </div>
+        <div class="resumen-item resumen-morada">
+            <span class="resumen-numero" data-total="celular">0</span>
+            <span class="resumen-texto">Usuarios en celular</span>
+        </div>
+        <div class="resumen-item resumen-turquesa">
+            <span class="resumen-numero" data-total="app">0</span>
+            <span class="resumen-texto">Usuarios con la app instalada</span>
+        </div>
+    </div>
+
+    <div class="filtros">
+        <select id="visEmpresa" class="campo-input filtro" aria-label="Empresa">
+            <option value="">Todas las empresas</option>
+        </select>
+        <select id="visTipo" class="campo-input filtro" aria-label="Qué mostrar">
+            <option value="">Ingresos y pantallas</option>
+            <option value="ingreso">Solo ingresos</option>
+            <option value="pantalla">Solo pantallas</option>
+        </select>
+        <select id="visDia" class="campo-input filtro" aria-label="Día">
+            <option value="">Los 3 días</option>
+        </select>
+        <div class="buscador">
+            <i class="bi bi-search"></i>
+            <input id="visBuscar" type="search" class="buscador-input"
+                   placeholder="Buscar usuario, nombre, IP o dispositivo" aria-label="Buscar visitas">
+        </div>
+    </div>
+
+    <!-- Vista: por usuario (resumen) o detalle (cada visita) -->
+    <div id="visVistas" class="pestanas"></div>
+
+    <!-- Por usuario: agrupado por empresa -->
+    <div id="visCajaUsuarios" class="tabla-caja">
+        <table class="tabla vis-tabla">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Rol / tienda</th>
+                    <th class="vis-col-numero">Ingresos</th>
+                    <th class="vis-col-numero">Pantallas</th>
+                    <th>Último acceso</th>
+                    <th>Más usada</th>
+                    <th>Dispositivo</th>
+                    <th>IP</th>
+                </tr>
+            </thead>
+            <tbody id="visUsuarios"></tbody>
+        </table>
+    </div>
+
+    <!-- Detalle: cada ingreso y cada pantalla -->
+    <div id="visCajaDetalle" class="tabla-caja" hidden>
+        <table class="tabla vis-tabla">
+            <thead>
+                <tr>
+                    <th>Fecha y hora</th>
+                    <th>Empresa</th>
+                    <th>Usuario</th>
+                    <th>Rol / tienda</th>
+                    <th>Qué</th>
+                    <th>Dispositivo</th>
+                    <th>IP</th>
+                </tr>
+            </thead>
+            <tbody id="visDetalle"></tbody>
+        </table>
+    </div>
+    <p id="visMas" class="vis-mas" hidden></p>
+</div>
