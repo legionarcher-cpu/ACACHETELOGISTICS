@@ -160,6 +160,7 @@ const FUNCIONES_PLAN = {
     reportes:           { grupo: 'Secciones', texto: 'Reportes' },
     cotizador:          { grupo: 'Secciones', texto: 'Cotizador' },
     caja:               { grupo: 'Secciones', texto: 'Caja de pilotos y conductores' },
+    distribucion:       { grupo: 'Secciones', texto: 'Distribución (productos, bodega del día, venta en ruta)' },
     // Módulos de Configuración
     cfg_horarios:       { grupo: 'Configuración', texto: 'Horarios de pilotos' },
     cfg_slots:          { grupo: 'Configuración', texto: 'Slots de despacho' },
@@ -186,7 +187,7 @@ const PLANES = {
     },
     profesional: {
         texto: 'Profesional',
-        funciones: ['pedidos', 'viajes', 'pilotos', 'rutas', 'reportes', 'cotizador', 'caja', 'qr', 'exportar', 'pedidos_cercanos', 'envios_clientes',
+        funciones: ['pedidos', 'viajes', 'pilotos', 'rutas', 'reportes', 'cotizador', 'caja', 'distribucion', 'qr', 'exportar', 'pedidos_cercanos', 'envios_clientes',
             'cfg_horarios', 'cfg_slots', 'cfg_vehiculos', 'cfg_pedidos', 'cfg_transporte', 'cfg_costos'],
     },
     completo: { texto: 'Completo', funciones: '*' },
@@ -272,6 +273,32 @@ function esActividadDeRecoleccion(codigo) {
 // ¿La empresa hace envíos con recolección? (el cliente con usuario los solicita en "Mis envíos")
 function empresaTieneRecoleccion() {
     return codigosActividadesEmpresa().some((c) => !esActividadDeViajes(c) && esActividadDeRecoleccion(c));
+}
+
+// ---------- Partes que usa cada actividad (sql/01 bloque 26) ----------
+// vehiculos, km (cobro por km), peso y productos (distribuidora). Se marcan en
+// Configuración -> Actividades. Valor de cada una si la base todavía no lo dice
+// (sin el bloque 26 o actividad desconocida): como antes.
+const PARTES_ACTIVIDAD = { vehiculos: true, km: true, peso: true, productos: false };
+
+function actividadUsaParte(codigo, parte) {
+    const info = typeof palabrasActividades !== 'undefined' ? palabrasActividades[codigo] : null;
+    return info && info[parte] != null ? !!info[parte] : PARTES_ACTIVIDAD[parte];
+}
+
+// ¿Alguna actividad de la empresa usa esa parte? (lo que no usa ninguna no se ve)
+function empresaUsa(parte) {
+    const codigos = codigosActividadesEmpresa();
+    return codigos.length ? codigos.some((c) => actividadUsaParte(c, parte)) : PARTES_ACTIVIDAD[parte];
+}
+
+// Marca en <html> lo que la empresa NO usa: class="sin-vehiculos sin-km sin-peso sin-productos".
+// css/base.css oculta con eso todo lo marcado .solo-vehiculos, .solo-km, .solo-peso,
+// .solo-productos (y .solo-peso-o-km si no usa ninguna de las dos).
+// Lo llaman js/sesion.js (actualizarSegunEmpresa) y js/palabras.js al cargar.
+function aplicarPartesEmpresa() {
+    const raiz = document.documentElement;
+    Object.keys(PARTES_ACTIVIDAD).forEach((parte) => raiz.classList.toggle(`sin-${parte}`, !empresaUsa(parte)));
 }
 
 // Actividades de la empresa que trabajan con PEDIDOS (las pestañas de Pedidos, Rutas,

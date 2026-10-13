@@ -47,13 +47,14 @@
                 <div>
                     <h3 id="iniMiRutaTitulo" class="ini-tarjeta-titulo"><i class="bi bi-signpost-2"></i> Mi ruta</h3>
                     <p id="iniMiRutaResumen" class="ini-tarjeta-nota"></p>
+                    <!-- Estado del GPS mientras está en ruta (js/ubicacion.js) -->
+                    <p id="iniUbicacion" class="ini-ubicacion" role="status" hidden></p>
                 </div>
-                <button type="button" id="iniSaliendo" class="boton boton-principal" disabled>
-                    <i class="bi bi-truck"></i>
-                    <span>Saliendo a ruta</span>
-                </button>
             </div>
             <p id="iniMiRutaAviso" class="aviso" role="status"></p>
+            <!-- Salir a ruta POR SLOT (sql/01 bloque 29): un botón por slot con pedidos cargados.
+                 Los listos que no se cargaron quedan "No salió a ruta". Los arma js/secciones/inicio.js -->
+            <div id="iniSalidas" class="ini-salidas" hidden></div>
             <ol id="iniMiRutaLista" class="ini-mi-ruta-lista"></ol>
         </section>
 

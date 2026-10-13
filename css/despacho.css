@@ -1,0 +1,90 @@
+/* ==================================================
+   DESPACHO: CARGA CON EVIDENCIA Y SALIDA A RUTA POR SLOT
+   ACACHETE LOGISTICS
+
+   Ventana de carga (js/carga-comun.js, clases "carga-") y botones de salida por
+   slot de "Mi ruta" en Inicio (clases "ini-salida-", los dibuja js/secciones/inicio.js).
+   ================================================== */
+
+.carga-dialogo {
+    width: min(36rem, calc(100vw - 1.778rem));
+}
+
+.carga-dialogo .dialogo-texto {
+    margin-bottom: 0.889rem;
+}
+
+.carga-fotos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem;
+    margin-bottom: 0.444rem;
+}
+
+.carga-foto {
+    position: relative;
+    margin: 0;
+    width: 5.556rem;
+    height: 5.556rem;
+    border-radius: var(--radio);
+    overflow: hidden;
+    border: 1px solid var(--color-borde);
+}
+
+.carga-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.carga-quitar {
+    position: absolute;
+    top: 0.222rem;
+    right: 0.222rem;
+    width: 1.556rem;
+    height: 1.556rem;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #FFFFFF;
+    cursor: pointer;
+}
+
+.carga-sin-fotos {
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+.carga-tomar {
+    cursor: pointer;
+}
+
+/* ---------- Salida a ruta por slot (Inicio, Mi ruta) ---------- */
+.ini-salidas {
+    display: flex;
+    flex-direction: column;
+    gap: 0.444rem;
+    margin: 0.444rem 0 0.667rem;
+}
+
+.ini-salida {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.444rem 0.889rem;
+    padding: 0.556rem 0.778rem;
+    border-radius: var(--radio);
+    background-color: var(--color-azul-claro);
+}
+
+.ini-salida-texto {
+    font-size: 0.9rem;
+    color: var(--color-texto);
+}
+
+.ini-salida-texto small {
+    display: block;
+    color: var(--color-gris);
+}

@@ -23,8 +23,9 @@
    MAPA: gratis (Leaflet + OpenStreetMap, js/mapa.js) o Google (INI_MAPA). Cada
    entrega de hoy se dibuja en su punto B (detalle.ruta.b, lo guarda Nuevo pedido)
    con el color de su estado; las tiendas con ubicación, como cuadro. Filtros de
-   región y tienda según el rol. Cuando la app del piloto comparta su GPS, sus
-   marcadores se agregan en dibujarMarcadores() con pilotosDelFiltro().
+   región y tienda según el rol. Cada piloto en ruta se ve como un camión en su
+   última ubicación (ubicaciones_pilotos, sql/01 bloque 25): la manda cada 2 min
+   desde la web (js/ubicacion.js) o la app; gris si no llega hace más de 5 min.
    ================================================== */
 
 // Grupos de estados (los mismos de los cuadros de Pedidos: PED_GRUPOS)
@@ -33,7 +34,7 @@ const INI_GRUPOS = {
     despacho: ['alistando', 'listo_despacho', 'recibido_ruta', 'cargado'],
     ruta: ['en_ruta', 'en_entrega'],
     entregados: ['entregado', 'entregado_incidencia'],
-    problemas: ['no_entregado', 'devuelto'],
+    problemas: ['no_entregado', 'no_salio', 'devuelto'],
     cancelados: ['cancelado'],
 };
 const INI_DIAS_GRAFICA = 14;
@@ -87,6 +88,7 @@ const INI_ESTADOS = {
     recibido_ruta: ['Recibido para ruta', 'etiqueta-morada'], cargado: ['Cargado', 'etiqueta-turquesa'],
     en_ruta: ['En ruta', 'etiqueta-turquesa'], en_entrega: ['Entregando', 'etiqueta-turquesa'], entregado: ['Entregado', 'etiqueta-verde'],
     entregado_incidencia: ['Entregado con incidencia', 'etiqueta-naranja'], no_entregado: ['No entregado', 'etiqueta-rosada'],
+    no_salio: ['No salió a ruta', 'etiqueta-rosada'],
     devuelto: ['Devuelto', 'etiqueta-rosada'], cancelado: ['Cancelado', 'etiqueta-gris'],
 };
 
@@ -580,9 +582,44 @@ registrarSeccion('inicio', (zona) => {
 
     const pedidosDelFiltro = () => { const t = tiendasDelMapa(); return pedidos.filter((p) => !t || t.includes(p.tienda_id)); };
 
-    // Pilotos que muestra el mapa: los que tienen pedidos hoy en las tiendas del filtro.
-    // La usarán los marcadores en tiempo real cuando la app del piloto comparta su GPS.
+    // Pilotos que muestra el mapa: los que tienen pedidos hoy en las tiendas del filtro
     const pilotosDelFiltro = () => new Set(pedidosDelFiltro().filter((p) => p.piloto_id).map((p) => p.piloto_id));
+
+    // ---------- Ubicación de los pilotos en ruta (sql/01 bloque 25) ----------
+    // Cada piloto la manda cada 2 minutos mientras está en ruta (web: js/ubicacion.js, o la app).
+    const INI_UBICACION_VIEJA = 5;   // min: si no se actualiza en este tiempo, el camión se ve gris
+    const INI_UBICACION_MAXIMO = 60; // min: más vieja que esto no se dibuja
+    let ubicaciones = {};   // piloto_id -> { lat, lng, precision_m, velocidad_kmh, origen, actualizado_en }
+    let marcasPilotos = {}; // piloto_id -> marcador (la lista "Pilotos de hoy" centra el mapa en él)
+
+    async function cargarUbicaciones() {
+        if (esPiloto) return;
+        const desde = new Date(Date.now() - INI_UBICACION_MAXIMO * 60000).toISOString();
+        const { data, error } = await db.from('ubicaciones_pilotos')
+            .select('piloto_id, lat, lng, precision_m, velocidad_kmh, origen, actualizado_en').gte('actualizado_en', desde);
+        if (error) { console.warn('Ubicación de los pilotos (¿falta sql/01, bloque 25?):', error); return; }
+        ubicaciones = Object.fromEntries(data.map((u) => [u.piloto_id, u]));
+    }
+
+    const minutosDesde = (fecha) => Math.max(0, Math.floor((Date.now() - new Date(fecha).getTime()) / 60000));
+    const haceTexto = (fecha) => { const m = minutosDesde(fecha); return m < 1 ? 'hace menos de 1 min' : `hace ${m} min`; };
+
+    // Ventanita del camión de un piloto
+    function contenidoPiloto(u, nombre) {
+        const div = document.createElement('div');
+        div.className = 'ini-popup';
+        const t = document.createElement('strong');
+        t.textContent = nombre;
+        const detalle = document.createElement('small');
+        detalle.textContent = [
+            `Ubicación ${haceTexto(u.actualizado_en)}`,
+            u.velocidad_kmh != null ? `${Math.round(u.velocidad_kmh)} km/h` : null,
+            u.precision_m != null ? `±${Math.round(u.precision_m)} m` : null,
+            u.origen === 'app' ? 'desde la app' : 'desde la web',
+        ].filter(Boolean).join(' · ');
+        div.append(t, detalle);
+        return div;
+    }
 
     selMapaRegion.addEventListener('change', () => { llenarTiendasMapa(); yaEncuadrado = false; dibujarMapaYPilotos(); });
     selMapaTienda.addEventListener('change', () => { yaEncuadrado = false; dibujarMapaYPilotos(); });
@@ -666,6 +703,27 @@ registrarSeccion('inicio', (zona) => {
             puntos.push([b.lat, b.lng]);
         });
 
+        // Pilotos en ruta: camión en su última ubicación (gris si no se actualiza hace rato).
+        // El piloto se ve a sí mismo con lo último que mandó este equipo.
+        marcasPilotos = {};
+        const camion = (vieja) => L.divIcon({ className: `ini-marcador-piloto${vieja ? ' vieja' : ''}`, html: '<i class="bi bi-truck"></i>', iconSize: [30, 30], iconAnchor: [15, 15] });
+        if (esPiloto) {
+            const yo = ubicacionEstado(); // js/ubicacion.js
+            if (yo.punto) {
+                L.marker([yo.punto.lat, yo.punto.lng], { icon: camion(false), zIndexOffset: 1000 })
+                    .bindTooltip(`Tú · ${haceTexto(yo.enviado_en)}`).addTo(capaMarcadores);
+                puntos.push([yo.punto.lat, yo.punto.lng]);
+            }
+        } else {
+            const visibles = pilotosDelFiltro();
+            Object.values(ubicaciones).filter((u) => visibles.has(u.piloto_id)).forEach((u) => {
+                const nombre = pilotos[u.piloto_id] || 'Piloto';
+                marcasPilotos[u.piloto_id] = L.marker([u.lat, u.lng], { icon: camion(minutosDesde(u.actualizado_en) > INI_UBICACION_VIEJA), title: nombre, zIndexOffset: 1000 })
+                    .bindTooltip(nombre).bindPopup(contenidoPiloto(u, nombre)).addTo(capaMarcadores);
+                puntos.push([u.lat, u.lng]);
+            });
+        }
+
         const nota = $('#iniMapaNota');
         nota.textContent = !lista.length ? 'Hoy no hay entregas para mostrar.'
             : sinPunto ? `${plural(sinPunto, 'pedido no tiene', 'pedidos no tienen')} punto en el mapa (se marca en Nuevo pedido, mapa A → B).`
@@ -686,7 +744,9 @@ registrarSeccion('inicio', (zona) => {
             const enRuta = suyos.some((p) => INI_GRUPOS.ruta.includes(p.estado));
             const porSalir = suyos.filter((p) => ['pendientes', 'despacho'].includes(iniGrupoDe(p.estado))).length;
             const hechos = suyos.filter((p) => iniGrupoDe(p.estado) === 'entregados').length;
-            const detalle = [enRuta ? 'En ruta' : null, porSalir ? `${porSalir} por salir` : null, `${hechos}/${suyos.length} entregados`].filter(Boolean).join(' · ');
+            const u = ubicaciones[id];
+            const detalle = [enRuta ? 'En ruta' : null, porSalir ? `${porSalir} por salir` : null, `${hechos}/${suyos.length} entregados`,
+                enRuta ? (u ? `ubicación ${haceTexto(u.actualizado_en)}` : 'sin ubicación') : null].filter(Boolean).join(' · ');
             return { id, clase: enRuta ? 'ruta' : porSalir ? 'pendientes' : '', detalle, orden: enRuta ? 0 : porSalir ? 1 : 2 };
         }).sort((a, b) => a.orden - b.orden || (pilotos[a.id] || '').localeCompare(pilotos[b.id] || ''));
 
@@ -708,16 +768,27 @@ registrarSeccion('inicio', (zona) => {
             estado.textContent = x.detalle;
             textos.append(nombre, estado);
             li.append(punto, textos);
+            // Con ubicación: al tocarlo, el mapa va a su camión
+            if (marcasPilotos[x.id]) {
+                li.classList.add('ini-piloto-ubicado');
+                li.tabIndex = 0;
+                li.title = 'Ver en el mapa';
+                const ir = () => { const m = marcasPilotos[x.id]; if (m && mapaLibre) { mapaLibre.setView(m.getLatLng(), 15); m.openPopup(); } };
+                li.addEventListener('click', ir);
+                li.addEventListener('keydown', (e) => { if (e.key === 'Enter') ir(); });
+            }
             ul.appendChild(li);
         });
     }
 
     // ==================================================
     // MI RUTA (solo el PILOTO)
-    //   Por recibir  -> "Listo para despachar": "Recibido para ruta" (abre el QR)
-    //                   "Recibido para ruta": "Mostrar QR" (el despachador lo escanea)
-    //   Cargados     -> esperan "Saliendo a ruta" (pasan todos a En ruta y se
-    //                   detiene el cronómetro de carga del slot: salida_en)
+    //   Por cargar   -> "Listo para despachar" (la tienda lo marcó; antes no aparece):
+    //                   "Cargar" = foto, bultos recibidos y efectivo (js/carga-comun.js,
+    //                   pedido_cargar, sql/01 bloque 29) -> Cargado
+    //   Cargados     -> "Salir a ruta" POR SLOT (piloto_salir_ruta): los cargados del slot
+    //                   pasan a En ruta (salida_en) y los listos sin cargar quedan
+    //                   "No salió a ruta" (el G2 los reprograma; se le avisa)
     //   En ruta      -> ordenados del más cercano al más lejano: cadena desde la
     //                   tienda (cada uno, el más cercano al anterior). "Entregar
     //                   ahora" en UNO a la vez (la base no deja dos "Entregando").
@@ -767,7 +838,7 @@ registrarSeccion('inicio', (zona) => {
     async function cargarMiRuta() {
         if (!esPiloto) return;
         const consulta = (columnasTienda) => db.from('pedidos')
-            .select(`id, codigo, tienda_id, cliente_nombre, direccion_entrega, estado, slot_numero, fecha_entrega, detalle, tiendas(${columnasTienda})`)
+            .select(`id, codigo, tienda_id, cliente_nombre, direccion_entrega, estado, slot_numero, fecha_entrega, vuelto, detalle, tiendas(${columnasTienda})`)
             .eq('piloto_id', sesion.id || 0).eq('anulado', false).in('estado', INI_MI_RUTA)
             .lte('fecha_entrega', hoy).order('fecha_entrega').order('id');
         let { data, error } = await consulta('lat, lng');
@@ -804,13 +875,13 @@ registrarSeccion('inicio', (zona) => {
 
         $('#iniMiRutaResumen').textContent = miRuta.length
             ? [
-                porRecibir.length ? plural(porRecibir.length, 'por recibir', 'por recibir') : null,
+                porRecibir.length ? plural(porRecibir.length, 'por cargar', 'por cargar') : null,
                 cargados.length ? plural(cargados.length, 'cargado', 'cargados') : null,
                 enRuta.length + (entregando ? 1 : 0) ? `${enRuta.length + (entregando ? 1 : 0)} en ruta` : null,
             ].filter(Boolean).join(' · ') + ' · del más cercano al más lejano'
             : 'No tienes pedidos por despachar ni en ruta.';
-        $('#iniSaliendo').disabled = !cargados.length;
-        $('#iniSaliendo').querySelector('span').textContent = cargados.length ? `Saliendo a ruta (${cargados.length})` : 'Saliendo a ruta';
+        pintarUbicacion();
+        dibujarSalidas();
 
         if (!filas.length) {
             const li = document.createElement('li');
@@ -863,6 +934,19 @@ registrarSeccion('inicio', (zona) => {
         dibujarMarcadores();
     }
 
+    // Línea "Tu ubicación..." bajo el resumen de Mi ruta (js/ubicacion.js la manda cada 2 min)
+    function pintarUbicacion() {
+        const linea = $('#iniUbicacion');
+        const enRuta = miRuta.some((p) => INI_GRUPOS.ruta.includes(p.estado));
+        const u = ubicacionEstado();
+        linea.hidden = !enRuta;
+        if (!enRuta) return;
+        linea.className = `ini-ubicacion ${u.error ? 'error' : u.enviado_en ? 'ok' : ''}`;
+        linea.textContent = u.error ? u.error
+            : u.enviado_en ? `Compartiendo tu ubicación con la tienda cada 2 minutos · última ${haceTexto(u.enviado_en)}. Mantén esta página abierta.`
+            : 'Obteniendo tu ubicación para compartirla con la tienda...';
+    }
+
     // Botón de cada pedido según su estado
     function botonMiRuta(p, hayEntregando) {
         const crear = (texto, icono, clase, alClic) => {
@@ -874,8 +958,8 @@ registrarSeccion('inicio', (zona) => {
             b.addEventListener('click', alClic);
             return b;
         };
-        if (p.estado === 'listo_despacho') return crear('Recibido para ruta', 'bi-hand-thumbs-up', 'boton-principal', () => recibirParaRuta(p));
-        if (p.estado === 'recibido_ruta') return crear('Mostrar QR', 'bi-qr-code', 'boton-secundario', () => { location.hash = `pedidos?id=${p.id}&qr=1`; });
+        // Listo para despachar (o recibido con el flujo anterior): se carga con evidencia
+        if (['listo_despacho', 'recibido_ruta'].includes(p.estado)) return crear('Cargar', 'bi-box-arrow-in-down', 'boton-principal', () => cargarPedido(p));
         if (p.estado === 'en_entrega') return crear('Cerrar entrega', 'bi-check2-circle', 'boton-principal', () => { location.hash = `pedidos?id=${p.id}`; });
         if (p.estado === 'en_ruta') {
             const b = crear('Entregar ahora', 'bi-geo-alt', 'boton-secundario', () => entregarAhora(p));
@@ -883,7 +967,7 @@ registrarSeccion('inicio', (zona) => {
             if (hayEntregando) b.title = 'Primero termina el pedido que estás entregando';
             return b;
         }
-        return null; // cargado: espera "Saliendo a ruta"
+        return null; // cargado: espera "Salir a ruta" de su slot
     }
 
     // Cambia el estado (solo si sigue en el que se ve) y lo deja en la línea de tiempo
@@ -901,19 +985,99 @@ registrarSeccion('inicio', (zona) => {
         return { cambiados: data.length };
     }
 
-    async function recibirParaRuta(p) {
-        const r = await cambiarMiPedido([p.id], 'listo_despacho', 'recibido_ruta');
-        if (r.error) { console.error(r.error); avisoRuta.mostrar('No se pudo marcar. Intenta de nuevo.', 'error'); return; }
-        // Aviso al Admin G3 de la tienda: aprobar la salida (js/notificaciones.js)
-        if (r.cambiados) {
-            await avisar({
-                tiendaId: p.tienda_id, a: ['g3'], tipo: 'pendiente', enlace: `#pedidos?id=${p.id}`,
-                referenciaTipo: 'pedido_salida', referenciaId: p.id,
-                titulo: 'Aprobar salida de un pedido',
-                mensaje: `${sesion.nombre || 'El piloto'} recibió el pedido ${p.codigo} para ruta. Ábrelo y escanea su QR para aprobar la salida.`,
-            });
+    // Carga con evidencia: foto, bultos recibidos y efectivo (js/carga-comun.js -> pedido_cargar)
+    async function cargarPedido(p) {
+        const r = await abrirCargaPedido({ pedido: p, sesion });
+        if (!r) return;
+        avisoRuta.mostrar(`Pedido ${p.codigo} cargado (${plural(r.bultos, 'bulto', 'bultos')}). Cuando tengas todo el slot, toca "Salir a ruta".`);
+        cargarMiRuta();
+    }
+
+    // ---------- Salir a ruta POR SLOT (sql/01 bloque 29: piloto_salir_ruta) ----------
+    // Un renglón por slot con pedidos por cargar o cargados: con al menos uno cargado
+    // aparece "Salir a ruta"; los listos sin cargar quedarán "No salió a ruta".
+    const textoSlot = (slot) => (slot ? `Slot ${slot}` : 'Sin slot');
+
+    function dibujarSalidas() {
+        const caja = $('#iniSalidas');
+        caja.replaceChildren();
+        const grupos = new Map(); // slot -> { cargados, porCargar }
+        miRuta.filter((p) => ['listo_despacho', 'recibido_ruta', 'cargado'].includes(p.estado)).forEach((p) => {
+            const clave = p.slot_numero || 0;
+            if (!grupos.has(clave)) grupos.set(clave, { cargados: [], porCargar: [] });
+            grupos.get(clave)[p.estado === 'cargado' ? 'cargados' : 'porCargar'].push(p);
+        });
+        caja.hidden = !grupos.size;
+        [...grupos.entries()].sort(([a], [b]) => (a || 99) - (b || 99)).forEach(([slot, g]) => {
+            const fila = document.createElement('div');
+            fila.className = 'ini-salida';
+            const texto = document.createElement('div');
+            texto.className = 'ini-salida-texto';
+            const titulo = document.createElement('strong');
+            titulo.textContent = `${textoSlot(slot)}: ${plural(g.cargados.length, 'cargado', 'cargados')}`;
+            const nota = document.createElement('small');
+            nota.textContent = !g.cargados.length
+                ? `${plural(g.porCargar.length, 'pedido por cargar', 'pedidos por cargar')}: carga al menos uno para salir.`
+                : g.porCargar.length
+                    ? `${plural(g.porCargar.length, 'pedido listo sin cargar', 'pedidos listos sin cargar')}: si sales ahora quedarán "No salió a ruta".`
+                    : 'Todo el slot está cargado.';
+            texto.append(titulo, nota);
+            const boton = document.createElement('button');
+            boton.type = 'button';
+            boton.className = 'boton boton-principal boton-chico';
+            boton.innerHTML = '<i class="bi bi-truck"></i> <span></span>';
+            boton.querySelector('span').textContent = 'Salir a ruta';
+            boton.disabled = !g.cargados.length;
+            if (!g.cargados.length) boton.title = 'Primero carga al menos un pedido de este slot';
+            boton.addEventListener('click', () => salirSlot(slot, g, boton));
+            fila.append(texto, boton);
+            caja.appendChild(fila);
+        });
+    }
+
+    async function salirSlot(slot, g, boton) {
+        if (!g.cargados.length) return;
+        const pregunta = `¿Salir a ruta con ${plural(g.cargados.length, 'pedido cargado', 'pedidos cargados')} del ${textoSlot(slot).toLowerCase()}?`
+            + (g.porCargar.length
+                ? `\n\n${g.porCargar.map((p) => p.codigo).join(', ')} no se cargaron: quedarán "No salió a ruta" para que los reprogramen.`
+                : '');
+        if (!confirm(pregunta)) return;
+        boton.disabled = true;
+        const { data, error } = await db.rpc('piloto_salir_ruta', { p: { usuario_id: sesion.id || null, slot: slot || null, fecha: hoy } });
+        if (error) {
+            console.error('Error al salir a ruta:', error);
+            avisoRuta.mostrar(error.code === 'P0001' ? error.message
+                : ['PGRST202', '42883'].includes(error.code) ? 'Falta ejecutar sql/01 (bloque 29: salida a ruta por slot).'
+                    : 'No se pudo marcar la salida. Intenta de nuevo.', 'error');
+            boton.disabled = false;
+            return;
         }
-        location.hash = `pedidos?id=${p.id}&qr=1`; // el QR para que lo escanee el despachador
+        const salen = data.en_ruta || [];
+        const quedan = data.no_salio || [];
+        avisoRuta.mostrar(`¡Buen viaje! ${plural(salen.length, 'pedido', 'pedidos')} en ruta`
+            + `${quedan.length ? ` · ${plural(quedan.length, 'no salió', 'no salieron')} (se avisó para reprogramar)` : ''}. Marca "Entregar ahora" en el que vas a entregar.`);
+        enviarUbicacion(); // js/ubicacion.js: la primera ubicación de la ruta, sin esperar 2 minutos
+
+        // Avisos (js/notificaciones.js): a la tienda, qué salió; al G2, qué hay que reprogramar
+        const porTienda = (lista) => lista.reduce((m, p) => { (m[p.tienda_id] = m[p.tienda_id] || []).push(p); return m; }, {});
+        await Promise.all(Object.entries(porTienda(salen)).map(([tiendaId, lista]) => avisar({
+            tiendaId: Number(tiendaId), a: ['g3'], enlace: '#pedidos', referenciaTipo: 'salida_ruta', referenciaId: sesion.id || null,
+            titulo: 'Piloto en ruta',
+            mensaje: `${sesion.nombre || 'El piloto'} salió a ruta (${textoSlot(slot).toLowerCase()}) con ${plural(lista.length, 'pedido', 'pedidos')}: ${lista.map((p) => p.codigo).join(', ')}.`,
+        })));
+        await Promise.all(quedan.map((p) => Promise.all([
+            avisar({
+                tiendaId: p.tienda_id, a: ['g2'], tipo: 'pendiente', enlace: `#pedidos?id=${p.id}`, referenciaTipo: 'pedido_no_salio', referenciaId: p.id,
+                titulo: 'Pedido no salió a ruta: reprogramar',
+                mensaje: `El pedido ${p.codigo} estaba listo pero no se cargó cuando ${sesion.nombre || 'el piloto'} salió a ruta (${textoSlot(slot).toLowerCase()}). Reprográmalo o cancélalo.`,
+            }),
+            avisar({
+                tiendaId: p.tienda_id, a: ['g3'], enlace: `#pedidos?id=${p.id}`, referenciaTipo: 'pedido', referenciaId: p.id,
+                titulo: 'Pedido no salió a ruta',
+                mensaje: `El pedido ${p.codigo} no se entregó al piloto y no salió a ruta. El Admin G2 lo reprogramará.`,
+            }),
+        ])));
+        cargarMiRuta();
     }
 
     async function entregarAhora(p) {
@@ -929,28 +1093,6 @@ registrarSeccion('inicio', (zona) => {
         cargarMiRuta();
     }
 
-    $('#iniSaliendo').addEventListener('click', async () => {
-        const boton = $('#iniSaliendo');
-        const ids = miRuta.filter((p) => p.estado === 'cargado').map((p) => p.id);
-        if (!ids.length) return;
-        boton.disabled = true;
-        const r = await cambiarMiPedido(ids, 'cargado', 'en_ruta', 'salida');
-        if (r.error) {
-            console.error(r.error);
-            avisoRuta.mostrar('No se pudo marcar la salida. Intenta de nuevo.', 'error');
-        } else {
-            avisoRuta.mostrar(`¡Buen viaje! ${plural(r.cambiados, 'pedido', 'pedidos')} en ruta. Marca "Entregar ahora" en el que vas a entregar.`);
-            // Aviso al Admin G3 de cada tienda: qué pedidos salieron (js/notificaciones.js)
-            const porTienda = {};
-            miRuta.filter((p) => ids.includes(p.id)).forEach((p) => { (porTienda[p.tienda_id] = porTienda[p.tienda_id] || []).push(p.codigo); });
-            await Promise.all(Object.entries(porTienda).map(([tiendaId, codigos]) => avisar({
-                tiendaId: Number(tiendaId), a: ['g3'], enlace: '#pedidos', referenciaTipo: 'salida_ruta', referenciaId: sesion.id || null,
-                titulo: 'Piloto en ruta',
-                mensaje: `${sesion.nombre || 'El piloto'} salió a ruta con ${plural(codigos.length, 'pedido', 'pedidos')}: ${codigos.join(', ')}.`,
-            })));
-        }
-        cargarMiRuta();
-    });
 
     // ==================================================
     // MIS MARCAS DE HOY (solo el PILOTO)
@@ -1101,6 +1243,7 @@ registrarSeccion('inicio', (zona) => {
             if (modo === 'admin' || modo === 'tienda') await pintarAdmin();
             else if (modo === 'empleado') await pintarEmpleado();
             else pintarKpisPiloto();
+            await cargarUbicaciones();
             if (!activa) return;
             dibujarMapaYPilotos();
             if (esPiloto) dibujarMarcas();
@@ -1152,12 +1295,16 @@ registrarSeccion('inicio', (zona) => {
     const relojMarcas = esPiloto ? setInterval(() => dibujarMarcas(), 30000) : null;
     const alMarcar = () => { cargarMarcas(); actualizar(); };
     window.addEventListener('acachete:marca', alMarcar);
+    // Cada vez que el piloto manda su ubicación (js/ubicacion.js): su línea y su camión en el mapa
+    const alUbicar = () => { if (esPiloto) { pintarUbicacion(); dibujarMarcadores(); } };
+    window.addEventListener('acachete:ubicacion', alUbicar);
 
     return () => {
         activa = false;
         clearInterval(reloj);
         if (relojMarcas) clearInterval(relojMarcas);
         window.removeEventListener('acachete:marca', alMarcar);
+        window.removeEventListener('acachete:ubicacion', alUbicar);
         aviso.limpiar();
         avisoRuta.limpiar();
         avisoMarcas.limpiar();

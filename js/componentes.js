@@ -253,6 +253,14 @@ function coincideBusqueda(valores, filtro) {
     return valores.some((valor) => textoParaBuscar(valor).includes(buscado));
 }
 
+// ---------- Tiendas sin rutas (no envían pedidos; sql/01 bloque 28: tiendas.usa_rutas) ----------
+// Devuelve un Set con sus ids. No aparecen para crear pedidos, rutas, cotizaciones ni
+// bodegas del día. Sin el bloque 28 (o si falla la consulta): ninguna, como antes.
+async function tiendasSinRutas() {
+    const { data, error } = await db.from('tiendas').select('id').eq('usa_rutas', false);
+    return new Set(error ? [] : data.map((t) => t.id));
+}
+
 // ---------- Plural simple ----------
 // plural(1, 'tienda', 'tiendas') -> "1 tienda" | plural(3, ...) -> "3 tiendas"
 function plural(cantidad, singular, pluralTexto) {
@@ -271,14 +279,26 @@ function codigoEmpresa(empresa = null) {
     return e && e.codigo ? String(e.codigo) : '';
 }
 
-// Región de la tienda en minúsculas: "CEN-001" -> "cen"
-function prefijoUsuario(codigoTienda) {
-    return String(codigoTienda || '').slice(0, 3).toLowerCase();
+// Prefijo del usuario: la REGIÓN de la tienda en minúsculas ("CEN" -> "cen").
+// Desde sql/01 bloque 28 el código de la tienda es libre y ya no lleva la región:
+// pasar siempre la región (o claveTiendaUsuario(tienda)).
+function prefijoUsuario(region) {
+    return String(region || '').slice(0, 3).toLowerCase();
 }
 
-// ("jperez", "CEN-001", "01") -> "cenjperez01" · ("jperez", null, "01") -> "jperez01"
-function usuarioCompuesto(base, codigoTienda = null, codigo = codigoEmpresa()) {
-    return prefijoUsuario(codigoTienda) + String(base || '') + (codigo || '');
+// Lo que identifica a la tienda dentro del usuario, para QUITARLO (usuarioSinPrefijo):
+// el código si empieza con la región (así se reconocen los formatos viejos cen-001-jperez,
+// cen001jperez) y, si no (código libre), la región. tienda = { codigo, region }
+function claveTiendaUsuario(tienda) {
+    if (!tienda) return null;
+    const region = String(tienda.region || '').toUpperCase();
+    return String(tienda.codigo || '').toUpperCase().startsWith(region) && region ? tienda.codigo : tienda.region;
+}
+
+// ("jperez", "CEN", "01") -> "cenjperez01" · ("jperez", null, "01") -> "jperez01"
+// (el segundo dato es la REGIÓN de la tienda)
+function usuarioCompuesto(base, region = null, codigo = codigoEmpresa()) {
+    return prefijoUsuario(region) + String(base || '') + (codigo || '');
 }
 
 // "cenjperez01", "cen001jperez01", "cen-001-jperez", "jperez01" -> "jperez"

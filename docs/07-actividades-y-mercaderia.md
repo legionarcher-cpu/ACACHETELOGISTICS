@@ -20,6 +20,24 @@ Una empresa nueva puede copiar los de la empresa activa al crearse.
 | `tienda` | Entregas de tienda (supermercado) | Compra (monto, envío gratis, cobrar la compra), alcohol |
 | `encomiendas` | Encomiendas | Bodega ("Recibido en bodega"), punto de partida, tamaños S/M/L/XL |
 | `transporte` | Transporte | **Viajes con agenda** (`usa_viajes`): sección Viajes en vez de Pedidos, precio por franja, cortesía. Se llama "viaje" y "conductor" ([secciones/viajes.md](secciones/viajes.md)) |
+| `masajes` | Masajes | Servicio a domicilio: **sin** vehículos, cobro por km ni peso |
+| `distribucion` | Distribución | **Productos** (`usa_productos`): ver [15-distribuidora.md](15-distribuidora.md). Vehículos sí; km y peso no |
+
+**Partes que se ven en todo el sistema** (sql/01 bloque 26, Configuración → Actividades → "Qué usa en todo el
+sistema"): `usa_vehiculos`, `usa_km`, `usa_peso`, `usa_productos`. Una parte se muestra si **alguna** actividad de
+la empresa la usa (`empresaUsa(parte)` en `empresas/empresas.js`). `aplicarPartesEmpresa()` pone en `<html>` las
+clases `sin-vehiculos`, `sin-km`, `sin-peso` y `sin-productos`, y `css/base.css` oculta lo marcado con
+`.solo-vehiculos`, `.solo-km`, `.solo-peso`, `.solo-peso-o-km` y `.solo-productos`. Para ocultar algo nuevo
+según la actividad basta con ponerle esa clase. Dentro de un pedido manda la actividad elegida
+(`actividadUsaParte(codigo, parte)`): peso del pedido, ayuda del cobro por km y campos de kg/km de la tarifa.
+
+| Parte apagada | Qué desaparece |
+|---|---|
+| Vehículos | Configuración → Vehículos y Costos de operación, vehículo del piloto (Usuarios, Pilotos, Mi perfil) |
+| Km | Campos de km de las tarifas, ayuda del cobro por km en el pedido |
+| Peso | Campos de kg de las tarifas, peso total del pedido |
+| Km **y** peso | Cotizador (menú y botón del pie) y el simulador de precios |
+| Productos | Productos, Bodega del día, Venta en ruta y Cierre de mercadería (distribuidora) |
 
 **Palabras de la actividad** (sql/01 bloque 18): cada actividad puede llamar distinto al registro y al conductor
 (Configuración → Actividades; vacío = pedido / piloto). Si **todas** las actividades de la empresa usan la misma,

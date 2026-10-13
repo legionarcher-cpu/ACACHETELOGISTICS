@@ -227,7 +227,7 @@ registrarSeccion('configuracion', (zona) => {
             abrir: () => abrirModuloExterno('slots'),
         },
         vehiculos: {
-            permitido: () => puedeRegional && enPlan('cfg_vehiculos'),
+            permitido: () => puedeRegional && enPlan('cfg_vehiculos') && empresaUsa('vehiculos'), // solo si alguna actividad usa vehículos (bloque 26)
             abrir: () => cargarVehiculos(),
         },
         // Tarifas, descuentos, categorías... (js/secciones/configuracion/pedidos.js).
@@ -243,9 +243,9 @@ registrarSeccion('configuracion', (zona) => {
             abrir: () => abrirModuloExterno('transporte'),
         },
         // Calculador de costos: gastos del mes, combustible y costo por km de cada vehículo
-        // (js/secciones/configuracion/costos.js). Todas las empresas, si su plan lo incluye.
+        // (js/secciones/configuracion/costos.js). Si su plan lo incluye y usa vehículos.
         costos: {
-            permitido: () => esGeneral && enPlan('cfg_costos'),
+            permitido: () => esGeneral && enPlan('cfg_costos') && empresaUsa('vehiculos'), // costos por vehículo y por km
             abrir: () => abrirModuloExterno('costos'),
         },
         // Tipos de caja y fondo de cada piloto (js/secciones/configuracion/cajas.js).

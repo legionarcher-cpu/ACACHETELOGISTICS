@@ -122,7 +122,7 @@ registrarSeccion('pilotos', (zona) => {
         tr.appendChild(crearCelda(p.nombre));
         tr.appendChild(crearCelda(p.id_usuario, 'texto-codigo'));
         tr.appendChild(crearCelda(p.telefono));
-        tr.appendChild(crearCelda(p.vehiculos ? textoVehiculo(p) : null));
+        tr.appendChild(crearCelda(p.vehiculos ? textoVehiculo(p) : null, 'solo-vehiculos'));
 
         // Funciones: pendiente de definir (aquí se asignarán más adelante)
         tr.appendChild(crearCeldaEtiqueta('Por definir', 'etiqueta-gris'));

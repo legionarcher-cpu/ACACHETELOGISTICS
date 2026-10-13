@@ -5,12 +5,15 @@
    Qué hace (tablas "tiendas" y "regiones" de Supabase, conexión en js/supabase.js):
      - Listar:    tiendas agrupadas por región, con filtro de región y buscador.
                   Muestra cuántos usuarios tiene cada tienda.
-     - Crear:     "Nueva tienda" -> región + número -> código (ej. NOR-004).
-                  Al elegir la región se sugiere el siguiente número libre.
-     - Modificar: lápiz -> todo, incluido el código. Si el código cambia,
-                  sus usuarios se renombran solos solo si cambia la región
-                  (cenjperez01 -> norjperez01; llevan la región, no la tienda)
-                  con la función cambiar_codigo_tienda (sql/00, sección 3).
+     - Crear:     "Nueva tienda" -> región + código LIBRE (sql/01 bloque 28: el
+                  código ya no depende de la región; ej. SUC-01, CENTRO, 25).
+                  Al elegir la región se sugiere un código (REGIÓN-número libre).
+                  "Tiene rutas" (usa_rutas): si envía pedidos; sin rutas no aparece
+                  para crear pedidos, rutas ni bodegas del día.
+     - Modificar: lápiz -> todo. Cambiar el código no toca a los usuarios
+                  (cambiar_codigo_tienda). Cambiar la REGIÓN renombra a sus usuarios
+                  (cenjperez01 -> norjperez01; llevan la región) con
+                  cambiar_region_tienda.
      - Eliminar:  basurero -> confirmación. Solo si NO tiene usuarios
                   (primero hay que moverlos a otra tienda desde Usuarios).
 
@@ -32,8 +35,8 @@
        llega en la Fase 7 (Supabase Auth).
 
    Otras reglas:
-     - La base de datos valida el formato del código y que coincida con la
-       región (sql/00, sección 1).
+     - La base de datos valida el formato del código (letras, números y guion,
+       hasta 20; sql/01 bloque 28).
      - Una tienda con usuarios no se puede eliminar (la base de datos lo
        impide). Se puede marcar como "Inactiva".
      - Regiones: botón "Regiones" (Administrador y Admin G1). Cada empresa
@@ -51,6 +54,8 @@
 // (No "usuarios(count)": desde sql/01 bloque 20 la página no puede leer la columna clave,
 // y count pide permiso sobre toda la tabla -> "permission denied for table usuarios".)
 const TND_COLUMNAS = 'id, codigo, region, nombre, direccion, telefono, estado, usuarios(id)';
+// usa_rutas: si la tienda envía pedidos (sql/01 bloque 28). Sin la columna, todas envían.
+const TND_COLUMNAS_RUTAS = `${TND_COLUMNAS}, usa_rutas`;
 
 // Estado -> texto y color de la etiqueta (clases de css/componentes.css)
 const TND_ESTADOS = {
@@ -74,11 +79,11 @@ registrarSeccion('tiendas', (zona) => {
     const tituloForm   = $('#tndDialogoTitulo');
     const errorForm    = $('#tndFormError');
     const botonGuardar = $('#tndGuardar');
-    const vistaPrevia  = $('#tndVistaPrevia');
     const avisoCodigo  = $('#tndAvisoCodigo');
     const campos = {
         region:    $('#tndRegion'),
-        numero:    $('#tndNumero'),
+        codigo:    $('#tndCodigo'),
+        usaRutas:  $('#tndUsaRutas'),
         nombre:    $('#tndNombre'),
         direccion: $('#tndDireccion'),
         telefono:  $('#tndTelefono'),
@@ -118,13 +123,14 @@ registrarSeccion('tiendas', (zona) => {
     }
 
     // Número de columnas de la tabla (para las filas que ocupan todo el ancho)
-    const columnas = 7;
+    const columnas = 8;
 
     // ---------- Estado ----------
     let tiendas = [];        // lista traída de la base de datos
     let regiones = [];       // [{ codigo: 'NOR', nombre: 'Norte' }, ...]
     let editando = null;     // null = creando; objeto = tienda que se modifica
     let eliminandoId = null; // id de la tienda a eliminar (mientras se confirma)
+    let tieneUsaRutas = true; // false si falta el bloque 28 de sql/01 (sin la columna usa_rutas)
 
     // Cantidad de usuarios de una tienda (viene como usuarios: [{ id: 4 }, { id: 9 }])
     const cantidadUsuarios = (t) => (t.usuarios || []).length;
@@ -161,7 +167,9 @@ registrarSeccion('tiendas', (zona) => {
     }
 
     async function cargarTiendas() {
-        const { data, error } = await db.from('tiendas').select(TND_COLUMNAS).order('codigo');
+        let { data, error } = await db.from('tiendas').select(TND_COLUMNAS_RUTAS).order('codigo');
+        tieneUsaRutas = !(error && error.code === '42703');
+        if (!tieneUsaRutas) ({ data, error } = await db.from('tiendas').select(TND_COLUMNAS).order('codigo'));
         if (error) {
             console.error('Error al cargar tiendas:', error);
             contador.textContent = 'No se pudo cargar la lista.';
@@ -198,6 +206,7 @@ registrarSeccion('tiendas', (zona) => {
         tr.appendChild(crearCelda(t.direccion));
         tr.appendChild(crearCelda(t.telefono));
         tr.appendChild(crearCelda(usuariosTienda, 'tnd-col-numero'));
+        tr.appendChild(t.usa_rutas === false ? crearCeldaEtiqueta('Sin rutas', 'etiqueta-gris') : crearCeldaEtiqueta('Con rutas', 'etiqueta-azul'));
         tr.appendChild(crearCeldaEtiqueta(estado.texto, estado.color));
 
         // Acciones:
@@ -310,97 +319,86 @@ registrarSeccion('tiendas', (zona) => {
     }
 
     // ==================================================
-    // CÓDIGO DE LA TIENDA (región + número)
+    // CÓDIGO DE LA TIENDA (libre; la región va aparte, sql/01 bloque 28)
     // ==================================================
 
-    // "4" -> "004"
-    const numeroConCeros = (texto) => texto.trim().padStart(3, '0');
+    // Letras, números y guion; de 1 a 20; en mayúsculas (regla tiendas_codigo_formato)
+    const TND_CODIGO_VALIDO = /^[A-Z0-9][A-Z0-9-]{0,19}$/;
+    const codigoDelFormulario = () => campos.codigo.value.trim().toUpperCase();
 
-    // Código que se está armando en el formulario (ej. "NOR-004") o '' si falta algo
-    function codigoDelFormulario() {
-        const region = campos.region.value;
-        const numero = campos.numero.value.trim();
-        if (!region || !/^\d{1,3}$/.test(numero)) return '';
-        return `${region}-${numeroConCeros(numero)}`;
-    }
-
-    // Siguiente número libre de una región (ej. si existen NOR-001 y NOR-003 -> "004")
-    function siguienteNumero(region) {
-        const usados = tiendas
-            .filter((t) => t.region === region)
-            .map((t) => Number(t.codigo.split('-')[1]) || 0);
+    // Sugerencia: REGIÓN-siguiente número libre (ej. si existen NOR-001 y NOR-003 -> "NOR-004").
+    // Solo es una sugerencia: el código se puede cambiar por cualquier otro.
+    function codigoSugerido(region) {
+        const patron = new RegExp(`^${region}-(\\d{1,3})$`);
+        const usados = tiendas.map((t) => (patron.exec(t.codigo) || [])[1]).filter(Boolean).map(Number);
         const siguiente = (usados.length ? Math.max(...usados) : 0) + 1;
-        return siguiente > 999 ? '' : String(siguiente).padStart(3, '0');
+        return siguiente > 999 ? '' : `${region}-${String(siguiente).padStart(3, '0')}`;
     }
 
-    // Vista previa del código y, si se está cambiando el código de una tienda
-    // con usuarios, advertencia de que sus usuarios se renombrarán.
+    // Si se está cambiando la REGIÓN de una tienda con usuarios: advertencia de que se renombran
     function actualizarVistaPrevia() {
-        const codigo = codigoDelFormulario();
-        vistaPrevia.textContent = codigo || '—';
-
         const usuariosTienda = editando ? cantidadUsuarios(editando) : 0;
-        // Los usuarios llevan la REGIÓN (cenjperez01), no la tienda: solo cambian si cambia la región
-        const cambia = editando && codigo && prefijoUsuario(codigo) !== prefijoUsuario(editando.codigo);
+        const region = campos.region.value;
+        const cambia = editando && region && region !== editando.region;
         avisoCodigo.hidden = !(cambia && usuariosTienda > 0);
         if (!avisoCodigo.hidden) {
             avisoCodigo.textContent =
-                `Al guardar, ${plural(usuariosTienda, 'el usuario', 'los usuarios')} de esta tienda cambiará` +
-                `${usuariosTienda === 1 ? '' : 'n'} de ${prefijoUsuario(editando.codigo)}… a ${prefijoUsuario(codigo)}… ` +
+                `Al guardar, ${usuariosTienda === 1 ? 'el usuario' : `los ${usuariosTienda} usuarios`} de esta tienda cambiará` +
+                `${usuariosTienda === 1 ? '' : 'n'} de ${prefijoUsuario(editando.region)}… a ${prefijoUsuario(region)}… ` +
                 `y deberá${usuariosTienda === 1 ? '' : 'n'} iniciar sesión con el usuario nuevo.`;
         }
     }
 
-    // Al elegir región se sugiere el siguiente número libre.
-    // Si al modificar se vuelve a la región original, se recupera el número original.
+    // Al crear: al elegir la región se sugiere un código (si no se escribió uno a mano)
+    let codigoTocado = false;
     campos.region.addEventListener('change', () => {
-        const region = campos.region.value;
-        if (editando && region === editando.region) {
-            campos.numero.value = editando.codigo.split('-')[1] || '';
-        } else if (region) {
-            campos.numero.value = siguienteNumero(region);
-        }
+        if (!editando && !codigoTocado && campos.region.value) campos.codigo.value = codigoSugerido(campos.region.value);
         actualizarVistaPrevia();
     });
 
-    // Solo se aceptan dígitos en el número
-    campos.numero.addEventListener('input', () => {
-        campos.numero.value = campos.numero.value.replace(/\D/g, '').slice(0, 3);
-        actualizarVistaPrevia();
+    campos.codigo.addEventListener('input', () => {
+        codigoTocado = true;
+        campos.codigo.value = campos.codigo.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 20);
     });
 
     // ==================================================
-    // CREAR Y MODIFICAR (Administrador y Admin G1; solo el Administrador cambia códigos)
+    // CREAR Y MODIFICAR (Administrador y Admin G1; solo el Administrador cambia código y región)
     // ==================================================
 
     // tienda = null -> crear; tienda = objeto -> modificar
     function abrirFormulario(tienda = null) {
         editando = tienda;
+        codigoTocado = false;
         form.reset();
         errorForm.textContent = '';
         tituloForm.textContent = tienda ? 'Modificar tienda' : 'Nueva tienda';
 
         if (tienda) {
             campos.region.value    = tienda.region;
-            campos.numero.value    = tienda.codigo.split('-')[1] || '';
+            campos.codigo.value    = tienda.codigo || '';
             campos.nombre.value    = tienda.nombre || '';
             campos.direccion.value = tienda.direccion || '';
             campos.telefono.value  = tienda.telefono || '';
             campos.estado.value    = tienda.estado || 'activa';
-        } else if (filtroRegion.value) {
-            // Si hay una región filtrada, se propone esa
-            campos.region.value = filtroRegion.value;
-            campos.numero.value = siguienteNumero(filtroRegion.value);
+            campos.usaRutas.checked = tienda.usa_rutas !== false;
+        } else {
+            campos.usaRutas.checked = true;
+            if (filtroRegion.value) {
+                // Si hay una región filtrada, se propone esa
+                campos.region.value = filtroRegion.value;
+                campos.codigo.value = codigoSugerido(filtroRegion.value);
+            }
         }
+        // Sin el bloque 28 no existe usa_rutas: no se muestra la casilla
+        $('#tndRutasCaja').hidden = !tieneUsaRutas;
 
-        // El código (región + número) se elige al crear. En una tienda existente
-        // solo el Administrador lo puede cambiar.
-        const bloquearCodigo = !!tienda && !admin;
-        const motivo = bloquearCodigo ? 'Solo el Administrador puede cambiar el código de la tienda' : '';
-        campos.region.disabled = bloquearCodigo;
-        campos.numero.disabled = bloquearCodigo;
+        // Código y región se eligen al crear. En una tienda existente solo el Administrador los cambia.
+        const bloquear = !!tienda && !admin;
+        const motivo = bloquear ? 'Solo el Administrador puede cambiar el código o la región de la tienda' : '';
+        campos.region.disabled = bloquear;
+        campos.codigo.disabled = bloquear;
         campos.region.title = motivo;
-        campos.numero.title = motivo;
+        campos.codigo.title = motivo;
 
         actualizarVistaPrevia();
         dialogo.showModal();
@@ -421,48 +419,55 @@ registrarSeccion('tiendas', (zona) => {
     // Lee y valida el formulario. Devuelve los datos o null si hay error.
     function leerFormulario() {
         const nombre = campos.nombre.value.trim();
+        const codigo = codigoDelFormulario();
 
         if (!campos.region.value) return fallo('Elige la región de la tienda.', campos.region);
-        if (!/^\d{1,3}$/.test(campos.numero.value.trim()) || Number(campos.numero.value) === 0) {
-            return fallo('El número debe ser de 001 a 999.', campos.numero);
+        if (!TND_CODIGO_VALIDO.test(codigo)) {
+            return fallo('El código: letras, números y guion (hasta 20), sin espacios. Ej. SUC-01.', campos.codigo);
         }
         if (!nombre) return fallo('Escribe el nombre de la tienda.', campos.nombre);
 
-        return {
-            codigo: codigoDelFormulario(),
+        const datos = {
+            codigo,
             region: campos.region.value,
             nombre,
             direccion: campos.direccion.value.trim() || null,
             telefono: campos.telefono.value.trim() || null,
             estado: campos.estado.value,
         };
+        if (tieneUsaRutas) datos.usa_rutas = campos.usaRutas.checked;
+        return datos;
     }
 
     // Traduce los errores de la base de datos a mensajes entendibles
     function mensajeDeError(error) {
-        if (error.code === '23505') return 'Ya existe una tienda con ese código (o un usuario con ese nombre). Usa otro número.';
-        if (error.code === '23514') return 'El código no es válido para esa región.';
+        if (error.code === '23505') return 'Ya existe una tienda con ese código (o un usuario con ese nombre). Usa otro código.';
+        if (error.code === '23514') return 'El código no es válido: letras, números y guion (hasta 20). Si el formato viejo REGIÓN-000 lo rechaza, falta ejecutar sql/01 (bloque 28).';
         if (error.code === 'P0002') return 'La tienda ya no existe. Recarga la página.';
-        if (error.code === 'PGRST202') return 'Falta instalar la base de datos (sql/00_instalacion_completa.sql).';
+        if (error.code === 'P0001') return error.message;
+        if (error.code === 'PGRST202' || error.code === '42883') return 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 28: código y región de la tienda).';
         return 'No se pudo guardar. Revisa la conexión e intenta de nuevo.';
     }
 
-    // Guarda: crea la tienda, o la modifica (y si cambió el código, renombra a sus usuarios)
+    // Guarda: crea la tienda, o la modifica. El código y la región se cambian con sus
+    // funciones (la región renombra a los usuarios de la tienda); luego el resto.
     async function guardar(datos) {
         if (!editando) {
             return db.from('tiendas').insert(datos);
         }
 
-        // 1. Si cambió el código: tienda + usuarios en una sola operación (cambiar_codigo_tienda)
+        // 1. Código (no toca a los usuarios)
         if (datos.codigo !== editando.codigo) {
-            const { error } = await db.rpc('cambiar_codigo_tienda', {
-                p_tienda_id: editando.id,
-                p_nuevo_codigo: datos.codigo,
-            });
+            const { error } = await db.rpc('cambiar_codigo_tienda', { p_tienda_id: editando.id, p_nuevo_codigo: datos.codigo });
+            if (error) return { error };
+        }
+        // 2. Región (renombra a sus usuarios: llevan la región)
+        if (datos.region !== editando.region) {
+            const { error } = await db.rpc('cambiar_region_tienda', { p_tienda_id: editando.id, p_region: datos.region });
             if (error) return { error };
         }
 
-        // 2. El resto de los datos
+        // 3. El resto de los datos
         const { codigo, region, ...resto } = datos;
         return db.from('tiendas').update(resto).eq('id', editando.id);
     }
@@ -476,7 +481,7 @@ registrarSeccion('tiendas', (zona) => {
         const datos = leerFormulario();
         if (!datos) return;
 
-        // El Admin G1 nunca cambia el código (por si acaso, se fuerza el original)
+        // El Admin G1 nunca cambia el código ni la región (por si acaso, se fuerzan los originales)
         if (!admin && editando) {
             datos.codigo = editando.codigo;
             datos.region = editando.region;
@@ -500,10 +505,13 @@ registrarSeccion('tiendas', (zona) => {
         let mensaje = `Tienda ${datos.codigo} creada.`;
         if (editando) {
             const usuariosTienda = cantidadUsuarios(editando);
-            mensaje = datos.codigo !== editando.codigo
-                ? `Tienda ${editando.codigo} ahora es ${datos.codigo}.` +
-                  (usuariosTienda ? ` ${plural(usuariosTienda, 'usuario renombrado', 'usuarios renombrados')}.` : '')
-                : `Tienda "${datos.nombre}" actualizada.`;
+            const partes = [];
+            if (datos.codigo !== editando.codigo) partes.push(`Tienda ${editando.codigo} ahora es ${datos.codigo}.`);
+            if (datos.region !== editando.region) {
+                partes.push(`Ahora es de la región ${nombreRegion(datos.region)}.` +
+                    (usuariosTienda ? ` ${plural(usuariosTienda, 'usuario renombrado', 'usuarios renombrados')}.` : ''));
+            }
+            mensaje = partes.join(' ') || `Tienda "${datos.nombre}" actualizada.`;
         }
 
         dialogo.close();

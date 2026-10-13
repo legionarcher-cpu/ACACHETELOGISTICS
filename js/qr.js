@@ -42,7 +42,8 @@ const QR_ESTADOS = {
     listo_despacho: ['Listo para despachar', 'etiqueta-azul'], recibido_ruta: ['Recibido para ruta', 'etiqueta-morada'],
     cargado: ['Cargado', 'etiqueta-turquesa'], en_ruta: ['En ruta', 'etiqueta-turquesa'], en_entrega: ['Entregando', 'etiqueta-turquesa'],
     entregado: ['Entregado', 'etiqueta-verde'], entregado_incidencia: ['Entregado con incidencia', 'etiqueta-naranja'],
-    no_entregado: ['No entregado', 'etiqueta-rosada'], reprogramado: ['Reprogramado', 'etiqueta-azul'],
+    no_entregado: ['No entregado', 'etiqueta-rosada'], no_salio: ['No salió a ruta', 'etiqueta-rosada'],
+    reprogramado: ['Reprogramado', 'etiqueta-azul'],
     devuelto: ['Devuelto', 'etiqueta-rosada'], cancelado: ['Cancelado', 'etiqueta-gris'],
 };
 

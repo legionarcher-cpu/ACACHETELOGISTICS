@@ -410,6 +410,43 @@ a.ini-fila:hover {
     color: var(--color-blanco);
 }
 
+/* Camión del piloto en ruta (su última ubicación); gris si no se actualiza hace rato */
+.ini-marcador-piloto {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--color-blanco);
+    border-radius: 50%;
+    background-color: #0E6B63;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.45);
+    font-size: 0.9rem;
+    color: var(--color-blanco);
+}
+
+.ini-marcador-piloto.vieja {
+    background-color: var(--color-gris);
+}
+
+/* "Pilotos de hoy": los que tienen ubicación se pueden tocar para verlos en el mapa */
+.ini-mapa-lista li.ini-piloto-ubicado {
+    cursor: pointer;
+}
+
+.ini-mapa-lista li.ini-piloto-ubicado:hover strong,
+.ini-mapa-lista li.ini-piloto-ubicado:focus-visible strong {
+    color: var(--color-azul);
+}
+
+/* Estado del GPS del piloto (bajo "Mi ruta") */
+.ini-ubicacion {
+    margin: 0.222rem 0 0;
+    font-size: 0.75rem;
+    color: var(--color-gris);
+}
+
+.ini-ubicacion.ok { color: #0E6B63; }
+.ini-ubicacion.error { color: var(--color-rojo); }
+
 /* Ventanita de un pedido en el mapa */
 .ini-popup {
     display: flex;
@@ -633,7 +670,7 @@ a.ini-fila:hover {
 
     .ini-marcas-botones .boton,
     .ini-mi-ruta-item .boton,
-    #iniSaliendo {
+    .ini-salida .boton {
         flex: 1 1 100%;
         justify-content: center;
         min-height: 2.6rem;

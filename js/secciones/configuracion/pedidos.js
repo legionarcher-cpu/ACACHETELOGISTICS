@@ -129,6 +129,10 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
     // ¿La base ya tiene tarifas.km_incluidos? (sql/01, bloque 10). Las tarifas se leen con '*'.
     const tieneKmIncluidos = () => ((filas && filas.tarifas) || []).some((f) => 'km_incluidos' in f);
 
+    // ¿La actividad de la tarifa usa peso / km? (empresas/empresas.js, sql/01 bloque 26).
+    // Sin actividad elegida todavía, se mira la empresa.
+    const tarifaUsa = (v, parte) => (v && v.actividad ? actividadUsaParte(v.actividad, parte) : empresaUsa(parte));
+
     // Una tarifa dicha en palabras (formulario de Tarifas y Simulador):
     //   Hasta 3 kg y 5 km: ₡2500.00
     //   Más de 3 kg: + ₡500.00 por cada kg sobre los 3 kg
@@ -234,16 +238,20 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
                 { nombre: 'cargo_fijo', etiqueta: `Envío fijo (${CFG_MONEDA})`, tipo: 'numero', min: 0, porDefecto: 0,
                   ayuda: 'Se cobra en todos los pedidos.' },
                 { nombre: 'minimo', etiqueta: `Mínimo (${CFG_MONEDA})`, tipo: 'numero', min: 0, porDefecto: 0 },
+                // Peso y km: solo si la actividad de la tarifa los usa (Configuración -> Actividades, bloque 26)
                 { nombre: 'kg_incluidos', etiqueta: 'Kg que cubre el mínimo', tipo: 'numero', min: 0, porDefecto: 0,
+                  visible: (v) => tarifaUsa(v, 'peso'),
                   ayuda: 'El peso que pase de aquí se cobra como kg adicional.' },
-                { nombre: 'precio_kg', etiqueta: `Precio por kg adicional (${CFG_MONEDA})`, tipo: 'numero', min: 0, porDefecto: 0 },
+                { nombre: 'precio_kg', etiqueta: `Precio por kg adicional (${CFG_MONEDA})`, tipo: 'numero', min: 0, porDefecto: 0,
+                  visible: (v) => tarifaUsa(v, 'peso') },
                 { nombre: 'envio_gratis_desde', etiqueta: `Envío gratis desde (${CFG_MONEDA} de compra)`, tipo: 'numero', min: 0,
                   ayuda: 'Vacío = nunca es gratis.' },
                 // Solo si la base ya tiene la columna (sql/01, bloque 10)
                 { nombre: 'km_incluidos', etiqueta: 'Km que cubre el mínimo', tipo: 'numero', min: 0, porDefecto: 0,
-                  visible: () => tieneKmIncluidos(),
+                  visible: (v) => tieneKmIncluidos() && tarifaUsa(v, 'km'),
                   ayuda: 'Distancia incluida en el mínimo (por calle, de A a B). Los km que pasen de aquí se cobran como km adicional. 0 = se cobra desde el primer km.' },
                 { nombre: 'precio_km', etiqueta: `Precio por km adicional (${CFG_MONEDA})`, tipo: 'numero', min: 0, porDefecto: 0,
+                  visible: (v) => tarifaUsa(v, 'km'),
                   ayuda: 'Se multiplica por los km que pasen de lo que cubre el mínimo. 0 = no se cobra distancia.' },
             ],
             preparar(v, fila) {

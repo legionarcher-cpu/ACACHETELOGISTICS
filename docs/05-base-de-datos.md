@@ -7,6 +7,14 @@ Consulta típica: `const { data, error } = await db.from('tiendas').select('id, 
 
 **Cómo ejecutar:** Supabase → SQL Editor → New query → pegar el archivo completo → Run.
 
+**Si el SQL Editor no acepta el archivo por grande:** usar la carpeta `sql/por_funcion/` (la genera
+`herramientas\dividir_sql.bat`): los mismos scripts en archivos por función (base y pedidos, empresas internas,
+transporte, seguridad y planes, caja y ubicación, distribuidora). Se ejecutan **en orden** (`01_actualizacion_1_...`,
+`_2_...`) y uno tras otro son idénticos al original (la herramienta lo comprueba). Para poner al día una base solo
+hace falta desde el archivo que tenga los bloques que faltan (ej. solo `01_actualizacion_6_distribuidora.sql`).
+**No se editan:** se edita `sql/00` o `sql/01` y se vuelve a ejecutar la herramienta. Un bloque nuevo se agrega a
+`GRUPOS` en `herramientas/dividir_sql.ps1` (si no, cae en un archivo "otros").
+
 Hay **solo dos** scripts:
 
 | Script | Qué hace | Cuándo |
@@ -69,8 +77,23 @@ que se registró al aprobarla), `revisado_por`, `revisado_en`. Ver [secciones/en
 tarjeta) y su `cierre_id`. Cada cierre guarda fondo, efectivo, sinpe, tarjeta, efectivo contado, diferencia, cantidad,
 notas y quién cerró. Se crean solo con la función `caja_cerrar` (la página solo lee `cierres_caja`).
 Ver [secciones/caja.md](secciones/caja.md).
+
+**`ubicaciones_pilotos`** (sql/01 bloque 25) — última posición de cada piloto en ruta (`piloto_ubicacion`).
+
+**Partes de cada actividad** (sql/01 bloque 26) — `actividades.usa_vehiculos`, `usa_km`, `usa_peso` (por defecto sí)
+y `usa_productos` (por defecto no). Actividades `masajes` y `distribucion`.
+
+**Distribuidora** (sql/01 bloque 27, ver [15-distribuidora.md](15-distribuidora.md)):
+`productos` (nombre, código, categoría, activo) → `producto_presentaciones` (nombre, unidades, código de barras,
+activa) → `precios` (por `lista_id` de `listas_precios`: precio **sin IVA** + `iva_pct`, 13 por defecto; una lista
+`general` por empresa). `tiendas.lista_precios_id`. `motivos_entrega_parcial`. `bodegas_dia` (una por ruta y fecha,
+`lista_id`, `estado` abierta | cerrada, `resumen` del día), `bodega_movimientos` (ingreso, carga, devolución buena o
+dañada, traspaso, ajuste, salida; con el precio de ese momento), `pedido_productos` (cantidad pedida y entregada,
+motivo, precio, IVA, `bodega_id`), `cierres_mercaderia` (cuadre de cada piloto en unidades y dinero). La bodega, los
+movimientos y los cierres solo se escriben con las funciones `dist_*`.
 **`empresa_id`** (obligatorio) en `regiones`, `tiendas`, `clientes`, `rutas`, `vehiculos`, `pedidos`,
-`categorias_mercaderia`, `tarifas` y `descuentos`; en `usuarios` es obligatorio salvo para el Desarrollador.
+`categorias_mercaderia`, `tarifas`, `descuentos` y las tablas de la distribuidora (salvo `pedido_productos`, que va
+por su pedido); en `usuarios` es obligatorio salvo para el Desarrollador.
 Valor por defecto: `empresa_principal()`. Triggers: pedidos y rutas toman la de su tienda; tiendas y
 descuentos la de su región; tarifas la de su tienda o región; usuarios la de su tienda o región
 (Administrador y G1, la que se elige). Funciones: `usuario_base`, `usuario_completo`,

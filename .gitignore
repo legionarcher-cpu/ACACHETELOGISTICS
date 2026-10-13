@@ -1,0 +1,10 @@
+# Copia del repositorio que GitHub Desktop clonó dentro del proyecto (no se sube)
+ACACHETELOGISTICS/
+
+# Archivos temporales de Windows y de Office
+Thumbs.db
+desktop.ini
+~$*
+
+# Editor
+.vscode/

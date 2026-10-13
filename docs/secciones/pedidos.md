@@ -129,8 +129,9 @@ Funciones: `pedKmRecta`, `pedCercanosDe`, `pedTextoCercano` (arriba del archivo)
 
 ```
 Registrado → [En bodega] → (Asignado = ya tiene piloto)
-  → Alistando → Listo para despachar (slot) → Recibido para ruta (QR) → Cargado (QR escaneado)
-  → En ruta ("Saliendo a ruta", en Inicio) → Entregando (uno a la vez) → Entregado
+  → Alistando → Listo para despachar (slot; desde aquí lo ve el piloto) → **Cargado** (el piloto lo carga con
+  foto, bultos y efectivo, sql/01 bloque 29) → **En ruta** ("Salir a ruta" POR SLOT, en Inicio; los listos del
+  slot que no se cargaron quedan **No salió a ruta** y el G2 los reprograma) → Entregando (uno a la vez) → Entregado
                                                               ↘ No entregado → Reprogramar / Devuelto
 Cancelado (antes de salir, con motivo; sale en Reportes). Ya no se anula.
 ```
@@ -144,7 +145,8 @@ Cancelado (antes de salir, con motivo; sale en Reportes). Ya no se anula.
 | **Aprobar salida (escanear QR)** — dentro del pedido | Listo para despachar (desactivado hasta que el piloto lo reciba) / Recibido para ruta | Empleado, G3 y superiores |
 | Asignar piloto y horario | Antes de salir | G2 o superior |
 | Solicitar reasignación (de fecha) | Antes de salir / No entregado | Admin G3 y Empleado (le llega al G2) |
-| **Recibido para ruta** (abre el QR) | Listo para despachar | **Solo el piloto del pedido** |
+| **Cargar (foto y bultos)** — foto, bultos recibidos y efectivo (`js/carga-comun.js`) | Listo para despachar / Recibido para ruta | **Solo el piloto del pedido** |
+| **Reprogramar** | No entregado / **No salió a ruta** | G2 o superior |
 | **Entregar ahora** | En ruta (si no tiene otro "Entregando") | **Solo el piloto del pedido** |
 | Entregado / No entregado | Entregando | **Solo el piloto del pedido** |
 | Reprogramar | No entregado | G2 o superior |
@@ -156,7 +158,7 @@ el QR de ese pedido (el de otro da aviso). Al leerlo, el pedido queda "Cargado" 
 se muestra cómo va su slot ("Slot 2: 3 de 5 cargados") y la ventana se cierra sola. Sin cámara se escribe el
 número del pedido.
 
-"Saliendo a ruta" y el orden de entrega están en Inicio → **Mi ruta** (ver [inicio.md](inicio.md)).
+"Salir a ruta" (por slot) y el orden de entrega están en Inicio → **Mi ruta** (ver [inicio.md](inicio.md)).
 "Entregado" de un pedido con alcohol pide confirmar la mayoría de edad.
 Cada acción queda en la línea de tiempo (`pedido_historial`) y la base guarda la hora de cada paso para el
 calculador interno (vistas `pedidos_tiempos` y `slots_carga`, ver [05-base-de-datos.md](../05-base-de-datos.md)).
@@ -180,7 +182,8 @@ alcance. La aprobación de salida sigue siendo **dentro** del pedido ("Aprobar s
 | Listo para despachar | El piloto | Info ("recíbelo para ruta") |
 | Piloto: **Recibido para ruta** | Admin G3 de la tienda | Pendiente (aprobar salida) — se cierra al escanear |
 | Salida aprobada (QR escaneado) | El piloto | Aprobado |
-| Piloto: **Saliendo a ruta** | Admin G3 de la tienda | Info (qué pedidos salieron) |
+| Piloto: **Salir a ruta** (por slot) | Admin G3 de la tienda | Info (qué pedidos salieron) |
+| Piloto sale y un pedido listo **no se cargó** | Admin G2 (pendiente: reprogramar) + Admin G3 (info) | Se cierra al reprogramar |
 | Piloto: **No entregado** (con motivo) | Admin G2 (pendiente: **reprogramar o cancelar**) + Admin G3 (info) | Se cierra al reprogramar, cancelar o devolver |
 | G2 reprograma | Admin G3 + el piloto | Aprobado |
 | Cancelado / Devuelto | Si lo hace G2+: Admin G3 + piloto · si lo hace la tienda: Admin G2 + piloto | Rechazado |

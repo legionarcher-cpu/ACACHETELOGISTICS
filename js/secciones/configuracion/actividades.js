@@ -39,6 +39,15 @@ const ACT_USOS = {
     usa_viajes:      'Viajes con agenda', // sql/01 bloque 19: sección Viajes en vez de Pedidos
 };
 
+// Partes que se ven en todo el sistema (sql/01 bloque 26; empresas/empresas.js: empresaUsa).
+// Van aparte porque una base sin el bloque 26 no tiene estas columnas.
+const ACT_PARTES = {
+    usa_vehiculos: 'Vehículos',
+    usa_km:        'Cobro por km',
+    usa_peso:      'Peso',
+    usa_productos: 'Productos',
+};
+
 // Código de una actividad: minúsculas, números y _ (ej. 'transporte', 'farmacia_24h')
 const ACT_CODIGO_VALIDO = /^[a-z][a-z0-9_]{1,29}$/;
 
@@ -77,6 +86,7 @@ registrarModuloConfig('actividades', (seccion, ctx) => {
     let actividades = [];        // [{ codigo, nombre, descripcion, icono, activa, usa_bodega, ..., palabra_registro, ... }]
     let tieneUsos = true;        // false si falta sql/01_actualizacion_base_existente (solo existe usa_bodega)
     let tienePalabras = true;    // false si falta el bloque 18 de sql/01 (palabras de la actividad)
+    let tienePartes = true;      // false si falta el bloque 26 de sql/01 (vehículos, km, peso, productos)
     let editando = null;         // actividad que se está modificando (null = nueva)
     let creando = false;
     let codigoTocado = false;    // el código ya no sigue al nombre si se escribió a mano
@@ -90,8 +100,11 @@ registrarModuloConfig('actividades', (seccion, ctx) => {
     async function cargar() {
         const base = 'codigo, nombre, descripcion, icono, activa, orden, usa_bodega';
         const conUsos = `${base}, ${Object.keys(ACT_USOS).filter((u) => u !== 'usa_bodega').join(', ')}`;
-        // Columnas que pueden faltar: palabras (sql/01 bloque 18) y usos (sql/01 bloque 7)
-        let act = await db.from('actividades').select(`${conUsos}, ${casillasPalabra.map((c) => c.dataset.palabra).join(', ')}`).order('orden');
+        // Columnas que pueden faltar: partes (sql/01 bloque 26), palabras (bloque 18) y usos (bloque 7)
+        const conPalabras = `${conUsos}, ${casillasPalabra.map((c) => c.dataset.palabra).join(', ')}`;
+        let act = await db.from('actividades').select(`${conPalabras}, ${Object.keys(ACT_PARTES).join(', ')}`).order('orden');
+        tienePartes = !faltaColumna(act.error);
+        if (!tienePartes) act = await db.from('actividades').select(conPalabras).order('orden');
         tienePalabras = !faltaColumna(act.error);
         if (!tienePalabras) act = await db.from('actividades').select(conUsos).order('orden');
         tieneUsos = !faltaColumna(act.error);
@@ -147,7 +160,7 @@ registrarModuloConfig('actividades', (seccion, ctx) => {
                 tdNombre.appendChild(pal);
             }
 
-            const usos = Object.entries(ACT_USOS).filter(([col]) => a[col]).map(([, texto]) => texto);
+            const usos = Object.entries({ ...ACT_USOS, ...ACT_PARTES }).filter(([col]) => a[col]).map(([, texto]) => texto);
             tr.append(
                 tdNombre,
                 crearCelda(usos.join(', ') || 'Solo lo básico'),
@@ -203,10 +216,13 @@ registrarModuloConfig('actividades', (seccion, ctx) => {
         casillasPalabra.forEach((c) => { c.value = a ? a[c.dataset.palabra] || '' : ''; });
 
         // Qué usa (sin la actualización de la base solo se puede cambiar la bodega)
+        // Las partes (bloque 26) de una actividad nueva vienen como las de siempre (vehículos, km y peso sí)
         casillasUso.forEach((c) => {
-            c.checked = a ? !!a[c.dataset.usa] : false;
-            c.disabled = !tieneUsos && c.dataset.usa !== 'usa_bodega';
+            const esParte = c.hasAttribute('data-parte');
+            c.checked = a ? !!a[c.dataset.usa] : (esParte && c.dataset.usa !== 'usa_productos');
+            c.disabled = esParte ? !tienePartes : (!tieneUsos && c.dataset.usa !== 'usa_bodega');
         });
+        $('#cfgActPartesFalta').hidden = tienePartes;
 
         editar.showModal();
         campos.nombre.focus();

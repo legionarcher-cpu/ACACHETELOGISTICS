@@ -19,13 +19,19 @@ Desarrollador, ver [empresas-internas.md](empresas-internas.md)). Todo es de la 
 | Archivo | Qué tiene |
 |---|---|
 | `secciones/tiendas.html`, `js/secciones/tiendas.js`, `css/secciones/tiendas.css` | Clases e ids `tnd` |
-| Tablas | `tiendas`, `regiones`, función `cambiar_codigo_tienda` |
+| Tablas | `tiendas` (`usa_rutas`), `regiones`, funciones `cambiar_codigo_tienda` y `cambiar_region_tienda` |
 
-- Lista agrupada por región, con filtro y buscador; cuenta los usuarios de cada tienda.
-- **Crear:** región + número → código `NOR-004` (sugiere el siguiente número libre).
-- **Modificar:** todo, incluido el código. Los usuarios llevan la **región** (`cenjperez01`), no la tienda:
-  con otro número en la misma región no cambian; si cambia la región se renombran solos
-  (`cenjperez01` → `norjperez01`) con `cambiar_codigo_tienda` (la ventana avisa).
+- Lista agrupada por región, con filtro y buscador; cuenta los usuarios de cada tienda y dice si tiene rutas.
+- **Crear:** región y **código libre** por separado (sql/01 bloque 28): letras, números y guion, hasta 20
+  (ej. `NOR-004`, `SUC-CENTRO`, `25`). Al elegir la región se sugiere `REGIÓN-siguiente número`, pero se puede
+  cambiar por cualquier otro.
+- **Tiene rutas** (`tiendas.usa_rutas`): si la tienda envía pedidos. Sin rutas no aparece para crear pedidos,
+  rutas, cotizaciones ni bodegas del día (`tiendasSinRutas()` en `js/componentes.js`); sus pedidos viejos se
+  siguen viendo.
+- **Modificar:** todo. Cambiar el **código** no toca a los usuarios (`cambiar_codigo_tienda`). Los usuarios de
+  G3, Empleado y Piloto llevan la **región** (`cenjperez01`): si cambia la región se renombran solos
+  (`cenjperez01` → `norjperez01`) con `cambiar_region_tienda` (la ventana avisa). Solo el Administrador cambia
+  código y región.
 - **Eliminar:** solo si no tiene usuarios (si no, marcarla "Inactiva").
 - **Regiones** (botón, Administrador y Admin G1): crear (código de 3 letras + nombre), renombrar y eliminar
   (si no tiene tiendas). Son de la empresa activa; el código no se repite entre empresas.

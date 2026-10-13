@@ -2,6 +2,60 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-12 · Despacho: carga con evidencia por pedido y salida a ruta por slot
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 29** (o `sql/por_funcion/01_actualizacion_8_despacho_carga_y_salida.sql`;
+instalación nueva: `sql/00`, sección 22). Probado en Postgres (PGlite) y la pantalla con datos simulados.
+
+- El piloto **solo toca** los pedidos que la tienda marcó **"Listo para despachar"** (la base lo revisa).
+- **Cargar por pedido** (botón "Cargar" en Mi ruta y en el detalle; `js/carga-comun.js` → `pedido_cargar`): foto(s) de
+  lo que recibe (se achican y se suben a Storage `evidencias/carga/<pedido>/`), **bultos recibidos** (sugiere los
+  registrados) y **efectivo** que lleva para ese pedido (muestra el vuelto previsto). Queda "Cargado"; ya no hace falta
+  "Recibido para ruta" ni escanear el QR (los que quedaron así con el flujo anterior se cargan igual o se escanean).
+  Columnas nuevas `pedidos.carga_bultos`, `carga_efectivo`, `carga_nota`; evidencia tipo `carga`.
+- **Salir a ruta POR SLOT** (Inicio → Mi ruta, un renglón por slot; `piloto_salir_ruta`): los cargados del slot pasan
+  a "En ruta". Los listos que no se cargaron quedan **"No salió a ruta"** (estado nuevo `no_salio`): aviso pendiente al
+  G2 para **reprogramar** o cancelar, y aviso al G3. El cliente lo ve como "Reprogramando".
+- Detalle del pedido: "Carga" (bultos, efectivo, nota) y bloque "Carga y entrega" con las fotos.
+
+## 2026-10-12 · Tiendas: código libre (sin región) y tiendas con o sin rutas
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 28** (o `sql/por_funcion/01_actualizacion_7_tiendas_codigo_y_rutas.sql`;
+instalación nueva: `sql/00`, sección 21). Probado en Postgres (PGlite), también volviendo a ejecutar todo `01`.
+
+- El código de la tienda ya **no depende de la región**: es libre (letras, números y guion; ej. `SUC-CENTRO`) y la
+  región se elige aparte. Las tiendas que ya existían no cambian.
+- Cambiar el código ya no cambia la región ni los usuarios. Cambiar la **región** renombra a sus usuarios
+  (`cambiar_region_tienda`): el usuario de G3, Empleado y Piloto lleva la región (`cenjperez01`), no el código.
+  `cambiar_codigo_empresa` y el bloque 17 también toman la región (así un código libre nunca cambia un usuario).
+- **Tiene rutas** (`tiendas.usa_rutas`): las tiendas que no envían pedidos no aparecen en Nuevo pedido, Rutas,
+  Cotizador ni Distribución. Columna "Envíos" en la lista de Tiendas.
+- `js/componentes.js`: `prefijoUsuario(region)`, `claveTiendaUsuario(tienda)` y `tiendasSinRutas()`.
+
+## 2026-10-12 · Distribuidora y partes por actividad (vehículos, km, peso)
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloques 26 y 27** (instalación nueva: `sql/00`, secciones 19 y 20).
+Probados en Postgres (PGlite): `00` completo, `01` encima dos veces y un día completo de distribuidora.
+
+- **Partes por actividad** (bloque 26): cada actividad dice si usa **vehículos**, **cobro por km**, **peso** y
+  **productos** (Configuración → Actividades → "Qué usa en todo el sistema"). Lo que ninguna actividad de la empresa
+  usa desaparece: Vehículos y Costos de operación, vehículo del piloto (Usuarios, Pilotos, Mi perfil), campos de kg y
+  km de las tarifas, peso del pedido, ayuda del cobro por km, Cotizador y simulador (sin peso ni km). Clases
+  `.solo-vehiculos`, `.solo-km`, `.solo-peso`, `.solo-peso-o-km`, `.solo-productos` (`css/base.css`). Ver
+  [07-actividades-y-mercaderia.md](07-actividades-y-mercaderia.md).
+- Actividad **Masajes** (la usaba la empresa 03 y no estaba en la tabla): sin vehículos, km ni peso.
+- Actividad **Distribución** y sección nueva **Distribución** (bloque 27): productos, presentaciones, listas de
+  precios con IVA (13 % por defecto, modificable en cada precio), lista de cada tienda, motivos de entrega
+  incompleta, **bodega del día por ruta** (ingreso, carga dividida entre pilotos, traspaso, ajuste, devolución buena o
+  dañada), **cierre de mercadería por piloto** (faltante con aviso y reporte), **cierre de bodega** (queda en 0 con el
+  resumen del día), **Mi carga** y **venta en ruta** del piloto, historial y **reporte de faltantes** (CSV).
+- **Pedidos**: una actividad con productos elige productos y lista de precios en vez de categorías; el piloto
+  entrega por producto (si es menos, motivo obligatorio → "Entregado con incidencia" + aviso al G3). El total a
+  cobrar se recalcula con lo entregado. El detalle muestra los productos pedidos y entregados.
+- Plan: función nueva **"Distribución"** (`distribucion`; Profesional y Completo).
+- `herramientas/vaciar_base_datos.sql` también limpia bodegas, productos, listas y motivos.
+- Ver [15-distribuidora.md](15-distribuidora.md).
+
 ## 2026-10-08 · Caja de pilotos y conductores (como en SISCED)
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 24** (instalación nueva: `sql/00`, sección 17).

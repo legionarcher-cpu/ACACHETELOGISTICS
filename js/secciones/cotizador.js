@@ -112,7 +112,9 @@ registrarSeccion('cotizador', (zona) => {
                 : 'No se pudo cargar la configuración. Revisa la conexión.', 'error');
             return false;
         }
-        tiendas = tie.data;
+        // Solo las tiendas que tienen rutas (envían pedidos; sql/01 bloque 28)
+        const sinRutas = await tiendasSinRutas(); // js/componentes.js
+        tiendas = tie.data.filter((t) => !sinRutas.has(t.id));
         actividad = act.data;
         categorias = cat.data;
         const ids = new Set(categorias.map((c) => c.id));

@@ -130,6 +130,18 @@ begin
         delete from public.cajas where empresa_id = v_id;
     end if;
 
+    -- Distribuidora (sql/01 bloque 27): bodegas del día (sus movimientos y cierres se van
+    -- con ellas) antes que las rutas; luego productos, listas de precios y motivos
+    if to_regclass('public.bodegas_dia') is not null then
+        delete from public.bodegas_dia where empresa_id = v_id;
+        get diagnostics n = row_count; raise notice '  bodegas del día: %', n;
+        update public.tiendas set lista_precios_id = null where empresa_id = v_id;
+        delete from public.listas_precios where empresa_id = v_id;
+        delete from public.productos where empresa_id = v_id;
+        get diagnostics n = row_count; raise notice '  productos: %', n;
+        delete from public.motivos_entrega_parcial where empresa_id = v_id;
+    end if;
+
     -- Rutas (y sus pilotos por ruta)
     delete from public.rutas where empresa_id = v_id;
     get diagnostics n = row_count; raise notice '  rutas: %', n;

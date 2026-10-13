@@ -32,6 +32,8 @@ servidor propio.
 | 12 | [12-pendientes.md](12-pendientes.md) | Cambios aprobados, pendientes y decisiones abiertas |
 | 13 | [13-cambios.md](13-cambios.md) | Registro de cambios (qué cambió y qué SQL ejecutar) |
 | 14 | [14-transporte.md](14-transporte.md) | Actividad Transporte (viajes, rol cliente, franjas, costos, cortesía): **hecho** (fases 1 a 7; seguridad parcial) |
+| 15 | [15-distribuidora.md](15-distribuidora.md) | Distribuidora: productos, precios con IVA, bodega del día por ruta, carga, entrega parcial, venta en ruta, devolución y cierres |
+| 16 | [16-modo-mixto.md](16-modo-mixto.md) | **Estatus** del modo mixto: nube + instalado en la PC, licencias y actualizaciones firmadas (diseño, sin código) |
 
 ### Guías por sección (carpeta `secciones/`)
 

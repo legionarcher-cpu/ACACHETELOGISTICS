@@ -590,8 +590,9 @@
              La regla de cada tarifa (en palabras) se ve al crearla o modificarla en Tarifas.
              Aquí se SIMULA: una tabla con el precio para cada peso (filas) y cada
              distancia en km (columnas), con el precio por km de la tarifa.
-             Calcula python/tarifas.py dentro del navegador (Pyodide): no necesita servidor. -->
-        <div class="tarjeta cfg-tarjeta">
+             Calcula python/tarifas.py dentro del navegador (Pyodide): no necesita servidor.
+             Se oculta si ninguna actividad de la empresa usa peso ni km (sql/01 bloque 26). -->
+        <div class="tarjeta cfg-tarjeta solo-peso-o-km">
             <div class="cfg-tarjeta-cabecera">
                 <div>
                     <h3 class="cfg-tarjeta-titulo"><i class="bi bi-calculator"></i> Simulador de precios: peso × distancia (Python)</h3>
@@ -1377,6 +1378,16 @@
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_compra"> Monto de la compra, envío gratis y cobrar la compra</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="permite_alcohol"> Puede llevar alcohol (el piloto confirma la mayoría de edad)</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_viajes"> Viajes con agenda: el cliente solicita día y hora, el vehículo y el conductor se asignan solos (sección Viajes, en vez de Pedidos)</label>
+            </fieldset>
+            <!-- Partes que se ven en TODO el sistema (sql/01 bloque 26): si ninguna actividad
+                 de la empresa las usa, no aparecen (empresas/empresas.js: empresaUsa) -->
+            <fieldset class="campo campo-ancho cfg-act-usa" id="cfgActPartes">
+                <legend class="campo-etiqueta">Qué usa en todo el sistema</legend>
+                <label class="cfg-si-no"><input type="checkbox" data-usa="usa_vehiculos" data-parte> Vehículos (Configuración → Vehículos y Costos, vehículo del piloto)</label>
+                <label class="cfg-si-no"><input type="checkbox" data-usa="usa_km" data-parte> Cobro por km (tarifas, simulador y distancia del Cotizador)</label>
+                <label class="cfg-si-no"><input type="checkbox" data-usa="usa_peso" data-parte> Peso (tarifas por kg, peso del pedido y Cotizador)</label>
+                <label class="cfg-si-no"><input type="checkbox" data-usa="usa_productos" data-parte> Productos de distribuidora (presentaciones, precios con IVA, bodega del día, carga, venta en ruta y devolución)</label>
+                <small class="campo-ayuda" id="cfgActPartesFalta" hidden>Falta ejecutar el bloque 26 de sql/01_actualizacion_base_existente.sql.</small>
             </fieldset>
         </div>
         <p id="cfgActError" class="form-error" role="alert"></p>

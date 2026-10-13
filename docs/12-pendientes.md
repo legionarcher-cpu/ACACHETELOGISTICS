@@ -1,6 +1,15 @@
 # 12. Cambios aprobados, pendientes y decisiones abiertas
 
-Última actualización: 2026-10-02.
+Última actualización: 2026-10-12.
+
+> **2026-10-12 · distribuidora y partes por actividad (sql/01 bloques 26 y 27):** hecho. Cada actividad dice si usa
+> vehículos, km, peso y productos; sección Distribución con productos, precios con IVA, bodega del día por ruta,
+> carga entre varios pilotos, entrega parcial con motivo, venta en ruta, devolución, cierres y reporte de faltantes
+> ([15-distribuidora.md](15-distribuidora.md)). Pendiente: inventario permanente de tienda, descontar faltantes
+> al piloto, lista de precios por cliente y que la app del piloto use `dist_entregar` / `dist_venta_ruta`.
+>
+> **2026-10-12 · modo mixto (nube + instalado):** diseño aprobado, sin código. Estatus, fases y decisiones
+> pendientes (la principal: cómo llegan los pilotos a una base instalada) en [16-modo-mixto.md](16-modo-mixto.md).
 
 > **2026-10-02 · empresas internas (sql/01 bloque 16):** el usuario pasó a ser `cenjperez01` (región +
 > nombre + ID de la empresa, **sin la tienda**: cambiar de sucursal en la región no lo cambia) y `jperez01`
@@ -74,8 +83,9 @@ tablas (Table Editor → Export) antes de cada script que cambie datos.
   ubicación por WhatsApp. (Hecho 2026-10-02: el cliente escrito a mano en un pedido se guarda solo en Clientes.)
 - Pedidos: corregir datos de un pedido registrado (evento `correccion`); borrado automático de fotos a los 12 meses.
 - **App del piloto** (compañero): escanear QR (`ACACHETE-PEDIDO:<token_qr>`) o validar código, cierre de
-  entrega, fotos, ubicación en tiempo real para el mapa de Inicio (el mapa gratis ya está puesto:
-  falta la tabla de ubicaciones y dibujar un marcador por piloto con `L.marker`).
+  entrega, fotos, ubicación en segundo plano. (Hecho 2026-10-08, bloque 25: `ubicaciones_pilotos`,
+  `piloto_en_ruta` / `piloto_ubicacion`; la web la manda cada 2 min en ruta (`js/ubicacion.js`) y
+  Inicio dibuja un camión por piloto. La app debe llamar `piloto_ubicacion` con `p_origen = 'app'`.)
 - Funciones de los roles Empleado y Piloto (columna "Funciones" en Pilotos).
 - Botón "Cargar Pedidos": importar pedidos (Excel u otra app).
 - Precio por km: **hecho en prueba** con servicios gratis (Nominatim + OSRM, `js/mapa.js`) en Pedidos y
@@ -84,7 +94,7 @@ tablas (Table Editor → Export) antes de cada script que cambie datos.
   guarda las coordenadas de la entrega y Nuevo pedido las usa.)
 - Reemplazar las regiones de ejemplo por las reales (ahora desde Tiendas → Regiones).
 - Empresas internas: reglas reales en la base (Fase 7) para que una empresa no pueda leer otra aunque
-  alguien cambie la página; marcadores de los pilotos en el mapa de Inicio cuando la app comparta el GPS.
+  alguien cambie la página.
 
 ## E. Actividad Transporte (hecha el 2026-10-04; seguridad parcial)
 

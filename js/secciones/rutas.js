@@ -105,7 +105,9 @@ registrarSeccion('rutas', (zona) => {
             db.from('actividades').select('codigo, nombre').eq('activa', true).order('orden'),
         ]);
         if (tie.error || act.error) return tie.error || act.error;
-        tiendas = tie.data;
+        // Solo las tiendas que tienen rutas (envían pedidos; sql/01 bloque 28)
+        const sinRutas = await tiendasSinRutas(); // js/componentes.js
+        tiendas = tie.data.filter((t) => !sinRutas.has(t.id));
         actividades = actividadesDePedidos(act.data); // solo las de pedidos de la empresa (empresas/empresas.js)
 
         selTienda.replaceChildren();

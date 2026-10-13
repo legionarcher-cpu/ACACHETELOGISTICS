@@ -23,10 +23,13 @@ js/
                            de la empresa, en todo lo que se ve (ver 07-actividades-y-mercaderia.md)
   viajes-comun.js          Viajes (Transporte): estados, tarjeta, cortesía, precios por franja,
                            costos, Inicio de viajes y reporte de viajes (ver secciones/viajes.md)
+  distribucion-comun.js    Distribuidora: precios con IVA, catálogo, selector de productos y
+                           entrega por producto (Pedidos y Distribución, ver 15-distribuidora.md)
   mapa.js                  Mapa gratis (Leaflet + OpenStreetMap), buscar direcciones y
                            distancia por calle A -> B (Inicio, Pedidos, Cotizador)
   avatar.js                Fotos de usuario (Storage "avatares")
   notificaciones.js        Campana y envío de avisos
+  ubicacion.js             GPS del piloto en ruta cada 2 min (piloto_ubicacion, sql/01 bloque 25)
   date.js                  Fecha y hora del encabezado
   menu-usuario.js          Menú desplegable del usuario y cerrar sesión
   menu-animado.js          Entrada en cascada del menú
@@ -49,7 +52,7 @@ docs/                      Esta documentación
 3. **`js/sesion.js`** (sin `defer`) + un script en línea: si no hay sesión pone `<html class="sin-sesion">`,
    si hay pone `<html data-rol="...">` (el CSS oculta cosas según eso).
 4. Con `defer`, en este orden: supabase-js (CDN) → `supabase.js` → `avatar.js` → `componentes.js` →
-   `palabras.js` → `mapa.js` → `notificaciones.js` → `qr.js` → `viajes-comun.js` → `permisos.js` → `date.js` → `menu-usuario.js` → `menu-animado.js` →
+   `palabras.js` → `mapa.js` → `notificaciones.js` → `ubicacion.js` → `qr.js` → `viajes-comun.js` → `distribucion-comun.js` → `permisos.js` → `date.js` → `menu-usuario.js` → `menu-animado.js` →
    `pagina_inicial.js` (último) → `responsive/responsive.js`.
 
 ## Cargador de secciones (`js/pagina_inicial.js`)
@@ -141,7 +144,10 @@ crece, se cambian en `MAPA_SERVICIOS` / `MAPA_CAPA` sin tocar las secciones.
 
 - Nombres en español, sin tildes en código (`pedidos`, `tiendaActual`).
 - Prefijo por sección en ids y clases: `ped` (pedidos), `rut` (rutas), `cfg` (configuración),
-  `usr`, `tnd`, `cli`, `plt`, `rep`, `ini`, `prf`, `login-`.
+  `usr`, `tnd`, `cli`, `plt`, `rep`, `ini`, `prf`, `caj`, `dis` (distribución), `login-`. Piezas comunes de la
+  distribuidora: `dist-` (`css/distribucion.css`).
+- Partes que dependen de la actividad (vehículos, km, peso, productos): clases `.solo-vehiculos`, `.solo-km`,
+  `.solo-peso`, `.solo-peso-o-km`, `.solo-productos` (ver [07-actividades-y-mercaderia.md](07-actividades-y-mercaderia.md)).
 - Constantes de sección en MAYÚSCULAS con prefijo: `PED_ESTADOS`, `CFG_MODULOS`, `REP_COLORES`.
 - Comentario de cabecera en cada archivo: qué hace, tablas que usa, quién puede qué.
 - Moneda: colón (₡), país Costa Rica (WhatsApp +506). En pantalla se dice "horario"; en la base de

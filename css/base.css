@@ -63,3 +63,14 @@ h1 {
 [hidden] {
     display: none !important;
 }
+
+/* Partes que la empresa no usa (ninguna de sus actividades: Configuración ->
+   Actividades, sql/01 bloque 26). empresas/empresas.js -> aplicarPartesEmpresa()
+   pone en <html> sin-vehiculos, sin-km, sin-peso o sin-productos. */
+html.sin-vehiculos .solo-vehiculos,
+html.sin-km .solo-km,
+html.sin-peso .solo-peso,
+html.sin-peso.sin-km .solo-peso-o-km,
+html.sin-productos .solo-productos {
+    display: none !important;
+}

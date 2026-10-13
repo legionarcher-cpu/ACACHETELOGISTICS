@@ -60,7 +60,7 @@ const REP_ESTADOS = [
     ['recibido_ruta', 'Recibido para ruta'], ['cargado', 'Cargado'], ['en_ruta', 'En ruta'], ['en_entrega', 'Entregando'],
     ['entregado', 'Entregado'],
     ['entregado_incidencia', 'Entregado con incidencia'], ['no_entregado', 'No entregado'],
-    ['devuelto', 'Devuelto'], ['cancelado', 'Cancelado'],
+    ['no_salio', 'No salió a ruta'], ['devuelto', 'Devuelto'], ['cancelado', 'Cancelado'],
 ];
 const REP_TEXTO_ESTADO = Object.fromEntries(REP_ESTADOS);
 const REP_ENTREGADOS = ['entregado', 'entregado_incidencia'];
@@ -396,7 +396,7 @@ registrarSeccion('reportes', (zona) => {
             pendientes: lista.filter((p) => REP_PENDIENTES.includes(p.estado)).length,
             noEntregados: lista.filter((p) => ['no_entregado', 'devuelto'].includes(p.estado)).length,
             cancelados: lista.filter((p) => p.estado === 'cancelado').length,
-            incidencias: lista.filter((p) => ['entregado_incidencia', 'no_entregado', 'devuelto'].includes(p.estado)).length,
+            incidencias: lista.filter((p) => ['entregado_incidencia', 'no_entregado', 'no_salio', 'devuelto'].includes(p.estado)).length,
             envios: noCancelados.reduce((s, p) => s + Number(p.costo_envio || 0), 0),
             compras: noCancelados.reduce((s, p) => s + Number(p.monto_compra || 0), 0),
             aTiempo, conEntrega: conEntrega.length,

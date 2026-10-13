@@ -51,6 +51,20 @@
     display: none;
 }
 
+/* Casilla "Tiene rutas" (sql/01 bloque 28) */
+.tnd-si-no {
+    display: flex;
+    align-items: center;
+    gap: 0.444rem;
+    font-size: 0.95rem;
+    cursor: pointer;
+}
+
+/* El código es libre: se escribe en mayúsculas */
+#tndCodigo {
+    text-transform: uppercase;
+}
+
 /* ---------- Ventana de regiones ---------- */
 .tnd-reg-form {
     display: grid;

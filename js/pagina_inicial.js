@@ -386,7 +386,8 @@ function ajustarPie() {
     };
     // Plan de la empresa (empresas/empresas.js: funcionHabilitada)
     const enPlan = (clave) => typeof funcionHabilitada !== 'function' || funcionHabilitada(clave);
-    ocultar('.btn-cotizar', soloViajes || !empresaTieneActividad('encomiendas') || !enPlan('cotizador'));
+    ocultar('.btn-cotizar', soloViajes || !empresaTieneActividad('encomiendas') || !enPlan('cotizador')
+        || (!empresaUsa('peso') && !empresaUsa('km'))); // sin peso ni km no hay qué cotizar (bloque 26)
     ocultar('.btn-piloto', soloViajes || !enPlan('rutas'));
     ocultar('.btn-cargar', soloViajes);
     ocultar('.btn-chart', !enPlan('reportes'));

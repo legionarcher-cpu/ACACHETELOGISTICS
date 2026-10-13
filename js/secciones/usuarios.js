@@ -516,7 +516,7 @@ registrarSeccion('usuarios', (zona) => {
             tr.appendChild(crearCelda(u.id_usuario, 'texto-codigo'));
             tr.appendChild(crearCeldaEtiqueta(USR_ROLES[u.rol] || u.rol, USR_COLOR_ROL[u.rol] || 'etiqueta-azul'));
             tr.appendChild(crearCelda(textoTienda(u)));
-            tr.appendChild(crearCelda(textoVehiculo(u)));
+            tr.appendChild(crearCelda(textoVehiculo(u), 'solo-vehiculos'));
             tr.appendChild(crearCelda(u.telefono));
             tr.appendChild(crearCelda(textoPermisos(u.permisos)));
             // Acciones: Administrador, Admin G1, G2 y G3 (G3 las ve desactivadas)
@@ -635,15 +635,15 @@ registrarSeccion('usuarios', (zona) => {
     // prefijoUsuario, usuarioCompuesto y usuarioSinPrefijo: js/componentes.js
     // ==================================================
 
-    // Región de la tienda: "CEN-001" -> "cen"
+    // Región de la tienda: "CEN" -> "cen" (el código de la tienda ya no la lleva, sql/01 bloque 28)
     function prefijoDeTienda(tiendaId) {
         const tienda = tiendas.find((t) => t.id === Number(tiendaId));
-        return tienda ? prefijoUsuario(tienda.codigo) : '';
+        return tienda ? prefijoUsuario(tienda.region) : '';
     }
 
     // Quita la tienda y el ID de la empresa para mostrar solo "jperez" en el formulario
     // (la lista es de la empresa activa: su ID es el de la sesión)
-    const quitarPrefijo = (u) => usuarioSinPrefijo(u.id_usuario, u.tiendas ? u.tiendas.codigo : null);
+    const quitarPrefijo = (u) => usuarioSinPrefijo(u.id_usuario, claveTiendaUsuario(u.tiendas));
 
     // ¿El rol elegido en el formulario va sin tienda? (Administrador / Admin G1 / Admin G2)
     const rolSinTienda = () => USR_ROLES_SIN_TIENDA.includes(campos.rol.value);
@@ -663,7 +663,7 @@ registrarSeccion('usuarios', (zona) => {
         // Usuarios protegidos: no cambian de nombre
         if (usuarioEditando && ['admin', 'desar'].includes(usuarioEditando.id_usuario)) return usuarioEditando.id_usuario;
         const base = campos.id_usuario.value.trim().toLowerCase();
-        const tienda = rolSinTienda() ? null : (tiendas.find((t) => t.id === Number(campos.tienda.value)) || {}).codigo;
+        const tienda = rolSinTienda() ? null : (tiendas.find((t) => t.id === Number(campos.tienda.value)) || {}).region;
         return usuarioCompuesto(base, tienda || null, codigoEmpresa(empresaDelUsuario()));
     }
 

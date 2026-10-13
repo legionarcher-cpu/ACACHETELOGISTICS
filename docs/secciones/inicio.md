@@ -58,9 +58,8 @@ Sus pedidos por despachar y en ruta (`INI_MI_RUTA`), con un botón según el est
 
 | Estado | Botón |
 |---|---|
-| Listo para despachar | **Recibido para ruta** → abre el QR del pedido para que el despachador lo escanee |
-| Recibido para ruta | **Mostrar QR** |
-| Cargado | (espera) — el botón de arriba **Saliendo a ruta (N)** pasa todos los cargados a *En ruta* y guarda la hora de salida |
+| Listo para despachar / Recibido para ruta | **Cargar** → foto(s), bultos recibidos y efectivo que lleva (`js/carga-comun.js`, `pedido_cargar`) |
+| Cargado | (espera) — arriba, **un renglón por slot** con **Salir a ruta**: pasa los cargados del slot a *En ruta* (hora de salida) y los listos sin cargar a **No salió a ruta** (aviso al G2 para reprogramar). Sin ningún cargado el botón queda desactivado |
 | En ruta | **Entregar ahora** — solo uno a la vez (la base no deja dos *Entregando*) |
 | Entregando | **Cerrar entrega** → detalle del pedido (Entregado / No entregado) |
 

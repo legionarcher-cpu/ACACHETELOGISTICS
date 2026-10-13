@@ -46,6 +46,10 @@ function aplicarPermisos() {
     if (sesion) iniciarNotificaciones();
     else detenerNotificaciones();
 
+    // Ubicación del piloto en ruta cada 2 minutos (js/ubicacion.js; solo el rol piloto)
+    if (sesion) iniciarUbicacion();
+    else detenerUbicacion();
+
     // Bloquear / desbloquear cada opción del menú.
     // Se OCULTA (en vez de mostrarse con candado) lo que no aplica a la empresa (Viajes
     // en una empresa sin transporte; Pedidos y Rutas en una solo de transporte) y, para

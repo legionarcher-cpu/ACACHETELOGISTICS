@@ -44,10 +44,12 @@
      - SLOT (rango de despacho, Configuración -> Slots): lo elige el empleado al
        registrar y lo confirma al marcar "Listo para despachar". El HORARIO del
        piloto (marca) solo lo ven el piloto y G2 o superior.
-     - DESPACHO (Empleado, G3 y superiores): "Alistando" -> "Listo para despachar"
-       (slot) -> "Aprobar salida": dentro del pedido, escanear el QR que muestra el piloto.
-     - PILOTO (solo sus pedidos): "Recibido para ruta" (abre el QR), "Saliendo a
-       ruta" (en Inicio), "Entregar ahora" (uno a la vez) y "Entregado" / "No entregado".
+     - DESPACHO (Empleado, G3 y superiores): "Alistando" -> "Listo para despachar" (slot).
+       El piloto no toca un pedido hasta que está "Listo para despachar".
+     - PILOTO (solo sus pedidos): "Cargar" con evidencia (foto, bultos, efectivo;
+       js/carga-comun.js), "Salir a ruta" POR SLOT (en Inicio; los listos sin cargar quedan
+       "No salió a ruta" y el G2 los reprograma), "Entregar ahora" (uno a la vez) y
+       "Entregado" / "No entregado". (sql/01 bloque 29)
 
    REGLAS:
      - Un pedido NUNCA se borra: se cancela (con motivo).
@@ -83,6 +85,7 @@ const PED_ESTADOS = {
     entregado:            { texto: 'Entregado',                color: 'etiqueta-verde' },
     entregado_incidencia: { texto: 'Entregado con incidencia', color: 'etiqueta-naranja' },
     no_entregado:         { texto: 'No entregado',             color: 'etiqueta-rosada' },
+    no_salio:             { texto: 'No salió a ruta',          color: 'etiqueta-rosada' },
     reprogramado:         { texto: 'Reprogramado',             color: 'etiqueta-azul' },
     devuelto:             { texto: 'Devuelto',                 color: 'etiqueta-rosada' },
     cancelado:            { texto: 'Cancelado',                color: 'etiqueta-gris' },
@@ -96,7 +99,7 @@ const PED_GRUPOS = [
     { id: 'despacho',    texto: 'En despacho',   color: 'resumen-azul',     estados: ['alistando', 'listo_despacho', 'recibido_ruta', 'cargado'] },
     { id: 'ruta',        texto: 'En ruta',       color: 'resumen-turquesa', estados: ['en_ruta', 'en_entrega'] },
     { id: 'entregados',  texto: 'Entregados',    color: 'resumen-verde',    estados: ['entregado', 'entregado_incidencia'] },
-    { id: 'problemas',   texto: 'No entregados', color: 'resumen-rosada',   estados: ['no_entregado', 'devuelto'] },
+    { id: 'problemas',   texto: 'No entregados', color: 'resumen-rosada',   estados: ['no_entregado', 'no_salio', 'devuelto'] },
     { id: 'cancelados',  texto: 'Cancelados',    color: 'resumen-naranja',  estados: ['cancelado'] },
 ];
 
@@ -104,6 +107,8 @@ const PED_GRUPOS = [
 const PED_POR_ALISTAR = ['registrado', 'recibido_bodega', 'asignado', 'reprogramado'];
 // Estados en los que el pedido todavía no salió (se puede asignar o cancelar)
 const PED_ANTES_DE_SALIR = [...PED_POR_ALISTAR, 'alistando', 'listo_despacho', 'recibido_ruta', 'cargado'];
+// Estados que el G2 reprograma: no se entregó, o estaba listo y no salió a ruta (sql/01 bloque 29)
+const PED_POR_REPROGRAMAR = ['no_entregado', 'no_salio'];
 
 // ---------- PEDIDOS CERCANOS (aprovechar un mismo viaje) ----------
 // Al registrar un pedido (y en su detalle) se buscan los pedidos del MISMO DÍA, todavía
@@ -586,7 +591,7 @@ registrarSeccion('pedidos', (zona) => {
             texto: () => (puedeAsignar
                 ? 'Reasignar horario: elige el pedido al que quieres cambiar fecha, horario, ruta o piloto.'
                 : 'Reasignar horario: elige el pedido para solicitar la reasignación al Admin G2.'),
-            estados: [...PED_ANTES_DE_SALIR, 'no_entregado'],
+            estados: [...PED_ANTES_DE_SALIR, ...PED_POR_REPROGRAMAR],
         },
         cancelar: {
             icono: 'bi-slash-circle',
@@ -1040,6 +1045,45 @@ registrarSeccion('pedidos', (zona) => {
     // ¿La actividad elegida usa esta parte? (ver usaActividad)
     const usa = (uso) => usaActividad(actividadElegida(), uso);
 
+    // ---------- Productos (distribuidora, sql/01 bloque 27; js/distribucion-comun.js) ----------
+    // Una actividad con productos (Configuración -> Actividades) no usa categorías de
+    // mercadería: se eligen productos con su cantidad y la lista de precios (con IVA).
+    let distCat = null;        // catálogo de la empresa (se carga la primera vez)
+    let selectorProd = null;   // crearSelectorProductos
+    let listaTocada = false;   // eligió otra lista a mano: ya no cambia sola con la tienda
+    const usaProductos = () => { const a = actividadElegida(); return !!a && actividadUsaParte(a.codigo, 'productos'); };
+
+    async function prepararProductos() {
+        const nota = $('#pedProductosAviso');
+        if (!distCat) {
+            const cat = await distCargarCatalogo();
+            if (cat.error) {
+                console.error('Error al cargar los productos:', cat.error);
+                nota.hidden = false;
+                nota.textContent = distFaltaSql(cat.error) ? 'Falta ejecutar sql/01 (bloque 27: distribuidora).' : 'No se pudieron cargar los productos. Revisa la conexión.';
+                return;
+            }
+            distCat = cat;
+        }
+        const selLista = $('#pedListaPrecios');
+        if (!selLista.options.length) {
+            distCat.listas.filter((l) => l.activa).forEach((l) => selLista.appendChild(new Option(`${l.nombre}${l.general ? ' (general)' : ''}`, l.id)));
+        }
+        if (!listaTocada) selLista.value = String(distListaDeTienda(distCat, tiendaElegida()) || '');
+        const sinProductos = !distCat.presentaciones.some((x) => x.activa);
+        nota.hidden = !sinProductos && distCat.listas.length > 0;
+        nota.textContent = sinProductos ? 'La empresa todavía no tiene productos: créalos en Distribución → Productos.'
+            : 'Falta crear una lista de precios (Distribución → Productos).';
+        const lista = Number(selLista.value) || null;
+        if (!selectorProd) selectorProd = crearSelectorProductos($('#pedProductos'), { catalogo: distCat, listaId: lista, alCambiar: recalcular });
+        else if (selectorProd.lista() !== lista) selectorProd.cambiarLista(lista);
+    }
+
+    $('#pedListaPrecios').addEventListener('change', () => {
+        listaTocada = true;
+        if (selectorProd) selectorProd.cambiarLista(Number($('#pedListaPrecios').value) || null);
+    });
+
     // ---------- Mapa A -> B (js/mapa.js): distancia por calle para el cobro por km ----------
     //   A = la tienda (sus coordenadas guardadas o su dirección). Si la actividad usa
     //       recolección y se escribió, A = la dirección de recolección.
@@ -1253,17 +1297,22 @@ registrarSeccion('pedidos', (zona) => {
         tarifas = tar.data;
         descuentos = des.data;
 
-        // Tienda (G3, Empleado: la suya y bloqueada)
-        tiendas.forEach((t) => selTienda.appendChild(new Option(`${t.codigo} · ${t.nombre}`, t.id)));
-        if (!tiendas.length) {
-            formError.textContent = esGeneral
-                ? 'Aún no hay tiendas registradas: crea una en Tiendas para poder registrar pedidos.'
-                : 'No tienes una tienda asignada para registrar pedidos.';
+        // Tienda (G3, Empleado: la suya y bloqueada). Solo las que tienen rutas (envían
+        // pedidos; Tiendas -> "Tiene rutas", sql/01 bloque 28)
+        const sinRutas = await tiendasSinRutas(); // js/componentes.js
+        const tiendasForm = tiendas.filter((t) => !sinRutas.has(t.id));
+        tiendasForm.forEach((t) => selTienda.appendChild(new Option(`${t.codigo} · ${t.nombre}`, t.id)));
+        if (!tiendasForm.length) {
+            formError.textContent = !tiendas.length
+                ? (esGeneral
+                    ? 'Aún no hay tiendas registradas: crea una en Tiendas para poder registrar pedidos.'
+                    : 'No tienes una tienda asignada para registrar pedidos.')
+                : 'Ninguna de tus tiendas tiene rutas (no envían pedidos). Márcalo en Tiendas → "Tiene rutas".';
             $('#pedGuardar').disabled = true;
             return;
         }
-        selTienda.value = String(tiendaPropia && tiendaPorId(tiendaPropia) ? tiendaPropia : tiendas[0].id);
-        selTienda.disabled = tiendas.length === 1;
+        selTienda.value = String(tiendaPropia && tiendasForm.some((t) => t.id === tiendaPropia) ? tiendaPropia : tiendasForm[0].id);
+        selTienda.disabled = tiendasForm.length === 1;
 
         // Número manual (Configuración -> Pedidos -> Número de pedido)
         $('#pedCampoCodigo').hidden = config.numero_pedido !== 'manual';
@@ -1392,6 +1441,15 @@ registrarSeccion('pedidos', (zona) => {
         if (mapaRuta && recoleccionAntes !== !origenEsTienda()) actualizarPuntoA();
         $('#pedCompraCaja').hidden = !usa('usa_compra');
         $('#pedPagadoCompraCaja').hidden = !usa('usa_compra');
+        // Peso y cobro por km según la actividad elegida (empresas/empresas.js, sql/01 bloque 26)
+        const codigoAct = (actividadElegida() || {}).codigo;
+        $('#pedPesoCaja').hidden = !!codigoAct && !actividadUsaParte(codigoAct, 'peso');
+        $('#pedAyudaKm').hidden = !!codigoAct && !actividadUsaParte(codigoAct, 'km');
+        // Distribuidora: productos en vez de categorías de mercadería
+        const conProductos = usaProductos();
+        $('#pedProductosCaja').hidden = !conProductos;
+        $('#pedMercaderiaCaja').hidden = conProductos;
+        if (conProductos) prepararProductos();
         llenarDescuentos();
         actualizarRutas();
         recalcular();
@@ -1988,9 +2046,11 @@ registrarSeccion('pedidos', (zona) => {
         // Lo pagado en línea no lo cobra el piloto; sin marcar (por defecto) se cobra el total
         const cobrarEnvio = !$('#pedPagadoEnvio').checked;
         const cobrarCompra = usa('usa_compra') && !$('#pedPagadoCompra').checked;
-        const total = redondear((cobrarEnvio ? costoEnvio : 0) + (cobrarCompra ? monto : 0));
+        // Distribuidora: los productos (con IVA) siempre los cobra el piloto al entregar
+        const productos = usaProductos() && selectorProd ? selectorProd.totales() : null;
+        const total = redondear((cobrarEnvio ? costoEnvio : 0) + (cobrarCompra ? monto : 0) + (productos ? productos.total : 0));
 
-        return { act, tarifa, peso, monto, calc, desc, montoDescuento: descuentoEnvio, costoEnvio, cobrarEnvio, cobrarCompra, total };
+        return { act, tarifa, peso, monto, calc, desc, montoDescuento: descuentoEnvio, costoEnvio, cobrarEnvio, cobrarCompra, productos, total };
     }
 
     // Fila del desglose: texto (+ nota chica) y monto
@@ -2019,7 +2079,8 @@ registrarSeccion('pedidos', (zona) => {
         const tbody = $('#pedDesglose');
         tbody.replaceChildren();
         if (!c.tarifa) {
-            filaDesglose(tbody, 'No hay tarifa para esta actividad (Configuración → Pedidos → Tarifas).', dinero(0));
+            // Con productos, el envío es opcional: sin tarifa solo se cobran los productos
+            if (!c.productos) filaDesglose(tbody, 'No hay tarifa para esta actividad (Configuración → Pedidos → Tarifas).', dinero(0));
         } else {
             const t = c.tarifa;
             if (Number(t.cargo_fijo)) filaDesglose(tbody, 'Envío fijo', dinero(t.cargo_fijo), `Tarifa: ${t.alcance}`);
@@ -2049,6 +2110,10 @@ registrarSeccion('pedidos', (zona) => {
             if (c.calc.gratis) filaDesglose(tbody, 'Envío gratis', `−${dinero(c.calc.bruto)}`, `Compra desde ${dinero(t.envio_gratis_desde)}`);
             if (c.montoDescuento) filaDesglose(tbody, `Descuento: ${c.desc.nombre}`, `−${dinero(c.montoDescuento)}`);
             filaDesglose(tbody, 'Costo del envío', dinero(c.costoEnvio), '', 'ped-desglose-total');
+        }
+        if (c.productos) {
+            filaDesglose(tbody, 'Productos (con IVA)', dinero(c.productos.total),
+                `Subtotal ${dinero(c.productos.subtotal)} + IVA ${dinero(c.productos.iva)}`, 'ped-desglose-total');
         }
 
         // Ayuda del envío gratis
@@ -2113,8 +2178,11 @@ registrarSeccion('pedidos', (zona) => {
         const marca = marcasForm.find((m) => String(m.numero) === selMarca.value);
         if (marca && marca.llena) return fallo(`El horario ${marca.numero} ya está lleno. Elige otro.`, selMarca);
 
-        const merc = leerMercaderia();
-        if (!merc.length) return fallo('Selecciona al menos un tipo de mercadería.');
+        // Distribuidora: productos en vez de mercadería
+        const conProductos = usaProductos();
+        if (conProductos && !(selectorProd && selectorProd.lineas().length)) return fallo('Agrega al menos un producto con su cantidad.');
+        const merc = conProductos ? [] : leerMercaderia();
+        if (!conProductos && !merc.length) return fallo('Selecciona al menos un tipo de mercadería.');
         const entero = (n) => Number.isInteger(n) && n >= 1;
         for (const m of merc) {
             const nombre = m.categoria.nombre;
@@ -2387,6 +2455,9 @@ registrarSeccion('pedidos', (zona) => {
             pagado_en_linea: { envio: !c.cobrarEnvio, compra: usa('usa_compra') && !c.cobrarCompra },
             categorias: merc.map((m) => m.categoria.nombre),
         };
+        // Distribuidora: lista de precios y totales de los productos (dist_entregar los usa al entregar)
+        const lineasProd = usaProductos() && selectorProd ? selectorProd.lineas() : [];
+        if (lineasProd.length) detalle.productos = { lista_id: selectorProd.lista(), ...c.productos };
         const conteo = merc.find((m) => m.tipo === 'conteo');
         if (conteo) detalle.abarrotes = conteo.conteo;
         const documentos = merc.find((m) => m.tipo === 'documento');
@@ -2486,9 +2557,10 @@ registrarSeccion('pedidos', (zona) => {
         const conMiPiloto = pilotoId ? cercanos.filter((x) => x.pedido.piloto_id === pilotoId) : [];
         const conOtroPiloto = cercanos.filter((x) => x.pedido.piloto_id && x.pedido.piloto_id !== pilotoId);
 
-        // Artículos y línea de tiempo
-        const [art, his] = await Promise.all([
-            db.from('pedido_articulos').insert(armarArticulos(data.id)),
+        // Artículos (o productos de la distribuidora) y línea de tiempo
+        const articulos = lineasProd.length ? [] : armarArticulos(data.id);
+        const [art, his, prod] = await Promise.all([
+            articulos.length ? db.from('pedido_articulos').insert(articulos) : Promise.resolve({ error: null }),
             registrarEvento(data.id, 'registrado', {
                 despues: estado,
                 detalle: {
@@ -2503,9 +2575,15 @@ registrarSeccion('pedidos', (zona) => {
                     } : {}),
                 },
             }),
+            lineasProd.length
+                ? db.from('pedido_productos').insert(lineasProd.map((l) => ({
+                    pedido_id: data.id, presentacion_id: l.presentacion_id, descripcion: l.descripcion,
+                    cantidad: l.cantidad, precio: l.precio, iva_pct: l.iva_pct,
+                })))
+                : Promise.resolve({ error: null }),
         ]);
-        if (art.error || his.error) {
-            console.error('Error al guardar artículos o historial:', art.error || his.error);
+        if (art.error || his.error || prod.error) {
+            console.error('Error al guardar artículos, productos o historial:', art.error || prod.error || his.error);
             sessionStorage.setItem('ped_aviso', `Pedido ${data.codigo} registrado, pero no se guardó todo el detalle. Revísalo.`);
         } else {
             sessionStorage.setItem('ped_aviso', `Pedido ${data.codigo} registrado.`);
@@ -2556,6 +2634,7 @@ registrarSeccion('pedidos', (zona) => {
 
     let pedido = null;       // pedido abierto
     let articulosDet = [];
+    let productosDet = []; // pedido_productos (distribuidora)
     let marcasDet = [];      // marcas de su fecha (para mostrar las horas)
     let slotsDet = [];       // slots de su fecha
     let solicitud = null;    // solicitud de reasignación pendiente (evento del historial) o null
@@ -2583,15 +2662,19 @@ registrarSeccion('pedidos', (zona) => {
         }
         pedido = data;
 
-        const [art, his, ent, evi, marcas, slots] = await Promise.all([
+        const [art, his, ent, evi, marcas, slots, prod] = await Promise.all([
             db.from('pedido_articulos').select('categoria, descripcion, cantidad, tamano, peso_kg').eq('pedido_id', id).order('id'),
             db.from('pedido_historial').select('evento, estado_anterior, estado_nuevo, detalle, usuario_id, usuario_nombre, creado_en').eq('pedido_id', id).order('creado_en'),
             db.from('pedido_entregas').select('*').eq('pedido_id', id).maybeSingle(),
             db.from('pedido_evidencias').select('tipo, url, creado_en, eliminada_en').eq('pedido_id', id).order('creado_en'),
             db.rpc('marcas_del_dia', { p_fecha: data.fecha_entrega }),
             db.rpc('slots_del_dia', { p_fecha: data.fecha_entrega }),
+            // Productos de la distribuidora (sql/01 bloque 27); sin la tabla, ninguno
+            db.from('pedido_productos').select('id, presentacion_id, descripcion, cantidad, cantidad_entregada, motivo, precio, iva_pct')
+                .eq('pedido_id', id).order('id'),
         ]);
         articulosDet = art.data || [];
+        productosDet = prod.data || [];
         marcasDet = marcas.data || [];
         slotsDet = slots.data || [];
         solicitud = solicitudPendiente(his.data || []);
@@ -2599,6 +2682,7 @@ registrarSeccion('pedidos', (zona) => {
         dibujarDetalle();
         dibujarSolicitud();
         dibujarArticulos();
+        dibujarProductos();
         dibujarCobro();
         dibujarEntrega(ent.data, evi.data || []);
         dibujarHistorial(his.data || []);
@@ -2625,7 +2709,7 @@ registrarSeccion('pedidos', (zona) => {
             if (p.anulado || !MODOS_LISTA.reasignar.estados.includes(p.estado)) {
                 aviso.mostrar('Este pedido ya no se puede reasignar.', 'error');
             } else if (puedeAsignar) {
-                abrirAsignar(p.estado === 'no_entregado' ? 'reprogramar' : 'asignar');
+                abrirAsignar(PED_POR_REPROGRAMAR.includes(p.estado) ? 'reprogramar' : 'asignar');
             } else if (puedeSolicitar) {
                 if (solicitud) aviso.mostrar('Ya hay una solicitud de reasignación pendiente para este pedido.', 'error');
                 else abrirAsignar('solicitar');
@@ -2738,7 +2822,8 @@ registrarSeccion('pedidos', (zona) => {
         dato(dl, 'Piloto', esPiloto ? sesion.nombre : (nombrePiloto(p.piloto_id) || 'Sin asignar'));
         // Pedidos del mismo día, sin entregar, cerca de este (para hacerlos en un solo viaje)
         if (ruta && !p.anulado && PED_PENDIENTES_DE_VIAJE.includes(p.estado)) mostrarCercanosDetalle(dl, p, ruta);
-        dato(dl, 'Peso total', kilos(p.peso_total_kg));
+        if (actividadUsaParte(p.actividad, 'peso')) dato(dl, 'Peso total', kilos(p.peso_total_kg)); // sql/01 bloque 26
+        if ((p.detalle || {}).venta_ruta) dato(dl, 'Tipo', 'Venta en ruta (autoventa)');
         if (p.lleva_alcohol) {
             const e = document.createElement('span');
             e.className = 'etiqueta etiqueta-rosada';
@@ -2747,7 +2832,12 @@ registrarSeccion('pedidos', (zona) => {
         }
         dato(dl, 'Notas', p.notas);
         // Caja del piloto (sql/01 bloque 24): cómo pagó el cliente y si ya se cerró
-        if (p.cobro_forma) dato(dl, 'Cómo pagó', { efectivo: 'Efectivo', sinpe: 'SINPE Móvil', tarjeta: 'Tarjeta' }[p.cobro_forma] || p.cobro_forma);
+        // Carga del piloto (sql/01 bloque 29): bultos recibidos, efectivo que lleva y nota
+        if (p.carga_bultos != null) {
+            dato(dl, 'Carga', [plural(p.carga_bultos, 'bulto recibido', 'bultos recibidos'),
+                Number(p.carga_efectivo) > 0 ? `lleva ${dinero(p.carga_efectivo)} en efectivo` : null, p.carga_nota].filter(Boolean).join(' · '));
+        }
+        if (p.cobro_forma) dato(dl, 'Cómo pagó',{ efectivo: 'Efectivo', sinpe: 'SINPE Móvil', tarjeta: 'Tarjeta' }[p.cobro_forma] || p.cobro_forma);
         if (p.cierre_id) dato(dl, 'Caja del piloto', `Cerrada (cierre #${p.cierre_id})`);
         // El código de respaldo no se le muestra al piloto (lo da el cliente)
         if (!esPiloto) {
@@ -2777,9 +2867,34 @@ registrarSeccion('pedidos', (zona) => {
         });
     }
 
+    // Productos de la distribuidora: pedido, entregado (lo pone el piloto) y motivo si fue menos
+    function dibujarProductos() {
+        $('#pedDetProductosCaja').hidden = !productosDet.length;
+        $('#pedDetArticulosCaja').hidden = productosDet.length > 0 && !articulosDet.length;
+        const tbody = $('#pedDetProductos');
+        tbody.replaceChildren();
+        productosDet.forEach((l) => {
+            const entregada = l.cantidad_entregada;
+            const tr = document.createElement('tr');
+            if (entregada != null && Number(entregada) < Number(l.cantidad)) tr.className = 'dist-fila-incompleta';
+            tr.append(
+                crearCelda(l.descripcion),
+                crearCelda(distCantidad(l.cantidad), 'dist-num'),
+                crearCelda(entregada == null ? 'Sin entregar' : distCantidad(entregada), 'dist-num'),
+                crearCelda(l.motivo),
+                crearCelda(distDinero(l.precio), 'dist-num'),
+                crearCelda(`${distCantidad(l.iva_pct)} %`, 'dist-num'),
+                crearCelda(distDinero(distLinea(entregada == null ? l.cantidad : entregada, l.precio, l.iva_pct).total), 'dist-num'),
+            );
+            tbody.appendChild(tr);
+        });
+    }
+
     function dibujarCobro() {
         const p = pedido;
         const d = p.costo_desglose || {};
+        // Distribuidora: lo pedido y, si ya se entregó, lo entregado (con IVA)
+        const prodDet = (p.detalle || {}).productos;
         const tbody = $('#pedDetCobro');
         tbody.replaceChildren();
         const t = d.tarifa;
@@ -2802,7 +2917,16 @@ registrarSeccion('pedidos', (zona) => {
         if (d.descuento) filaDesglose(tbody, `Descuento: ${d.descuento.nombre}`, `−${dinero(d.descuento.monto)}`);
         filaDesglose(tbody, 'Costo del envío', dinero(p.costo_envio));
         if (p.monto_compra != null) filaDesglose(tbody, 'Monto de la compra', dinero(p.monto_compra));
-        const cobra = [d.cobrar_envio !== false ? 'envío' : null, p.cobrar_compra ? 'compra' : null].filter(Boolean).join(' + ') || 'nada';
+        if (prodDet) {
+            filaDesglose(tbody, 'Productos pedidos (con IVA)', dinero(prodDet.total_pedido != null ? prodDet.total_pedido : prodDet.total),
+                prodDet.subtotal != null ? `Subtotal ${dinero(prodDet.subtotal)} + IVA ${dinero(prodDet.iva)}` : '');
+            if (prodDet.total_entregado != null) {
+                filaDesglose(tbody, 'Productos entregados (con IVA)', dinero(prodDet.total_entregado),
+                    prodDet.incompletos ? `${plural(prodDet.incompletos, 'producto incompleto', 'productos incompletos')}` : 'Completo');
+            }
+        }
+        const cobra = [d.cobrar_envio !== false && (!prodDet || Number(p.costo_envio) > 0) ? 'envío' : null,
+            p.cobrar_compra ? 'compra' : null, prodDet ? 'productos' : null].filter(Boolean).join(' + ') || 'nada';
         // Pagado en línea: el envío si no se cobra; la compra si tiene monto y no se cobra
         const pagado = [d.cobrar_envio === false ? 'envío' : null, p.monto_compra != null && !p.cobrar_compra ? 'compra' : null].filter(Boolean);
         if (pagado.length) filaDesglose(tbody, `Pagado en línea: ${pagado.join(' y ')}`, '✔', 'El piloto no lo cobra', 'ped-desglose-pagado');
@@ -2832,7 +2956,7 @@ registrarSeccion('pedidos', (zona) => {
 
         const fotos = $('#pedDetFotos');
         fotos.replaceChildren();
-        const tipos = { entrega: 'Entrega', mal_estado: 'Mal estado', retraso: 'Retraso', recepcion: 'Recepción' };
+        const tipos = { entrega: 'Entrega', mal_estado: 'Mal estado', retraso: 'Retraso', recepcion: 'Recepción', carga: 'Carga' };
         evidencias.forEach((e) => {
             if (e.eliminada_en || !e.url) {
                 const borrada = document.createElement('div');
@@ -2861,7 +2985,9 @@ registrarSeccion('pedidos', (zona) => {
         asignado: 'Asignación',
         reprogramado: 'Reprogramado',
         escaneo: 'QR escaneado (cargado)',
+        carga: 'Cargado por el piloto (con evidencia)',
         salida: 'Saliendo a ruta',
+        no_salio: 'No salió a ruta',
         correccion: 'Corrección',
         anulado: 'Pedido anulado',
         solicitud_reasignacion: 'Solicitud de reasignación',
@@ -2915,11 +3041,14 @@ registrarSeccion('pedidos', (zona) => {
     //   estados  -> en qué estados aparece | si(p) -> condición extra
     //   nuevo    -> estado al que pasa     | motivo -> 'requerido' / 'opcional'
     //
-    //   FLUJO DE DESPACHO (sql/00 sección 8; la hora de cada paso la guarda la base):
-    //     Alistando -> Listo para despachar (elige el slot) -> [piloto] Recibido para ruta
-    //     (muestra el QR) -> [despachador] escanea el QR = Cargado -> [piloto, en Inicio]
-    //     Saliendo a ruta = En ruta -> [piloto] Entregar ahora (UNO a la vez) -> Entregado /
-    //     No entregado. Ya no se anula: solo se cancela (con motivo, para los reportes).
+    //   FLUJO DE DESPACHO (sql/00 sección 8 y sql/01 bloque 29; la hora de cada paso la guarda la base):
+    //     Alistando -> Listo para despachar (elige el slot; desde aquí lo ve el piloto) ->
+    //     [piloto] Cargar con evidencia (foto, bultos, efectivo; js/carga-comun.js) = Cargado ->
+    //     [piloto, en Inicio] Salir a ruta POR SLOT = En ruta (los listos sin cargar del slot
+    //     quedan "No salió a ruta" y el G2 los reprograma) -> [piloto] Entregar ahora (UNO a la
+    //     vez) -> Entregado / No entregado. Ya no se anula: solo se cancela (con motivo).
+    //     (Los que quedaron "Recibido para ruta" con el flujo anterior se cargan igual, o la
+    //     tienda escanea su QR.)
     const esSuPiloto = (p) => esPiloto && p.piloto_id === sesion.id;
     const PED_ACCIONES = [
         { id: 'qr', texto: 'QR', icono: 'bi-qr-code', clase: 'boton-secundario', siempre: true, quien: () => true, si: (p) => puedeVerQr(p) },
@@ -2929,20 +3058,19 @@ registrarSeccion('pedidos', (zona) => {
         { id: 'alistar', texto: 'Alistando', icono: 'bi-box2', estados: PED_POR_ALISTAR, quien: () => puedeDespachar, nuevo: 'alistando',
           ayuda: 'Empieza a preparar el pedido. Cuando esté listo, márcalo "Listo para despachar".' },
         { id: 'listo', texto: 'Listo para despachar', icono: 'bi-box-seam', estados: ['alistando'], quien: () => puedeDespachar },
-        // Aprobación de salida de ESTE pedido: se escanea el QR que muestra el piloto.
-        // Visible desde "Listo para despachar"; se habilita cuando el piloto lo recibe.
-        { id: 'escanear', texto: 'Aprobar salida (escanear QR)', icono: 'bi-qr-code-scan', estados: ['listo_despacho', 'recibido_ruta'],
-          quien: () => puedeDespachar, bloqueado: (p) => (p.estado === 'listo_despacho'
-              ? 'Se habilita cuando el piloto marque "Recibido para ruta" y muestre el QR.' : '') },
+        // Flujo anterior: un pedido que quedó "Recibido para ruta" se aprueba escaneando su QR
+        // (con el flujo nuevo el piloto lo carga con su evidencia)
+        { id: 'escanear', texto: 'Aprobar salida (escanear QR)', icono: 'bi-qr-code-scan', estados: ['recibido_ruta'],
+          quien: () => puedeDespachar },
         // Piloto y horario: SOLO G2 o superior
         { id: 'asignar', texto: 'Asignar piloto y horario', icono: 'bi-person-check', clase: 'boton-secundario', estados: PED_ANTES_DE_SALIR, quien: () => puedeAsignar },
         // El Admin G3 solo lo pide (si no hay otra solicitud pendiente)
         { id: 'solicitar', texto: 'Solicitar reasignación', icono: 'bi-calendar2-week', clase: 'boton-secundario',
-          estados: [...PED_ANTES_DE_SALIR, 'no_entregado'], quien: () => puedeSolicitar, si: () => !solicitud },
-        // Piloto del pedido: recibe el pedido para la ruta y muestra su QR al despachador
-        { id: 'recibir', texto: 'Recibido para ruta', icono: 'bi-hand-thumbs-up', estados: ['listo_despacho'], quien: () => esPiloto,
-          si: esSuPiloto, nuevo: 'recibido_ruta',
-          ayuda: 'Se abrirá el QR del pedido: muéstraselo al despachador para que lo escanee y quede cargado.' },
+          estados: [...PED_ANTES_DE_SALIR, ...PED_POR_REPROGRAMAR], quien: () => puedeSolicitar, si: () => !solicitud },
+        // Piloto del pedido: solo desde "Listo para despachar". Lo carga con su evidencia
+        // (foto, bultos recibidos y efectivo); sale a ruta con todo el slot desde Inicio.
+        { id: 'cargar', texto: 'Cargar (foto y bultos)', icono: 'bi-box-arrow-in-down', estados: ['listo_despacho', 'recibido_ruta'],
+          quien: () => esPiloto, si: esSuPiloto },
         // Ya en ruta: marca cuál entrega AHORA (uno a la vez) y luego lo cierra
         { id: 'entregar_ahora', texto: 'Entregar ahora', icono: 'bi-geo-alt', estados: ['en_ruta'], quien: () => esPiloto, si: esSuPiloto,
           nuevo: 'en_entrega', ayuda: 'Hasta que lo marques entregado o no entregado no podrás empezar otro pedido.' },
@@ -2951,12 +3079,12 @@ registrarSeccion('pedidos', (zona) => {
           ayuda: 'Confirma que entregaste el pedido. (Más adelante se hará desde la app con el QR y la foto.)' },
         { id: 'no_entregado', texto: 'No entregado', icono: 'bi-x-circle', estados: ['en_entrega'], quien: () => esPiloto, si: esSuPiloto,
           nuevo: 'no_entregado', motivo: 'requerido' },
-        { id: 'reprogramar', texto: 'Reprogramar', icono: 'bi-calendar-event', estados: ['no_entregado'], quien: () => puedeAsignar },
+        { id: 'reprogramar', texto: 'Reprogramar', icono: 'bi-calendar-event', estados: PED_POR_REPROGRAMAR, quien: () => puedeAsignar },
         { id: 'devuelto', texto: 'Devuelto', icono: 'bi-arrow-return-left', estados: ['no_entregado'], quien: () => puedeCancelar,
           nuevo: 'devuelto', motivo: 'requerido' },
         // Cancelar: Admin G3 o superior (el Empleado no). El motivo sale en Reportes.
         // También un "No entregado" (el G2 decide: reprogramar o cancelar según el motivo del piloto).
-        { id: 'cancelar', texto: 'Cancelar pedido', icono: 'bi-slash-circle', clase: 'boton-peligro', estados: [...PED_ANTES_DE_SALIR, 'no_entregado'],
+        { id: 'cancelar', texto: 'Cancelar pedido', icono: 'bi-slash-circle', clase: 'boton-peligro', estados: [...PED_ANTES_DE_SALIR, ...PED_POR_REPROGRAMAR],
           quien: () => puedeCancelar, nuevo: 'cancelado', motivo: 'requerido',
           ayuda: 'El pedido no se borra: queda cancelado con su motivo (se ve en Reportes).' },
     ];
@@ -2996,6 +3124,7 @@ registrarSeccion('pedidos', (zona) => {
         if (accion.id === 'qr') abrirVentanaQr();
         else if (accion.id === 'listo') abrirListo();
         else if (accion.id === 'escanear') abrirEscaner();
+        else if (accion.id === 'cargar') cargarConEvidencia();
         else if (accion.id === 'asignar') abrirAsignar('asignar');
         else if (accion.id === 'reprogramar') abrirAsignar('reprogramar');
         else if (accion.id === 'solicitar') abrirAsignar('solicitar');
@@ -3071,6 +3200,11 @@ registrarSeccion('pedidos', (zona) => {
     let accionActual = null;
 
     function abrirAccion(accion) {
+        // Distribuidora: el piloto dice cuánto entregó de cada producto (js/distribucion-comun.js)
+        if (accion.id === 'entregado' && productosDet.length) {
+            entregarProductos();
+            return;
+        }
         accionActual = accion;
         $('#pedAccionTitulo').textContent = accion.texto;
         const estadoNuevo = accion.nuevo ? (PED_ESTADOS[accion.nuevo] || {}).texto : null;
@@ -3098,6 +3232,34 @@ registrarSeccion('pedidos', (zona) => {
         si.className = `boton ${accion.clase === 'boton-peligro' ? 'boton-peligro' : 'boton-principal'}`;
         dlgAccion.showModal();
         if (accion.motivo) $('#pedAccionMotivo').focus();
+    }
+
+    // Carga con evidencia del piloto (js/carga-comun.js -> pedido_cargar, sql/01 bloque 29)
+    async function cargarConEvidencia() {
+        const r = await abrirCargaPedido({ pedido, sesion });
+        if (!r) return;
+        aviso.mostrar(`Pedido ${pedido.codigo} cargado (${plural(r.bultos, 'bulto', 'bultos')}). Sal a ruta con todo el slot desde Inicio.`);
+        recargarDetalle();
+    }
+
+    // Entrega por producto: la base (dist_entregar) guarda lo entregado, recalcula el total y deja
+    // el pedido "Entregado" o, si faltó algo, "Entregado con incidencia" (+ aviso al G3)
+    async function entregarProductos() {
+        const mot = await db.from('motivos_entrega_parcial').select('nombre, activo').eq('activo', true).order('orden').order('nombre');
+        const r = await abrirEntregaProductos({ pedido, lineas: productosDet, motivos: mot.data || [], sesion });
+        if (!r) return;
+        const faltan = Array.isArray(r.faltan) ? r.faltan : [];
+        aviso.mostrar(`Pedido ${pedido.codigo}: entregado${r.incompletos ? ` con ${plural(r.incompletos, 'producto incompleto', 'productos incompletos')}` : ''}.`
+            + ` A cobrar ${dinero(r.total)}.`);
+        if (faltan.length) {
+            await avisar({
+                tiendaId: pedido.tienda_id, a: ['g3'], enlace: `#pedidos?id=${pedido.id}`, referenciaTipo: 'pedido', referenciaId: pedido.id,
+                titulo: 'Entrega incompleta',
+                mensaje: `${sesion.nombre || 'El piloto'} entregó el pedido ${pedido.codigo} incompleto: `
+                    + faltan.map((f) => `${f.producto} ${distCantidad(f.entregado)} de ${distCantidad(f.pedido)} (${f.motivo})`).join('; ') + '.',
+            });
+        }
+        recargarDetalle();
     }
 
     $('#pedAccionCancelar').addEventListener('click', () => dlgAccion.close());
@@ -3166,13 +3328,11 @@ registrarSeccion('pedidos', (zona) => {
                 : `Pedido ${pedido.codigo}: ${(PED_ESTADOS[accion.nuevo] || {}).texto}.`);
         }
         if (!resultado) await avisosDeAccion(accion.id, motivo);
-        // "Recibido para ruta": se abre el QR para que el despachador lo escanee
-        if (!resultado && accion.id === 'recibir') abrirDetalle(pedido.id, true);
-        else recargarDetalle();
+        recargarDetalle();
     });
 
     // ---------- Avisos de las acciones (js/notificaciones.js) ----------
-    //   Piloto "Recibido para ruta" -> G3 de la tienda: aprobar la salida (pendiente)
+    //   (La carga y la salida a ruta por slot avisan desde js/carga-comun.js e Inicio)
     //   Piloto "No entregado"       -> G2: reprogramar o cancelar (pendiente) + G3 (info)
     //   Cancelar / Devuelto         -> si lo hace G2+: G3 + piloto | si lo hace la tienda: G2 + piloto
     // Los pendientes que ya no aplican se cierran (resolverPendientes).
@@ -3181,13 +3341,7 @@ registrarSeccion('pedidos', (zona) => {
         const enlace = `#pedidos?id=${p.id}`;
         const tienda = nombreTienda(p.tienda_id);
         const quien = sesion.nombre || 'Alguien';
-        if (accionId === 'recibir') {
-            await avisar({
-                tiendaId: p.tienda_id, a: ['g3'], tipo: 'pendiente', enlace, referenciaTipo: 'pedido_salida', referenciaId: p.id,
-                titulo: 'Aprobar salida de un pedido',
-                mensaje: `${quien} recibió el pedido ${p.codigo} para ruta. Ábrelo y escanea su QR para aprobar la salida.`,
-            });
-        } else if (accionId === 'no_entregado') {
+        if (accionId === 'no_entregado') {
             await avisar({
                 tiendaId: p.tienda_id, a: ['g2'], tipo: 'pendiente', enlace, referenciaTipo: 'pedido_no_entregado', referenciaId: p.id,
                 titulo: 'Pedido no entregado: reprogramar o cancelar',
@@ -3362,7 +3516,7 @@ registrarSeccion('pedidos', (zona) => {
 
         // ----- G2 o superior: asigna / reprograma / aplica -----
         // "Aplicar" sobre un pedido no entregado cuenta como reprogramación
-        const reprograma = modo === 'reprogramar' || (modo === 'aplicar' && pedido.estado === 'no_entregado');
+        const reprograma = modo === 'reprogramar' || (modo === 'aplicar' && PED_POR_REPROGRAMAR.includes(pedido.estado));
         // Piloto vacío = el de la ruta esa fecha
         const piloto = pilotoManual || await pilotoAutomatico(ruta, fecha, pedido.id);
         const act = actividadPorCodigo(pedido.actividad);
@@ -3396,8 +3550,9 @@ registrarSeccion('pedidos', (zona) => {
             const enlace = `#pedidos?id=${pedido.id}`;
             if (piloto) await resolverPendientes('pedido_asignar', pedido.id); // ya tiene piloto
             if (reprograma) {
-                // El "No entregado" que avisó el piloto ya se resolvió: la tienda y el piloto lo saben
+                // El "No entregado" (o "No salió a ruta") ya se resolvió: la tienda y el piloto lo saben
                 await resolverPendientes('pedido_no_entregado', pedido.id);
+                await resolverPendientes('pedido_no_salio', pedido.id);
                 await avisar({
                     tiendaId: pedido.tienda_id, a: ['g3'], usuarios: [piloto], enlace, referenciaTipo: 'pedido', referenciaId: pedido.id,
                     tipo: 'aprobado', titulo: 'Pedido reprogramado',

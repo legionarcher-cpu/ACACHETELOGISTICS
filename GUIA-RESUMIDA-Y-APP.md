@@ -142,6 +142,7 @@ En las tres, la app usa **las mismas tablas y funciones** de la sección 4.3.
 | Fotos | Subir a Storage `evidencias` y registrar en `pedido_evidencias` (`entrega`, `mal_estado`, `retraso`, `recepcion`) |
 | Marcar horario en la tienda | Escanear el QR de marcas → `marcar_por_qr(piloto, qr, justificación)` (si llega tarde responde `JUSTIFICAR:` y la app pide el motivo) |
 | Su QR del día (la tienda lo valida) | `qr_piloto_dia(piloto)` |
+| Ubicación en ruta (cada 2 min) | `piloto_en_ruta(piloto)` → si es `true`, leer el GPS y llamar `piloto_ubicacion(p_piloto, p_lat, p_lng, p_precision, p_velocidad (km/h), p_rumbo, p_origen = 'app')`. Guarda la última posición en `ubicaciones_pilotos` (sql/01 bloque 25) y el mapa de Inicio la dibuja. Fuera de ruta no guarda nada y borra la anterior |
 
 **App del conductor (viajes de Transporte)**
 - Sus viajes: `viajes` donde `conductor_id` = su id (solo lectura).
@@ -174,7 +175,7 @@ En las tres, la app usa **las mismas tablas y funciones** de la sección 4.3.
 | Pendiente | Por qué | Qué hacer |
 |---|---|---|
 | **Fase 7: Supabase Auth + RLS** (lo más importante) | Hoy la base acepta leer y escribir casi todo con la clave pública, y una app publicada deja esa clave a la vista de cualquiera | Pasar el login a Supabase Auth y poner reglas en cada tabla: cada usuario ve solo su empresa y lo que su rol permite |
-| **Ubicación en tiempo real** | El mapa de Inicio ya está listo para mostrar a los pilotos | Tabla de ubicaciones (piloto, lat, lng, hora) que la app actualice cada pocos segundos; Inicio dibuja un marcador por piloto |
+| **Ubicación en segundo plano** | Hecho (bloque 25): la web ya manda el GPS cada 2 min mientras la página está abierta y Inicio dibuja un camión por piloto. El navegador lo pausa con la pantalla apagada | La app llama `piloto_ubicacion` cada 2 min también en segundo plano (Capacitor + permiso de ubicación "siempre") |
 | **Notificaciones push** | Hoy los avisos se ven en la campana de la web | Guardar el token del celular y enviar con Firebase (FCM) desde una función de Supabase (Edge Function) |
 | **Cambios en vivo** | Hoy la web revisa novedades cada minuto | Usar Supabase Realtime en la app (y luego en la web) para recibir cambios al instante |
 | Firma del cliente | La propuesta la contempla | Guardarla como imagen en Storage `evidencias` (tipo nuevo `firma`) |

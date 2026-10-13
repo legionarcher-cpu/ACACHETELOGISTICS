@@ -1,0 +1,656 @@
+<!-- ==================================================
+     SECCIÓN: DISTRIBUCIÓN (distribuidora)
+     Guía: docs/15-distribuidora.md · Tablas y funciones: sql/01 bloque 27.
+     Aparece si alguna actividad de la empresa usa productos (Configuración -> Actividades)
+     y su plan incluye "distribucion".
+
+     Pestañas:
+       Bodega del día  (G3 o superior) -> abrir la bodega de una ruta, ingresar producto,
+                                          cargar a cada piloto, devoluciones, pasar entre
+                                          pilotos, ajustes, cerrar la mercadería de cada
+                                          piloto y cerrar la bodega (queda en 0).
+       Mi carga        (piloto)        -> lo que lleva, sus pedidos y la venta en ruta.
+       Productos       (todos los G)   -> artículos, presentaciones, listas de precios con
+                                          IVA, lista de cada tienda y motivos de entrega
+                                          incompleta. Los cambia el Administrador o G1.
+       Historial       (G3 o superior) -> bodegas cerradas, cierres de pilotos y reporte
+                                          de faltantes (exportable).
+     #distribucion?pestana=productos abre esa pestaña.
+
+     Solo lleva el contenido: sin <html>, <head> ni <body>.
+       Estilos propios -> css/secciones/distribucion.css (clases "dis-")
+       Piezas comunes  -> css/distribucion.css y js/distribucion-comun.js ("dist-")
+       Lógica          -> js/secciones/distribucion.js
+     Los ids empiezan con "dis".
+     ================================================== -->
+
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina dis">
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Distribución</h2>
+            <p id="disSubtitulo" class="pagina-subtitulo">Cargando...</p>
+        </div>
+    </div>
+
+    <div id="disPestanas" class="pestanas"></div>
+
+    <p id="disAviso" class="aviso" role="status"></p>
+
+    <p id="disFaltaSql" class="dis-nota dis-nota-alerta" hidden>
+        <i class="bi bi-exclamation-triangle"></i>
+        Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloques 26 y 27: distribuidora) en Supabase.
+    </p>
+
+    <!-- ==================================================
+         PESTAÑA: BODEGA DEL DÍA
+         ================================================== -->
+    <section id="disVistaBodega" class="dis-vista" hidden>
+        <div class="dis-filtros">
+            <select id="disTienda" class="campo-input filtro" aria-label="Tienda"></select>
+            <select id="disRuta" class="campo-input filtro" aria-label="Ruta"></select>
+            <input id="disFecha" type="date" class="campo-input filtro" aria-label="Fecha">
+        </div>
+
+        <p id="disSinRutas" class="dis-nota" hidden>
+            <i class="bi bi-info-circle"></i>
+            Esta tienda no tiene rutas para productos. Créalas en <a href="#rutas">Rutas y asignaciones</a>
+            (sin actividad o con una actividad que use productos).
+        </p>
+
+        <!-- La ruta no tiene bodega ese día -->
+        <div id="disAbrirCaja" class="tarjeta dis-tarjeta" hidden>
+            <h3 class="dis-tarjeta-titulo"><i class="bi bi-box-arrow-in-down"></i> Abrir la bodega del día</h3>
+            <p class="dis-ayuda">
+                La bodega de la ruta se llena al empezar el día y desde ella se carga a cada piloto.
+                Al final del día se devuelve lo no vendido y queda en 0 (se guarda lo que hubo, lo que
+                se vendió y lo que se devolvió).
+            </p>
+            <div class="campos">
+                <div class="campo">
+                    <label for="disAbrirLista" class="campo-etiqueta">Lista de precios para valorar</label>
+                    <select id="disAbrirLista" class="campo-input"></select>
+                    <small class="campo-ayuda">Con estos precios (con IVA) se valora lo cargado y lo devuelto.</small>
+                </div>
+            </div>
+            <div class="dis-botones">
+                <button type="button" id="disAbrir" class="boton boton-principal">
+                    <i class="bi bi-unlock"></i> <span>Abrir bodega</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Bodega abierta o cerrada -->
+        <div id="disBodegaCaja" class="dis-contenido" hidden>
+            <div class="tarjeta dis-cabecera-bodega">
+                <div>
+                    <strong id="disBodegaTitulo" class="dis-bodega-titulo"></strong>
+                    <span id="disBodegaDetalle" class="dis-detalle"></span>
+                </div>
+                <span id="disBodegaEstado"></span>
+            </div>
+
+            <div id="disBodegaBotones" class="dis-botones">
+                <button type="button" class="boton boton-principal" data-mov="ingreso"><i class="bi bi-box-arrow-in-down"></i> <span>Ingresar producto</span></button>
+                <button type="button" class="boton boton-secundario" data-mov="carga"><i class="bi bi-truck"></i> <span>Cargar a piloto</span></button>
+                <button type="button" class="boton boton-secundario" data-mov="devolucion"><i class="bi bi-arrow-return-left"></i> <span>Devolución de piloto</span></button>
+                <button type="button" class="boton boton-secundario" data-mov="traspaso"><i class="bi bi-arrow-left-right"></i> <span>Pasar entre pilotos</span></button>
+                <button type="button" class="boton boton-secundario" data-mov="ajuste"><i class="bi bi-sliders"></i> <span>Ajuste</span></button>
+                <button type="button" id="disCerrarBodega" class="boton boton-peligro"><i class="bi bi-lock"></i> <span>Cerrar bodega</span></button>
+            </div>
+
+            <div class="resumen dis-resumen">
+                <div class="resumen-item resumen-azul">
+                    <span id="disTotIngresado" class="resumen-numero">0</span>
+                    <span class="resumen-texto">Unidades ingresadas</span>
+                </div>
+                <div class="resumen-item resumen-naranja">
+                    <span id="disTotCargado" class="resumen-numero">0</span>
+                    <span class="resumen-texto">Cargadas a pilotos</span>
+                </div>
+                <div class="resumen-item resumen-verde">
+                    <span id="disTotVendido" class="resumen-numero">0</span>
+                    <span id="disTotVendidoTexto" class="resumen-texto">Entregadas y vendidas</span>
+                </div>
+                <div class="resumen-item resumen-morada">
+                    <span id="disTotBodega" class="resumen-numero">0</span>
+                    <span id="disTotBodegaTexto" class="resumen-texto">En bodega</span>
+                </div>
+            </div>
+
+            <div class="tarjeta dis-tarjeta">
+                <h3 class="dis-tarjeta-titulo"><i class="bi bi-boxes"></i> Bodega de la ruta</h3>
+                <div class="tabla-caja">
+                    <table class="tabla dis-tabla">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="dist-num">Ingresado</th>
+                                <th class="dist-num">Cargado</th>
+                                <th class="dist-num">Devuelto</th>
+                                <th class="dist-num">Dañado</th>
+                                <th class="dist-num">Ajustes</th>
+                                <th class="dist-num">Salida</th>
+                                <th class="dist-num">En bodega</th>
+                                <th class="dist-num">Valor en bodega</th>
+                            </tr>
+                        </thead>
+                        <tbody id="disSaldo"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tarjeta dis-tarjeta">
+                <h3 class="dis-tarjeta-titulo"><i class="bi bi-person-badge"></i> Pilotos de la bodega</h3>
+                <p class="dis-ayuda">
+                    Cargado = lo que se le cargó (+ lo que recibió de otro piloto − lo que pasó). Al volver,
+                    registra su devolución y cierra su mercadería: lo que no entregó, vendió ni devolvió queda
+                    como faltante (se avisa y sale en el reporte).
+                </p>
+                <div class="tabla-caja">
+                    <table class="tabla dis-tabla">
+                        <thead>
+                            <tr>
+                                <th>Piloto</th>
+                                <th class="dist-num">Cargado</th>
+                                <th class="dist-num">Entregado</th>
+                                <th class="dist-num">Vendido</th>
+                                <th class="dist-num">Devuelto</th>
+                                <th class="dist-num">En mano</th>
+                                <th class="dist-num">Valor en mano</th>
+                                <th>Estado</th>
+                                <th class="tabla-col-acciones">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="disPilotos"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tarjeta dis-tarjeta">
+                <h3 class="dis-tarjeta-titulo"><i class="bi bi-list-ul"></i> Movimientos</h3>
+                <div class="tabla-caja">
+                    <table class="tabla dis-tabla">
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Movimiento</th>
+                                <th>Piloto</th>
+                                <th>Producto</th>
+                                <th class="dist-num">Cantidad</th>
+                                <th>Quién</th>
+                                <th>Nota</th>
+                            </tr>
+                        </thead>
+                        <tbody id="disMovimientos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================================================
+         PESTAÑA: MI CARGA (piloto)
+         ================================================== -->
+    <section id="disVistaCarga" class="dis-vista" hidden>
+        <p id="disSinCarga" class="dis-nota" hidden>
+            <i class="bi bi-info-circle"></i>
+            No tienes carga en una bodega del día abierta. La tienda te carga el producto al salir.
+        </p>
+        <div id="disCargaCaja" class="dis-contenido" hidden>
+            <div class="tarjeta dis-cabecera-bodega">
+                <div>
+                    <strong id="disCargaTitulo" class="dis-bodega-titulo"></strong>
+                    <span id="disCargaDetalle" class="dis-detalle"></span>
+                </div>
+                <select id="disCargaBodega" class="campo-input filtro" aria-label="Bodega" hidden></select>
+            </div>
+            <div class="dis-botones">
+                <button type="button" id="disVender" class="boton boton-principal">
+                    <i class="bi bi-cart-plus"></i> <span>Venta en ruta</span>
+                </button>
+            </div>
+            <div class="tarjeta dis-tarjeta">
+                <h3 class="dis-tarjeta-titulo"><i class="bi bi-truck"></i> Lo que llevo</h3>
+                <div class="tabla-caja">
+                    <table class="tabla dis-tabla">
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th class="dist-num">Cargado</th>
+                                <th class="dist-num">Entregado</th>
+                                <th class="dist-num">Vendido</th>
+                                <th class="dist-num">Devuelto</th>
+                                <th class="dist-num">En mano</th>
+                            </tr>
+                        </thead>
+                        <tbody id="disCargaLineas"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="tarjeta dis-tarjeta">
+                <h3 class="dis-tarjeta-titulo"><i class="bi bi-receipt"></i> Mis pedidos y ventas del día</h3>
+                <div class="tabla-caja">
+                    <table class="tabla dis-tabla">
+                        <thead>
+                            <tr>
+                                <th>Pedido</th>
+                                <th>Cliente</th>
+                                <th>Estado</th>
+                                <th class="dist-num">A cobrar</th>
+                            </tr>
+                        </thead>
+                        <tbody id="disCargaPedidos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="tarjeta dis-tarjeta">
+            <h3 class="dis-tarjeta-titulo"><i class="bi bi-clipboard-check"></i> Mis cierres de mercadería</h3>
+            <div class="tabla-caja">
+                <table class="tabla dis-tabla">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Ruta</th>
+                            <th class="dist-num">Cargado</th>
+                            <th class="dist-num">Entregado</th>
+                            <th class="dist-num">Vendido</th>
+                            <th class="dist-num">Devuelto</th>
+                            <th class="dist-num">Faltante</th>
+                            <th class="dist-num">Valor faltante</th>
+                        </tr>
+                    </thead>
+                    <tbody id="disMisCierres"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================================================
+         PESTAÑA: PRODUCTOS Y PRECIOS
+         ================================================== -->
+    <section id="disVistaProductos" class="dis-vista" hidden>
+        <div class="tarjeta dis-tarjeta">
+            <div class="dis-tarjeta-cabecera">
+                <h3 class="dis-tarjeta-titulo"><i class="bi bi-boxes"></i> Productos y precios</h3>
+                <div class="dis-botones">
+                    <select id="disProdLista" class="campo-input filtro" aria-label="Lista de precios"></select>
+                    <input id="disProdBuscar" type="search" class="campo-input filtro" placeholder="Buscar producto" aria-label="Buscar producto">
+                    <button type="button" id="disProdNuevo" class="boton boton-principal" data-solo-catalogo>
+                        <i class="bi bi-plus-circle"></i> <span>Nuevo producto</span>
+                    </button>
+                </div>
+            </div>
+            <p class="dis-ayuda">
+                Cada producto tiene una o más presentaciones (ej. "Unidad", "Caja 12 x 1 L"). El precio es por
+                presentación y por lista: se escribe <strong>sin IVA</strong> con su % de IVA (13 % por defecto)
+                y el precio con IVA se calcula solo. Cambia los precios y presiona <strong>Guardar precios</strong>.
+            </p>
+            <div class="tabla-caja">
+                <table class="tabla dis-tabla dis-tabla-productos">
+                    <thead>
+                        <tr>
+                            <th>Presentación</th>
+                            <th class="dist-num">Unidades</th>
+                            <th>Código de barras</th>
+                            <th class="dist-num">Precio sin IVA</th>
+                            <th class="dist-num">IVA %</th>
+                            <th class="dist-num">Precio con IVA</th>
+                            <th>Estado</th>
+                            <th class="tabla-col-acciones">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="disProductos"></tbody>
+                </table>
+            </div>
+            <div class="dis-botones dis-botones-fin" data-solo-catalogo>
+                <span id="disPreciosCambios" class="dis-detalle"></span>
+                <button type="button" id="disGuardarPrecios" class="boton boton-principal" disabled>
+                    <i class="bi bi-save"></i> <span>Guardar precios</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="dis-rejilla">
+            <div class="tarjeta dis-tarjeta">
+                <div class="dis-tarjeta-cabecera">
+                    <h3 class="dis-tarjeta-titulo"><i class="bi bi-tags"></i> Listas de precios</h3>
+                    <button type="button" id="disListaNueva" class="boton boton-secundario boton-chico" data-solo-catalogo>
+                        <i class="bi bi-plus-lg"></i> <span>Nueva lista</span>
+                    </button>
+                </div>
+                <p class="dis-ayuda">La lista <strong>general</strong> se usa en las tiendas que no eligieron otra y cuando a una lista le falta un precio.</p>
+                <div class="tabla-caja">
+                    <table class="tabla">
+                        <thead><tr><th>Lista</th><th>Tiendas</th><th>Estado</th><th class="tabla-col-acciones">Acciones</th></tr></thead>
+                        <tbody id="disListas"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tarjeta dis-tarjeta">
+                <h3 class="dis-tarjeta-titulo"><i class="bi bi-shop"></i> Lista de cada tienda</h3>
+                <p class="dis-ayuda">La que viene puesta en sus pedidos y en su bodega del día (se puede cambiar en cada uno).</p>
+                <div class="tabla-caja">
+                    <table class="tabla">
+                        <thead><tr><th>Tienda</th><th>Lista de precios</th></tr></thead>
+                        <tbody id="disTiendasListas"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tarjeta dis-tarjeta">
+                <div class="dis-tarjeta-cabecera">
+                    <h3 class="dis-tarjeta-titulo"><i class="bi bi-chat-left-text"></i> Motivos de entrega incompleta</h3>
+                    <button type="button" id="disMotivoNuevo" class="boton boton-secundario boton-chico" data-solo-catalogo>
+                        <i class="bi bi-plus-lg"></i> <span>Nuevo motivo</span>
+                    </button>
+                </div>
+                <p class="dis-ayuda">El piloto elige uno cuando el cliente recibe menos de lo pedido (o escribe otro).</p>
+                <div class="tabla-caja">
+                    <table class="tabla">
+                        <thead><tr><th>Motivo</th><th>Estado</th><th class="tabla-col-acciones">Acciones</th></tr></thead>
+                        <tbody id="disMotivos"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ==================================================
+         PESTAÑA: HISTORIAL Y FALTANTES
+         ================================================== -->
+    <section id="disVistaHistorial" class="dis-vista" hidden>
+        <div class="dis-filtros">
+            <label class="dis-filtro-fecha">Desde <input id="disHisDesde" type="date" class="campo-input filtro"></label>
+            <label class="dis-filtro-fecha">Hasta <input id="disHisHasta" type="date" class="campo-input filtro"></label>
+            <select id="disHisRuta" class="campo-input filtro" aria-label="Ruta"></select>
+            <button type="button" id="disHisExportar" class="boton boton-secundario">
+                <i class="bi bi-filetype-csv"></i> <span>Exportar faltantes</span>
+            </button>
+        </div>
+
+        <div class="resumen dis-resumen">
+            <div class="resumen-item resumen-azul">
+                <span id="disHisBodegas" class="resumen-numero">0</span>
+                <span class="resumen-texto">Bodegas</span>
+            </div>
+            <div class="resumen-item resumen-verde">
+                <span id="disHisVendido" class="resumen-numero">₡0</span>
+                <span class="resumen-texto">Entregado y vendido (con IVA)</span>
+            </div>
+            <div class="resumen-item resumen-naranja">
+                <span id="disHisFaltantes" class="resumen-numero">0</span>
+                <span class="resumen-texto">Cierres con faltante</span>
+            </div>
+            <div class="resumen-item resumen-rosada">
+                <span id="disHisValorFaltante" class="resumen-numero">₡0</span>
+                <span class="resumen-texto">Valor faltante</span>
+            </div>
+        </div>
+
+        <div class="tarjeta dis-tarjeta">
+            <h3 class="dis-tarjeta-titulo"><i class="bi bi-exclamation-triangle"></i> Reporte de faltantes</h3>
+            <div class="tabla-caja">
+                <table class="tabla dis-tabla">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Ruta</th>
+                            <th>Piloto</th>
+                            <th>Productos</th>
+                            <th class="dist-num">Unidades</th>
+                            <th class="dist-num">Valor</th>
+                            <th>Cerró</th>
+                        </tr>
+                    </thead>
+                    <tbody id="disHisFaltantesTabla"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tarjeta dis-tarjeta">
+            <h3 class="dis-tarjeta-titulo"><i class="bi bi-clipboard-check"></i> Cierres de pilotos</h3>
+            <div class="tabla-caja">
+                <table class="tabla dis-tabla">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Ruta</th>
+                            <th>Piloto</th>
+                            <th class="dist-num">Cargado</th>
+                            <th class="dist-num">Entregado</th>
+                            <th class="dist-num">Vendido</th>
+                            <th class="dist-num">Devuelto</th>
+                            <th class="dist-num">Faltante</th>
+                            <th class="dist-num">Valor cargado</th>
+                            <th class="dist-num">Entregado + vendido</th>
+                            <th class="dist-num">A cobrar</th>
+                        </tr>
+                    </thead>
+                    <tbody id="disHisCierres"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="tarjeta dis-tarjeta">
+            <h3 class="dis-tarjeta-titulo"><i class="bi bi-archive"></i> Bodegas del día</h3>
+            <div class="tabla-caja">
+                <table class="tabla dis-tabla">
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Ruta</th>
+                            <th>Estado</th>
+                            <th class="dist-num">Hubo</th>
+                            <th class="dist-num">Cargado</th>
+                            <th class="dist-num">Entregado + vendido</th>
+                            <th class="dist-num">Devuelto</th>
+                            <th class="dist-num">Salida</th>
+                            <th class="dist-num">Faltante</th>
+                            <th class="tabla-col-acciones">Ver</th>
+                        </tr>
+                    </thead>
+                    <tbody id="disHisBodegasTabla"></tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
+
+<!-- ==================================================
+     VENTANA: MOVIMIENTO DE BODEGA (ingreso, carga, devolución, traspaso, ajuste)
+     ================================================== -->
+<dialog id="disMovDialogo" class="dialogo dis-dialogo-ancho" aria-labelledby="disMovTitulo">
+    <form id="disMovForm" class="dialogo-form" novalidate>
+        <h3 id="disMovTitulo" class="dialogo-titulo">Movimiento</h3>
+        <p id="disMovTexto" class="dialogo-texto"></p>
+        <div class="campos">
+            <div class="campo" id="disMovPilotoCaja">
+                <label for="disMovPiloto" id="disMovPilotoEtiqueta" class="campo-etiqueta">Piloto *</label>
+                <select id="disMovPiloto" class="campo-input"></select>
+            </div>
+            <div class="campo" id="disMovDestinoCaja">
+                <label for="disMovDestino" class="campo-etiqueta">Piloto que recibe *</label>
+                <select id="disMovDestino" class="campo-input"></select>
+            </div>
+        </div>
+        <div class="dis-botones" id="disMovSugerirCaja">
+            <button type="button" id="disMovSugerir" class="boton boton-secundario boton-chico">
+                <i class="bi bi-magic"></i> <span id="disMovSugerirTexto">Sugerir</span>
+            </button>
+            <small id="disMovSugerirAyuda" class="dis-detalle"></small>
+        </div>
+        <div class="dis-linea-nueva">
+            <select id="disMovProducto" class="campo-input" aria-label="Producto"></select>
+            <input id="disMovCantidad" type="number" step="any" inputmode="decimal" class="campo-input dist-cantidad" value="1" aria-label="Cantidad">
+            <select id="disMovEstado" class="campo-input" aria-label="Estado del producto">
+                <option value="bueno">Bueno</option>
+                <option value="danado">Dañado / vencido</option>
+            </select>
+            <button type="button" id="disMovAgregar" class="boton boton-secundario boton-chico"><i class="bi bi-plus-lg"></i> <span>Agregar</span></button>
+        </div>
+        <div class="tabla-caja">
+            <table class="tabla dist-tabla">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th class="dist-num" id="disMovColDisponible">Disponible</th>
+                        <th class="dist-num">Cantidad</th>
+                        <th id="disMovColEstado">Estado</th>
+                        <th class="tabla-col-acciones"></th>
+                    </tr>
+                </thead>
+                <tbody id="disMovLineas"></tbody>
+            </table>
+        </div>
+        <div class="campo">
+            <label for="disMovNota" id="disMovNotaEtiqueta" class="campo-etiqueta">Nota</label>
+            <input id="disMovNota" type="text" class="campo-input" maxlength="300" autocomplete="off">
+        </div>
+        <p id="disMovError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="disMovCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="disMovGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: CUADRE DE UN PILOTO (ver o cerrar su mercadería)
+     ================================================== -->
+<dialog id="disCuadreDialogo" class="dialogo dis-dialogo-ancho" aria-labelledby="disCuadreTitulo">
+    <form id="disCuadreForm" class="dialogo-form" novalidate>
+        <h3 id="disCuadreTitulo" class="dialogo-titulo">Cuadre</h3>
+        <p id="disCuadreTexto" class="dialogo-texto"></p>
+        <div class="tabla-caja">
+            <table class="tabla dist-tabla">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th class="dist-num">Cargado</th>
+                        <th class="dist-num">Entregado</th>
+                        <th class="dist-num">Vendido</th>
+                        <th class="dist-num">Devuelto</th>
+                        <th class="dist-num">Faltante</th>
+                        <th class="dist-num">Valor faltante</th>
+                    </tr>
+                </thead>
+                <tbody id="disCuadreLineas"></tbody>
+                <tfoot id="disCuadreTotales"></tfoot>
+            </table>
+        </div>
+        <ul id="disCuadreDinero" class="dis-lista-datos"></ul>
+        <div class="campo" id="disCuadreNotasCaja">
+            <label for="disCuadreNotas" class="campo-etiqueta">Notas</label>
+            <input id="disCuadreNotas" type="text" class="campo-input" maxlength="300" autocomplete="off">
+        </div>
+        <p id="disCuadreError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="disCuadreVolver" class="boton boton-secundario">Volver</button>
+            <button type="submit" id="disCuadreCerrar" class="boton boton-principal">Cerrar mercadería</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: CERRAR LA BODEGA DEL DÍA / VER SU RESUMEN
+     ================================================== -->
+<dialog id="disCierreDialogo" class="dialogo dis-dialogo-ancho" aria-labelledby="disCierreTitulo">
+    <form id="disCierreForm" class="dialogo-form" novalidate>
+        <h3 id="disCierreTitulo" class="dialogo-titulo">Cerrar bodega</h3>
+        <p id="disCierreTexto" class="dialogo-texto"></p>
+        <div class="tabla-caja">
+            <table class="tabla dist-tabla">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th class="dist-num">Hubo</th>
+                        <th class="dist-num">Cargado</th>
+                        <th class="dist-num">Entregado</th>
+                        <th class="dist-num">Vendido</th>
+                        <th class="dist-num">Devuelto</th>
+                        <th class="dist-num">Faltante</th>
+                        <th class="dist-num">Sale (queda en 0)</th>
+                    </tr>
+                </thead>
+                <tbody id="disCierreLineas"></tbody>
+            </table>
+        </div>
+        <ul id="disCierreDinero" class="dis-lista-datos"></ul>
+        <div class="campo" id="disCierreNotasCaja">
+            <label for="disCierreNotas" class="campo-etiqueta">Notas</label>
+            <input id="disCierreNotas" type="text" class="campo-input" maxlength="300" autocomplete="off">
+        </div>
+        <p id="disCierreError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="disCierreVolver" class="boton boton-secundario">Volver</button>
+            <button type="submit" id="disCierreSi" class="boton boton-peligro">Cerrar bodega</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: VENTA EN RUTA (piloto)
+     ================================================== -->
+<dialog id="disVentaDialogo" class="dialogo dis-dialogo-ancho" aria-labelledby="disVentaTitulo">
+    <form id="disVentaForm" class="dialogo-form" novalidate>
+        <h3 id="disVentaTitulo" class="dialogo-titulo"><i class="bi bi-cart-plus"></i> Venta en ruta</h3>
+        <p class="dialogo-texto">Vende de lo que llevas. Queda como un pedido entregado y entra en tu caja.</p>
+        <div class="campos">
+            <div class="campo">
+                <label for="disVentaCliente" class="campo-etiqueta">Cliente</label>
+                <input id="disVentaCliente" type="text" class="campo-input" maxlength="80" autocomplete="off" placeholder="Vacío = cliente de contado">
+            </div>
+            <div class="campo">
+                <label for="disVentaTelefono" class="campo-etiqueta">Teléfono</label>
+                <input id="disVentaTelefono" type="tel" class="campo-input" maxlength="20" autocomplete="off">
+            </div>
+            <div class="campo">
+                <label for="disVentaDireccion" class="campo-etiqueta">Dirección</label>
+                <input id="disVentaDireccion" type="text" class="campo-input" maxlength="200" autocomplete="off" placeholder="Vacío = venta en ruta">
+            </div>
+            <div class="campo">
+                <label for="disVentaLista" class="campo-etiqueta">Lista de precios</label>
+                <select id="disVentaLista" class="campo-input"></select>
+            </div>
+        </div>
+        <div id="disVentaProductos"></div>
+        <fieldset class="dist-cobro">
+            <legend class="campo-etiqueta">¿Cómo pagó el cliente? *</legend>
+            <div class="dist-cobro-opciones">
+                <label><input type="radio" name="disVentaCobro" value="efectivo" checked> Efectivo</label>
+                <label><input type="radio" name="disVentaCobro" value="sinpe"> SINPE Móvil</label>
+                <label><input type="radio" name="disVentaCobro" value="tarjeta"> Tarjeta</label>
+            </div>
+        </fieldset>
+        <div class="campo">
+            <label for="disVentaNota" class="campo-etiqueta">Nota</label>
+            <input id="disVentaNota" type="text" class="campo-input" maxlength="300" autocomplete="off">
+        </div>
+        <p id="disVentaError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="disVentaCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="disVentaGuardar" class="boton boton-principal">Registrar venta</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: FORMULARIO CORTO (producto, presentación, lista, motivo)
+     Los campos los arma el JS (pedirDatos en js/secciones/distribucion.js)
+     ================================================== -->
+<dialog id="disFormDialogo" class="dialogo" aria-labelledby="disFormTitulo">
+    <form id="disForm" class="dialogo-form" novalidate>
+        <h3 id="disFormTitulo" class="dialogo-titulo"></h3>
+        <div id="disFormCampos" class="campos"></div>
+        <p id="disFormError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="disFormCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="disFormGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>

@@ -42,7 +42,7 @@ const SECCIONES_LIBRES = ['inicio', 'perfil'];
 // Si un rol NO aparece aquí, puede abrir todas.
 // Para restringir otro rol, agregar una línea, ej.:  empleado: ['pedidos'],
 const SECCIONES_POR_ROL = {
-    piloto: ['inicio', 'pedidos', 'reportes', 'viajes', 'caja'], // Reportes: solo sus pedidos de los últimos 7 días; Viajes: los suyos; Caja: la suya (solo ver)
+    piloto: ['inicio', 'pedidos', 'reportes', 'viajes', 'caja', 'distribucion'], // Reportes: solo sus pedidos de los últimos 7 días; Viajes: los suyos; Caja: la suya (solo ver); Distribución: su carga y venta en ruta
     cliente: ['inicio', 'viajes', 'envios'],             // solicita y sigue SUS viajes (sql/01 bloque 19) y SUS envíos (bloque 23)
 };
 
@@ -53,13 +53,13 @@ const SECCIONES_DE_VIAJES = ['viajes'];
 const SECCIONES_DE_PEDIDOS = ['pedidos', 'rutas', 'cotizador'];
 
 // Secciones que dependen del PLAN de la empresa (empresas/empresas.js: FUNCIONES_PLAN)
-const SECCIONES_DEL_PLAN = ['pedidos', 'viajes', 'pilotos', 'rutas', 'reportes', 'cotizador', 'caja'];
+const SECCIONES_DEL_PLAN = ['pedidos', 'viajes', 'pilotos', 'rutas', 'reportes', 'cotizador', 'caja', 'distribucion'];
 
 // Secciones BLOQUEADAS según el rol: puede abrir todo MENOS estas
 // (aparecen con candado en el menú). Útil cuando es más corto decir
 // lo que NO puede ver. Ej.:  empleado: ['usuarios', 'reportes'],
 const SECCIONES_BLOQUEADAS_POR_ROL = {
-    empleado: ['usuarios', 'pilotos', 'reportes', 'rutas', 'caja'], // sin Usuarios, Pilotos, Reportes, Rutas ni Caja
+    empleado: ['usuarios', 'pilotos', 'reportes', 'rutas', 'caja', 'distribucion'], // sin Usuarios, Pilotos, Reportes, Rutas, Caja ni Distribución
     admin_g3: ['usuarios', 'configuracion'],                 // sin Usuarios ni Configuración
 };
 
@@ -87,6 +87,7 @@ function actualizarSegunEmpresa() {
     if (typeof aplicarColoresEmpresa === 'function') aplicarColoresEmpresa();
     if (typeof aplicarEncabezadoEmpresa === 'function') aplicarEncabezadoEmpresa(); // css/encabezados.css
     if (typeof refrescarPalabras === 'function') refrescarPalabras();
+    if (typeof aplicarPartesEmpresa === 'function') aplicarPartesEmpresa(); // vehículos, km, peso, productos
     if (typeof aplicarPermisos === 'function') aplicarPermisos();
     if (typeof ajustarPie === 'function') ajustarPie();
 }
@@ -222,6 +223,10 @@ function seccionAplica(seccion) {
             && (typeof funcionHabilitada !== 'function' || funcionHabilitada('envios_clientes'));
     }
     if (SECCIONES_DE_VIAJES.includes(seccion) && typeof empresaTieneViajes === 'function') return empresaTieneViajes();
+    // Distribución: solo si alguna actividad de la empresa usa productos (sql/01 bloque 26)
+    if (seccion === 'distribucion' && typeof empresaUsa === 'function' && !empresaUsa('productos')) return false;
+    // Cotizador: cobra por peso y distancia; sin ninguna de las dos no tiene sentido (sql/01 bloque 26)
+    if (seccion === 'cotizador' && typeof empresaUsa === 'function' && !empresaUsa('peso') && !empresaUsa('km')) return false;
     if (SECCIONES_DE_PEDIDOS.includes(seccion) && typeof empresaTienePedidos === 'function') return empresaTienePedidos();
     return true;
 }

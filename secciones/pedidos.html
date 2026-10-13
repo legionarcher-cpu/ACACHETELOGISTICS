@@ -242,7 +242,7 @@
 
                     <div class="campo campo-ancho">
                         <div id="pedMapa"></div>
-                        <small class="campo-ayuda">Revisa que A y B estén bien puestos: la distancia se cobra si la tarifa tiene precio por km.</small>
+                        <small class="campo-ayuda solo-km" id="pedAyudaKm">Revisa que A y B estén bien puestos: la distancia se cobra si la tarifa tiene precio por km.</small>
                         <!-- Solo Administrador y Admin G1, cuando A es la tienda -->
                         <button type="button" id="pedGuardarUbicacionTienda" class="boton boton-secundario boton-chico ped-ubicacion-tienda" hidden>
                             <i class="bi bi-pin-map"></i> <span>Guardar A como ubicación de la tienda</span>
@@ -320,6 +320,21 @@
                        articulos -> línea blanca, electrónica...: artículo + peso (del catálogo, editable)
                        bulto     -> cajas, bolsas: cantidad, tamaño y peso de cada uno
                        documento -> sobres: solo cantidad -->
+                <!-- Distribuidora (actividad con productos, sql/01 bloque 27): lista de precios y
+                     productos con su cantidad, en vez de las categorías (js/distribucion-comun.js) -->
+                <div id="pedProductosCaja" class="ped-productos" hidden>
+                    <div class="campos">
+                        <div class="campo">
+                            <label for="pedListaPrecios" class="campo-etiqueta">Lista de precios</label>
+                            <select id="pedListaPrecios" class="campo-input"></select>
+                            <small class="campo-ayuda">La de la tienda viene puesta. Precios con IVA.</small>
+                        </div>
+                    </div>
+                    <span class="campo-etiqueta">Productos del pedido *</span>
+                    <div id="pedProductos"></div>
+                    <p id="pedProductosAviso" class="campo-ayuda" hidden></p>
+                </div>
+
                 <div id="pedMercaderiaCaja">
                     <span class="campo-etiqueta">Selecciona lo que lleva el pedido *</span>
                     <div id="pedCategorias" class="ped-casillas"></div>
@@ -334,10 +349,13 @@
                     </div>
                 </div>
 
+                <!-- El peso se oculta si la actividad no lo usa (Configuración -> Actividades, sql/01 bloque 26) -->
                 <p class="ped-peso-total">
-                    <i class="bi bi-box-seam"></i>
-                    Peso total: <strong id="pedPesoTotal">0 kg</strong>
-                    <span class="ped-peso-nota">(lo ve el piloto)</span>
+                    <span id="pedPesoCaja" class="solo-peso">
+                        <i class="bi bi-box-seam"></i>
+                        Peso total: <strong id="pedPesoTotal">0 kg</strong>
+                        <span class="ped-peso-nota">(lo ve el piloto)</span>
+                    </span>
                     <span id="pedAlcoholAviso" class="etiqueta etiqueta-rosada" hidden>Lleva alcohol: el piloto confirmará la mayoría de edad</span>
                 </p>
             </div>
@@ -432,7 +450,7 @@
                 <table class="ped-desglose"><tbody id="pedDetCobro"></tbody></table>
             </div>
 
-            <div class="tarjeta ped-bloque ped-ancho">
+            <div class="tarjeta ped-bloque ped-ancho" id="pedDetArticulosCaja">
                 <h3 class="ped-bloque-titulo"><i class="bi bi-box-seam"></i> Mercadería</h3>
                 <div class="tabla-caja">
                     <table class="tabla">
@@ -444,9 +462,23 @@
                 </div>
             </div>
 
-            <!-- Cierre de entrega (lo llena la app del piloto) -->
+            <!-- Productos (distribuidora, sql/01 bloque 27): pedido, entregado y motivo si fue menos -->
+            <div class="tarjeta ped-bloque ped-ancho" id="pedDetProductosCaja" hidden>
+                <h3 class="ped-bloque-titulo"><i class="bi bi-boxes"></i> Productos</h3>
+                <div class="tabla-caja">
+                    <table class="tabla dist-tabla">
+                        <thead>
+                            <tr><th>Producto</th><th class="dist-num">Pedido</th><th class="dist-num">Entregado</th><th>Motivo</th>
+                                <th class="dist-num">Precio s/IVA</th><th class="dist-num">IVA</th><th class="dist-num">Total</th></tr>
+                        </thead>
+                        <tbody id="pedDetProductos"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Evidencias: fotos de la carga del piloto (sql/01 bloque 29) y cierre de entrega -->
             <div class="tarjeta ped-bloque" id="pedDetEntregaCaja" hidden>
-                <h3 class="ped-bloque-titulo"><i class="bi bi-clipboard-check"></i> Entrega</h3>
+                <h3 class="ped-bloque-titulo"><i class="bi bi-clipboard-check"></i> Carga y entrega</h3>
                 <dl id="pedDetCierre" class="ped-datos"></dl>
                 <div id="pedDetFotos" class="ped-fotos"></div>
             </div>

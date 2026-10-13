@@ -1,0 +1,111 @@
+/* ==================================================
+   DISTRIBUIDORA (piezas compartidas, clases "dist-")
+   ACACHETE LOGISTICS
+
+   Selector de productos y ventana de entrega por producto
+   (js/distribucion-comun.js). Los usan Pedidos y la sección Distribución.
+   Lo propio de la sección está en css/secciones/distribucion.css.
+   ================================================== */
+
+.dist-selector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.556rem;
+}
+
+.dist-selector-fila {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.444rem;
+}
+
+.dist-selector-fila select {
+    flex: 1 1 14rem;
+}
+
+.dist-cantidad {
+    width: 6.5rem;
+    text-align: right;
+}
+
+.dist-tabla {
+    min-width: 34rem;
+}
+
+.dist-num,
+.dist-tabla td.dist-num,
+.dist-tabla th.dist-num {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.dist-tabla tfoot th {
+    text-align: right;
+    font-weight: 600;
+    color: var(--color-gris);
+}
+
+.dist-total th,
+.dist-total td {
+    font-weight: 700;
+    color: var(--color-texto);
+}
+
+.dist-sin-precio {
+    color: var(--color-rojo, #B91C1C);
+    font-size: 0.8rem;
+}
+
+/* ---------- Ventana de entrega por producto ---------- */
+.dist-entrega {
+    width: min(46rem, calc(100vw - 1.778rem));
+}
+
+.dist-entrega .dialogo-texto {
+    margin-bottom: 0.889rem;
+}
+
+.dist-entrega td .campo-input + .campo-input {
+    margin-top: 0.333rem;
+}
+
+.dist-motivo-oculto > * {
+    visibility: hidden;
+}
+
+.dist-fila-incompleta td {
+    background-color: var(--color-naranja-claro);
+}
+
+.dist-entrega-total {
+    margin: 0.889rem 0 0.556rem;
+    font-weight: 700;
+    color: var(--color-texto);
+}
+
+.dist-cobro {
+    margin: 0 0 0.667rem;
+    padding: 0;
+    border: none;
+}
+
+.dist-cobro-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.444rem 1.111rem;
+    font-size: 0.95rem;
+}
+
+.dist-cobro-opciones label {
+    display: flex;
+    align-items: center;
+    gap: 0.278rem;
+    cursor: pointer;
+}
+
+@media (max-width: 600px) {
+    .dist-cantidad {
+        width: 5rem;
+    }
+}

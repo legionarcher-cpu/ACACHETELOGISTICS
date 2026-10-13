@@ -24,6 +24,7 @@ const ENV_AVANCE = {
     en_ruta: ['En camino', 'etiqueta-turquesa'], en_entrega: ['Entregando', 'etiqueta-turquesa'],
     entregado: ['Entregado', 'etiqueta-verde'], entregado_incidencia: ['Entregado', 'etiqueta-verde'],
     no_entregado: ['No se pudo entregar', 'etiqueta-rosada'], devuelto: ['Devuelto', 'etiqueta-rosada'],
+    no_salio: ['Reprogramando', 'etiqueta-naranja'],
     cancelado: ['Cancelado', 'etiqueta-gris'],
 };
 const ENV_TERMINADOS = ['entregado', 'entregado_incidencia', 'devuelto', 'cancelado'];
