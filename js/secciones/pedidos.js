@@ -2780,19 +2780,44 @@ registrarSeccion('pedidos', (zona) => {
         $('#pedDetEstado').replaceChildren(etiquetaEstado(p));
         $('#pedDetSubtitulo').textContent = `${act.nombre} · ${nombreTienda(p.tienda_id)} · registrado el ${fechaHora(p.creado_en)}`;
 
-        const dl = $('#pedDetEntrega');
-        dl.replaceChildren();
+        // Bloques del cuadro "Cliente y entrega" (van delante del bloque de Cobro, que está en el HTML)
+        const grupos = $('#pedDetEntrega');
+        const cobroGrupo = $('#pedDetCobroGrupo');
+        [...grupos.querySelectorAll('.ped-grupo:not(.ped-grupo-cobro)')].forEach((g) => g.remove());
+        const nuevoGrupo = (titulo, icono) => {
+            const sec = document.createElement('section');
+            sec.className = 'ped-grupo';
+            const h = document.createElement('h4');
+            h.className = 'ped-grupo-titulo';
+            h.innerHTML = `<i class="bi ${icono}"></i> `;
+            h.append(titulo);
+            const lista = document.createElement('dl');
+            lista.className = 'ped-datos';
+            sec.append(h, lista);
+            grupos.insertBefore(sec, cobroGrupo);
+            return lista;
+        };
+        const gCliente = nuevoGrupo('Cliente', 'bi-person');
+        const gDireccion = nuevoGrupo('Dirección y recorrido', 'bi-geo-alt');
+        const gDespacho = nuevoGrupo('Despacho', 'bi-truck');
+        const gControl = nuevoGrupo('Control', 'bi-shield-check');
+        let dl = gCliente;
+
         dato(dl, 'Cliente', p.cliente_nombre);
         dato(dl, 'Teléfono', p.cliente_telefono);
-        dato(dl, 'Punto de partida', p.direccion_recoleccion);
-        // Pedido que solicitó el cliente ("Mis envíos"): sus puntos de referencia, para el piloto
+        dato(dl, 'Recibe', p.recibe_tipo === 'autorizado'
+            ? `${p.recibe_nombre} (autorizado)${p.recibe_telefono ? ` · ${p.recibe_telefono}` : ''}`
+            : 'El mismo cliente');
+        // Pedido que solicitó el cliente ("Mis envíos")
         const sol = (p.detalle || {}).solicitud;
+        if (sol) dato(dl, 'Solicitado por el cliente', `S-${sol.id}`);
+
+        dl = gDireccion;
+        dato(dl, 'Punto de partida', p.direccion_recoleccion);
+        // Puntos de referencia que dio el cliente, para el piloto
         if (sol) dato(dl, 'Referencia al recoger', sol.referencia_recoleccion);
         dato(dl, 'Entrega en', p.direccion_entrega);
-        if (sol) {
-            dato(dl, 'Referencia al entregar', sol.referencia_entrega);
-            dato(dl, 'Solicitado por el cliente', `S-${sol.id}`);
-        }
+        if (sol) dato(dl, 'Referencia al entregar', sol.referencia_entrega);
         // Ruta del mapa (A -> B): distancia y enlaces para navegar (Google Maps / Waze)
         const ruta = (p.detalle || {}).ruta;
         if (ruta && ruta.b) {
@@ -2808,17 +2833,17 @@ registrarSeccion('pedidos', (zona) => {
                 a.textContent = texto;
                 caja.appendChild(a);
             });
-            dato(dl, ruta.origen === 'recoleccion' ? 'Ruta (punto de partida → entrega)' : 'Ruta (tienda → entrega)', caja);
+            // "Recorrido": desde el punto de partida (encomiendas) o desde la tienda
+            dato(dl, ruta.origen === 'recoleccion' ? 'Recorrido' : 'Desde la tienda', caja);
         } else if (p.distancia_km != null) {
             dato(dl, 'Distancia', `${p.distancia_km} km`);
         }
-        dato(dl, 'Recibe', p.recibe_tipo === 'autorizado'
-            ? `${p.recibe_nombre} (autorizado)${p.recibe_telefono ? ` · ${p.recibe_telefono}` : ''}`
-            : 'El mismo cliente');
+
+        dl = gDespacho;
         dato(dl, 'Fecha', fechaCorta(p.fecha_entrega));
-        dato(dl, 'Slot de despacho', textoSlotDet(p));
+        dato(dl, 'Slot', textoSlotDet(p));
         if (verMarca) dato(dl, 'Horario del piloto', textoMarca(p));
-        dato(dl, 'Ruta', nombreRuta(p.ruta_id));
+        dato(dl, 'Ruta asignada', nombreRuta(p.ruta_id));
         dato(dl, 'Piloto', esPiloto ? sesion.nombre : (nombrePiloto(p.piloto_id) || 'Sin asignar'));
         // Pedidos del mismo día, sin entregar, cerca de este (para hacerlos en un solo viaje)
         if (ruta && !p.anulado && PED_PENDIENTES_DE_VIAJE.includes(p.estado)) mostrarCercanosDetalle(dl, p, ruta);
@@ -2830,7 +2855,9 @@ registrarSeccion('pedidos', (zona) => {
             e.textContent = 'Lleva alcohol: confirmar mayoría de edad';
             dato(dl, 'Alcohol', e);
         }
-        dato(dl, 'Notas', p.notas);
+        dato(gCliente, 'Notas', p.notas);
+
+        dl = gControl;
         // Caja del piloto (sql/01 bloque 24): cómo pagó el cliente y si ya se cerró
         // Carga del piloto (sql/01 bloque 29): bultos recibidos, efectivo que lleva y nota
         if (p.carga_bultos != null) {
@@ -2846,6 +2873,9 @@ registrarSeccion('pedidos', (zona) => {
                 : p.codigo_respaldo);
         }
         if (p.anulado || p.estado === 'cancelado') dato(dl, p.anulado ? 'Motivo de anulación' : 'Motivo de cancelación', p.motivo_cancelacion);
+
+        // Bloques sin datos no se muestran
+        [gCliente, gDireccion, gDespacho, gControl].forEach((g) => { if (!g.children.length) g.parentElement.remove(); });
     }
 
     function dibujarArticulos() {

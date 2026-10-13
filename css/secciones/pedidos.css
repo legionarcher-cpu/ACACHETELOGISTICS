@@ -131,9 +131,8 @@
     align-self: flex-start;
 }
 
-/* Enlaces de navegación en el detalle (Google Maps / Waze) */
+/* Enlaces de navegación en el detalle (Google Maps / Waze): ver .ped-navegar más abajo */
 .ped-navegar a {
-    margin-right: 0.556rem;
     font-weight: 600;
     color: var(--color-azul);
 }
@@ -456,15 +455,19 @@
 }
 
 /* Lista de datos "Etiqueta: valor" */
+/* Etiqueta | valor. La columna de la etiqueta tiene un ancho tope: una etiqueta larga
+   pasa a dos líneas en vez de apretar los valores. */
 .ped-datos {
     display: grid;
-    grid-template-columns: max-content 1fr;
+    grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr);
     gap: 0.444rem 0.889rem;
     margin: 0;
     font-size: 0.9rem;
+    line-height: 1.4;
 }
 
 .ped-datos dt {
+    max-width: 9rem;
     font-weight: 600;
     color: var(--color-gris);
 }
@@ -472,7 +475,82 @@
 .ped-datos dd {
     margin: 0;
     color: var(--color-texto);
-    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+/* ---------- Detalle: bloques del cuadro "Cliente y entrega" ----------
+   Cliente, Dirección y recorrido, Despacho, Control y Cobro (js/secciones/pedidos.js, dibujarDetalle).
+   3 por fila en pantalla ancha, 2 en tableta y 1 en celular. */
+.ped-grupos {
+    display: grid;
+    /* Como mucho 3 por fila; cada bloque de al menos 16rem (si no caben, menos columnas) */
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, max(16rem, calc((100% - 1.778rem) / 3))), 1fr));
+    gap: 0.889rem;
+    align-items: start;
+}
+
+.ped-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.667rem;
+    min-width: 0;
+    padding: 0.889rem 1rem;
+    background-color: var(--color-fondo);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.ped-grupo-titulo {
+    display: flex;
+    align-items: center;
+    gap: 0.444rem;
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-azul-marino);
+}
+
+.ped-grupo .ped-desglose {
+    max-width: none;
+}
+
+/* Recorrido: distancia arriba y los botones para navegar debajo */
+.ped-navegar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.333rem 0.667rem;
+}
+
+.ped-navegar a {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.222rem 0.556rem;
+    border: 1px solid var(--color-borde);
+    border-radius: 999px;
+    background-color: var(--color-blanco);
+    font-size: 0.82rem;
+    white-space: nowrap;
+    text-decoration: none;
+}
+
+@media (max-width: 420px) {
+    /* Celular angosto: la etiqueta arriba y el valor debajo */
+    .ped-grupo .ped-datos {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.111rem;
+    }
+
+    .ped-grupo .ped-datos dd {
+        margin-bottom: 0.444rem;
+    }
+
+    .ped-grupo .ped-datos dt {
+        max-width: none;
+        font-size: 0.8rem;
+    }
 }
 
 /* Fotos de evidencia */

@@ -440,14 +440,17 @@
         </div>
 
         <div class="ped-detalle-rejilla">
-            <div class="tarjeta ped-bloque">
+            <!-- Datos del pedido en bloques (Cliente, Dirección y recorrido, Despacho, Control y Cobro):
+                 3 por fila en pantalla ancha, 2 en tableta y 1 en celular. Los bloques los arma
+                 js/secciones/pedidos.js (dibujarDetalle) delante del de Cobro. -->
+            <div class="tarjeta ped-bloque ped-ancho">
                 <h3 class="ped-bloque-titulo"><i class="bi bi-person"></i> Cliente y entrega</h3>
-                <dl id="pedDetEntrega" class="ped-datos"></dl>
-            </div>
-
-            <div class="tarjeta ped-bloque">
-                <h3 class="ped-bloque-titulo"><i class="bi bi-cash-coin"></i> Cobro</h3>
-                <table class="ped-desglose"><tbody id="pedDetCobro"></tbody></table>
+                <div id="pedDetEntrega" class="ped-grupos">
+                    <section class="ped-grupo ped-grupo-cobro" id="pedDetCobroGrupo">
+                        <h4 class="ped-grupo-titulo"><i class="bi bi-cash-coin"></i> Cobro</h4>
+                        <table class="ped-desglose"><tbody id="pedDetCobro"></tbody></table>
+                    </section>
+                </div>
             </div>
 
             <div class="tarjeta ped-bloque ped-ancho" id="pedDetArticulosCaja">

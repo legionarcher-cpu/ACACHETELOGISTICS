@@ -2,6 +2,20 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · Detalle del pedido: "Cliente y entrega" en bloques
+
+SQL: **ninguno**.
+
+- El cuadro "Cliente y entrega" del detalle del pedido ocupa todo el ancho y se divide en bloques: **Cliente**
+  (nombre, teléfono, quién recibe, notas), **Dirección y recorrido** (partida, entrega, km y botones de Google Maps
+  / Waze), **Despacho** (fecha, slot, horario, ruta asignada, piloto, peso), **Control** (carga, cómo pagó, caja,
+  código de respaldo) y **Cobro** (el desglose que antes era otro cuadro). Máximo 3 por fila; 2 en tableta y 1 en
+  celular, donde cada etiqueta va arriba de su valor. Los bloques vacíos no se muestran.
+- Etiquetas más cortas ("Recorrido", "Ruta asignada", "Slot") y la columna de la etiqueta con ancho tope: ya no
+  aprieta los valores. Archivos: `secciones/pedidos.html`, `js/secciones/pedidos.js` (`dibujarDetalle`),
+  `css/secciones/pedidos.css` (`.ped-grupos`, `.ped-grupo`, `.ped-datos`).
+- `VERSION_APP` y todos los `?v=` = `20261013n`.
+
 ## 2026-10-13 · Comprobante de pago en la entrega y solo SINPE se verifica en la caja
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 37** (=
