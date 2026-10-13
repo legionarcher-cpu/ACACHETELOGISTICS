@@ -2,6 +2,13 @@
 
 Después de cada receta: probar la sección con [11-pruebas.md](11-pruebas.md).
 
+## Publicar cambios (que los navegadores no usen archivos viejos)
+
+En `app.html` cambiar **`VERSION_APP`** (ej. `'20261013'` → `'20261020'`) y el mismo número en los `?v=` de los
+`<script>` y `<link>` de arriba. `js/pagina_inicial.js` y `js/secciones/configuracion.js` suman esa versión a los HTML,
+CSS y JS de cada sección y módulo. Si no se cambia, un navegador puede mezclar archivos nuevos con viejos guardados
+(ej. Configuración no carga porque `empresas.js` viejo no tiene `empresaUsa`). Mientras tanto: **Ctrl + F5**.
+
 ## Agregar una sección nueva (ej. "facturas")
 
 1. `app.html` → menú: `<li class="menu-item"><a href="#facturas"><i class="bi bi-receipt"></i> Facturas</a></li>`

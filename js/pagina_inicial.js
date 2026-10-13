@@ -78,13 +78,17 @@ const SECCION_LOGIN = 'loggin';
 // Todo se guarda en memoria: cada archivo se descarga una sola vez.
 // ==================================================
 
+// Versión de los archivos (app.html: VERSION_APP): ?v=... evita que el navegador use copias viejas
+// de los HTML, CSS y JS de las secciones guardadas en caché después de publicar cambios.
+const VERSION_ARCHIVOS = typeof window.VERSION_APP === 'string' ? `?v=${window.VERSION_APP}` : '';
+
 // ---------- HTML ----------
 const cache = new Map(); // nombre -> Promise<string> con el HTML ya descargado
 
 function obtenerSeccion(nombre) {
     if (!cache.has(nombre)) {
         // Carpeta donde viven los HTML de las secciones
-        const peticion = fetch(`secciones/${nombre}.html`)
+        const peticion = fetch(`secciones/${nombre}.html${VERSION_ARCHIVOS}`)
             .then((res) => {
                 if (!res.ok) throw new Error(res.status); // ej. 404 si el archivo no existe
                 return res.text();
@@ -109,7 +113,7 @@ function obtenerEstilo(nombre) {
         estilos.set(nombre, new Promise((resolve) => {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
-            link.href = `css/secciones/${nombre}.css`; // carpeta de los CSS de secciones
+            link.href = `css/secciones/${nombre}.css${VERSION_ARCHIVOS}`; // carpeta de los CSS de secciones
             link.media = 'not all';
             link.onload = () => resolve(link);
             link.onerror = () => { link.remove(); resolve(null); }; // la sección no tiene CSS
@@ -141,7 +145,7 @@ function obtenerScript(nombre) {
     if (!scripts.has(nombre)) {
         scripts.set(nombre, new Promise((resolve) => {
             const script = document.createElement('script');
-            script.src = `js/secciones/${nombre}.js`; // carpeta de los JS de secciones
+            script.src = `js/secciones/${nombre}.js${VERSION_ARCHIVOS}`; // carpeta de los JS de secciones
             script.onload = () => resolve(true);
             script.onerror = () => { script.remove(); resolve(false); }; // la sección no tiene JS
             document.body.appendChild(script);

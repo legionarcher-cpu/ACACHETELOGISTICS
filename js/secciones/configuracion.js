@@ -116,7 +116,7 @@ function cargarScriptModuloConfig(nombre) {
     if (!cfgScriptsModulos.has(nombre)) {
         cfgScriptsModulos.set(nombre, new Promise((resolve) => {
             const script = document.createElement('script');
-            script.src = `js/secciones/configuracion/${nombre}.js`;
+            script.src = `js/secciones/configuracion/${nombre}.js${typeof window.VERSION_APP === 'string' ? `?v=${window.VERSION_APP}` : ''}`;
             script.onload = () => resolve(true);
             script.onerror = () => { script.remove(); cfgScriptsModulos.delete(nombre); resolve(false); };
             document.body.appendChild(script);
@@ -215,6 +215,8 @@ registrarSeccion('configuracion', (zona) => {
 
     // ¿El plan de la empresa incluye el módulo? (empresas/empresas.js: FUNCIONES_PLAN 'cfg_...')
     const enPlan = (clave) => typeof funcionHabilitada !== 'function' || funcionHabilitada(clave);
+    // ¿Alguna actividad de la empresa usa esta parte? (empresas/empresas.js, sql/01 bloque 26; sin la función: sí)
+    const usaParte = (parte) => typeof empresaUsa !== 'function' || empresaUsa(parte);
 
     const CFG_MODULOS = {
         horarios: {
@@ -227,7 +229,7 @@ registrarSeccion('configuracion', (zona) => {
             abrir: () => abrirModuloExterno('slots'),
         },
         vehiculos: {
-            permitido: () => puedeRegional && enPlan('cfg_vehiculos') && empresaUsa('vehiculos'), // solo si alguna actividad usa vehículos (bloque 26)
+            permitido: () => puedeRegional && enPlan('cfg_vehiculos') && usaParte('vehiculos'), // solo si alguna actividad usa vehículos (bloque 26)
             abrir: () => cargarVehiculos(),
         },
         // Tarifas, descuentos, categorías... (js/secciones/configuracion/pedidos.js).
@@ -245,7 +247,7 @@ registrarSeccion('configuracion', (zona) => {
         // Calculador de costos: gastos del mes, combustible y costo por km de cada vehículo
         // (js/secciones/configuracion/costos.js). Si su plan lo incluye y usa vehículos.
         costos: {
-            permitido: () => esGeneral && enPlan('cfg_costos') && empresaUsa('vehiculos'), // costos por vehículo y por km
+            permitido: () => esGeneral && enPlan('cfg_costos') && usaParte('vehiculos'), // costos por vehículo y por km
             abrir: () => abrirModuloExterno('costos'),
         },
         // Tipos de caja y fondo de cada piloto (js/secciones/configuracion/cajas.js).
