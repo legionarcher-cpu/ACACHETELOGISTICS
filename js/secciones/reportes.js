@@ -67,6 +67,297 @@ const REP_ENTREGADOS = ['entregado', 'entregado_incidencia'];
 const REP_PENDIENTES = ['registrado', 'recibido_bodega', 'asignado', 'reprogramado', 'alistando', 'listo_despacho',
     'recibido_ruta', 'cargado', 'en_ruta', 'en_entrega'];
 
+// ==================================================
+// PESTAÑA "CAJAS": cierres de caja de los pilotos (sql/01 bloque 24, tabla cierres_caja)
+// Filtros: fechas, tienda, piloto y resultado (faltante / sobrante / cuadra). Tarjetas con
+// los totales, tabla de cierres y, al abrir uno, su detalle: montos, si faltó o sobró
+// dinero y el MOTIVO (notas del cierre), y los cobros que entraron en él.
+// opciones: { puedeExportar, aviso, tiendas (las que el usuario puede ver), limitar (true = solo esas) }
+// ==================================================
+const REP_CAJ_FORMAS = { efectivo: 'Efectivo', sinpe: 'SINPE Móvil', tarjeta: 'Tarjeta' };
+
+function montarReporteCajas(caja, { puedeExportar, aviso, tiendas, limitar }) {
+    const dinero = (n) => `₡${Number(n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fechaTexto = (f) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00`).toLocaleDateString('es-CR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+    const aTexto = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const nombreTienda = (id) => {
+        const t = tiendas.find((x) => x.id === id);
+        return t ? `${t.codigo} · ${t.nombre}` : 'Sin tienda';
+    };
+    const esperado = (c) => Number(c.fondo) + Number(c.efectivo);
+    const resultadoDe = (c) => {
+        const d = Number(c.diferencia);
+        return d < 0 ? 'faltante' : d > 0 ? 'sobrante' : 'cuadra';
+    };
+
+    caja.innerHTML = `
+        <div class="tarjeta rep-filtros rep-caj-filtros">
+            <div class="rep-fechas rep-caj-fila">
+                <div class="campo"><label class="campo-etiqueta" for="repCajDesde">Desde</label><input id="repCajDesde" type="date" class="campo-input"></div>
+                <div class="campo"><label class="campo-etiqueta" for="repCajHasta">Hasta</label><input id="repCajHasta" type="date" class="campo-input"></div>
+                <div class="campo"><label class="campo-etiqueta" for="repCajTienda">Tienda</label><select id="repCajTienda" class="campo-input"></select></div>
+                <div class="campo"><label class="campo-etiqueta" for="repCajPiloto">Piloto</label><select id="repCajPiloto" class="campo-input"></select></div>
+                <div class="campo"><label class="campo-etiqueta" for="repCajResultado">Resultado</label>
+                    <select id="repCajResultado" class="campo-input">
+                        <option value="">Todos</option>
+                        <option value="faltante">Con faltante</option>
+                        <option value="sobrante">Con sobrante</option>
+                        <option value="cuadra">Cuadró exacto</option>
+                    </select></div>
+                <button type="button" id="repCajExcel" class="boton boton-secundario boton-chico" hidden>
+                    <i class="bi bi-file-earmark-excel"></i> <span>Excel</span></button>
+            </div>
+        </div>
+        <div id="repCajKpis" class="rep-kpis"></div>
+        <div class="tarjeta rep-caj-tabla-caja">
+            <h3 class="rep-titulo">Cierres de caja <small class="rep-caj-ayuda">Toca un cierre para ver su detalle</small></h3>
+            <div class="tabla-caja">
+                <table class="tabla rep-caj-tabla">
+                    <thead><tr>
+                        <th>Fecha</th><th>Piloto</th><th>Tienda</th><th class="rep-numero">Cobros</th>
+                        <th class="rep-numero">A entregar</th><th class="rep-numero">Contado</th>
+                        <th class="rep-numero">Diferencia</th><th>Motivo / notas</th><th>Cerró</th>
+                    </tr></thead>
+                    <tbody id="repCajCuerpo"></tbody>
+                </table>
+            </div>
+        </div>
+        <dialog id="repCajDialogo" class="dialogo rep-caj-dialogo" aria-labelledby="repCajDetTitulo">
+            <div class="dialogo-form">
+                <h3 id="repCajDetTitulo" class="dialogo-titulo"></h3>
+                <p id="repCajDetSub" class="rep-caj-sub"></p>
+                <p id="repCajDetResultado" class="rep-caj-resultado"></p>
+                <dl id="repCajDetMontos" class="rep-caj-montos"></dl>
+                <h4 class="rep-caj-subtitulo">Cobros incluidos</h4>
+                <div class="tabla-caja">
+                    <table class="tabla rep-caj-cobros">
+                        <thead><tr><th>Código</th><th>Cliente</th><th>Forma</th><th class="rep-numero">Monto</th></tr></thead>
+                        <tbody id="repCajDetCobros"></tbody>
+                    </table>
+                </div>
+                <div class="dialogo-botones"><button type="button" class="boton boton-principal" data-cerrar>Cerrar</button></div>
+            </div>
+        </dialog>`;
+    const $ = (s) => caja.querySelector(s);
+    const inDesde = $('#repCajDesde');
+    const inHasta = $('#repCajHasta');
+    const selTienda = $('#repCajTienda');
+    const selPiloto = $('#repCajPiloto');
+    const selResultado = $('#repCajResultado');
+    const cuerpo = $('#repCajCuerpo');
+    const dlg = $('#repCajDialogo');
+    let cierres = [];
+    let hayTabla = true;
+
+    const hoy = new Date();
+    inDesde.value = aTexto(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
+    inHasta.value = aTexto(hoy);
+    selTienda.replaceChildren(new Option(limitar ? 'Todas mis tiendas' : 'Todas', ''),
+        ...tiendas.map((t) => new Option(`${t.codigo} · ${t.nombre}`, String(t.id))));
+    $('#repCajExcel').hidden = !puedeExportar;
+
+    async function cargar() {
+        let q = db.from('cierres_caja')
+            .select('id, fecha, piloto_id, piloto_nombre, tienda_id, fondo, efectivo, sinpe, tarjeta, efectivo_contado, diferencia, cantidad, notas, cerrado_por_nombre, cerrado_en')
+            .gte('fecha', inDesde.value).lte('fecha', inHasta.value)
+            .order('cerrado_en', { ascending: false }).limit(1000);
+        if (selTienda.value) q = q.eq('tienda_id', Number(selTienda.value));
+        else if (limitar) q = q.in('tienda_id', tiendas.length ? tiendas.map((t) => t.id) : [0]);
+        const { data, error } = await q;
+        if (error) {
+            console.error('Error al cargar los cierres de caja:', error);
+            hayTabla = !['42P01', 'PGRST205', '42703'].includes(error.code);
+            cierres = [];
+            dibujar(hayTabla ? 'No se pudieron cargar los cierres de caja.' : 'Falta ejecutar sql/01 (bloque 24: caja de pilotos).');
+            return;
+        }
+        cierres = data || [];
+        // Pilotos que tienen cierres en el período (se conserva el elegido)
+        const elegido = selPiloto.value;
+        const pilotos = new Map();
+        cierres.forEach((c) => pilotos.set(String(c.piloto_id ?? ''), c.piloto_nombre));
+        selPiloto.replaceChildren(new Option('Todos', ''),
+            ...[...pilotos].sort((a, b) => a[1].localeCompare(b[1])).map(([id, nombre]) => new Option(nombre, id)));
+        selPiloto.value = pilotos.has(elegido) ? elegido : '';
+        dibujar();
+    }
+
+    const visibles = () => cierres.filter((c) => (!selPiloto.value || String(c.piloto_id ?? '') === selPiloto.value)
+        && (!selResultado.value || resultadoDe(c) === selResultado.value));
+
+    function kpi(texto, valor, detalle, clase = '') {
+        const d = document.createElement('div');
+        d.className = `rep-kpi ${clase}`;
+        [['rep-kpi-texto', texto], ['rep-kpi-valor', valor], ['rep-kpi-detalle', detalle]].forEach(([c, t]) => {
+            if (!t) return;
+            const s = document.createElement('span');
+            s.className = c;
+            s.textContent = t;
+            d.appendChild(s);
+        });
+        return d;
+    }
+
+    function dibujar(mensaje = '') {
+        const lista = visibles();
+        const falt = lista.filter((c) => Number(c.diferencia) < 0);
+        const sobr = lista.filter((c) => Number(c.diferencia) > 0);
+        const suma = (l, f) => l.reduce((s, c) => s + f(c), 0);
+        const sinMotivo = falt.filter((c) => !(c.notas || '').trim()).length;
+        $('#repCajKpis').replaceChildren(
+            kpi('Cierres', String(lista.length), `${plural(suma(lista, (c) => Number(c.cantidad)), 'cobro', 'cobros')}`),
+            kpi('Total cerrado', dinero(suma(lista, (c) => Number(c.efectivo) + Number(c.sinpe) + Number(c.tarjeta))),
+                `Efectivo ${dinero(suma(lista, (c) => Number(c.efectivo)))}`),
+            kpi('Faltantes', dinero(suma(falt, (c) => Math.abs(Number(c.diferencia)))),
+                `${plural(falt.length, 'cierre', 'cierres')}${sinMotivo ? ` · ${sinMotivo} sin motivo` : ''}`, falt.length ? 'rep-caj-kpi-falta' : ''),
+            kpi('Sobrantes', dinero(suma(sobr, (c) => Number(c.diferencia))), plural(sobr.length, 'cierre', 'cierres'), sobr.length ? 'rep-caj-kpi-sobra' : ''),
+            kpi('Cuadraron exacto', String(lista.length - falt.length - sobr.length), lista.length ? `de ${lista.length}` : ''),
+        );
+
+        cuerpo.replaceChildren();
+        if (mensaje || !lista.length) {
+            cuerpo.appendChild(crearFilaVacia(mensaje || 'No hay cierres de caja con estos filtros.', 9));
+            return;
+        }
+        lista.forEach((c) => {
+            const tr = document.createElement('tr');
+            tr.className = `rep-caj-fila-${resultadoDe(c)}`;
+            tr.dataset.cierre = c.id;
+            tr.tabIndex = 0;
+            const dif = Number(c.diferencia);
+            const tdDif = crearCelda(dif === 0 ? 'Cuadra' : `${dif > 0 ? 'Sobra' : 'Falta'} ${dinero(Math.abs(dif))}`, 'rep-numero');
+            if (dif !== 0) tdDif.classList.add(dif > 0 ? 'rep-caj-sobra' : 'rep-caj-falta');
+            const tdMotivo = crearCelda(c.notas || (dif < 0 ? 'Sin motivo' : ''), 'rep-caj-motivo');
+            if (!c.notas && dif < 0) tdMotivo.classList.add('rep-caj-sin-motivo');
+            tr.append(
+                crearCelda(fechaTexto(c.fecha)),
+                crearCelda(c.piloto_nombre),
+                crearCelda(nombreTienda(c.tienda_id)),
+                crearCelda(String(c.cantidad), 'rep-numero'),
+                crearCelda(dinero(esperado(c)), 'rep-numero'),
+                crearCelda(dinero(c.efectivo_contado), 'rep-numero'),
+                tdDif, tdMotivo,
+                crearCelda(c.cerrado_por_nombre),
+            );
+            cuerpo.appendChild(tr);
+        });
+    }
+
+    // ---------- Detalle de un cierre ----------
+    async function abrirDetalle(id) {
+        const c = cierres.find((x) => x.id === id);
+        if (!c) return;
+        const dif = Number(c.diferencia);
+        $('#repCajDetTitulo').textContent = `Cierre de caja · ${c.piloto_nombre}`;
+        $('#repCajDetSub').textContent = `${fechaTexto(c.fecha)} · ${nombreTienda(c.tienda_id)} · cerró ${c.cerrado_por_nombre || '—'}`
+            + ` a las ${new Date(c.cerrado_en).toLocaleTimeString('es-CR', { hour: 'numeric', minute: '2-digit' })}`;
+        const res = $('#repCajDetResultado');
+        res.className = `rep-caj-resultado rep-caj-resultado-${resultadoDe(c)}`;
+        res.replaceChildren();
+        const fuerte = document.createElement('strong');
+        fuerte.textContent = dif === 0 ? 'Cuadró exacto' : `${dif > 0 ? 'Sobrante' : 'Faltante'} de ${dinero(Math.abs(dif))}`;
+        res.appendChild(fuerte);
+        const motivo = document.createElement('span');
+        motivo.textContent = c.notas ? `Motivo: ${c.notas}` : dif < 0 ? 'No se anotó el motivo del faltante.' : dif > 0 ? 'Sin notas.' : (c.notas || '');
+        if (motivo.textContent) res.appendChild(motivo);
+
+        const dl = $('#repCajDetMontos');
+        dl.replaceChildren();
+        [
+            ['Fondo de caja', dinero(c.fondo)],
+            ['Efectivo cobrado', dinero(c.efectivo)],
+            ['Efectivo a entregar', dinero(esperado(c))],
+            ['Efectivo contado', dinero(c.efectivo_contado)],
+            ['SINPE verificado', dinero(c.sinpe)],
+            ['Tarjeta verificada', dinero(c.tarjeta)],
+        ].forEach(([e, v]) => {
+            const dt = document.createElement('dt');
+            dt.textContent = e;
+            const dd = document.createElement('dd');
+            dd.textContent = v;
+            dl.append(dt, dd);
+        });
+
+        const tb = $('#repCajDetCobros');
+        tb.replaceChildren(crearFilaVacia('Cargando...', 4));
+        if (!dlg.open) dlg.showModal();
+        const [ped, via] = await Promise.all([
+            db.from('pedidos').select('id, codigo, cliente_nombre, total_cobrar, cobro_forma, forma_pago').eq('cierre_id', id).order('codigo'),
+            typeof empresaTieneViajes === 'function' && empresaTieneViajes()
+                ? db.from('viajes').select('id, codigo, cliente_nombre, total, cobro_forma').eq('cierre_id', id)
+                : Promise.resolve({ data: [] }),
+        ]);
+        const filas = [
+            ...((ped.data) || []).map((p) => ({ enlace: `#pedidos?id=${p.id}`, codigo: p.codigo, cliente: p.cliente_nombre, monto: p.total_cobrar,
+                forma: p.cobro_forma || (p.forma_pago === 'tarjeta' ? 'tarjeta' : 'efectivo') })),
+            ...((via.data) || []).map((v) => ({ enlace: `#viajes?id=${v.id}`, codigo: v.codigo || `#${v.id}`, cliente: v.cliente_nombre, monto: v.total,
+                forma: v.cobro_forma || 'efectivo' })),
+        ];
+        tb.replaceChildren();
+        if (ped.error) {
+            tb.appendChild(crearFilaVacia('No se pudieron cargar los cobros.', 4));
+            return;
+        }
+        if (!filas.length) {
+            tb.appendChild(crearFilaVacia('Sin cobros registrados en este cierre.', 4));
+            return;
+        }
+        filas.forEach((f) => {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            const a = document.createElement('a');
+            a.href = f.enlace;
+            a.textContent = f.codigo;
+            a.addEventListener('click', () => dlg.close());
+            td.appendChild(a);
+            tr.append(td, crearCelda(f.cliente), crearCelda(REP_CAJ_FORMAS[f.forma] || f.forma), crearCelda(dinero(f.monto), 'rep-numero'));
+            tb.appendChild(tr);
+        });
+    }
+
+    // ---------- Excel ----------
+    async function exportarExcel() {
+        const lista = visibles();
+        if (!lista.length) { aviso.mostrar('No hay cierres para exportar con estos filtros.', 'error'); return; }
+        try {
+            await cargarLibreria(LIBRERIAS.xlsx);
+        } catch {
+            aviso.mostrar('No se pudo cargar el exportador de Excel (revisa internet).', 'error');
+            return;
+        }
+        const XLSX = window.XLSX;
+        const libro = XLSX.utils.book_new();
+        const hoja = XLSX.utils.aoa_to_sheet([
+            [`${nombreEmpresaExportar()} - Cierres de caja`], [`Del ${inDesde.value} al ${inHasta.value}`], [`Generado: ${new Date().toLocaleString('es-CR')}`], [],
+            ['Fecha', 'Piloto', 'Tienda', 'Cobros', 'Fondo', 'Efectivo cobrado', 'A entregar', 'Contado', 'SINPE', 'Tarjeta', 'Diferencia', 'Resultado', 'Motivo / notas', 'Cerró'],
+            ...lista.map((c) => [c.fecha, c.piloto_nombre, nombreTienda(c.tienda_id), Number(c.cantidad), Number(c.fondo), Number(c.efectivo),
+                esperado(c), Number(c.efectivo_contado), Number(c.sinpe), Number(c.tarjeta), Number(c.diferencia),
+                { faltante: 'Faltante', sobrante: 'Sobrante', cuadra: 'Cuadra' }[resultadoDe(c)], c.notas || '', c.cerrado_por_nombre || '']),
+        ]);
+        hoja['!cols'] = [12, 22, 24, 8, 12, 14, 12, 12, 12, 12, 12, 10, 40, 18].map((wch) => ({ wch }));
+        XLSX.utils.book_append_sheet(libro, hoja, 'Cierres de caja');
+        XLSX.writeFile(libro, `cierres-de-caja-${inDesde.value}-a-${inHasta.value}.xlsx`);
+        aviso.mostrar('Excel descargado.');
+    }
+
+    // ---------- Eventos ----------
+    [inDesde, inHasta, selTienda].forEach((el) => el.addEventListener('change', cargar));
+    [selPiloto, selResultado].forEach((el) => el.addEventListener('change', () => dibujar()));
+    $('#repCajExcel').addEventListener('click', exportarExcel);
+    dlg.querySelector('[data-cerrar]').addEventListener('click', () => dlg.close());
+    cuerpo.addEventListener('click', (e) => {
+        const tr = e.target.closest('tr[data-cierre]');
+        if (tr) abrirDetalle(Number(tr.dataset.cierre));
+    });
+    cuerpo.addEventListener('keydown', (e) => {
+        const tr = e.target.closest('tr[data-cierre]');
+        if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirDetalle(Number(tr.dataset.cierre)); }
+    });
+
+    cargar();
+    return { limpiar: () => { if (dlg.open) dlg.close(); }, recargar: cargar };
+}
+
 registrarSeccion('reportes', (zona) => {
 
     const $ = (selector) => zona.querySelector(selector);
@@ -114,21 +405,41 @@ registrarSeccion('reportes', (zona) => {
     cajaViajes.hidden = true;
     $('#repPestanas').after(cajaViajes);
 
-    function mostrarViajes(si) {
-        enViajes = si;
-        cajaViajes.hidden = !si;
-        zona.querySelector('.rep-filtros').hidden = si;
-        contenido.hidden = si;
-        $('#repExportar').hidden = si || !puedeExportar;
-        if (si) {
+    // ---------- Pestaña "Cajas": cierres de caja de los pilotos (montarReporteCajas, arriba) ----------
+    const REP_CAJAS = 'cajas';
+    let enCajas = false;
+    let reporteCajas = null;
+    const filtrosPedidos = zona.querySelector('.rep-filtros'); // los de pedidos (la pestaña Cajas tiene los suyos)
+    const cajaCajas = document.createElement('div');
+    cajaCajas.id = 'repCajas';
+    cajaCajas.className = 'rep-cajas';
+    cajaCajas.hidden = true;
+    cajaViajes.after(cajaCajas);
+
+    // cual: null (reporte de pedidos de la actividad) | REP_VIAJES | REP_CAJAS
+    function mostrarEspecial(cual) {
+        enViajes = cual === REP_VIAJES;
+        enCajas = cual === REP_CAJAS;
+        cajaViajes.hidden = !enViajes;
+        cajaCajas.hidden = !enCajas;
+        filtrosPedidos.hidden = !!cual;
+        contenido.hidden = !!cual;
+        $('#repExportar').hidden = !!cual || !puedeExportar;
+        if (cual) {
             $('#repNota').hidden = true;
+            history.replaceState(null, '', `#reportes?actividad=${cual}`);
+        }
+        if (enViajes) {
             $('#repSubtitulo').textContent = 'Viajes, ingresos, vehículos, costos y cortesías';
-            history.replaceState(null, '', `#reportes?actividad=${REP_VIAJES}`);
             if (!reporteViajes) reporteViajes = montarReporteViajes(cajaViajes, { puedeExportar, aviso });
+        } else if (enCajas) {
+            $('#repSubtitulo').textContent = textoExportar('Cierres de caja de los pilotos: faltantes, sobrantes y sus motivos');
+            if (!reporteCajas) reporteCajas = montarReporteCajas(cajaCajas, { puedeExportar, aviso, tiendas, limitar: !!regionG2 || esG3 });
         } else {
             $('#repSubtitulo').textContent = textoExportar('Pedidos, entregas, cobros y récord de clientes');
         }
     }
+    const mostrarViajes = (si) => mostrarEspecial(si ? REP_VIAJES : null);
 
     // ==================================================
     // AYUDAS
@@ -270,17 +581,21 @@ registrarSeccion('reportes', (zona) => {
         // Actividad: la de la dirección o la primera. Una pestaña por actividad
         // (con una sola no hace falta mostrarlas) + "Viajes" si la empresa hace viajes
         const conViajes = !esPiloto && empresaTieneViajes();
+        // Cajas: si alguna actividad de la empresa cierra caja (sql/01 bloque 30); el piloto no
+        const conCajas = !esPiloto && (typeof empresaUsa !== 'function' || empresaUsa('caja'));
         enViajes = conViajes && (q.get('actividad') === REP_VIAJES || !actividades.length);
-        actividad = enViajes ? null : actividades.find((a) => a.codigo === q.get('actividad')) || actividades[0] || null;
+        enCajas = !enViajes && conCajas && q.get('actividad') === REP_CAJAS;
+        actividad = enViajes || enCajas ? null : actividades.find((a) => a.codigo === q.get('actividad')) || actividades[0] || null;
         const opciones = actividades.map((a) => ({ valor: a.codigo, texto: a.nombre, icono: a.icono }));
         if (conViajes) opciones.push({ valor: REP_VIAJES, texto: 'Viajes', icono: 'bi-car-front' });
-        crearPestanas($('#repPestanas'), opciones, enViajes ? REP_VIAJES : actividad && actividad.codigo,
+        if (conCajas) opciones.push({ valor: REP_CAJAS, texto: 'Cajas', icono: 'bi-cash-stack' });
+        crearPestanas($('#repPestanas'), opciones, enViajes ? REP_VIAJES : enCajas ? REP_CAJAS : actividad && actividad.codigo,
             (codigo) => {
-                if (codigo === REP_VIAJES) {
-                    mostrarViajes(true);
+                if (codigo === REP_VIAJES || codigo === REP_CAJAS) {
+                    mostrarEspecial(codigo);
                     return;
                 }
-                mostrarViajes(false);
+                mostrarEspecial(null);
                 actividad = actividades.find((a) => a.codigo === codigo) || null;
                 prepararSegunActividad();
                 cargar('');
@@ -1043,7 +1358,8 @@ registrarSeccion('reportes', (zona) => {
             aviso.mostrar('No se pudo cargar la información. Revisa la conexión.', 'error');
             return;
         }
-        if (enViajes) mostrarViajes(true);
+        if (enViajes) mostrarEspecial(REP_VIAJES);
+        else if (enCajas) mostrarEspecial(REP_CAJAS);
         else await cargar(parametrosSeccion().get('ver') || '');
     })();
 
@@ -1051,5 +1367,6 @@ registrarSeccion('reportes', (zona) => {
         aviso.limpiar();
         Object.values(graficas).forEach((g) => g.destroy());
         if (reporteViajes) reporteViajes.limpiar();
+        if (reporteCajas) reporteCajas.limpiar();
     };
 });

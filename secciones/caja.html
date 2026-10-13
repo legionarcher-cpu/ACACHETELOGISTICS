@@ -129,7 +129,8 @@
                     <span id="cajDiferencia" class="caj-diferencia">—</span>
                 </div>
                 <div class="campo campo-ancho">
-                    <label for="cajNotas" class="campo-etiqueta">Notas</label>
+                    <!-- Obligatorio si hay faltante o sobrante (js/secciones/caja.js); se ve en Reportes -> Cajas -->
+                    <label for="cajNotas" id="cajNotasEtiqueta" class="campo-etiqueta">Notas</label>
                     <input id="cajNotas" type="text" class="campo-input" maxlength="300" autocomplete="off"
                            placeholder="Ej. faltante por cambio, billete dañado...">
                 </div>

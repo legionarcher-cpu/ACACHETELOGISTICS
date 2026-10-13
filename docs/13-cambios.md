@@ -2,6 +2,26 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · Fotos de la entrega, ventana del pedido y reporte de cajas
+
+SQL: **ninguno** (usa `pedido_evidencias` y el Storage `evidencias`, que ya existen; y `cierres_caja`, bloque 24).
+
+- **Fotos de lo que entrega el piloto**: al marcar "Entregado" (Pedidos) y en la entrega por producto
+  (Distribuidora) hay "Tomar foto" (hasta 6, se achican). Se suben a `evidencias/entrega/<pedido>/` antes de marcar;
+  si la base rechaza la entrega se borran; si se marca, quedan en `pedido_evidencias` (tipo `entrega`) y se ven en
+  el detalle del pedido. Recomendadas, no obligatorias: `ENTREGA_FOTO_OBLIGATORIA` en `js/carga-comun.js`
+  (`crearFotosEntrega`).
+- **Ventana con los datos del pedido** (al escanear su QR, `mostrarPedidoQr` en `js/qr.js`): rediseñada por grupos
+  (Cliente, Entrega, Cobro con el total destacado, Notas, Mercadería en tabla), teléfonos para llamar con un toque,
+  aviso de alcohol arriba, montos con separador de miles (₡47 750,00), nombre de la actividad (no su código),
+  cabecera y botones fijos con scroll solo en el medio; en celular no se apila etiqueta sobre valor.
+  Pedidos también muestra los montos con separador de miles.
+- **Reportes → pestaña Cajas**: cierres de caja con faltante / sobrante y su motivo; al abrir uno, su detalle y los
+  cobros incluidos. Excel. Ver `docs/secciones/reportes.md`.
+- **Caja**: con faltante o sobrante el motivo es obligatorio para cerrar.
+- `app.html`: todas las versiones `?v=` en `20261013l` (las etiquetas de los scripts habían quedado en `j` en el
+  cambio anterior).
+
 ## 2026-10-13 · Reporte de visitas (solo Desarrollador)
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 36** (=

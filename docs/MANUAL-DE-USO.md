@@ -250,7 +250,8 @@ En **Mi ruta**, los pedidos salen **ordenados del más cercano al más lejano**;
 2. **Cerrar entrega** → dentro del pedido:
    - **Entregado**: si hay que cobrar, elige **cómo pagó** el cliente (Efectivo, SINPE Móvil o Tarjeta). Si
      lleva **alcohol**, confirma la **mayoría de edad**. Si son **productos**, escribe **cuánto recibió de
-     cada uno**; si es menos, el **motivo** es obligatorio (queda "Entregado con incidencia").
+     cada uno**; si es menos, el **motivo** es obligatorio (queda "Entregado con incidencia"). Con **Tomar foto**
+     guarda fotos de lo que entregas (y de dónde lo dejas); quedan en el pedido como prueba de entrega.
    - **No entregado**: escribe el **motivo** (cliente ausente, dirección errada...). Le llega al G2.
 3. El **código de entrega de 4 dígitos** (o el QR del pedido) sirve para confirmar que la persona que
    recibe es la correcta.
@@ -316,8 +317,11 @@ Menú **Caja** → elige al piloto.
 2. **SINPE y tarjeta**: márcalos **Verificado** cuando los veas en el banco. Los no verificados quedan para el
    siguiente cierre.
 3. **Arqueo**: el efectivo que debe entregar es **fondo + efectivo cobrado**. Escribe el **efectivo contado**
-   y el sistema dice en vivo si **cuadra exacto**, hay **sobrante** o **faltante**. Agrega notas si hace falta.
+   y el sistema dice en vivo si **cuadra exacto**, hay **sobrante** o **faltante**. Si no cuadra, el **motivo**
+   es obligatorio (ej. "vuelto de más al cliente del pedido P-000123").
 4. **Cerrar caja**: confirma el resumen. El cierre queda guardado y no se borra (se ven los últimos 20).
+5. **Revisar cierres**: en **Reportes → Cajas** se ven todos los cierres con su faltante o sobrante y el motivo;
+   al tocar uno se abre su detalle con los cobros que incluyó.
 
 > El piloto puede ver su propia caja, pero no cerrarla.
 
@@ -333,7 +337,8 @@ Devolución del piloto → Cerrar su mercadería → Cerrar su caja → (todos) 
 ### Revisión del día
 
 - **Inicio**: cuántos pedidos hubo, cuántos se entregaron, los no entregados y los pendientes.
-- **Reportes**: por fechas, tienda y actividad; exportar a Excel o PDF (según el plan).
+- **Reportes**: por fechas, tienda y actividad; exportar a Excel o PDF (según el plan). La pestaña **Cajas**
+  muestra los cierres de caja con faltantes, sobrantes y sus motivos.
 - **Distribución → Historial y faltantes**: faltantes por piloto y producto, cierres y resumen de cada bodega.
 
 ---

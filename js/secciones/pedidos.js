@@ -227,7 +227,7 @@ registrarSeccion('pedidos', (zona) => {
     // AYUDAS
     // ==================================================
 
-    const dinero = (n) => `${PED_MONEDA}${Number(n || 0).toFixed(2)}`;
+    const dinero = (n) => `${PED_MONEDA}${Number(n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const redondear = (n) => Math.round(Number(n || 0) * 100) / 100;
     const kilos = (n) => `${redondear(n)} kg`;
     const hhmm = (hora) => (hora || '').slice(0, 5);
@@ -3198,6 +3198,10 @@ registrarSeccion('pedidos', (zona) => {
     // ---------- Ventana de confirmación (con motivo) ----------
     const dlgAccion = $('#pedAccionDialogo');
     let accionActual = null;
+    // Fotos de lo que entrega el piloto al marcar "Entregado" (js/carga-comun.js)
+    const fotosEntrega = typeof crearFotosEntrega === 'function' ? crearFotosEntrega() : null;
+    if (fotosEntrega) $('#pedAccionFotosCaja').appendChild(fotosEntrega.elemento);
+    dlgAccion.addEventListener('close', () => { if (fotosEntrega) fotosEntrega.limpiar(); });
 
     function abrirAccion(accion) {
         // Distribuidora: el piloto dice cuánto entregó de cada producto (js/distribucion-comun.js)
@@ -3227,6 +3231,7 @@ registrarSeccion('pedidos', (zona) => {
             const prevista = pedido.forma_pago === 'tarjeta' ? 'tarjeta' : 'efectivo';
             dlgAccion.querySelectorAll('input[name="pedAccionCobro"]').forEach((r) => { r.checked = r.value === prevista; });
         }
+        $('#pedAccionFotosCaja').hidden = !(accion.id === 'entregado' && fotosEntrega);
         $('#pedAccionError').textContent = '';
         const si = $('#pedAccionSi');
         si.className = `boton ${accion.clase === 'boton-peligro' ? 'boton-peligro' : 'boton-principal'}`;
@@ -3250,7 +3255,9 @@ registrarSeccion('pedidos', (zona) => {
         if (!r) return;
         const faltan = Array.isArray(r.faltan) ? r.faltan : [];
         aviso.mostrar(`Pedido ${pedido.codigo}: entregado${r.incompletos ? ` con ${plural(r.incompletos, 'producto incompleto', 'productos incompletos')}` : ''}.`
-            + ` A cobrar ${dinero(r.total)}.`);
+            + ` A cobrar ${dinero(r.total)}.`
+            + (r.fotos > 0 ? ` Con ${plural(r.fotos, 'foto', 'fotos')}.` : r.fotos === -1 ? ' Pero no se pudieron guardar las fotos.' : ''),
+            r.fotos === -1 ? 'error' : 'ok');
         if (faltan.length) {
             await avisar({
                 tiendaId: pedido.tienda_id, a: ['g3'], enlace: `#pedidos?id=${pedido.id}`, referenciaTipo: 'pedido', referenciaId: pedido.id,
@@ -3279,10 +3286,29 @@ registrarSeccion('pedidos', (zona) => {
             error.textContent = 'El pedido lleva alcohol: hay que confirmar la mayoría de edad.';
             return;
         }
+        const conFotos = accion.id === 'entregado' && fotosEntrega;
+        if (conFotos && fotosEntrega.validar()) {
+            error.textContent = fotosEntrega.validar();
+            return;
+        }
 
         const si = $('#pedAccionSi');
         si.disabled = true;
         let resultado = null;
+
+        // Fotos de la entrega: se suben ANTES de marcar (si no se pudo marcar, se borran)
+        let subidas = [];
+        if (conFotos && fotosEntrega.cantidad()) {
+            si.textContent = 'Subiendo fotos...';
+            const r = await fotosEntrega.subir(pedido.id);
+            si.textContent = 'Confirmar';
+            if (r.error) {
+                si.disabled = false;
+                error.textContent = 'No se pudo subir la foto. Revisa la conexión e intenta de nuevo.';
+                return;
+            }
+            subidas = r.subidas;
+        }
 
         if (accion.id === 'rechazar_solicitud') {
             // Rechazar la solicitud de reasignación del Admin G3 (no cambia el pedido)
@@ -3313,6 +3339,13 @@ registrarSeccion('pedidos', (zona) => {
             }
         }
 
+        // Fotos: si el pedido no quedó entregado se borran; si quedó, se anotan en el pedido
+        let fallaronFotos = false;
+        if (subidas.length) {
+            if (resultado) await fotosEntrega.borrar(subidas);
+            else fallaronFotos = !!(await fotosEntrega.registrar(pedido.id, subidas, sesion.id || pedido.piloto_id));
+        }
+
         si.disabled = false;
         dlgAccion.close();
         if (resultado) {
@@ -3325,7 +3358,9 @@ registrarSeccion('pedidos', (zona) => {
                         : 'No se pudo completar la acción. Intenta de nuevo.'), 'error');
         } else {
             aviso.mostrar(accion.id === 'rechazar_solicitud' ? 'Solicitud rechazada; se avisó a quien la pidió.'
-                : `Pedido ${pedido.codigo}: ${(PED_ESTADOS[accion.nuevo] || {}).texto}.`);
+                : `Pedido ${pedido.codigo}: ${(PED_ESTADOS[accion.nuevo] || {}).texto}.`
+                    + (subidas.length && !fallaronFotos ? ` Con ${plural(subidas.length, 'foto', 'fotos')}.` : '')
+                    + (fallaronFotos ? ' Pero no se pudieron guardar las fotos.' : ''), fallaronFotos ? 'error' : 'ok');
         }
         if (!resultado) await avisosDeAccion(accion.id, motivo);
         recargarDetalle();

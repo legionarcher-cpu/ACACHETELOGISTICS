@@ -334,3 +334,198 @@
         grid-template-columns: 1fr;
     }
 }
+
+
+/* ==================================================
+   PESTAÑA "CAJAS": cierres de caja de los pilotos (montarReporteCajas, js/secciones/reportes.js)
+   ================================================== */
+
+.rep-cajas {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.rep-cajas[hidden] {
+    display: none;
+}
+
+.rep-caj-fila {
+    padding-top: 0;
+    border-top: none;
+}
+
+.rep-caj-fila .boton {
+    margin-left: auto;
+}
+
+.rep-caj-tabla-caja {
+    display: flex;
+    flex-direction: column;
+    gap: 0.667rem;
+    padding: 1rem 1.111rem;
+}
+
+.rep-caj-ayuda {
+    margin-left: 0.444rem;
+    font-size: 0.78rem;
+    font-weight: 400;
+    color: var(--color-gris);
+}
+
+.rep-caj-tabla {
+    min-width: 56rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.rep-caj-tabla td.rep-numero,
+.rep-caj-tabla th.rep-numero,
+.rep-caj-cobros td.rep-numero,
+.rep-caj-cobros th.rep-numero {
+    text-align: right;
+    white-space: nowrap;
+}
+
+.rep-caj-tabla tbody tr[data-cierre] {
+    cursor: pointer;
+}
+
+.rep-caj-tabla tbody tr[data-cierre]:hover,
+.rep-caj-tabla tbody tr[data-cierre]:focus-visible {
+    background-color: var(--color-azul-claro);
+    outline: none;
+}
+
+.rep-caj-fila-faltante td:first-child {
+    box-shadow: inset 0.222rem 0 0 var(--color-rojo);
+}
+
+.rep-caj-fila-sobrante td:first-child {
+    box-shadow: inset 0.222rem 0 0 var(--color-naranja);
+}
+
+.rep-caj-tabla td.rep-caj-falta {
+    font-weight: 700;
+    color: var(--color-rojo);
+}
+
+.rep-caj-tabla td.rep-caj-sobra {
+    font-weight: 700;
+    color: var(--color-naranja-oscuro, #B34A07);
+}
+
+.rep-caj-motivo {
+    max-width: 18rem;
+    overflow-wrap: anywhere;
+}
+
+.rep-caj-tabla td.rep-caj-sin-motivo {
+    font-style: italic;
+    color: var(--color-gris);
+}
+
+.rep-caj-kpi-falta {
+    border-left: 0.222rem solid var(--color-rojo);
+}
+
+.rep-caj-kpi-falta .rep-kpi-valor {
+    color: var(--color-rojo);
+}
+
+.rep-caj-kpi-sobra {
+    border-left: 0.222rem solid var(--color-naranja);
+}
+
+/* ---------- Detalle de un cierre ---------- */
+
+.rep-caj-dialogo {
+    width: min(36rem, calc(100vw - 1.25rem));
+}
+
+.rep-caj-sub {
+    margin: -0.667rem 0 0.778rem;
+    font-size: 0.85rem;
+    color: var(--color-gris);
+}
+
+.rep-caj-resultado {
+    display: flex;
+    flex-direction: column;
+    gap: 0.222rem;
+    margin: 0 0 0.889rem;
+    padding: 0.667rem 0.778rem;
+    border-radius: var(--radio);
+    border-left: 0.222rem solid var(--color-verde);
+    background-color: var(--color-verde-claro);
+    font-size: 0.9rem;
+    overflow-wrap: anywhere;
+}
+
+.rep-caj-resultado strong {
+    font-size: 1.1rem;
+}
+
+.rep-caj-resultado-faltante {
+    border-left-color: var(--color-rojo);
+    background-color: var(--color-rojo-claro);
+}
+
+.rep-caj-resultado-faltante strong {
+    color: var(--color-rojo);
+}
+
+.rep-caj-resultado-sobrante {
+    border-left-color: var(--color-naranja);
+    background-color: var(--color-naranja-claro);
+}
+
+.rep-caj-montos {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr) auto);
+    gap: 0.333rem 0.889rem;
+    margin: 0 0 0.889rem;
+    font-size: 0.9rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.rep-caj-montos dt {
+    color: var(--color-gris);
+    font-weight: 600;
+}
+
+.rep-caj-montos dd {
+    margin: 0;
+    text-align: right;
+    font-weight: 600;
+}
+
+.rep-caj-subtitulo {
+    margin: 0 0 0.444rem;
+    font-size: 0.95rem;
+}
+
+.rep-caj-cobros {
+    font-size: 0.875rem;
+}
+
+.rep-caj-cobros a {
+    white-space: nowrap;
+    font-weight: 700;
+    color: var(--color-azul);
+    text-decoration: none;
+}
+
+.rep-caj-cobros td:first-child,
+.rep-caj-tabla td:first-child {
+    white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+    .rep-caj-montos {
+        grid-template-columns: minmax(0, 1fr) auto;
+    }
+
+    .rep-caj-fila .boton {
+        margin-left: 0;
+    }
+}

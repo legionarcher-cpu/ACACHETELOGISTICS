@@ -441,13 +441,16 @@ function abrirEntregaProductos({ pedido, lineas, motivos = [], sesion }) {
         }
         dibujarTotal();
 
-        form.append(titulo, texto, tablaCaja, totalCaja, cobro, nota, error, botones);
+        // Fotos de lo que entrega (js/carga-comun.js)
+        const fotos = typeof crearFotosEntrega === 'function' ? crearFotosEntrega() : null;
+
+        form.append(titulo, texto, tablaCaja, totalCaja, cobro, nota, ...(fotos ? [fotos.elemento] : []), error, botones);
         dlg.appendChild(form);
         document.body.appendChild(dlg);
 
         let resultado = null;
         const cerrar = () => dlg.close();
-        dlg.addEventListener('close', () => { dlg.remove(); resolver(resultado); });
+        dlg.addEventListener('close', () => { if (fotos) fotos.limpiar(); dlg.remove(); resolver(resultado); });
         volver.addEventListener('click', cerrar);
 
         form.addEventListener('submit', async (e) => {
@@ -467,10 +470,30 @@ function abrirEntregaProductos({ pedido, lineas, motivos = [], sesion }) {
             }
             if (datos.every((d) => d.entregada === 0)) { error.textContent = 'No se entregó nada: usa "No entregado".'; return; }
             const forma = (form.querySelector(`input[name="distCobro${pedido.id}"]:checked`) || {}).value || null;
+            if (fotos && fotos.validar()) { error.textContent = fotos.validar(); return; }
             confirmar.disabled = true;
+            // Fotos: se suben antes de entregar; si la entrega falla, se borran
+            let subidas = [];
+            if (fotos && fotos.cantidad()) {
+                confirmar.textContent = 'Subiendo fotos...';
+                const r = await fotos.subir(pedido.id);
+                confirmar.textContent = 'Confirmar entrega';
+                if (r.error) {
+                    confirmar.disabled = false;
+                    error.textContent = 'No se pudo subir la foto. Revisa la conexión e intenta de nuevo.';
+                    return;
+                }
+                subidas = r.subidas;
+            }
             const { data, error: err } = await db.rpc('dist_entregar', {
                 p: { usuario_id: sesion.id || null, pedido_id: pedido.id, cobro_forma: calcular().total > 0 ? forma : null, nota: nota.value.trim() || null, lineas: datos },
             });
+            if (!err && subidas.length) {
+                const errFotos = await fotos.registrar(pedido.id, subidas, sesion.id || null);
+                if (data && typeof data === 'object') data.fotos = errFotos ? -1 : subidas.length;
+            } else if (err && subidas.length) {
+                await fotos.borrar(subidas);
+            }
             confirmar.disabled = false;
             if (err) {
                 console.error('Error al entregar el pedido:', err);

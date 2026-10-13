@@ -365,23 +365,25 @@ async function qrPuedeVerPedido(p) {
 
 // Ventana flotante con la información del pedido (la que se ve al escanear su QR)
 async function mostrarPedidoQr(pedidoId) {
+    // Cabecera y botones fijos; en medio, los datos por grupos (con scroll si no caben)
     const d = qrDialogo('qrPedidoDialogo', `
-        <div class="dialogo-form qr-pedido">
-            <h3 class="dialogo-titulo qr-pedido-titulo"><span data-codigo>Pedido</span> <span data-estado></span></h3>
-            <p class="qr-subtitulo" data-sub></p>
-            <dl class="qr-datos" data-datos></dl>
-            <div data-mercaderia></div>
-            <div class="dialogo-botones">
+        <div class="qr-pedido">
+            <div class="qr-pedido-cabeza">
+                <h3 class="dialogo-titulo qr-pedido-titulo"><span data-codigo>Pedido</span> <span data-estado></span></h3>
+                <p class="qr-subtitulo" data-sub></p>
+            </div>
+            <div class="qr-pedido-cuerpo" data-cuerpo></div>
+            <div class="dialogo-botones qr-pedido-botones">
                 <button type="button" class="boton boton-secundario" data-cerrar>Cerrar</button>
                 <a class="boton boton-principal" data-abrir><i class="bi bi-box-arrow-up-right"></i> <span>Abrir pedido</span></a>
             </div>
-        </div>`, 'qr-dialogo');
+        </div>`, 'qr-dialogo qr-pedido-dialogo');
     const $ = (s) => d.querySelector(s);
+    const cuerpo = $('[data-cuerpo]');
     $('[data-codigo]').textContent = 'Cargando...';
     $('[data-estado]').replaceChildren();
     $('[data-sub]').textContent = '';
-    $('[data-datos]').replaceChildren();
-    $('[data-mercaderia]').replaceChildren();
+    cuerpo.replaceChildren();
     if (!d.open) d.showModal();
 
     const { data: p, error } = await db.from('pedidos')
@@ -397,44 +399,127 @@ async function mostrarPedidoQr(pedidoId) {
     const [texto, color] = QR_ESTADOS[p.estado] || [p.estado, 'etiqueta-gris'];
     $('[data-codigo]').textContent = `Pedido ${p.codigo}`;
     qrTexto($('[data-estado]'), 'span', p.anulado ? 'Anulado' : texto, `etiqueta ${p.anulado ? 'etiqueta-gris' : color}`);
-    $('[data-sub]').textContent = [p.tiendas ? `${p.tiendas.codigo} · ${p.tiendas.nombre}` : '', p.actividad].filter(Boolean).join(' · ');
+    // Nombre de la actividad (no su código)
+    let actividad = p.actividad || '';
+    if (actividad) {
+        const act = await db.from('actividades').select('nombre').eq('codigo', actividad).maybeSingle();
+        if (!act.error && act.data && act.data.nombre) actividad = act.data.nombre;
+    }
+    $('[data-sub]').textContent = [p.tiendas ? `${p.tiendas.codigo} · ${p.tiendas.nombre}` : '', actividad].filter(Boolean).join(' · ');
 
-    const moneda = '₡';
-    const dinero = (n) => `${moneda}${Number(n || 0).toFixed(2)}`;
-    const fecha = (f) => (f ? f.split('-').reverse().join('/') : '—');
+    const dinero = (n) => `₡${Number(n || 0).toLocaleString('es-CR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const fecha = (f) => (f ? new Date(`${f}T12:00:00`).toLocaleDateString('es-CR', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }) : null);
+    const kilos = (n) => `${Number(n || 0).toLocaleString('es-CR', { maximumFractionDigits: 2 })} kg`;
     const verMarca = rolActual() === 'piloto' || esAdministrador() || esAdminG1() || esAdminG2();
-    const filas = [
-        ['Cliente', p.cliente_nombre],
-        ['Teléfono', p.cliente_telefono],
-        ['Recibe', p.recibe_tipo === 'autorizado' ? `${p.recibe_nombre || ''} (autorizado)${p.recibe_telefono ? ` · ${p.recibe_telefono}` : ''}` : 'El mismo cliente'],
-        ['Punto de partida', p.direccion_recoleccion],
-        ['Entrega en', p.direccion_entrega],
-        ['Distancia', p.distancia_km != null ? `${p.distancia_km} km` : null],
-        ['Fecha de entrega', fecha(p.fecha_entrega)],
-        ['Slot de despacho', p.slot_numero ? `Slot ${p.slot_numero}` : null],
-        ['Horario del piloto', verMarca && p.marca_numero ? `Horario ${p.marca_numero}` : null],
+
+    // Teléfono que se puede tocar para llamar
+    const telefono = (numero) => {
+        if (!numero) return null;
+        const a = document.createElement('a');
+        a.href = `tel:${String(numero).replace(/[^\d+]/g, '')}`;
+        a.className = 'qr-tel';
+        a.innerHTML = '<i class="bi bi-telephone"></i> ';
+        a.append(numero);
+        return a;
+    };
+
+    // Un grupo con título y sus filas [etiqueta, valor (texto o nodo)]; sin valores no se dibuja
+    function grupo(titulo, icono, filas) {
+        const conValor = filas.filter(([, v]) => v != null && v !== '');
+        if (!conValor.length) return null;
+        const sec = document.createElement('section');
+        sec.className = 'qr-bloque';
+        const h = document.createElement('h4');
+        h.className = 'qr-bloque-titulo';
+        h.innerHTML = `<i class="bi ${icono}"></i> `;
+        h.append(titulo);
+        const dl = document.createElement('dl');
+        dl.className = 'qr-datos';
+        conValor.forEach(([e, v]) => {
+            qrTexto(dl, 'dt', e);
+            const dd = document.createElement('dd');
+            if (v instanceof Node) dd.appendChild(v); else dd.textContent = v;
+            dl.appendChild(dd);
+        });
+        sec.append(h, dl);
+        cuerpo.appendChild(sec);
+        return sec;
+    }
+
+    // Avisos importantes arriba: alcohol y cancelación
+    if (p.lleva_alcohol) qrTexto(cuerpo, 'p', 'Lleva alcohol: confirmar que quien recibe es mayor de edad.', 'qr-alerta');
+    if (p.estado === 'cancelado' && p.motivo_cancelacion) qrTexto(cuerpo, 'p', `Cancelado: ${p.motivo_cancelacion}`, 'qr-alerta');
+
+    const recibe = p.recibe_tipo === 'autorizado'
+        ? (() => {
+            const span = document.createElement('span');
+            span.append(`${p.recibe_nombre || 'Otra persona'} (autorizado)`);
+            const tel = telefono(p.recibe_telefono);
+            if (tel) span.append(' · ', tel);
+            return span;
+        })()
+        : 'El mismo cliente';
+    grupo('Cliente', 'bi-person', [
+        ['Nombre', p.cliente_nombre],
+        ['Teléfono', telefono(p.cliente_telefono)],
+        ['Recibe', recibe],
+    ]);
+    grupo('Entrega', 'bi-geo-alt', [
+        ['Dirección', p.direccion_entrega],
+        ['Sale de', p.direccion_recoleccion],
+        ['Fecha', fecha(p.fecha_entrega)],
+        ['Despacho', [p.slot_numero ? `Slot ${p.slot_numero}` : null, verMarca && p.marca_numero ? `horario ${p.marca_numero}` : null].filter(Boolean).join(' · ')],
         ['Piloto', p.piloto ? p.piloto.nombre : 'Sin asignar'],
-        ['Peso total', `${Number(p.peso_total_kg || 0)} kg`],
-        ['Lleva alcohol', p.lleva_alcohol ? 'Sí: confirmar mayoría de edad' : null],
+        ['Distancia', p.distancia_km != null ? `${Number(p.distancia_km).toLocaleString('es-CR')} km` : null],
+    ]);
+
+    // Cobro: el total a cobrar destacado
+    const cobro = grupo('Cobro', 'bi-cash-coin', [
         ['Compra', p.monto_compra != null ? dinero(p.monto_compra) : null],
         ['Envío', dinero(p.costo_envio)],
-        ['A cobrar al entregar', `${dinero(p.total_cobrar)} · ${p.forma_pago === 'tarjeta' ? 'Tarjeta' : 'Efectivo'}`],
-        ['Notas', p.notas],
-        ['Motivo de cancelación', p.estado === 'cancelado' ? p.motivo_cancelacion : null],
-    ];
-    filas.filter(([, v]) => v != null && v !== '').forEach(([e, v]) => {
-        qrTexto($('[data-datos]'), 'dt', e);
-        qrTexto($('[data-datos]'), 'dd', v);
-    });
+    ]);
+    const total = document.createElement('div');
+    total.className = 'qr-total';
+    qrTexto(total, 'span', 'A cobrar al entregar', 'qr-total-texto');
+    qrTexto(total, 'strong', dinero(p.total_cobrar), 'qr-total-monto');
+    qrTexto(total, 'span', p.forma_pago === 'tarjeta' ? 'Tarjeta' : 'Efectivo', 'etiqueta etiqueta-gris');
+    (cobro || cuerpo).appendChild(total);
 
-    // Mercadería
+    const tituloBloque = (sec, texto, icono) => {
+        const h = qrTexto(sec, 'h4', '', 'qr-bloque-titulo');
+        h.innerHTML = `<i class="bi ${icono}"></i> `;
+        h.append(texto);
+    };
+    if (p.notas) {
+        const sec = document.createElement('section');
+        sec.className = 'qr-bloque';
+        tituloBloque(sec, 'Notas', 'bi-chat-left-text');
+        qrTexto(sec, 'p', p.notas, 'qr-notas');
+        cuerpo.appendChild(sec);
+    }
+
+    // Mercadería en tabla: cantidad, artículo y peso
     const arts = p.pedido_articulos || [];
     if (arts.length) {
-        qrTexto($('[data-mercaderia]'), 'h4', 'Mercadería', 'qr-mercaderia-titulo');
-        const ul = document.createElement('ul');
-        ul.className = 'qr-mercaderia';
-        arts.forEach((a) => qrTexto(ul, 'li', `${a.cantidad} × ${a.descripcion || a.categoria}${a.tamano ? ` (${a.tamano})` : ''} · ${a.categoria} · ${Number(a.peso_kg)} kg c/u`));
-        $('[data-mercaderia]').appendChild(ul);
+        const sec = document.createElement('section');
+        sec.className = 'qr-bloque';
+        tituloBloque(sec, `Mercadería · ${kilos(p.peso_total_kg)}`, 'bi-box-seam');
+        const tabla = document.createElement('table');
+        tabla.className = 'qr-mercaderia';
+        tabla.innerHTML = '<thead><tr><th class="qr-num">Cant.</th><th>Artículo</th><th class="qr-num">Peso c/u</th></tr></thead>';
+        const tb = document.createElement('tbody');
+        arts.forEach((a) => {
+            const tr = document.createElement('tr');
+            qrTexto(tr, 'td', a.cantidad, 'qr-num');
+            const td = qrTexto(tr, 'td', a.descripcion || a.categoria);
+            const extra = [a.tamano, a.descripcion ? a.categoria : null].filter(Boolean).join(' · ');
+            if (extra) qrTexto(td, 'small', extra);
+            qrTexto(tr, 'td', kilos(a.peso_kg), 'qr-num');
+            tb.appendChild(tr);
+        });
+        tabla.appendChild(tb);
+        sec.appendChild(tabla);
+        cuerpo.appendChild(sec);
     }
     const abrir = $('[data-abrir]');
     abrir.hidden = false;

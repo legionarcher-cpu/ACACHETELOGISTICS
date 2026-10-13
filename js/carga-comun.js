@@ -14,6 +14,11 @@
 
      abrirCargaPedido({ pedido, sesion }) -> promesa: resultado de la base o null
    La salida a ruta (todo el slot) está en Inicio: piloto_salir_ruta.
+
+   También las FOTOS DE LA ENTREGA (crearFotosEntrega, al final): el piloto, al marcar
+   "Entregado" (Pedidos) o al entregar por producto (js/distribucion-comun.js), toma
+   fotos de lo que entrega. Van a evidencias/entrega/<pedido>/ y a pedido_evidencias
+   (tipo 'entrega'); se ven en el detalle del pedido. ENTREGA_FOTO_OBLIGATORIA las exige.
    ================================================== */
 
 const CARGA_BUCKET = 'evidencias';
@@ -212,4 +217,125 @@ function abrirCargaPedido({ pedido, sesion }) {
         document.body.appendChild(dlg);
         dlg.showModal();
     });
+}
+
+// ==================================================
+// FOTOS DE LA ENTREGA
+// Uso (en la ventana de entrega):
+//   const fotos = crearFotosEntrega();
+//   formulario.appendChild(fotos.elemento);
+//   const falta = fotos.validar();               -> texto del error o ''
+//   const { subidas, error } = await fotos.subir(pedido.id);   (antes de marcar)
+//   ...marcar el pedido; si falla: await fotos.borrar(subidas)
+//   const err = await fotos.registrar(pedido.id, subidas, sesion.id); (después de marcar)
+//   fotos.limpiar();                             -> al cerrar la ventana
+// ==================================================
+
+// true = no se puede marcar "Entregado" sin al menos una foto
+const ENTREGA_FOTO_OBLIGATORIA = false;
+
+function crearFotosEntrega() {
+    const fotos = []; // [{ blob, url }]
+    const caja = document.createElement('div');
+    caja.className = 'campo entrega-fotos';
+    caja.innerHTML = `
+        <span class="campo-etiqueta">Fotos de lo que entregas${ENTREGA_FOTO_OBLIGATORIA ? ' *' : ' (recomendado)'}</span>
+        <div class="carga-fotos" data-f="lista"></div>
+        <label class="boton boton-secundario boton-chico carga-tomar">
+            <i class="bi bi-camera"></i> <span>Tomar foto</span>
+            <input type="file" accept="image/*" capture="environment" multiple hidden data-f="archivo">
+        </label>
+        <small class="campo-ayuda">Que se vea lo que entregas y, si se puede, dónde lo dejas.</small>
+        <p class="form-error" role="alert" data-f="error"></p>`;
+    const $ = (f) => caja.querySelector(`[data-f="${f}"]`);
+
+    function dibujar() {
+        const lista = $('lista');
+        lista.replaceChildren();
+        fotos.forEach((f, i) => {
+            const fig = document.createElement('figure');
+            fig.className = 'carga-foto';
+            const img = document.createElement('img');
+            img.src = f.url;
+            img.alt = `Foto de la entrega ${i + 1}`;
+            const quitar = document.createElement('button');
+            quitar.type = 'button';
+            quitar.className = 'carga-quitar';
+            quitar.setAttribute('aria-label', `Quitar la foto ${i + 1}`);
+            quitar.innerHTML = '<i class="bi bi-x-lg"></i>';
+            quitar.addEventListener('click', () => { URL.revokeObjectURL(f.url); fotos.splice(i, 1); dibujar(); });
+            fig.append(img, quitar);
+            lista.appendChild(fig);
+        });
+        if (!fotos.length) {
+            const vacio = document.createElement('span');
+            vacio.className = 'carga-sin-fotos';
+            vacio.textContent = 'Todavía no hay fotos.';
+            lista.appendChild(vacio);
+        }
+    }
+    dibujar();
+
+    $('archivo').addEventListener('change', async (e) => {
+        $('error').textContent = '';
+        for (const archivo of [...e.target.files]) {
+            if (fotos.length >= CARGA_MAX_FOTOS) { $('error').textContent = `Máximo ${CARGA_MAX_FOTOS} fotos.`; break; }
+            try {
+                const blob = await cargaAchicarFoto(archivo);
+                fotos.push({ blob, url: URL.createObjectURL(blob) });
+            } catch (err) {
+                $('error').textContent = err.message;
+            }
+        }
+        e.target.value = '';
+        dibujar();
+    });
+
+    const borrar = async (subidas) => {
+        if (subidas && subidas.length) await db.storage.from(CARGA_BUCKET).remove(subidas.map((s) => s.ruta));
+    };
+
+    return {
+        elemento: caja,
+        cantidad: () => fotos.length,
+        validar: () => (ENTREGA_FOTO_OBLIGATORIA && !fotos.length ? 'Toma al menos una foto de lo que entregas.' : ''),
+
+        // Sube las fotos al Storage. Si una falla, borra las que ya subió.
+        async subir(pedidoId) {
+            const subidas = [];
+            try {
+                for (let i = 0; i < fotos.length; i++) {
+                    const ruta = `entrega/${pedidoId}/${Date.now()}-${i + 1}.jpg`;
+                    const { error } = await db.storage.from(CARGA_BUCKET)
+                        .upload(ruta, fotos[i].blob, { contentType: 'image/jpeg', cacheControl: '3600' });
+                    if (error) throw error;
+                    subidas.push({ ruta, url: db.storage.from(CARGA_BUCKET).getPublicUrl(ruta).data.publicUrl });
+                }
+            } catch (error) {
+                console.error('Error al subir la foto de la entrega:', error);
+                await borrar(subidas);
+                return { subidas: [], error };
+            }
+            return { subidas, error: null };
+        },
+
+        borrar,
+
+        // Las anota en el pedido (pedido_evidencias, tipo 'entrega')
+        async registrar(pedidoId, subidas, usuarioId) {
+            if (!subidas.length) return null;
+            const { error } = await db.from('pedido_evidencias').insert(subidas.map((s) => ({
+                pedido_id: pedidoId, tipo: 'entrega', url: s.url, ruta: s.ruta, tomada_por: usuarioId || null,
+            })));
+            if (error) console.error('Error al guardar las fotos de la entrega:', error);
+            return error || null;
+        },
+
+        limpiar() {
+            fotos.forEach((f) => URL.revokeObjectURL(f.url));
+            fotos.length = 0;
+            $('error').textContent = '';
+            dibujar();
+        },
+    };
 }

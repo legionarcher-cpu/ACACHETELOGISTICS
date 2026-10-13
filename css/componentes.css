@@ -1232,20 +1232,80 @@ html:not([data-rol="desarrollador"]) [data-solo-desarrollador] {
     color: var(--color-gris);
 }
 
-/* Ventana con la información del pedido (al escanear su QR) */
+/* Ventana con la información del pedido (al escanear su QR, js/qr.js mostrarPedidoQr):
+   cabecera y botones fijos; en medio los grupos Cliente, Entrega, Cobro, Notas y Mercadería */
+.qr-pedido-dialogo {
+    width: min(34rem, calc(100vw - 1.25rem));
+    overflow: hidden; /* el scroll va solo en el cuerpo */
+}
+
+.qr-pedido {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 1.778rem);
+    max-height: calc(100dvh - 1.778rem);
+}
+
+.qr-pedido-cabeza {
+    padding: 1.111rem 1.333rem 0.667rem;
+    border-bottom: 1px solid var(--color-borde);
+}
+
+.qr-pedido-cabeza .qr-subtitulo {
+    margin: 0;
+}
+
 .qr-pedido-titulo {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 0.5rem;
+    margin-bottom: 0.333rem;
+}
+
+.qr-pedido-cuerpo {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 0.778rem 1.333rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.667rem;
+}
+
+.qr-pedido-cuerpo > * {
+    flex-shrink: 0; /* cada grupo con su alto: el scroll lo hace el cuerpo */
+}
+
+.qr-pedido-botones {
+    margin: 0;
+    padding: 0.778rem 1.333rem;
+    border-top: 1px solid var(--color-borde);
+    background-color: var(--color-fondo);
+}
+
+.qr-bloque {
+    padding: 0.667rem 0.778rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+}
+
+.qr-bloque-titulo {
+    margin: 0 0 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--color-azul-marino);
 }
 
 .qr-datos {
     display: grid;
-    grid-template-columns: minmax(7rem, auto) 1fr;
-    gap: 0.375rem 0.75rem;
+    grid-template-columns: minmax(5.5rem, max-content) minmax(0, 1fr);
+    gap: 0.333rem 0.889rem;
     margin: 0;
     font-size: 0.9rem;
+    line-height: 1.35;
 }
 
 .qr-datos dt {
@@ -1259,25 +1319,107 @@ html:not([data-rol="desarrollador"]) [data-solo-desarrollador] {
     overflow-wrap: anywhere;
 }
 
-.qr-mercaderia-titulo {
-    margin: 1rem 0 0.375rem;
-    font-size: 0.95rem;
+.qr-tel {
+    color: var(--color-azul);
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+/* Total a cobrar, destacado */
+.qr-total {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.667rem;
+    margin-top: 0.556rem;
+    padding: 0.556rem 0.667rem;
+    border-radius: var(--radio);
+    background-color: var(--color-azul-claro);
+}
+
+.qr-total-texto {
+    flex: 1 1 100%;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-azul-marino);
+}
+
+.qr-total-monto {
+    font-size: 1.35rem;
+    color: var(--color-texto);
+}
+
+.qr-alerta {
+    margin: 0;
+    padding: 0.5rem 0.667rem;
+    border-left: 0.222rem solid var(--color-naranja);
+    border-radius: var(--radio);
+    background-color: var(--color-naranja-claro);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #B34A07;
+}
+
+.qr-notas {
+    margin: 0;
+    font-size: 0.9rem;
+    white-space: pre-line;
+    overflow-wrap: anywhere;
 }
 
 .qr-mercaderia {
-    margin: 0;
-    padding-left: 1.25rem;
+    width: 100%;
+    border-collapse: collapse;
     font-size: 0.85rem;
 }
 
+.qr-mercaderia th {
+    padding: 0 0.333rem 0.333rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: left;
+    color: var(--color-gris);
+    border-bottom: 1px solid var(--color-borde);
+}
+
+.qr-mercaderia td {
+    padding: 0.333rem;
+    vertical-align: top;
+    border-bottom: 1px solid var(--color-borde);
+}
+
+.qr-mercaderia tr:last-child td {
+    border-bottom: none;
+}
+
+.qr-mercaderia td small {
+    display: block;
+    color: var(--color-gris);
+}
+
+.qr-mercaderia .qr-num {
+    text-align: right;
+    white-space: nowrap;
+}
+
 @media (max-width: 600px) {
-    .qr-datos {
-        grid-template-columns: 1fr;
-        gap: 0.125rem;
+    .qr-pedido-cabeza,
+    .qr-pedido-cuerpo,
+    .qr-pedido-botones {
+        padding-left: 0.889rem;
+        padding-right: 0.889rem;
     }
 
-    .qr-datos dd {
-        margin-bottom: 0.375rem;
+    .qr-datos {
+        grid-template-columns: minmax(4.5rem, max-content) minmax(0, 1fr);
+        gap: 0.278rem 0.667rem;
+        font-size: 0.875rem;
+    }
+
+    .qr-pedido-botones .boton {
+        flex: 1 1 0;
+        justify-content: center;
     }
 }
 

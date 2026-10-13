@@ -22,7 +22,8 @@ Basada en el cierre de caja de SISCED. Aparece si el plan de la empresa incluye 
 4. **SINPE y tarjeta**: se marcan **Verificado** al verlos en el banco. Solo los verificados entran al cierre; los demás
    quedan para el siguiente.
 5. **Arqueo**: efectivo a entregar = **fondo + efectivo cobrado**. Se escribe el efectivo contado y se ve la diferencia en
-   vivo (*Cuadra exacto*, *Sobrante* o *Faltante*). Notas.
+   vivo (*Cuadra exacto*, *Sobrante* o *Faltante*). Notas: si hay faltante o sobrante el campo pasa a **"Motivo del
+   faltante / sobrante \*"** y no se puede cerrar sin escribirlo. Se ve en **Reportes → Cajas**.
 6. **Cerrar caja**: confirma un resumen y la base (`caja_cerrar`) hace todo o nada. Revisa quién cierra, toma los montos de
    los pedidos y viajes (no de la página), guarda el cierre (fondo, efectivo, SINPE, tarjeta, contado, diferencia, cantidad,
    notas, quién) y les pone `cierre_id`. Los cierres no se borran.

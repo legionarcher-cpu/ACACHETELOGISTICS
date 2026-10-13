@@ -5,6 +5,13 @@
 > detalle; exporta Excel y PDF. Las actividades de viajes no salen como pestañas de pedidos. **Exportaciones:** el
 > Excel y el PDF llevan el nombre de la empresa con la que se trabaja (`nombreEmpresaExportar`), los colores de su
 > paleta (`colorDeVariable`) y sus palabras (`textoExportar`, Pedido → Viaje), funciones de `js/componentes.js`.
+>
+> **Pestaña Cajas** (si alguna actividad cierra caja; no la ve el piloto; `#reportes?actividad=cajas`):
+> `montarReporteCajas` (arriba en `js/secciones/reportes.js`, clases `rep-caj-`). Lee `cierres_caja` con filtros de
+> fechas, tienda, piloto y resultado (faltante / sobrante / cuadra). Tarjetas: cierres, total cerrado, faltantes (con
+> cuántos **sin motivo**), sobrantes y cuadrados. Tabla con la diferencia en color y el **motivo** (notas del cierre).
+> Al tocar un cierre se abre su detalle: faltante o sobrante y su motivo, montos y los cobros incluidos (pedidos y
+> viajes con ese `cierre_id`). Excel. G2 y G3 ven solo los cierres de sus tiendas.
 
 | Archivo | Qué tiene |
 |---|---|

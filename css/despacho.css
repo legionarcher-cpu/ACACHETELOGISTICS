@@ -60,6 +60,24 @@
     cursor: pointer;
 }
 
+/* Fotos de la entrega (crearFotosEntrega: ventana "Entregado" de Pedidos y entrega por producto) */
+.entrega-fotos {
+    margin-top: 0.778rem;
+}
+
+.entrega-fotos .carga-tomar {
+    align-self: flex-start;
+}
+
+.entrega-fotos .form-error:empty {
+    display: none;
+}
+
+.entrega-fotos[hidden],
+#pedAccionFotosCaja[hidden] {
+    display: none;
+}
+
 /* ---------- Salida a ruta por slot (Inicio, Mi ruta) ---------- */
 .ini-salidas {
     display: flex;

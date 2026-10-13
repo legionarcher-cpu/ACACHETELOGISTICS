@@ -94,8 +94,15 @@ registrarSeccion('caja', (zona) => {
     function dibujarDiferencia() {
         const caja = $('#cajDiferencia');
         caja.className = 'caj-diferencia';
-        if (campoContado.value === '') { caja.textContent = '—'; return; }
+        const etiqueta = $('#cajNotasEtiqueta');
+        if (campoContado.value === '') {
+            caja.textContent = '—';
+            if (etiqueta) etiqueta.textContent = 'Notas';
+            return;
+        }
         const dif = cajRedondo(Number(campoContado.value) - totales().esperado);
+        // Si no cuadra, el motivo es obligatorio (se ve en Reportes -> Cajas)
+        if (etiqueta) etiqueta.textContent = dif === 0 ? 'Notas' : `Motivo del ${dif > 0 ? 'sobrante' : 'faltante'} *`;
         if (dif === 0) {
             caja.textContent = 'Cuadra exacto';
             caja.classList.add('caj-diferencia-ok');
@@ -365,6 +372,11 @@ registrarSeccion('caja', (zona) => {
         }
         const t = totales();
         const dif = cajRedondo(Number(campoContado.value) - t.esperado);
+        if (dif !== 0 && !$('#cajNotas').value.trim()) {
+            aviso.mostrar(`Hay un ${dif > 0 ? 'sobrante' : 'faltante'} de ${cajDinero(Math.abs(dif))}: escribe el motivo antes de cerrar.`, 'error');
+            $('#cajNotas').focus();
+            return;
+        }
         $('#cajConfirmarLista').replaceChildren(...[
             ['Fondo de caja', cajDinero(t.fondo)],
             ['Efectivo cobrado', `${cajDinero(t.efectivo)} (${plural(t.cantEfectivo, 'cobro', 'cobros')})`],
@@ -373,6 +385,7 @@ registrarSeccion('caja', (zona) => {
             ['Efectivo a entregar', cajDinero(t.esperado)],
             ['Efectivo contado', cajDinero(campoContado.value)],
             ['Diferencia', dif === 0 ? 'Cuadra exacto' : `${dif > 0 ? 'Sobrante' : 'Faltante'} de ${cajDinero(Math.abs(dif))}`],
+            ...(dif !== 0 ? [['Motivo', $('#cajNotas').value.trim()]] : []),
         ].map(([etiqueta, valor]) => {
             const li = document.createElement('li');
             const s = document.createElement('span');
