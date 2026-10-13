@@ -2,18 +2,22 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
-## 2026-10-13 · Tiendas: la región es opcional
+## 2026-10-13 · Tiendas: región opcional · usuarios sin región
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 31** (=
 `sql/por_funcion/01_actualizacion_9_tiendas_region_opcional.sql`; instalación nueva: `sql/00`, sección 24).
 
 - Una tienda se crea **sin región** ("Sin región" en el formulario; código sugerido `SUC-001`). En la lista va
-  en el grupo "Sin región" y el filtro tiene esa opción.
-- Sus usuarios (G3, Empleado, Piloto) no llevan prefijo (`jperez01`). Poner o quitar la región los renombra
-  (`cambiar_region_tienda` acepta vacío/null).
-- La ven el Administrador y el Admin G1 (el G2 solo ve su región). Los pilotos multitienda de otra tienda no
-  se le ofrecen (se cruzan por región).
-- `VERSION_APP` = `20261013c`.
+  en el grupo "Sin región" y el filtro tiene esa opción. La ven el Administrador y el Admin G1 (el G2 solo ve
+  su región). Los pilotos multitienda de otra tienda no se le ofrecen (se cruzan por región).
+- **Los usuarios ya no llevan la región:** todos los roles son nombre + ID de la empresa (`jperez01`).
+  Cambiar, poner o quitar la región de una tienda no toca a los usuarios.
+- ⚠ Al ejecutar el bloque 31, los usuarios de tienda que ya existían se renombran **una sola vez**
+  (`cenjperez01` → `jperez01`; si dos quedarían iguales, el segundo queda `jperez201`). Marca
+  `usuarios_sin_region` en `configuracion`; el bloque 17 ya no les vuelve a poner la región. **Avisar a cada
+  uno su usuario nuevo** (la clave no cambia).
+- `cambiar_codigo_empresa` solo cambia el ID del final.
+- `VERSION_APP` = `20261013d`.
 
 ## 2026-10-13 · Caja de pilotos como parte de cada actividad · versión de los archivos
 

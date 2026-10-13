@@ -31,9 +31,8 @@ const DURACION_SALIDA_LOGIN = 250;
 // - El id_usuario NO distingue mayúsculas ("Admin" = "admin"): la página
 //   de usuarios lo guarda siempre en minúsculas y aquí se compara igual.
 // - Un usuario con aprobado = false (creado por un Admin G3) no puede entrar.
-// - Todos llevan al final el ID de su empresa (sql/01 bloques 16 y 17):
-//   Admin G3, empleados y pilotos: región + usuario + empresa (ej. cenjperez01);
-//   Administrador, Admin G1 y Admin G2: usuario + empresa (ej. jlopez01).
+// - Todos llevan al final el ID de su empresa (sql/01 bloques 16 y 31):
+//   usuario + empresa (ej. jlopez01), en todos los roles (sin tienda ni región).
 //   "admin" y "desar" no cambian.
 // - La clave SÍ distingue mayúsculas.
 //

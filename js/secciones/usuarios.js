@@ -19,8 +19,8 @@
      administrador -> sin tienda. Usuario: "jperez01" ("admin" no cambia)
      admin_g1      -> sin tienda (todo el país). Usuario: "jlopez01"
      admin_g2      -> sin tienda, con REGIÓN. Usuario: "mruiz01"
-     admin_g3      -> con tienda (admin local). Usuario compuesto: "cenmlopez01"
-     empleado      -> con tienda. Usuario compuesto: "cenjperez01"
+     admin_g3      -> con tienda (admin local). Usuario: "mlopez01"
+     empleado      -> con tienda. Usuario: "jperez01"
      piloto        -> con tienda. Usuario compuesto: "cenlgarcia01"
 
    Empresa: cada usuario es de UNA empresa y solo ve los de su empresa (filtro de
@@ -49,9 +49,9 @@
      aprueban; al aprobar/rechazar se avisa al Admin G3 que lo creó.
      ⚠ Lo controla la página; la regla real llega en la Fase 7.
 
-   Usuario compuesto: en el formulario se escribe solo "jperez"; el prefijo
-   de la región de su tienda ("cen", sin el número de la tienda) y el ID de la empresa ("01") los agrega este archivo
-   al guardar (usuarioCompuesto, js/componentes.js).
+   Usuario compuesto: en el formulario se escribe solo "jperez"; el ID de la
+   empresa ("01") lo agrega este archivo al guardar (usuarioCompuesto, js/componentes.js).
+   No lleva la región ni la tienda (sql/01 bloque 31): cambiar de tienda o de región no lo cambia.
    La lista de tiendas se lee de la tabla "tiendas" (solo lectura aquí).
 
    Reglas:
@@ -107,7 +107,7 @@ const USR_COLOR_ROL = {
     piloto: 'etiqueta-verde',
 };
 
-// Roles que NO llevan tienda (usuario sin prefijo de tienda: "jperez01")
+// Roles que NO llevan tienda
 const USR_ROLES_SIN_TIENDA = ['administrador', 'admin_g1', 'admin_g2'];
 
 // Roles a los que el Desarrollador les elige la empresa (los demás la toman de su tienda o región)
@@ -631,19 +631,13 @@ registrarSeccion('usuarios', (zona) => {
     });
 
     // ==================================================
-    // USUARIO COMPUESTO (prefijo de tienda + ID de la empresa al final)
-    // prefijoUsuario, usuarioCompuesto y usuarioSinPrefijo: js/componentes.js
+    // USUARIO COMPUESTO (nombre + ID de la empresa al final; sin región, sql/01 bloque 31)
+    // usuarioCompuesto y usuarioSinPrefijo: js/componentes.js
     // ==================================================
 
-    // Región de la tienda: "CEN" -> "cen" (el código de la tienda ya no la lleva, sql/01 bloque 28)
-    function prefijoDeTienda(tiendaId) {
-        const tienda = tiendas.find((t) => t.id === Number(tiendaId));
-        return tienda ? prefijoUsuario(tienda.region) : '';
-    }
-
-    // Quita la tienda y el ID de la empresa para mostrar solo "jperez" en el formulario
+    // Quita el ID de la empresa para mostrar solo "jperez" en el formulario
     // (la lista es de la empresa activa: su ID es el de la sesión)
-    const quitarPrefijo = (u) => usuarioSinPrefijo(u.id_usuario, claveTiendaUsuario(u.tiendas));
+    const quitarPrefijo = (u) => usuarioSinPrefijo(u.id_usuario);
 
     // ¿El rol elegido en el formulario va sin tienda? (Administrador / Admin G1 / Admin G2)
     const rolSinTienda = () => USR_ROLES_SIN_TIENDA.includes(campos.rol.value);
@@ -658,19 +652,18 @@ registrarSeccion('usuarios', (zona) => {
     }
 
     // Usuario final que se guarda (y con el que se inicia sesión):
-    //   Administrador / G1 / G2 -> "jperez" + "01"  |  tienda -> "cen" + "jperez" + "01"
+    //   todos los roles -> "jperez" + "01" (la tienda y la región no van en el usuario)
     function usuarioDelFormulario() {
         // Usuarios protegidos: no cambian de nombre
         if (usuarioEditando && ['admin', 'desar'].includes(usuarioEditando.id_usuario)) return usuarioEditando.id_usuario;
         const base = campos.id_usuario.value.trim().toLowerCase();
-        const tienda = rolSinTienda() ? null : (tiendas.find((t) => t.id === Number(campos.tienda.value)) || {}).region;
-        return usuarioCompuesto(base, tienda || null, codigoEmpresa(empresaDelUsuario()));
+        return usuarioCompuesto(base, null, codigoEmpresa(empresaDelUsuario()));
     }
 
     // Ajusta el formulario al rol elegido:
     //   Administrador / Admin G1 -> sin tienda (desactivada); el Desarrollador elige la empresa
     //   Admin G2                 -> "Región" en lugar de "Tienda"
-    //   Empleado / Piloto        -> tienda obligatoria y prefijo de su región "cen"
+    //   Empleado / Piloto        -> tienda obligatoria
     //   Todos: el ID de la empresa al final ("01")
     function ajustarSegunRol() {
         const sinTienda = rolSinTienda();
@@ -747,7 +740,7 @@ registrarSeccion('usuarios', (zona) => {
 
     function actualizarVistaPrevia() {
         const protegido = usuarioEditando && ['admin', 'desar'].includes(usuarioEditando.id_usuario);
-        prefijo.textContent = protegido || rolSinTienda() ? '' : (prefijoDeTienda(campos.tienda.value) || 'región');
+        prefijo.textContent = ''; // sin prefijo de región (sql/01 bloque 31)
         sufijo.textContent = protegido ? '' : codigoEmpresa(empresaDelUsuario());
         vistaPrevia.textContent = campos.id_usuario.value.trim() ? usuarioDelFormulario() : '—';
     }

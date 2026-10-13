@@ -114,7 +114,7 @@ de sus entregas; la guardan Administrador y G1 desde el formulario de Pedidos; s
 |---|---|
 | `id` | Número interno |
 | `nombre`, `telefono` | Datos de la persona |
-| `id_usuario` | Con lo que inicia sesión (único, minúsculas). Lleva el ID de la empresa al final: `cenjperez01` (G3/Empleado/Piloto: región + nombre, sin la tienda), `jperez01` (Administrador/G1/G2) |
+| `id_usuario` | Con lo que inicia sesión (único, minúsculas). Nombre + ID de la empresa al final: `jperez01`, en todos los roles (sin tienda ni región desde el bloque 31) |
 | `empresa_id` | Su empresa interna (null solo el Desarrollador) |
 | `clave` | Contraseña **cifrada** (bcrypt, bloque 20): la cifra la base sola (`cifrar_clave`), el login la compara con `iniciar_sesion` y la página no puede leerla (`usuarios_ocultar_clave()`: volver a ejecutarla si se agrega una columna a `usuarios`). ⚠ Desde la página, leer `usuarios` siempre con columnas (`usuarios(id)`), nunca `usuarios(count)` ni `select('*')`: dan "permission denied for table usuarios" |
 | `rol` | `administrador`, `admin_g1`, `admin_g2`, `admin_g3`, `empleado`, `piloto`, `cliente` (bloque 19) |

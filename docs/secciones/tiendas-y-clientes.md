@@ -26,14 +26,13 @@ Desarrollador, ver [empresas-internas.md](empresas-internas.md)). Todo es de la 
   (ej. `NOR-004`, `SUC-CENTRO`, `25`). Al elegir la región se sugiere `REGIÓN-siguiente número`, pero se puede
   cambiar por cualquier otro.
 - **La región es opcional** (sql/01 bloque 31): una tienda "Sin región" va en su propio grupo al final, se
-  sugiere `SUC-001` y sus usuarios no llevan prefijo (`jperez01`). Solo la ven el Administrador y el Admin G1.
+  sugiere `SUC-001`. Solo la ven el Administrador y el Admin G1.
 - **Tiene rutas** (`tiendas.usa_rutas`): si la tienda envía pedidos. Sin rutas no aparece para crear pedidos,
   rutas, cotizaciones ni bodegas del día (`tiendasSinRutas()` en `js/componentes.js`); sus pedidos viejos se
   siguen viendo.
-- **Modificar:** todo. Cambiar el **código** no toca a los usuarios (`cambiar_codigo_tienda`). Los usuarios de
-  G3, Empleado y Piloto llevan la **región** (`cenjperez01`): si cambia la región se renombran solos
-  (`cenjperez01` → `norjperez01`, o `jperez01` si se quita) con `cambiar_region_tienda` (la ventana avisa). Solo el Administrador cambia
-  código y región.
+- **Modificar:** todo. Ni el **código** (`cambiar_codigo_tienda`) ni la **región** (`cambiar_region_tienda`,
+  también para quitarla) tocan a los usuarios: su usuario no lleva la tienda ni la región (`jperez01`, sql/01
+  bloque 31). Solo el Administrador cambia código y región.
 - **Eliminar:** solo si no tiene usuarios (si no, marcarla "Inactiva").
 - **Regiones** (botón, Administrador y Admin G1): crear (código de 3 letras + nombre), renombrar y eliminar
   (si no tiene tiendas). Son de la empresa activa; el código no se repite entre empresas.

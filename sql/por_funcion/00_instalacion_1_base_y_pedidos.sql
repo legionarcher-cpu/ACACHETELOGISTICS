@@ -31,7 +31,7 @@
 --   21. Tiendas: código libre (no depende de la región) y con o sin rutas
 --   22. Despacho: carga con evidencia por pedido y salida a ruta por slot
 --   23. Caja de pilotos como parte de cada actividad
---   24. Tiendas: la región es opcional
+--   24. Tiendas: la región es opcional y los usuarios no llevan la región
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:

@@ -93,9 +93,8 @@
 
         <div class="campos">
             <!-- Región y código van APARTE (sql/01 bloque 28): el código es libre (letras, números
-                 y guion) y no depende de la región. Si el administrador cambia la REGIÓN de una
-                 tienda existente, sus usuarios se renombran solos (cenjperez01 -> norjperez01);
-                 cambiar solo el código no los toca. La región es opcional (sql/01 bloque 31). -->
+                 y guion) y no depende de la región. La región es opcional y cambiarla no toca a
+                 los usuarios: no la llevan en su nombre (sql/01 bloque 31). -->
             <div class="campo">
                 <label for="tndRegion" class="campo-etiqueta">Región</label>
                 <select id="tndRegion" class="campo-input"></select>
@@ -159,13 +158,13 @@
 
 <!-- ==================================================
      VENTANA: REGIONES DE LA EMPRESA
-     Cada empresa tiene sus regiones (sql/01 bloque 16). El código (3 letras) va al inicio
-     del usuario de G3, Empleado y Piloto (cenjperez01) y no se repite entre empresas.
-     El código de la tienda ya no depende de la región (sql/01 bloque 28).
+     Cada empresa tiene sus regiones (sql/01 bloque 16). El código (3 letras) no se repite
+     entre empresas. El código de la tienda ya no depende de la región (sql/01 bloque 28) y
+     los usuarios no la llevan (sql/01 bloque 31).
      ================================================== -->
 <dialog id="tndRegDialogo" class="dialogo" aria-labelledby="tndRegTitulo">
     <h3 id="tndRegTitulo" class="dialogo-titulo">Regiones</h3>
-    <p class="dialogo-texto">Agrupan las tiendas. El código de 3 letras va al inicio del usuario de quienes trabajan en ellas (ej. cenjperez01).</p>
+    <p class="dialogo-texto">Agrupan las tiendas (una tienda también puede quedar sin región). El código es de 3 letras.</p>
     <div class="tabla-caja">
         <table class="tabla">
             <thead>

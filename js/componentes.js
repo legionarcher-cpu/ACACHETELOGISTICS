@@ -267,13 +267,12 @@ function plural(cantidad, singular, pluralTexto) {
     return `${cantidad} ${cantidad === 1 ? singular : pluralTexto}`;
 }
 
-// ---------- Usuario con el ID de la empresa (sql/01 bloques 16 y 17) ----------
-// Todos los usuarios llevan al final el ID de su empresa ("01"), sin guiones:
-//   G3, Empleado y Piloto:   región + nombre + empresa -> "cen" + "jperez" + "01" = "cenjperez01"
-//   Administrador, G1 y G2:  nombre + empresa          -> "jperez" + "01"        = "jperez01"
-// No lleva el número de la tienda: si cambia de sucursal en la misma región (o es
-// multisucursal) su usuario no cambia. "admin" y "desar" no cambian.
-// Lo usan Usuarios y Tiendas. usuarioSinPrefijo acepta todos los formatos.
+// ---------- Usuario con el ID de la empresa (sql/01 bloques 16, 17 y 31) ----------
+// Todos los usuarios (cualquier rol): nombre + ID de su empresa, sin guiones:
+//   "jperez" + "01" = "jperez01"
+// No llevan la tienda ni la región (bloque 31): cambiar de tienda o de región no los
+// cambia. "admin" y "desar" no cambian. usuarioSinPrefijo acepta los formatos viejos
+// (cenjperez01, cen-001-jperez) si se le pasa la tienda.
 function codigoEmpresa(empresa = null) {
     const e = empresa || (typeof empresaActual === 'function' ? empresaActual() : null);
     return e && e.codigo ? String(e.codigo) : '';
@@ -295,8 +294,7 @@ function claveTiendaUsuario(tienda) {
     return String(tienda.codigo || '').toUpperCase().startsWith(region) && region ? tienda.codigo : tienda.region;
 }
 
-// ("jperez", "CEN", "01") -> "cenjperez01" · ("jperez", null, "01") -> "jperez01"
-// (el segundo dato es la REGIÓN de la tienda)
+// ("jperez", null, "01") -> "jperez01" (el segundo dato, la región, ya no se usa: va null)
 function usuarioCompuesto(base, region = null, codigo = codigoEmpresa()) {
     return prefijoUsuario(region) + String(base || '') + (codigo || '');
 }

@@ -391,6 +391,10 @@ declare
     r     record;
     v_id  text;
 begin
+    -- Desde el bloque 31 los usuarios ya no llevan la región: si ya se quitó, no se vuelve a poner
+    if exists (select 1 from public.configuracion where clave = 'usuarios_sin_region') then
+        return;
+    end if;
     -- El usuario lleva la REGIÓN de la tienda (bloque 28: el código de la tienda ya no la lleva).
     -- Para reconocer los formatos viejos se usa el código si empieza con la región.
     for r in select u.id, u.id_usuario, t.region,

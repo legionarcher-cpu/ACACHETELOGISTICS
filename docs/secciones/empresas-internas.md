@@ -26,19 +26,19 @@ que `empresas/empresas.js`, que es otra cosa); un enlace viejo a `#empresas` abr
 
 | Rol | Usuario | Ejemplo (empresa `01`) |
 |---|---|---|
-| Administrador, Admin G1, Admin G2 | nombre + ID | `jperez01` |
-| Admin G3, Empleado, Piloto | región de su tienda + nombre + ID (**sin el número de la tienda**) | `cenjperez01` |
+| Todos los roles | nombre + ID (**sin tienda ni región**, sql/01 bloque 31) | `jperez01` |
 | `admin`, `desar` | no cambian | — |
 
 - **Cambiar el ID renombra a todos los usuarios de la empresa** (función `cambiar_codigo_empresa`, todo o
   nada; la ventana avisa cuántos). Si alguno quedaría repetido, no cambia nada.
 - Al ejecutar el bloque 16 por primera vez, los usuarios que ya existían se renombraron **una sola vez**
   (`cen-001-jperez` → `cenjperez01`, `jlopez` → `jlopez01`). El bloque 17 convierte a los que quedaron con
-  la tienda (`cen001jperez01` → `cenjperez01`). ⚠ Avisarles su usuario nuevo.
-- **Sin la tienda** a propósito: el usuario ya está ligado a su empresa, tienda y región; si cambia de sucursal
-  dentro de la región, o es multisucursal, su usuario **no cambia**. Solo cambia si su tienda pasa a otra región.
-- Si dos personas quedarían con el mismo usuario (dos "jperez" de tiendas de la misma región), la base le
-  agrega un número al segundo al renombrar (`cenjperez201`, función `usuario_libre`); al crear uno a mano,
+  la tienda (`cen001jperez01` → `cenjperez01`). El bloque 31 les quita la región, una sola vez
+  (`cenjperez01` → `jperez01`). ⚠ Avisarles su usuario nuevo.
+- **Sin tienda ni región** a propósito: el usuario ya está ligado a su empresa, tienda y región en la base; si
+  cambia de sucursal o de región, o es multisucursal, su usuario **no cambia**.
+- Si dos personas quedarían con el mismo usuario (dos "jperez" de la misma empresa), la base le
+  agrega un número al segundo al renombrar (`jperez201`, función `usuario_libre`); al crear uno a mano,
   la página avisa que ya existe.
 
 ## Qué separa cada empresa
@@ -107,7 +107,6 @@ empresa: entra con la primera activa y la cambia en el **menú del usuario** (se
 
 ## Reglas
 
-- Los **códigos de región y de tienda** siguen siendo únicos en todo el sistema (el usuario `cenjperez01`
-  lleva la región de su tienda). El correo de un cliente, el nombre de una categoría y la tarifa de un lugar
+- Los **códigos de región y de tienda** siguen siendo únicos en todo el sistema. El correo de un cliente, el nombre de una categoría y la tarifa de un lugar
   no se repiten **dentro** de cada empresa.
 - **Regiones**: ahora se administran en Tiendas → botón **Regiones** (Administrador y Admin G1).

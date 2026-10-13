@@ -67,7 +67,7 @@
 --  28. Tiendas: código libre (no depende de la región) y tiendas con o sin rutas.
 --  29. Despacho: carga con evidencia por pedido y salida a ruta por slot ("No salió a ruta").
 --  30. Caja de pilotos como parte de cada actividad (actividades.usa_caja).
---  31. Tiendas: la región es opcional (tiendas sin región; sus usuarios sin prefijo).
+--  31. Tiendas: la región es opcional y los usuarios ya no llevan la región (jperez01).
 -- ==================================================
 
 

@@ -8,14 +8,14 @@
 | `administrador` | Controla todo en **su empresa** | Ninguna | `admin` / `jperez01` |
 | `admin_g1` | Administración de todo el país (de su empresa) | Ninguna | `jlopez01` |
 | `admin_g2` | Administración de **una región** | Región | `mruiz01` |
-| `admin_g3` | Administrador local de **una tienda** | Tienda | `cenmlopez01` |
-| `empleado` | Usuario de una tienda: registra y sigue pedidos | Tienda | `cenjperez01` |
-| `piloto` | Conductor: entrega sus pedidos; en Transporte, hace sus viajes | Tienda (base) | `cenlgarcia01` |
+| `admin_g3` | Administrador local de **una tienda** | Tienda | `mlopez01` |
+| `empleado` | Usuario de una tienda: registra y sigue pedidos | Tienda | `jperez01` |
+| `piloto` | Conductor: entrega sus pedidos; en Transporte, hace sus viajes | Tienda (base) | `lgarcia01` |
 | `cliente` | Cliente con usuario (solo empresas que hacen viajes): solicita y sigue SUS viajes. Se crea en Clientes → "Acceso y lugares"; no aparece en Usuarios | Ninguna (su cliente: `usuarios.cliente_id`) | `mramirez01` |
 
 Cada usuario es de **una empresa interna** y todo lo que ve es de esa empresa (ver
-[secciones/empresas-internas.md](secciones/empresas-internas.md)). El ID de la empresa va al final del usuario. Los de tienda llevan la **región** de su tienda,
-no la tienda: cambiar de sucursal en la región no cambia su usuario.
+[secciones/empresas-internas.md](secciones/empresas-internas.md)). El ID de la empresa va al final del usuario. El usuario **no lleva la tienda ni la región**
+(sql/01 bloque 31): cambiar de sucursal o de región no lo cambia.
 
 ## Jerarquía de lo que se ve (en todas las secciones)
 

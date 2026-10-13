@@ -8,8 +8,8 @@
    Guía: docs/secciones/empresas-internas.md. Tabla empresas (sql/01 bloques 16 y 21).
    - Lista todas las empresas con cuántas regiones, tiendas y usuarios tiene cada
      una (db.fromTodas: sin el filtro de empresa de js/supabase.js).
-   - Nueva / Modificar: ID (2 números, va al final de sus usuarios: jperez01,
-     cenjperez01; al cambiarlo se renombran todos sus usuarios con la función
+   - Nueva / Modificar: ID (2 números, va al final de sus usuarios: jperez01;
+     al cambiarlo se renombran todos sus usuarios con la función
      cambiar_codigo_empresa), nombre, actividades (entregas de tienda, encomiendas
      o las dos) y estado. Al crear se puede copiar la configuración de pedidos de
      la empresa activa. #empresas-internas?nuevo=1 (tarjeta de Configuración) abre "Nueva".
@@ -201,7 +201,7 @@ registrarSeccion('empresas-internas', (zona) => {
     function pintarCodigo() {
         const c = $('#empCodigo').value.trim();
         const ok = /^[0-9]{2}$/.test(c);
-        $('#empCodigoEjemplo').textContent = ok ? `jperez${c} · cenjperez${c}` : 'jperez02 · cenjperez02';
+        $('#empCodigoEjemplo').textContent = ok ? `jperez${c}` : 'jperez02';
         const avisoCodigo = $('#empCodigoAviso');
         const usuarios = editando ? cuentas.usuarios[editando.id] || 0 : 0;
         avisoCodigo.hidden = !(editando && ok && c !== editando.codigo && usuarios);

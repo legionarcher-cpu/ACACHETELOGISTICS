@@ -4,7 +4,7 @@
      Guía: docs/secciones/empresas-internas.md. Tabla empresas (sql/01 bloques 16 y 21).
 
      Cada empresa tiene un ID de 2 números ("01", "02"...) que va al final de
-     sus usuarios (jperez01, cenjperez01), sus actividades (entregas de
+     sus usuarios (jperez01), sus actividades (entregas de
      tienda, encomiendas o las dos) y sus propias regiones, tiendas, usuarios,
      clientes, rutas, vehículos, pedidos, mercadería, tarifas y descuentos.
      "Nueva empresa" también se abre desde Configuración.
@@ -80,12 +80,12 @@
     <form id="empForm" class="dialogo-form" novalidate>
         <h3 id="empDialogoTitulo" class="dialogo-titulo">Nueva empresa</h3>
         <div class="campos">
-            <!-- ID: 2 números. Va al final de sus usuarios: jperez01 / cenjperez01 -->
+            <!-- ID: 2 números. Va al final de sus usuarios: jperez01 -->
             <div class="campo">
                 <label for="empCodigo" class="campo-etiqueta">ID de la empresa *</label>
                 <input id="empCodigo" type="text" class="campo-input emp-codigo" maxlength="2" inputmode="numeric"
                        autocomplete="off" placeholder="02">
-                <small class="campo-ayuda">2 números. Sus usuarios: <strong id="empCodigoEjemplo">jperez02 · cenjperez02</strong></small>
+                <small class="campo-ayuda">2 números. Sus usuarios: <strong id="empCodigoEjemplo">jperez02</strong></small>
             </div>
 
             <div class="campo">

@@ -23,12 +23,11 @@ En el formulario se escribe `jperez`; al guardar se agrega:
 
 | Rol | Se guarda | Ejemplo (empresa `01`) |
 |---|---|---|
-| Administrador, G1, G2 | nombre + ID de la empresa | `jperez01` |
-| G3, Empleado, Piloto | región de su tienda + nombre + ID (sin la tienda) | `cenjperez01` |
+| Todos (Administrador, G1, G2, G3, Empleado, Piloto) | nombre + ID de la empresa | `jperez01` |
 
-Sin el número de la tienda: si cambia de sucursal dentro de la región, o es multisucursal, su usuario no
-cambia. Dos "jperez" en la misma región chocan: al segundo se le pone otro nombre (ej. `jperez2` →
-`cenjperez201`); la página avisa "Ese usuario ya existe".
+Sin la tienda ni la región (sql/01 bloque 31): si cambia de sucursal o de región, o es multisucursal, su
+usuario no cambia. Dos "jperez" en la misma empresa chocan: al segundo se le pone otro nombre (ej. `jperez2` →
+`jperez201`); la página avisa "Ese usuario ya existe".
 
 El campo muestra el prefijo de la tienda en gris y el ID de la empresa al final; abajo, "Inicia sesión
 como". Siempre en minúsculas y sin espacios. `admin` y `desar` no cambian.

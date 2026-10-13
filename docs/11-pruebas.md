@@ -230,7 +230,7 @@ si se tocó Pedidos o Inicio). Tener la consola abierta (F12): no debe aparecer 
       (sin tipo no guarda) y el vehículo aparece con su tipo en Configuración → Vehículos.
 - [ ] Cambiar de tienda a un piloto: asignaciones y pedidos pendientes liberados, aviso al G2.
 - [ ] El usuario `admin` no se puede eliminar ni cambiar de rol.
-- [ ] Crear un Empleado: el campo muestra `cen` + nombre + `01` y "Inicia sesión como cenjperez01";
+- [ ] Crear un Empleado: el campo muestra nombre + `01` (sin región) y "Inicia sesión como jperez01";
       modificarlo muestra solo `jperez` en el campo.
 
 ## Reportes

@@ -4,7 +4,7 @@
      permite crearlos, modificarlos y eliminarlos.
      Roles: Administrador y Admin G1 (sin tienda, usuario simple),
      Admin G2 (con región, usuario simple),
-     Empleado y Piloto (con tienda y usuario compuesto, ej. cenjperez01: región + nombre + empresa, sin la tienda).
+     Empleado y Piloto (con tienda; usuario nombre + empresa, ej. jperez01, sin tienda ni región).
      Todos llevan al final el ID de su empresa (jperez01); el Desarrollador elige
      la empresa por su ID al crear un Administrador o Admin G1.
      Administrador gestiona a todos; Admin G1 solo Empleados y Pilotos;
@@ -198,8 +198,8 @@
                 </label>
             </div>
 
-            <!-- Usuario: se escribe solo el nombre; la región de la tienda (ej. "cen")
-                 y el ID de la empresa al final (ej. "01") los agrega el sistema -->
+            <!-- Usuario: se escribe solo el nombre; el ID de la empresa al final (ej. "01")
+                 lo agrega el sistema. No lleva la región (sql/01 bloque 31). -->
             <div class="campo">
                 <label for="usrIdUsuario" class="campo-etiqueta">Usuario *</label>
                 <div class="campo-input usr-input-compuesto">

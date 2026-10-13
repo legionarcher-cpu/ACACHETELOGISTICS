@@ -10,10 +10,9 @@
                   Al elegir la región se sugiere un código (REGIÓN-número libre).
                   "Tiene rutas" (usa_rutas): si envía pedidos; sin rutas no aparece
                   para crear pedidos, rutas ni bodegas del día.
-     - Modificar: lápiz -> todo. Cambiar el código no toca a los usuarios
-                  (cambiar_codigo_tienda). Cambiar la REGIÓN renombra a sus usuarios
-                  (cenjperez01 -> norjperez01; llevan la región) con
-                  cambiar_region_tienda.
+     - Modificar: lápiz -> todo. Ni el código (cambiar_codigo_tienda) ni la
+                  región (cambiar_region_tienda; opcional) tocan a los usuarios:
+                  su usuario no lleva la tienda ni la región (sql/01 bloque 31).
      - Eliminar:  basurero -> confirmación. Solo si NO tiene usuarios
                   (primero hay que moverlos a otra tienda desde Usuarios).
 
@@ -340,20 +339,9 @@ registrarSeccion('tiendas', (zona) => {
         return siguiente > 999 ? '' : `${region}-${String(siguiente).padStart(3, '0')}`;
     }
 
-    // Si se está cambiando la REGIÓN de una tienda con usuarios: advertencia de que se renombran
+    // Los usuarios no llevan la región (sql/01 bloque 31): cambiarla no los toca y no hay nada que advertir
     function actualizarVistaPrevia() {
-        const usuariosTienda = editando ? cantidadUsuarios(editando) : 0;
-        const region = campos.region.value || null;
-        const cambia = editando && region !== (editando.region || null);
-        avisoCodigo.hidden = !(cambia && usuariosTienda > 0);
-        if (!avisoCodigo.hidden) {
-            // Sin región el usuario no lleva prefijo (jperez01)
-            const prefijo = (r) => (r ? `${prefijoUsuario(r)}…` : 'sin prefijo de región');
-            avisoCodigo.textContent =
-                `Al guardar, ${usuariosTienda === 1 ? 'el usuario' : `los ${usuariosTienda} usuarios`} de esta tienda cambiará` +
-                `${usuariosTienda === 1 ? '' : 'n'} de ${prefijo(editando.region)} a ${prefijo(region)} ` +
-                `y deberá${usuariosTienda === 1 ? '' : 'n'} iniciar sesión con el usuario nuevo.`;
-        }
+        avisoCodigo.hidden = true;
     }
 
     // Al crear: al elegir la región se sugiere un código (si no se escribió uno a mano)
@@ -455,7 +443,7 @@ registrarSeccion('tiendas', (zona) => {
     }
 
     // Guarda: crea la tienda, o la modifica. El código y la región se cambian con sus
-    // funciones (la región renombra a los usuarios de la tienda); luego el resto.
+    // funciones (no tocan a los usuarios); luego el resto.
     async function guardar(datos) {
         if (!editando) {
             return db.from('tiendas').insert(datos);
@@ -466,7 +454,7 @@ registrarSeccion('tiendas', (zona) => {
             const { error } = await db.rpc('cambiar_codigo_tienda', { p_tienda_id: editando.id, p_nuevo_codigo: datos.codigo });
             if (error) return { error };
         }
-        // 2. Región (renombra a sus usuarios: llevan la región)
+        // 2. Región (puede quedar vacía)
         if (datos.region !== (editando.region || null)) {
             const { error } = await db.rpc('cambiar_region_tienda', { p_tienda_id: editando.id, p_region: datos.region });
             if (error) return { error };
@@ -509,12 +497,10 @@ registrarSeccion('tiendas', (zona) => {
         // Mensaje según lo que se hizo
         let mensaje = `Tienda ${datos.codigo} creada.`;
         if (editando) {
-            const usuariosTienda = cantidadUsuarios(editando);
             const partes = [];
             if (datos.codigo !== editando.codigo) partes.push(`Tienda ${editando.codigo} ahora es ${datos.codigo}.`);
             if (datos.region !== (editando.region || null)) {
-                partes.push((datos.region ? `Ahora es de la región ${nombreRegion(datos.region)}.` : 'Ahora no tiene región.') +
-                    (usuariosTienda ? ` ${plural(usuariosTienda, 'usuario renombrado', 'usuarios renombrados')}.` : ''));
+                partes.push(datos.region ? `Ahora es de la región ${nombreRegion(datos.region)}.` : 'Ahora no tiene región.');
             }
             mensaje = partes.join(' ') || `Tienda "${datos.nombre}" actualizada.`;
         }
