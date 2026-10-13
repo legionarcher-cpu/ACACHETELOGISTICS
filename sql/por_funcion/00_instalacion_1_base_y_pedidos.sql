@@ -1,4 +1,4 @@
--- 1 de 9 · sql/00_instalacion_completa.sql · Regiones, tiendas, vehículos, usuarios, clientes, configuración, horarios, actividades, rutas, pedidos (secciones 1 a 9).
+-- 1 de 10 · sql/00_instalacion_completa.sql · Regiones, tiendas, vehículos, usuarios, clientes, configuración, horarios, actividades, rutas, pedidos (secciones 1 a 9).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -31,6 +31,7 @@
 --   21. Tiendas: código libre (no depende de la región) y con o sin rutas
 --   22. Despacho: carga con evidencia por pedido y salida a ruta por slot
 --   23. Caja de pilotos como parte de cada actividad
+--   24. Tiendas: la región es opcional
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:

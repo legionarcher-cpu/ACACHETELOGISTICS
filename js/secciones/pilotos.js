@@ -54,7 +54,7 @@ registrarSeccion('pilotos', (zona) => {
     let pilotos = [];   // lista traída de la base de datos
     let regiones = [];  // [{ codigo: 'NOR', nombre: 'Norte' }, ...]
 
-    const nombreRegion = (codigo) => (regiones.find((r) => r.codigo === codigo) || {}).nombre || codigo;
+    const nombreRegion = (codigo) => (codigo ? (regiones.find((r) => r.codigo === codigo) || {}).nombre || codigo : 'Sin región');
 
     // Textos de cada piloto
     const regionDe   = (p) => (p.tiendas ? p.tiendas.region : null);

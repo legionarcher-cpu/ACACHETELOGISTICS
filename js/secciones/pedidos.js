@@ -322,7 +322,7 @@ registrarSeccion('pedidos', (zona) => {
         // (el Piloto no necesita la lista)
         if (!esPiloto && tiendas.length) {
             const ids = tiendas.map((t) => t.id);
-            const regiones = new Set(tiendas.map((t) => t.region));
+            const regiones = new Set(tiendas.map((t) => t.region).filter(Boolean)); // tienda sin región: solo sus pilotos
             const columnas = 'id, nombre, id_usuario, tienda_id, tiendas(region)';
             let pil = await db.from('usuarios').select(`${columnas}, multitienda`).eq('rol', 'piloto').eq('aprobado', true)
                 .or(`tienda_id.in.(${ids.join(',')}),multitienda.eq.true`).order('nombre');
@@ -470,7 +470,7 @@ registrarSeccion('pedidos', (zona) => {
         select.replaceChildren(new Option(rutas.length ? 'Automático (el de la ruta)' : 'Sin piloto (se asigna después)', ''));
         // Los de la tienda + los multitienda de la misma región
         const region = (tiendaPorId(tiendaId) || {}).region;
-        pilotos.filter((p) => p.tienda_id === tiendaId || (p.multitienda && p.tiendas && p.tiendas.region === region))
+        pilotos.filter((p) => p.tienda_id === tiendaId || (region && p.multitienda && p.tiendas && p.tiendas.region === region))
             .forEach((p) => select.appendChild(new Option(
                 `${p.nombre} (${p.id_usuario})${p.tienda_id !== tiendaId ? ' · multitienda' : ''}${deRuta.includes(p.id) ? ' · de la ruta' : ''}`, p.id)));
         select.value = actual == null ? '' : String(actual);

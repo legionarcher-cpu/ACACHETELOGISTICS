@@ -248,7 +248,7 @@ registrarSeccion('rutas', (zona) => {
         }
         if (r.error) return r;
         return {
-            data: r.data.filter((p) => p.tienda_id === tiendaId || (p.multitienda && p.tiendas && p.tiendas.region === region)),
+            data: r.data.filter((p) => p.tienda_id === tiendaId || (region && p.multitienda && p.tiendas && p.tiendas.region === region)),
             error: null,
         };
     }

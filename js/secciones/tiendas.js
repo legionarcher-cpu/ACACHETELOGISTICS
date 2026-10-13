@@ -136,7 +136,10 @@ registrarSeccion('tiendas', (zona) => {
     const cantidadUsuarios = (t) => (t.usuarios || []).length;
 
     // Nombre de una región por su código ("NOR" -> "Norte")
-    const nombreRegion = (codigo) => (regiones.find((r) => r.codigo === codigo) || {}).nombre || codigo;
+    const nombreRegion = (codigo) => (codigo ? (regiones.find((r) => r.codigo === codigo) || {}).nombre || codigo : 'Sin región');
+
+    // Valor del filtro de la cabecera para las tiendas sin región (la región es opcional, sql/01 bloque 31)
+    const SIN_REGION = '__sin_region';
 
     // ==================================================
     // CARGAR DATOS
@@ -153,6 +156,7 @@ registrarSeccion('tiendas', (zona) => {
 
         // Filtro de la cabecera: "Todas las regiones" + cada región
         regiones.forEach((r) => filtroRegion.appendChild(new Option(r.nombre, r.codigo)));
+        filtroRegion.appendChild(new Option('Sin región', SIN_REGION));
 
         // Admin G2: el filtro queda fijo en su región
         if (regionFija) {
@@ -162,7 +166,7 @@ registrarSeccion('tiendas', (zona) => {
         }
 
         // Selector del formulario
-        campos.region.replaceChildren(new Option('Selecciona una región', ''));
+        campos.region.replaceChildren(new Option('Sin región', ''));
         regiones.forEach((r) => campos.region.appendChild(new Option(`${r.nombre} (${r.codigo})`, r.codigo)));
     }
 
@@ -193,7 +197,7 @@ registrarSeccion('tiendas', (zona) => {
     // Fila con el título de la región: "NORTE  NOR ........ 2 tiendas"
     // (crearFilaGrupo y plural están en js/componentes.js)
     function crearFilaRegion(region, cantidad) {
-        return crearFilaGrupo(nombreRegion(region), region, plural(cantidad, 'tienda', 'tiendas'), columnas);
+        return crearFilaGrupo(nombreRegion(region), region || '', plural(cantidad, 'tienda', 'tiendas'), columnas);
     }
 
     function crearFilaTienda(t) {
@@ -241,7 +245,7 @@ registrarSeccion('tiendas', (zona) => {
         const filtro = buscador.value.trim();
 
         const visibles = tiendas.filter((t) =>
-            (!region || t.region === region) &&
+            (!region || (region === SIN_REGION ? !t.region : t.region === region)) &&
             coincideBusqueda([t.codigo, t.nombre, t.direccion, t.telefono, nombreRegion(t.region)], filtro)
         );
 
@@ -258,12 +262,12 @@ registrarSeccion('tiendas', (zona) => {
         }
 
         // Un <tbody> por región, en el orden de la lista de regiones.
-        // Las regiones sin tiendas visibles no se muestran.
+        // Las regiones sin tiendas visibles no se muestran. Al final, las tiendas sin región (null).
         const ordenRegiones = [...regiones.map((r) => r.codigo),
-            ...new Set(visibles.map((t) => t.region).filter((c) => !regiones.some((r) => r.codigo === c)))];
+            ...new Set(visibles.map((t) => t.region).filter((c) => c && !regiones.some((r) => r.codigo === c))), null];
 
         ordenRegiones.forEach((codigoRegion) => {
-            const deLaRegion = visibles.filter((t) => t.region === codigoRegion);
+            const deLaRegion = visibles.filter((t) => (t.region || null) === codigoRegion);
             if (deLaRegion.length === 0) return;
 
             const tbody = document.createElement('tbody');
@@ -273,7 +277,7 @@ registrarSeccion('tiendas', (zona) => {
         });
 
         // "3 tiendas en 2 regiones"
-        const regionesConTiendas = new Set(tiendas.map((t) => t.region)).size;
+        const regionesConTiendas = new Set(tiendas.map((t) => t.region).filter(Boolean)).size;
         contador.textContent = `${plural(tiendas.length, 'tienda', 'tiendas')} en ${plural(regionesConTiendas, 'región', 'regiones')}`;
     }
 
@@ -326,9 +330,10 @@ registrarSeccion('tiendas', (zona) => {
     const TND_CODIGO_VALIDO = /^[A-Z0-9][A-Z0-9-]{0,19}$/;
     const codigoDelFormulario = () => campos.codigo.value.trim().toUpperCase();
 
-    // Sugerencia: REGIÓN-siguiente número libre (ej. si existen NOR-001 y NOR-003 -> "NOR-004").
-    // Solo es una sugerencia: el código se puede cambiar por cualquier otro.
+    // Sugerencia: REGIÓN-siguiente número libre (ej. si existen NOR-001 y NOR-003 -> "NOR-004");
+    // sin región: SUC-001, SUC-002... Solo es una sugerencia: se puede cambiar por cualquier otro.
     function codigoSugerido(region) {
+        region = region || 'SUC';
         const patron = new RegExp(`^${region}-(\\d{1,3})$`);
         const usados = tiendas.map((t) => (patron.exec(t.codigo) || [])[1]).filter(Boolean).map(Number);
         const siguiente = (usados.length ? Math.max(...usados) : 0) + 1;
@@ -338,13 +343,15 @@ registrarSeccion('tiendas', (zona) => {
     // Si se está cambiando la REGIÓN de una tienda con usuarios: advertencia de que se renombran
     function actualizarVistaPrevia() {
         const usuariosTienda = editando ? cantidadUsuarios(editando) : 0;
-        const region = campos.region.value;
-        const cambia = editando && region && region !== editando.region;
+        const region = campos.region.value || null;
+        const cambia = editando && region !== (editando.region || null);
         avisoCodigo.hidden = !(cambia && usuariosTienda > 0);
         if (!avisoCodigo.hidden) {
+            // Sin región el usuario no lleva prefijo (jperez01)
+            const prefijo = (r) => (r ? `${prefijoUsuario(r)}…` : 'sin prefijo de región');
             avisoCodigo.textContent =
                 `Al guardar, ${usuariosTienda === 1 ? 'el usuario' : `los ${usuariosTienda} usuarios`} de esta tienda cambiará` +
-                `${usuariosTienda === 1 ? '' : 'n'} de ${prefijoUsuario(editando.region)}… a ${prefijoUsuario(region)}… ` +
+                `${usuariosTienda === 1 ? '' : 'n'} de ${prefijo(editando.region)} a ${prefijo(region)} ` +
                 `y deberá${usuariosTienda === 1 ? '' : 'n'} iniciar sesión con el usuario nuevo.`;
         }
     }
@@ -352,7 +359,7 @@ registrarSeccion('tiendas', (zona) => {
     // Al crear: al elegir la región se sugiere un código (si no se escribió uno a mano)
     let codigoTocado = false;
     campos.region.addEventListener('change', () => {
-        if (!editando && !codigoTocado && campos.region.value) campos.codigo.value = codigoSugerido(campos.region.value);
+        if (!editando && !codigoTocado) campos.codigo.value = codigoSugerido(campos.region.value);
         actualizarVistaPrevia();
     });
 
@@ -374,7 +381,7 @@ registrarSeccion('tiendas', (zona) => {
         tituloForm.textContent = tienda ? 'Modificar tienda' : 'Nueva tienda';
 
         if (tienda) {
-            campos.region.value    = tienda.region;
+            campos.region.value    = tienda.region || '';
             campos.codigo.value    = tienda.codigo || '';
             campos.nombre.value    = tienda.nombre || '';
             campos.direccion.value = tienda.direccion || '';
@@ -383,11 +390,9 @@ registrarSeccion('tiendas', (zona) => {
             campos.usaRutas.checked = tienda.usa_rutas !== false;
         } else {
             campos.usaRutas.checked = true;
-            if (filtroRegion.value) {
-                // Si hay una región filtrada, se propone esa
-                campos.region.value = filtroRegion.value;
-                campos.codigo.value = codigoSugerido(filtroRegion.value);
-            }
+            // Si hay una región filtrada, se propone esa
+            if (filtroRegion.value && filtroRegion.value !== SIN_REGION) campos.region.value = filtroRegion.value;
+            campos.codigo.value = codigoSugerido(campos.region.value);
         }
         // Sin el bloque 28 no existe usa_rutas: no se muestra la casilla
         $('#tndRutasCaja').hidden = !tieneUsaRutas;
@@ -421,7 +426,6 @@ registrarSeccion('tiendas', (zona) => {
         const nombre = campos.nombre.value.trim();
         const codigo = codigoDelFormulario();
 
-        if (!campos.region.value) return fallo('Elige la región de la tienda.', campos.region);
         if (!TND_CODIGO_VALIDO.test(codigo)) {
             return fallo('El código: letras, números y guion (hasta 20), sin espacios. Ej. SUC-01.', campos.codigo);
         }
@@ -429,7 +433,7 @@ registrarSeccion('tiendas', (zona) => {
 
         const datos = {
             codigo,
-            region: campos.region.value,
+            region: campos.region.value || null, // opcional (sql/01 bloque 31)
             nombre,
             direccion: campos.direccion.value.trim() || null,
             telefono: campos.telefono.value.trim() || null,
@@ -443,6 +447,7 @@ registrarSeccion('tiendas', (zona) => {
     function mensajeDeError(error) {
         if (error.code === '23505') return 'Ya existe una tienda con ese código (o un usuario con ese nombre). Usa otro código.';
         if (error.code === '23514') return 'El código no es válido: letras, números y guion (hasta 20). Si el formato viejo REGIÓN-000 lo rechaza, falta ejecutar sql/01 (bloque 28).';
+        if (error.code === '23502') return 'Para guardar una tienda sin región falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 31).';
         if (error.code === 'P0002') return 'La tienda ya no existe. Recarga la página.';
         if (error.code === 'P0001') return error.message;
         if (error.code === 'PGRST202' || error.code === '42883') return 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 28: código y región de la tienda).';
@@ -462,7 +467,7 @@ registrarSeccion('tiendas', (zona) => {
             if (error) return { error };
         }
         // 2. Región (renombra a sus usuarios: llevan la región)
-        if (datos.region !== editando.region) {
+        if (datos.region !== (editando.region || null)) {
             const { error } = await db.rpc('cambiar_region_tienda', { p_tienda_id: editando.id, p_region: datos.region });
             if (error) return { error };
         }
@@ -484,7 +489,7 @@ registrarSeccion('tiendas', (zona) => {
         // El Admin G1 nunca cambia el código ni la región (por si acaso, se fuerzan los originales)
         if (!admin && editando) {
             datos.codigo = editando.codigo;
-            datos.region = editando.region;
+            datos.region = editando.region || null;
         }
 
         botonGuardar.disabled = true;
@@ -507,8 +512,8 @@ registrarSeccion('tiendas', (zona) => {
             const usuariosTienda = cantidadUsuarios(editando);
             const partes = [];
             if (datos.codigo !== editando.codigo) partes.push(`Tienda ${editando.codigo} ahora es ${datos.codigo}.`);
-            if (datos.region !== editando.region) {
-                partes.push(`Ahora es de la región ${nombreRegion(datos.region)}.` +
+            if (datos.region !== (editando.region || null)) {
+                partes.push((datos.region ? `Ahora es de la región ${nombreRegion(datos.region)}.` : 'Ahora no tiene región.') +
                     (usuariosTienda ? ` ${plural(usuariosTienda, 'usuario renombrado', 'usuarios renombrados')}.` : ''));
             }
             mensaje = partes.join(' ') || `Tienda "${datos.nombre}" actualizada.`;

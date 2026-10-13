@@ -558,7 +558,7 @@ registrarSeccion('inicio', (zona) => {
 
     function prepararFiltrosMapa() {
         if (esGeneral && !regionG2) {
-            const regiones = [...new Set(tiendas.map((t) => t.region))].sort();
+            const regiones = [...new Set(tiendas.map((t) => t.region).filter(Boolean))].sort(); // sin región: solo en "Todas"
             selMapaRegion.replaceChildren(new Option('Todas las regiones', ''), ...regiones.map((r) => new Option(`Región ${r}`, r)));
             selMapaRegion.hidden = regiones.length <= 1;
         }
