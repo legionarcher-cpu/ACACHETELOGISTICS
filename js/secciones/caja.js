@@ -10,8 +10,10 @@
      y viajes terminados con total. La forma sale de lo que marcó el piloto al entregar
      (cobro_forma), o de la prevista (forma_pago); los viajes, efectivo. Se puede corregir.
    - Efectivo a entregar = fondo de caja + efectivo cobrado.
-   - SINPE y tarjeta: entran al cierre solo si se marcan "Verificado"; los demás
-     quedan para el siguiente cierre.
+   - SINPE: entra al cierre solo si se marca "Verificado" (se ve en el banco); los demás quedan
+     para el siguiente cierre. La tarjeta entra directo (no se verifica).
+   - Al lado de cada cobro, "Ver comprobante": la foto que tomó el piloto al entregar (efectivo,
+     voucher o SINPE; pedido_evidencias tipo 'pago', sql/01 bloque 37).
    - Cerrar caja: la base (caja_cerrar) revisa quién cierra, toma los montos de los
      pedidos y viajes, guarda el cierre y les pone cierre_id, todo o nada.
    Quién: G3 su tienda | G2 su región | G1 y Administrador todos | el piloto ve la suya.
@@ -50,6 +52,7 @@ registrarSeccion('caja', (zona) => {
     let pendientesPor = new Map(); // piloto id -> cobros sin cerrar
     let piloto = null;
     let cobros = [];               // [{ tipo, id, codigo, cliente, fecha, monto, forma, verificado }]
+    let comprobantes = new Map();  // 'pedido:7' -> [url] fotos del comprobante de pago (sql/01 bloque 37)
     let hayTabla = true;
     let cargaId = 0;
 
@@ -61,21 +64,24 @@ registrarSeccion('caja', (zona) => {
     // TOTALES
     // ==================================================
 
+    // Solo el SINPE se verifica (llega por el banco); la tarjeta entra directo con su voucher
     function totales() {
         const suma = (lista) => cajRedondo(lista.reduce((s, c) => s + Number(c.monto), 0));
         const efectivo = cobros.filter((c) => c.forma === 'efectivo');
-        const otros = cobros.filter((c) => c.forma !== 'efectivo');
-        const verificados = otros.filter((c) => c.verificado);
+        const sinpe = cobros.filter((c) => c.forma === 'sinpe');
+        const tarjeta = cobros.filter((c) => c.forma === 'tarjeta');
+        const sinpeOk = sinpe.filter((c) => c.verificado);
         const fondo = cajRedondo(piloto ? piloto.caja_monto : 0);
         return {
             fondo,
             efectivo: suma(efectivo), cantEfectivo: efectivo.length,
-            otros: suma(otros), cantOtros: otros.length,
-            sinpeVerificado: suma(verificados.filter((c) => c.forma === 'sinpe')),
-            tarjetaVerificada: suma(verificados.filter((c) => c.forma === 'tarjeta')),
-            cantVerificados: verificados.length,
+            otros: cajRedondo(suma(sinpe) + suma(tarjeta)), cantOtros: sinpe.length + tarjeta.length,
+            cantSinpe: sinpe.length, cantTarjeta: tarjeta.length,
+            sinpeVerificado: suma(sinpeOk),
+            tarjetaVerificada: suma(tarjeta),
+            cantVerificados: sinpeOk.length,
             esperado: cajRedondo(fondo + suma(efectivo)),
-            alCierre: [...efectivo, ...verificados],
+            alCierre: [...efectivo, ...tarjeta, ...sinpeOk],
         };
     }
 
@@ -85,7 +91,10 @@ registrarSeccion('caja', (zona) => {
         $('#cajEfectivo').textContent = cajDinero(t.efectivo);
         $('#cajEfectivoTexto').textContent = `Efectivo cobrado · ${plural(t.cantEfectivo, 'cobro', 'cobros')}`;
         $('#cajOtros').textContent = cajDinero(t.otros);
-        $('#cajOtrosTexto').textContent = t.cantOtros ? `SINPE y tarjeta · ${t.cantVerificados} de ${t.cantOtros} verificados` : 'SINPE y tarjeta';
+        $('#cajOtrosTexto').textContent = t.cantOtros
+            ? [t.cantSinpe ? `SINPE ${t.cantVerificados} de ${t.cantSinpe} verificados` : null,
+                t.cantTarjeta ? plural(t.cantTarjeta, 'tarjeta', 'tarjetas') : null].filter(Boolean).join(' · ')
+            : 'SINPE y tarjeta';
         $('#cajEsperado').textContent = cajDinero(t.esperado);
         dibujarDiferencia();
         botonCerrar.disabled = !puedeCerrar || !hayTabla || !piloto;
@@ -239,8 +248,25 @@ registrarSeccion('caja', (zona) => {
                 fecha: v.inicio, monto: Number(v.total), forma: v.cobro_forma || 'efectivo', verificado: false,
             })),
         ].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
+        comprobantes = await cargarComprobantes(ped.data.map((p) => p.id));
+        if (id !== cargaId) return;
         dibujarCobros();
         dibujarTotales();
+    }
+
+    // Fotos del comprobante de pago de esos pedidos (sin el bloque 37: ninguna)
+    async function cargarComprobantes(ids) {
+        const mapa = new Map();
+        if (!ids.length) return mapa;
+        const { data, error } = await db.from('pedido_evidencias').select('pedido_id, url, eliminada_en')
+            .eq('tipo', 'pago').in('pedido_id', ids).order('creado_en');
+        if (error) return mapa;
+        data.filter((e) => e.url && !e.eliminada_en).forEach((e) => {
+            const clave = `pedido:${e.pedido_id}`;
+            if (!mapa.has(clave)) mapa.set(clave, []);
+            mapa.get(clave).push(e.url);
+        });
+        return mapa;
     }
 
     async function cargarCierres() {
@@ -290,7 +316,7 @@ registrarSeccion('caja', (zona) => {
         }
         lista.forEach((c) => {
             const tr = document.createElement('tr');
-            const otro = c.forma !== 'efectivo';
+            const otro = c.forma === 'sinpe'; // solo el SINPE se verifica
             if (otro && c.verificado) tr.classList.add('caj-fila-verificada');
             tr.appendChild(crearCelda(cajFecha(c.fecha)));
 
@@ -319,6 +345,17 @@ registrarSeccion('caja', (zona) => {
                 e.textContent = CAJ_FORMAS[c.forma];
                 tdForma.appendChild(e);
             }
+            // Comprobante de pago que tomó el piloto al entregar (sql/01 bloque 37)
+            (comprobantes.get(`${c.tipo}:${c.id}`) || []).forEach((url, i, lista) => {
+                const a = document.createElement('a');
+                a.href = url;
+                a.target = '_blank';
+                a.rel = 'noopener';
+                a.className = 'caj-comprobante';
+                a.innerHTML = '<i class="bi bi-receipt"></i> ';
+                a.append(lista.length > 1 ? `Comprobante ${i + 1}` : 'Ver comprobante');
+                tdForma.appendChild(a);
+            });
             tr.appendChild(tdForma);
             tr.appendChild(crearCelda(cajDinero(c.monto), 'caj-col-monto'));
 
@@ -331,10 +368,11 @@ registrarSeccion('caja', (zona) => {
                 check.dataset.verificar = `${c.tipo}:${c.id}`;
                 check.checked = c.verificado;
                 check.disabled = !puedeCerrar;
-                check.setAttribute('aria-label', `Verificado en el banco: ${cajDinero(c.monto)}`);
+                check.setAttribute('aria-label', `SINPE verificado en el banco: ${cajDinero(c.monto)}`);
                 tdCheck.appendChild(check);
             } else {
-                tdCheck.textContent = '—';
+                tdCheck.textContent = c.forma === 'tarjeta' ? 'No hace falta' : '—';
+                tdCheck.classList.add('caj-no-verifica');
             }
             tr.appendChild(tdCheck);
             cuerpoCobros.appendChild(tr);
@@ -381,7 +419,7 @@ registrarSeccion('caja', (zona) => {
             ['Fondo de caja', cajDinero(t.fondo)],
             ['Efectivo cobrado', `${cajDinero(t.efectivo)} (${plural(t.cantEfectivo, 'cobro', 'cobros')})`],
             ['SINPE verificado', cajDinero(t.sinpeVerificado)],
-            ['Tarjeta verificada', cajDinero(t.tarjetaVerificada)],
+            ['Tarjeta', cajDinero(t.tarjetaVerificada)],
             ['Efectivo a entregar', cajDinero(t.esperado)],
             ['Efectivo contado', cajDinero(campoContado.value)],
             ['Diferencia', dif === 0 ? 'Cuadra exacto' : `${dif > 0 ? 'Sobrante' : 'Faltante'} de ${cajDinero(Math.abs(dif))}`],
@@ -395,9 +433,9 @@ registrarSeccion('caja', (zona) => {
             li.append(s, b);
             return li;
         }));
-        const sinVerificar = t.cantOtros - t.cantVerificados;
+        const sinVerificar = t.cantSinpe - t.cantVerificados;
         $('#cajConfirmarNota').textContent = sinVerificar
-            ? `${plural(sinVerificar, 'cobro con SINPE o tarjeta sin verificar queda', 'cobros con SINPE o tarjeta sin verificar quedan')} para el siguiente cierre.`
+            ? `${plural(sinVerificar, 'SINPE sin verificar queda', 'SINPE sin verificar quedan')} para el siguiente cierre.`
             : 'Los cobros incluidos quedan cerrados y ya no se pueden cambiar.';
         dlgConfirmar.showModal();
     });

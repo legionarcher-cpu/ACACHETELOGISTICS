@@ -2,6 +2,22 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · Comprobante de pago en la entrega y solo SINPE se verifica en la caja
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 37** (=
+`sql/por_funcion/01_actualizacion_14_comprobante_de_pago.sql`; instalación nueva: `sql/00`, sección 30).
+Agrega el tipo `pago` a `pedido_evidencias`. Sin él la app funciona: el comprobante se guarda como foto de `entrega`.
+
+- **Entrega con cobro** (Pedidos → "Entregado" y entrega por producto de la Distribuidora): además de las fotos de
+  lo entregado, una caja de fotos del **comprobante de pago** que cambia según cómo pagó el cliente: *Foto del
+  efectivo recibido*, *Foto del voucher* (tarjeta) o *Comprobante de SINPE Móvil*. Va a `evidencias/pago/<pedido>/`
+  y a `pedido_evidencias` tipo `pago`. Textos y si son obligatorias: `PAGO_FOTO` en `js/carga-comun.js`
+  (`crearFotosPago`); hoy recomendadas. En el detalle del pedido cada foto dice de qué es.
+- **Caja**: solo el **SINPE** se marca "Verificado" (llega por el banco); la **tarjeta** entra directo al cierre.
+  Cada cobro con comprobante tiene **Ver comprobante** para compararlo con el banco.
+- **Reportes → Cajas**: el detalle del cierre muestra el comprobante de cada cobro; "Tarjeta" ya no dice "verificada".
+- `VERSION_APP` y todos los `?v=` = `20261013m`.
+
 ## 2026-10-13 · Fotos de la entrega, ventana del pedido y reporte de cajas
 
 SQL: **ninguno** (usa `pedido_evidencias` y el Storage `evidencias`, que ya existen; y `cierres_caja`, bloque 24).

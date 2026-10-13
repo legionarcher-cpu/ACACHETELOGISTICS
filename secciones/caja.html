@@ -6,8 +6,8 @@
      - Fondo de caja del piloto (Configuración -> Cajas).
      - Cobros sin cerrar: sus pedidos entregados con monto a cobrar y sus viajes
        terminados. Cómo pagó el cliente lo marca el piloto al entregar (se puede corregir aquí).
-     - SINPE y tarjeta: se marcan "Verificado" al verlos en el banco; solo los
-       verificados entran al cierre.
+     - SINPE: se marca "Verificado" al verlo en el banco; solo los verificados entran al cierre.
+       La tarjeta entra directo. "Ver comprobante" abre la foto que tomó el piloto al entregar.
      - Arqueo: efectivo contado contra fondo + efectivo cobrado = diferencia.
      - Cerrar caja: lo guarda la base (caja_cerrar), todo o nada.
      Quién: G3 su tienda | G2 su región | G1 y Administrador todos | el piloto ve la suya (solo ver).
@@ -94,9 +94,9 @@
                 </div>
             </div>
             <p id="cajAyuda" class="caj-ayuda">
-                Marca <strong>Verificado</strong> cuando el SINPE o el pago con tarjeta aparezca en el banco.
-                Solo los verificados entran al cierre; los demás quedan para el siguiente.
-                Si el cliente pagó distinto a lo marcado, cambia la forma.
+                Solo el <strong>SINPE</strong> se verifica: márcalo <strong>Verificado</strong> cuando aparezca en el banco
+                (compáralo con <strong>Ver comprobante</strong>). Los SINPE sin verificar quedan para el siguiente cierre.
+                La tarjeta entra directo. Si el cliente pagó distinto a lo marcado, cambia la forma.
             </p>
             <div class="tabla-caja">
                 <table class="tabla caj-tabla">
@@ -107,7 +107,7 @@
                             <th>Cliente</th>
                             <th>Forma</th>
                             <th class="caj-col-monto">Monto</th>
-                            <th class="caj-col-check">Verificado</th>
+                            <th class="caj-col-check">SINPE verificado</th>
                         </tr>
                     </thead>
                     <tbody id="cajCobros"></tbody>

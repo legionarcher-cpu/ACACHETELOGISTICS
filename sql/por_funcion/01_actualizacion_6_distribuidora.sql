@@ -1,4 +1,4 @@
--- 6 de 13 · sql/01_actualizacion_base_existente.sql · Partes por actividad y distribuidora (productos, bodega del día, cierres) (bloques 26 a 27).
+-- 6 de 14 · sql/01_actualizacion_base_existente.sql · Partes por actividad y distribuidora (productos, bodega del día, cierres) (bloques 26 a 27).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

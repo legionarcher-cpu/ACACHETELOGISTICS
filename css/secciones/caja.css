@@ -142,6 +142,27 @@
     padding-bottom: 0.222rem;
 }
 
+/* Foto del comprobante de pago que tomó el piloto (debajo de la forma) */
+.caj-comprobante {
+    display: block;
+    margin-top: 0.222rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-azul);
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.caj-comprobante:hover {
+    text-decoration: underline;
+}
+
+/* Tarjeta: no se verifica */
+.caj-tabla td.caj-no-verifica {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
 .caj-check {
     width: 1.222rem;
     height: 1.222rem;

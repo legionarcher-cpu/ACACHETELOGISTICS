@@ -434,23 +434,32 @@ function abrirEntregaProductos({ pedido, lineas, motivos = [], sesion }) {
             const prod = distTotales(filas.map((f) => ({ cantidad: Math.max(distRedondo(f.inp.value), 0), precio: f.l.precio, iva_pct: f.l.iva_pct })));
             return { prod, total: distRedondo(envio + prod.total) };
         }
+        // Fotos (js/carga-comun.js): lo que entrega y, si hay cobro, el comprobante de pago
+        // (efectivo, voucher o SINPE según cómo pagó el cliente)
+        const fotos = typeof crearFotosEntrega === 'function' ? crearFotosEntrega() : null;
+        const fotosPago = typeof crearFotosPago === 'function' ? crearFotosPago(prevista) : null;
+        const formaElegida = () => (form.querySelector(`input[name="distCobro${pedido.id}"]:checked`) || {}).value || 'efectivo';
+        opciones.addEventListener('change', () => { if (fotosPago) fotosPago.forma(formaElegida()); });
+
         function dibujarTotal() {
             const c = calcular();
             totalCaja.textContent = `A cobrar: ${distDinero(c.total)}${envio ? ` (productos ${distDinero(c.prod.total)} + envío ${distDinero(envio)})` : ' (con IVA)'}`;
             cobro.hidden = c.total <= 0;
+            if (fotosPago) fotosPago.elemento.hidden = cobro.hidden;
         }
         dibujarTotal();
 
-        // Fotos de lo que entrega (js/carga-comun.js)
-        const fotos = typeof crearFotosEntrega === 'function' ? crearFotosEntrega() : null;
-
-        form.append(titulo, texto, tablaCaja, totalCaja, cobro, nota, ...(fotos ? [fotos.elemento] : []), error, botones);
+        form.append(titulo, texto, tablaCaja, totalCaja, cobro, nota, ...[fotos, fotosPago].filter(Boolean).map((g) => g.elemento), error, botones);
         dlg.appendChild(form);
         document.body.appendChild(dlg);
 
         let resultado = null;
         const cerrar = () => dlg.close();
-        dlg.addEventListener('close', () => { if (fotos) fotos.limpiar(); dlg.remove(); resolver(resultado); });
+        dlg.addEventListener('close', () => {
+            [fotos, fotosPago].forEach((g) => g && g.limpiar());
+            dlg.remove();
+            resolver(resultado);
+        });
         volver.addEventListener('click', cerrar);
 
         form.addEventListener('submit', async (e) => {
@@ -470,29 +479,31 @@ function abrirEntregaProductos({ pedido, lineas, motivos = [], sesion }) {
             }
             if (datos.every((d) => d.entregada === 0)) { error.textContent = 'No se entregó nada: usa "No entregado".'; return; }
             const forma = (form.querySelector(`input[name="distCobro${pedido.id}"]:checked`) || {}).value || null;
-            if (fotos && fotos.validar()) { error.textContent = fotos.validar(); return; }
+            const grupos = [fotos, fotosPago].filter((g) => g && !g.elemento.hidden);
+            const faltaFoto = grupos.length ? validarFotosVarias(grupos) : '';
+            if (faltaFoto) { error.textContent = faltaFoto; return; }
             confirmar.disabled = true;
             // Fotos: se suben antes de entregar; si la entrega falla, se borran
-            let subidas = [];
-            if (fotos && fotos.cantidad()) {
+            let lotes = [];
+            if (grupos.some((g) => g.cantidad())) {
                 confirmar.textContent = 'Subiendo fotos...';
-                const r = await fotos.subir(pedido.id);
+                const r = await subirFotosVarias(grupos, pedido.id);
                 confirmar.textContent = 'Confirmar entrega';
                 if (r.error) {
                     confirmar.disabled = false;
                     error.textContent = 'No se pudo subir la foto. Revisa la conexión e intenta de nuevo.';
                     return;
                 }
-                subidas = r.subidas;
+                lotes = r.lotes;
             }
             const { data, error: err } = await db.rpc('dist_entregar', {
                 p: { usuario_id: sesion.id || null, pedido_id: pedido.id, cobro_forma: calcular().total > 0 ? forma : null, nota: nota.value.trim() || null, lineas: datos },
             });
-            if (!err && subidas.length) {
-                const errFotos = await fotos.registrar(pedido.id, subidas, sesion.id || null);
-                if (data && typeof data === 'object') data.fotos = errFotos ? -1 : subidas.length;
-            } else if (err && subidas.length) {
-                await fotos.borrar(subidas);
+            if (!err && lotes.length) {
+                const r = await registrarFotosVarias(lotes, pedido.id, sesion.id || null);
+                if (data && typeof data === 'object') data.fotos = r.error ? -1 : r.cantidad;
+            } else if (err && lotes.length) {
+                await borrarFotosVarias(lotes);
             }
             confirmar.disabled = false;
             if (err) {

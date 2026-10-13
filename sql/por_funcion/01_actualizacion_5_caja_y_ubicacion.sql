@@ -1,4 +1,4 @@
--- 5 de 13 · sql/01_actualizacion_base_existente.sql · Caja de pilotos y ubicación en tiempo real (bloques 24 a 25).
+-- 5 de 14 · sql/01_actualizacion_base_existente.sql · Caja de pilotos y ubicación en tiempo real (bloques 24 a 25).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

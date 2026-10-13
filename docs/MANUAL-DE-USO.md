@@ -252,6 +252,8 @@ En **Mi ruta**, los pedidos salen **ordenados del más cercano al más lejano**;
      lleva **alcohol**, confirma la **mayoría de edad**. Si son **productos**, escribe **cuánto recibió de
      cada uno**; si es menos, el **motivo** es obligatorio (queda "Entregado con incidencia"). Con **Tomar foto**
      guarda fotos de lo que entregas (y de dónde lo dejas); quedan en el pedido como prueba de entrega.
+     Si cobraste, toma también la foto del **comprobante de pago**: el **efectivo** recibido, el **voucher** de
+     la tarjeta o el **comprobante de SINPE** del cliente (con él la tienda verifica el SINPE en la caja).
    - **No entregado**: escribe el **motivo** (cliente ausente, dirección errada...). Le llega al G2.
 3. El **código de entrega de 4 dígitos** (o el QR del pedido) sirve para confirmar que la persona que
    recibe es la correcta.
@@ -314,8 +316,8 @@ Menú **Caja** → elige al piloto.
 
 1. Se ven sus **cobros sin cerrar**: pedidos entregados y ventas con monto, con su forma de pago (se puede
    corregir).
-2. **SINPE y tarjeta**: márcalos **Verificado** cuando los veas en el banco. Los no verificados quedan para el
-   siguiente cierre.
+2. **SINPE**: márcalo **Verificado** cuando lo veas en el banco; compáralo con **Ver comprobante** (la foto que
+   tomó el piloto). Los no verificados quedan para el siguiente cierre. La **tarjeta** entra directo, sin verificar.
 3. **Arqueo**: el efectivo que debe entregar es **fondo + efectivo cobrado**. Escribe el **efectivo contado**
    y el sistema dice en vivo si **cuadra exacto**, hay **sobrante** o **faltante**. Si no cuadra, el **motivo**
    es obligatorio (ej. "vuelto de más al cliente del pedido P-000123").

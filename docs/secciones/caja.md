@@ -19,8 +19,9 @@ Basada en el cierre de caja de SISCED. Aparece si el plan de la empresa incluye 
    cambiar en la caja).
 3. **Cobros sin cerrar**: pedidos entregados (`total_cobrar` > 0) y viajes terminados (`total` > 0) del piloto que todavía
    no tienen `cierre_id`. Quien cierra puede corregir la forma de pago.
-4. **SINPE y tarjeta**: se marcan **Verificado** al verlos en el banco. Solo los verificados entran al cierre; los demás
-   quedan para el siguiente.
+4. **SINPE**: se marca **Verificado** al verlo en el banco (con **Ver comprobante** se abre la foto que tomó el piloto
+   al entregar, `pedido_evidencias` tipo `pago`, sql/01 bloque 37). Solo los verificados entran al cierre; los demás
+   quedan para el siguiente. La **tarjeta** entra directo (no se verifica).
 5. **Arqueo**: efectivo a entregar = **fondo + efectivo cobrado**. Se escribe el efectivo contado y se ve la diferencia en
    vivo (*Cuadra exacto*, *Sobrante* o *Faltante*). Notas: si hay faltante o sobrante el campo pasa a **"Motivo del
    faltante / sobrante \*"** y no se puede cerrar sin escribirlo. Se ve en **Reportes → Cajas**.

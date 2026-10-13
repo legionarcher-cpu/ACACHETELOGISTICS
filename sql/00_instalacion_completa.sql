@@ -33,6 +33,7 @@
 --   27. QR fijo de la tienda: el piloto lo escanea y se marca solo
 --   28. QR fijo: solo marca estando en la tienda (GPS)
 --   29. Visitas: quién entra, desde dónde y a qué pantallas (solo Desarrollador)
+--   30. Entrega: foto del comprobante de pago (efectivo, voucher o SINPE)
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:
@@ -5547,5 +5548,24 @@ $$;
 
 grant execute on function public.registrar_visita(bigint, text, text, text, text, boolean) to anon;
 grant execute on function public.reporte_visitas(bigint, bigint) to anon;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 30. ENTREGA: FOTO DEL COMPROBANTE DE PAGO (sql/01 bloque 37)
+--   Al marcar "Entregado", además de las fotos de lo entregado (tipo 'entrega'), el piloto
+--   puede tomar la foto del COMPROBANTE DE PAGO (tipo 'pago'): el efectivo recibido, el
+--   voucher de la tarjeta o el comprobante de SINPE Móvil. La caja lo muestra al lado del
+--   cobro para verificar el SINPE. Se guardan en pedido_evidencias (Storage evidencias/pago/).
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.pedido_evidencias drop constraint if exists evidencias_tipo_valido;
+alter table public.pedido_evidencias add constraint evidencias_tipo_valido
+    check (tipo in ('entrega', 'mal_estado', 'retraso', 'recepcion', 'carga', 'pago'));
+
+create index if not exists pedido_evidencias_tipo_idx on public.pedido_evidencias (pedido_id, tipo);
 
 notify pgrst, 'reload schema';

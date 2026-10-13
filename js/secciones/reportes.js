@@ -131,7 +131,7 @@ function montarReporteCajas(caja, { puedeExportar, aviso, tiendas, limitar }) {
                 <h4 class="rep-caj-subtitulo">Cobros incluidos</h4>
                 <div class="tabla-caja">
                     <table class="tabla rep-caj-cobros">
-                        <thead><tr><th>Código</th><th>Cliente</th><th>Forma</th><th class="rep-numero">Monto</th></tr></thead>
+                        <thead><tr><th>Código</th><th>Cliente</th><th>Forma</th><th class="rep-numero">Monto</th><th>Comprobante</th></tr></thead>
                         <tbody id="repCajDetCobros"></tbody>
                     </table>
                 </div>
@@ -269,7 +269,7 @@ function montarReporteCajas(caja, { puedeExportar, aviso, tiendas, limitar }) {
             ['Efectivo a entregar', dinero(esperado(c))],
             ['Efectivo contado', dinero(c.efectivo_contado)],
             ['SINPE verificado', dinero(c.sinpe)],
-            ['Tarjeta verificada', dinero(c.tarjeta)],
+            ['Tarjeta', dinero(c.tarjeta)],
         ].forEach(([e, v]) => {
             const dt = document.createElement('dt');
             dt.textContent = e;
@@ -279,7 +279,7 @@ function montarReporteCajas(caja, { puedeExportar, aviso, tiendas, limitar }) {
         });
 
         const tb = $('#repCajDetCobros');
-        tb.replaceChildren(crearFilaVacia('Cargando...', 4));
+        tb.replaceChildren(crearFilaVacia('Cargando...', 5));
         if (!dlg.open) dlg.showModal();
         const [ped, via] = await Promise.all([
             db.from('pedidos').select('id, codigo, cliente_nombre, total_cobrar, cobro_forma, forma_pago').eq('cierre_id', id).order('codigo'),
@@ -295,13 +295,19 @@ function montarReporteCajas(caja, { puedeExportar, aviso, tiendas, limitar }) {
         ];
         tb.replaceChildren();
         if (ped.error) {
-            tb.appendChild(crearFilaVacia('No se pudieron cargar los cobros.', 4));
+            tb.appendChild(crearFilaVacia('No se pudieron cargar los cobros.', 5));
             return;
         }
         if (!filas.length) {
-            tb.appendChild(crearFilaVacia('Sin cobros registrados en este cierre.', 4));
+            tb.appendChild(crearFilaVacia('Sin cobros registrados en este cierre.', 5));
             return;
         }
+        // Fotos del comprobante de pago de esos pedidos (sql/01 bloque 37; sin él, ninguna)
+        const idsPed = (ped.data || []).map((p) => p.id);
+        const comp = idsPed.length
+            ? await db.from('pedido_evidencias').select('pedido_id, url, eliminada_en').eq('tipo', 'pago').in('pedido_id', idsPed)
+            : { data: [] };
+        const fotosDe = (enlace) => (comp.data || []).filter((e) => e.url && !e.eliminada_en && enlace === `#pedidos?id=${e.pedido_id}`);
         filas.forEach((f) => {
             const tr = document.createElement('tr');
             const td = document.createElement('td');
@@ -310,7 +316,20 @@ function montarReporteCajas(caja, { puedeExportar, aviso, tiendas, limitar }) {
             a.textContent = f.codigo;
             a.addEventListener('click', () => dlg.close());
             td.appendChild(a);
-            tr.append(td, crearCelda(f.cliente), crearCelda(REP_CAJ_FORMAS[f.forma] || f.forma), crearCelda(dinero(f.monto), 'rep-numero'));
+            const tdComp = document.createElement('td');
+            const fotos = fotosDe(f.enlace);
+            if (!fotos.length) tdComp.textContent = '—';
+            fotos.forEach((e, i) => {
+                const ver = document.createElement('a');
+                ver.href = e.url;
+                ver.target = '_blank';
+                ver.rel = 'noopener';
+                ver.className = 'rep-caj-comprobante';
+                ver.innerHTML = '<i class="bi bi-receipt"></i> ';
+                ver.append(fotos.length > 1 ? `Ver ${i + 1}` : 'Ver');
+                tdComp.appendChild(ver);
+            });
+            tr.append(td, crearCelda(f.cliente), crearCelda(REP_CAJ_FORMAS[f.forma] || f.forma), crearCelda(dinero(f.monto), 'rep-numero'), tdComp);
             tb.appendChild(tr);
         });
     }

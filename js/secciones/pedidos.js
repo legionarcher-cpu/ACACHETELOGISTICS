@@ -2956,7 +2956,7 @@ registrarSeccion('pedidos', (zona) => {
 
         const fotos = $('#pedDetFotos');
         fotos.replaceChildren();
-        const tipos = { entrega: 'Entrega', mal_estado: 'Mal estado', retraso: 'Retraso', recepcion: 'Recepción', carga: 'Carga' };
+        const tipos = { entrega: 'Entrega', mal_estado: 'Mal estado', retraso: 'Retraso', recepcion: 'Recepción', carga: 'Carga', pago: 'Comprobante de pago' };
         evidencias.forEach((e) => {
             if (e.eliminada_en || !e.url) {
                 const borrada = document.createElement('div');
@@ -2974,7 +2974,11 @@ registrarSeccion('pedidos', (zona) => {
             img.src = e.url;
             img.alt = a.title;
             img.loading = 'lazy';
-            a.appendChild(img);
+            // Debajo, de qué es la foto (Entrega, Comprobante de pago, Carga...)
+            const pie = document.createElement('span');
+            pie.className = `ped-foto-pie ped-foto-${e.tipo}`;
+            pie.textContent = tipos[e.tipo] || e.tipo;
+            a.append(img, pie);
             fotos.appendChild(a);
         });
     }
@@ -3198,10 +3202,24 @@ registrarSeccion('pedidos', (zona) => {
     // ---------- Ventana de confirmación (con motivo) ----------
     const dlgAccion = $('#pedAccionDialogo');
     let accionActual = null;
-    // Fotos de lo que entrega el piloto al marcar "Entregado" (js/carga-comun.js)
+    // Fotos al marcar "Entregado" (js/carga-comun.js): lo que entrega y, si hay cobro, el comprobante
+    // de pago (efectivo, voucher o SINPE; el texto cambia según cómo pagó el cliente)
     const fotosEntrega = typeof crearFotosEntrega === 'function' ? crearFotosEntrega() : null;
+    const fotosPago = typeof crearFotosPago === 'function' ? crearFotosPago() : null;
     if (fotosEntrega) $('#pedAccionFotosCaja').appendChild(fotosEntrega.elemento);
-    dlgAccion.addEventListener('close', () => { if (fotosEntrega) fotosEntrega.limpiar(); });
+    if (fotosPago) $('#pedAccionPagoCaja').appendChild(fotosPago.elemento);
+    const mostrarPago = (si) => {
+        $('#pedAccionPagoCaja').hidden = !si;
+        if (fotosPago) fotosPago.elemento.hidden = !si;
+    };
+    const formaCobro = () => (dlgAccion.querySelector('input[name="pedAccionCobro"]:checked') || {}).value || 'efectivo';
+    dlgAccion.querySelectorAll('input[name="pedAccionCobro"]').forEach((r) => r.addEventListener('change', () => {
+        if (fotosPago) fotosPago.forma(formaCobro());
+    }));
+    dlgAccion.addEventListener('close', () => {
+        if (fotosEntrega) fotosEntrega.limpiar();
+        if (fotosPago) fotosPago.limpiar();
+    });
 
     function abrirAccion(accion) {
         // Distribuidora: el piloto dice cuánto entregó de cada producto (js/distribucion-comun.js)
@@ -3232,6 +3250,8 @@ registrarSeccion('pedidos', (zona) => {
             dlgAccion.querySelectorAll('input[name="pedAccionCobro"]').forEach((r) => { r.checked = r.value === prevista; });
         }
         $('#pedAccionFotosCaja').hidden = !(accion.id === 'entregado' && fotosEntrega);
+        mostrarPago(pideCobro && !!fotosPago);
+        if (pideCobro && fotosPago) fotosPago.forma(formaCobro());
         $('#pedAccionError').textContent = '';
         const si = $('#pedAccionSi');
         si.className = `boton ${accion.clase === 'boton-peligro' ? 'boton-peligro' : 'boton-principal'}`;
@@ -3286,9 +3306,11 @@ registrarSeccion('pedidos', (zona) => {
             error.textContent = 'El pedido lleva alcohol: hay que confirmar la mayoría de edad.';
             return;
         }
-        const conFotos = accion.id === 'entregado' && fotosEntrega;
-        if (conFotos && fotosEntrega.validar()) {
-            error.textContent = fotosEntrega.validar();
+        // Fotos de lo entregado y del comprobante de pago (la de pago solo si se ve: hay cobro)
+        const grupos = accion.id === 'entregado' ? [fotosEntrega, fotosPago].filter((g) => g && !g.elemento.hidden) : [];
+        const faltaFoto = validarFotosVarias(grupos);
+        if (faltaFoto) {
+            error.textContent = faltaFoto;
             return;
         }
 
@@ -3296,18 +3318,18 @@ registrarSeccion('pedidos', (zona) => {
         si.disabled = true;
         let resultado = null;
 
-        // Fotos de la entrega: se suben ANTES de marcar (si no se pudo marcar, se borran)
-        let subidas = [];
-        if (conFotos && fotosEntrega.cantidad()) {
+        // Se suben ANTES de marcar (si no se pudo marcar, se borran)
+        let lotes = [];
+        if (grupos.some((g) => g.cantidad())) {
             si.textContent = 'Subiendo fotos...';
-            const r = await fotosEntrega.subir(pedido.id);
+            const r = await subirFotosVarias(grupos, pedido.id);
             si.textContent = 'Confirmar';
             if (r.error) {
                 si.disabled = false;
                 error.textContent = 'No se pudo subir la foto. Revisa la conexión e intenta de nuevo.';
                 return;
             }
-            subidas = r.subidas;
+            lotes = r.lotes;
         }
 
         if (accion.id === 'rechazar_solicitud') {
@@ -3341,9 +3363,14 @@ registrarSeccion('pedidos', (zona) => {
 
         // Fotos: si el pedido no quedó entregado se borran; si quedó, se anotan en el pedido
         let fallaronFotos = false;
-        if (subidas.length) {
-            if (resultado) await fotosEntrega.borrar(subidas);
-            else fallaronFotos = !!(await fotosEntrega.registrar(pedido.id, subidas, sesion.id || pedido.piloto_id));
+        let conFotos = 0;
+        if (lotes.length) {
+            if (resultado) await borrarFotosVarias(lotes);
+            else {
+                const r = await registrarFotosVarias(lotes, pedido.id, sesion.id || pedido.piloto_id);
+                fallaronFotos = !!r.error;
+                conFotos = r.cantidad;
+            }
         }
 
         si.disabled = false;
@@ -3359,7 +3386,7 @@ registrarSeccion('pedidos', (zona) => {
         } else {
             aviso.mostrar(accion.id === 'rechazar_solicitud' ? 'Solicitud rechazada; se avisó a quien la pidió.'
                 : `Pedido ${pedido.codigo}: ${(PED_ESTADOS[accion.nuevo] || {}).texto}.`
-                    + (subidas.length && !fallaronFotos ? ` Con ${plural(subidas.length, 'foto', 'fotos')}.` : '')
+                    + (conFotos && !fallaronFotos ? ` Con ${plural(conFotos, 'foto', 'fotos')}.` : '')
                     + (fallaronFotos ? ' Pero no se pudieron guardar las fotos.' : ''), fallaronFotos ? 'error' : 'ok');
         }
         if (!resultado) await avisosDeAccion(accion.id, motivo);

@@ -37,7 +37,8 @@ $GRUPOS = @{
         @{ nombre = 'articulos_de_venta';    bloques = 25..25; que = 'Artículos de venta: unidad y costo de cada presentación' },
         @{ nombre = 'qr_validar_y_marcar';   bloques = 26..26; que = 'QR del piloto: validar y marcar en un solo paso' },
         @{ nombre = 'qr_fijo_tienda';        bloques = 27..28; que = 'QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS)' },
-        @{ nombre = 'visitas';               bloques = 29..29; que = 'Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (3 días)' }
+        @{ nombre = 'visitas';               bloques = 29..29; que = 'Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (3 días)' },
+        @{ nombre = 'comprobante_de_pago';   bloques = 30..30; que = 'Entrega: foto del comprobante de pago (efectivo, voucher o SINPE)' }
     )
     '01_actualizacion_base_existente' = @(
         @{ nombre = 'base_y_pedidos';        bloques = 0..15;  que = 'Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR' },
@@ -52,7 +53,8 @@ $GRUPOS = @{
         @{ nombre = 'articulos_de_venta';    bloques = 32..32; que = 'Artículos de venta: unidad y costo de cada presentación' },
         @{ nombre = 'qr_validar_y_marcar';   bloques = 33..33; que = 'QR del piloto: validar y marcar en un solo paso' },
         @{ nombre = 'qr_fijo_tienda';        bloques = 34..35; que = 'QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS)' },
-        @{ nombre = 'visitas';               bloques = 36..36; que = 'Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (3 días)' }
+        @{ nombre = 'visitas';               bloques = 36..36; que = 'Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (3 días)' },
+        @{ nombre = 'comprobante_de_pago';   bloques = 37..37; que = 'Entrega: foto del comprobante de pago (efectivo, voucher o SINPE)' }
     )
 }
 

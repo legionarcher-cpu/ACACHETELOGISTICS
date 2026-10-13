@@ -515,6 +515,11 @@
     text-decoration: none;
 }
 
+.rep-caj-cobros a.rep-caj-comprobante {
+    margin-right: 0.444rem;
+    font-weight: 600;
+}
+
 .rep-caj-cobros td:first-child,
 .rep-caj-tabla td:first-child {
     white-space: nowrap;
