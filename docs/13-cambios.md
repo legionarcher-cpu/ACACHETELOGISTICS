@@ -2,6 +2,20 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · Configuración → Artículos de venta y precios
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 32** (=
+`sql/por_funcion/01_actualizacion_10_articulos_de_venta.sql`; instalación nueva: `sql/00`, sección 25).
+
+- Tarjeta nueva en Configuración (Administrador y G1): crear un artículo de venta en **una ventana** con
+  artículo, categoría, código, presentación, unidad, cantidad que trae, costo y precio de venta con IVA (IVA 13 %
+  cambiable). Tabla con costo, precio y margen; filtro por lista de precios; modificar y eliminar. Mismo catálogo
+  que Distribución → Productos y precios ([15-distribuidora.md](15-distribuidora.md)).
+- `producto_presentaciones.unidad` y `.costo` (bloque 32). Sin el bloque se guarda lo demás y se avisa.
+- El selector de productos del pedido y de la venta en ruta muestra el **precio con IVA** de cada opción.
+- Configuración → Pedidos → Categorías y Artículos frecuentes indican dónde se crean los artículos de venta.
+- `VERSION_APP` = `20261013e`.
+
 ## 2026-10-13 · Tiendas: región opcional · usuarios sin región
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 31** (=

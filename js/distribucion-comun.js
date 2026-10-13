@@ -84,15 +84,20 @@ function distListaDeTienda(cat, tiendaId) {
     return propia || cat.general || ((cat.listas.find((l) => l.activa) || {}).id) || null;
 }
 
-// <select> de presentaciones activas agrupadas por producto
-function distLlenarPresentaciones(select, cat, { vacio = 'Elige un producto', soloIds = null } = {}) {
+// <select> de presentaciones activas agrupadas por producto.
+// Con listaId, cada opción muestra su precio de venta con IVA ("Caja 12 · ₡15 000,00").
+function distLlenarPresentaciones(select, cat, { vacio = 'Elige un producto', soloIds = null, listaId = undefined } = {}) {
     select.replaceChildren(new Option(vacio, ''));
     cat.productos.filter((p) => p.activo).forEach((p) => {
         const suyas = cat.presentaciones.filter((x) => x.producto_id === p.id && x.activa && (!soloIds || soloIds.has(x.id)));
         if (!suyas.length) return;
         const grupo = document.createElement('optgroup');
         grupo.label = p.codigo ? `${p.nombre} (${p.codigo})` : p.nombre;
-        suyas.forEach((x) => grupo.appendChild(new Option(x.nombre, x.id)));
+        suyas.forEach((x) => {
+            const pr = listaId === undefined ? null : distPrecio(cat, listaId, x.id);
+            const texto = !pr ? x.nombre : pr.tiene ? `${x.nombre} · ${distDinero(distConIva(pr.precio, pr.iva_pct))}` : `${x.nombre} · sin precio`;
+            grupo.appendChild(new Option(texto, x.id));
+        });
         select.appendChild(grupo);
     });
 }
@@ -149,7 +154,7 @@ function crearSelectorProductos(caja, { catalogo, listaId, alCambiar = () => {},
 
     const soloIds = () => (maximos ? new Set([...maximos.entries()].filter(([, n]) => n > 0).map(([id]) => id)) : null);
     const llenar = () => distLlenarPresentaciones(select, cat, {
-        soloIds: soloIds(), vacio: maximos && !soloIds().size ? 'No llevas productos' : 'Elige un producto',
+        soloIds: soloIds(), vacio: maximos && !soloIds().size ? 'No llevas productos' : 'Elige un producto', listaId: lista,
     });
 
     function precioDe(presId) {
@@ -268,6 +273,7 @@ function crearSelectorProductos(caja, { catalogo, listaId, alCambiar = () => {},
         // Otra lista: los precios de las líneas cambian a los de esa lista
         cambiarLista(id) {
             lista = id;
+            llenar(); // los precios de la lista se ven en las opciones
             lineas.forEach((l) => { const pr = precioDe(l.presentacion_id); l.precio = pr.precio; l.iva_pct = pr.iva_pct; });
             dibujar();
             alCambiar();

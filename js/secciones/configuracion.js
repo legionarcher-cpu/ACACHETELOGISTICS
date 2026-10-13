@@ -250,6 +250,12 @@ registrarSeccion('configuracion', (zona) => {
             permitido: () => esGeneral && enPlan('cfg_costos') && usaParte('vehiculos'), // costos por vehículo y por km
             abrir: () => abrirModuloExterno('costos'),
         },
+        // Artículos de venta: producto + presentación + precio (js/secciones/configuracion/articulos.js).
+        // Siempre visible para Administrador y G1 (si ninguna actividad usa productos, el módulo lo avisa).
+        articulos: {
+            permitido: () => esGeneral,
+            abrir: () => abrirModuloExterno('articulos'),
+        },
         // Tipos de caja y fondo de cada piloto (js/secciones/configuracion/cajas.js).
         // El cierre se hace en la sección Caja. Si el plan de la empresa incluye "caja".
         cajas: {

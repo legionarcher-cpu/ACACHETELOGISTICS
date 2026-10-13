@@ -1,4 +1,4 @@
--- 8 de 10 · sql/00_instalacion_completa.sql · Código de tienda libre (sin región) y tiendas con o sin rutas (secciones 21 a 21).
+-- 8 de 11 · sql/00_instalacion_completa.sql · Código de tienda libre (sin región) y tiendas con o sin rutas (secciones 21 a 21).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

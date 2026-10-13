@@ -324,7 +324,7 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
         // ---------- Categorías de mercadería (de cada actividad) ----------
         categorias: {
             titulo: 'Categorías de mercadería',
-            texto: 'Casillas que se marcan al registrar un pedido, por actividad. Conteo = abarrotes; Artículos = línea blanca, electrónica...; Bultos = cajas y bolsas; Documentos = sobres.',
+            texto: 'Casillas que se marcan al registrar un pedido, por actividad. Conteo = abarrotes; Artículos = línea blanca, electrónica...; Bultos = cajas y bolsas; Documentos = sobres. Los artículos que se VENDEN (unidad, cantidad, presentación y precio) se crean en Configuración → Artículos de venta y precios.',
             icono: 'bi-ui-checks',
             sql: '01_actualizacion_base_existente.sql', // tipos bulto / documento y peso_referencia
             tabla: 'categorias_mercaderia', clave: 'id', select: 'id, actividad, nombre, tipo, icono, peso_referencia, activa, orden', orden: 'orden',
@@ -379,7 +379,7 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
         // python/pesos_promedio.py los ajusta con los pesos reales de los pedidos.
         articulos: {
             titulo: 'Artículos frecuentes (pesos promedio)',
-            texto: 'Peso promedio de cada artículo, por actividad y categoría. Al registrar un pedido el peso se llena solo y el empleado lo puede corregir.',
+            texto: 'Peso promedio de cada artículo, por actividad y categoría. Al registrar un pedido el peso se llena solo y el empleado lo puede corregir. (Artículos para vender con precio: Configuración → Artículos de venta y precios.)',
             icono: 'bi-list-check',
             sql: '00_instalacion_completa.sql', // si falta la tabla, solo esta tarjeta lo avisa
             tabla: 'articulos_catalogo', clave: 'id', select: 'id, categoria_id, nombre, peso_kg, activo, orden', orden: 'orden',

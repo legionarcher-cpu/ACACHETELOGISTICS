@@ -33,11 +33,21 @@ también lo controle.
 
 ## 1. Productos y precios (los crea la empresa)
 
-No trae catálogo: todo lo crea la empresa en **Distribución → Productos y precios**.
+No trae catálogo: todo lo crea la empresa. Dos lugares, el mismo catálogo:
+
+- **Configuración → Artículos de venta y precios** (lo más fácil; Administrador y G1; `js/secciones/configuracion/articulos.js`):
+  una sola ventana con artículo, categoría, código, presentación, **unidad** (unidad, kg, litro, caja...),
+  **cantidad que trae**, **costo** (opcional, para el margen) y **precio de venta con IVA** (guarda el precio sin IVA
+  + % de IVA). Si el artículo ya existe se le agrega la presentación; si la empresa no tiene listas, crea la
+  "General". La tabla muestra costo, precio de venta y margen por lista. La tarjeta se ve siempre; si ninguna
+  actividad usa productos, avisa que hay que marcarlo en la actividad. Unidad y costo: sql/01 bloque 32.
+- **Distribución → Productos y precios**: lo mismo por partes, más listas de precios, lista de cada tienda y motivos.
+
+Al hacer un pedido (o una venta en ruta) cada opción del selector muestra su **precio con IVA** de la lista.
 
 - **Producto** (`productos`): nombre, código y categoría opcionales, activo.
 - **Presentación** (`producto_presentaciones`): cómo se vende ("Unidad", "Caja 12 x 1 L"), unidades que trae,
-  código de barras, activa. Al crear un producto se pide su primera presentación (y su precio).
+  unidad de medida (`unidad`) y costo (`costo`) desde el bloque 32, código de barras, activa. Al crear un producto se pide su primera presentación (y su precio).
 - **Listas de precios** (`listas_precios`): ej. General, Zona Norte, Mayorista. Una puede ser la **general**: la usan
   las tiendas sin lista propia y cuando a una lista le falta un precio.
 - **Precio** (`precios`): por presentación y por lista, **sin IVA** + **% de IVA** (13 por defecto, se cambia en cada

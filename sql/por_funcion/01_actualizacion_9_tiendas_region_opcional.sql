@@ -1,4 +1,4 @@
--- 9 de 9 · sql/01_actualizacion_base_existente.sql · Tiendas sin región (opcional) y usuarios sin región (jperez01) (bloques 31 a 31).
+-- 9 de 10 · sql/01_actualizacion_base_existente.sql · Tiendas sin región (opcional) y usuarios sin región (jperez01) (bloques 31 a 31).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -102,4 +102,6 @@ grant execute on function public.cambiar_region_tienda(bigint, text) to anon;
 grant execute on function public.cambiar_codigo_empresa(bigint, text) to anon;
 
 notify pgrst, 'reload schema';
+
+
 

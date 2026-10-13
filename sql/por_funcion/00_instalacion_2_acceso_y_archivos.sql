@@ -1,4 +1,4 @@
--- 2 de 10 · sql/00_instalacion_completa.sql · Acceso desde la web (temporal) y fotos (Storage) (secciones 10 a 11).
+-- 2 de 11 · sql/00_instalacion_completa.sql · Acceso desde la web (temporal) y fotos (Storage) (secciones 10 a 11).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

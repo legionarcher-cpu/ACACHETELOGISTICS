@@ -81,16 +81,16 @@ const EMPRESAS = {
     },
 
     // ---------- Transportes Otoya-Valverde & Asociados ----------
-    'otoya-valverde': {
-        nombre: 'Otoya-Valverde & Asociados',
-        titulo: 'Otoya-Valverde & Asociados',
+    'Corporacion-Dinant': {
+        nombre: 'Corporacion-Dinant',
+        titulo: 'Corporacion-Dinant',
         subtitulo: 'Panel de Control de Operaciones',
         // Imágenes del encabezado: css/encabezados.css (html[data-marca="otoya-valverde"])
         pie: [
             'Derechos Reservados Achete Logistics S.A.',
-            'Propiedad Reservada para Transporte Valverde y Asociados',
+            'Propiedad Reservada para Corporacion-Dinant',
         ],
-        actividades: ['tienda', 'encomiendas'],
+        actividades: ['tienda', 'encomiendas', 'encomiendas'],
         // ID de la empresa interna de Transportes Otoya (Tiendas -> Empresas: la 02; la 01 es
         // siempre la empresa principal): sus clientes solicitan su usuario desde el login
         registroClientes: '02',

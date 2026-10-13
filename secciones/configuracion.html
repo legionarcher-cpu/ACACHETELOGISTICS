@@ -133,6 +133,16 @@
             </span>
             <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
         </button>
+        <!-- Artículos de venta y precios (js/secciones/configuracion/articulos.js) -->
+        <button type="button" class="cfg-modulo-tarjeta" data-modulo="articulos">
+            <span class="cfg-modulo-icono"><i class="bi bi-tags"></i></span>
+            <span class="cfg-modulo-textos">
+                <span class="cfg-modulo-nombre">Artículos de venta y precios</span>
+                <span class="cfg-modulo-descripcion">Crea los artículos que vendes: unidad, cantidad, presentación, costo y precio de venta.</span>
+                <span class="cfg-modulo-acceso">Administrador y Admin G1</span>
+            </span>
+            <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
+        </button>
         <!-- Cajas: tipos de caja y fondo de cada piloto (js/secciones/configuracion/cajas.js) -->
         <button type="button" class="cfg-modulo-tarjeta" data-modulo="cajas">
             <span class="cfg-modulo-icono"><i class="bi bi-safe"></i></span>
@@ -1109,6 +1119,79 @@
     </section>
 
     <!-- ==================================================
+         MÓDULO: ARTÍCULOS DE VENTA Y PRECIOS (Administrador y Admin G1)
+         Un artículo = producto + presentación + precio (tablas productos,
+         producto_presentaciones y precios, sql/01 bloques 27 y 32). Es el mismo catálogo
+         que usa la distribuidora (Distribución -> Productos y precios).
+         Lógica: js/secciones/configuracion/articulos.js. Ids "cfgArt".
+         ================================================== -->
+    <section class="cfg-modulo" data-modulo="articulos" hidden>
+
+        <div class="cfg-modulo-cabecera">
+            <a href="#configuracion" class="cfg-volver"><i class="bi bi-arrow-left"></i> Configuración</a>
+            <h3 class="cfg-modulo-titulo"><i class="bi bi-tags"></i> Artículos de venta y precios</h3>
+        </div>
+
+        <p id="cfgArtFaltaSql" class="cfg-nota" hidden>
+            <i class="bi bi-exclamation-triangle"></i>
+            Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloque 27: distribuidora) en Supabase.
+        </p>
+        <p id="cfgArtFaltaSql32" class="cfg-nota" hidden>
+            <i class="bi bi-info-circle"></i>
+            Para guardar la <strong>unidad</strong> y el <strong>costo</strong> falta ejecutar el bloque 32 de sql/01
+            (sql/por_funcion/01_actualizacion_10_articulos_de_venta.sql). Mientras tanto se guardan el artículo, la
+            presentación, la cantidad y el precio.
+        </p>
+        <p id="cfgArtSinPedidos" class="cfg-nota" hidden>
+            <i class="bi bi-info-circle"></i>
+            Para elegir estos artículos en los pedidos, marca <strong>Productos</strong> en la actividad
+            (Configuración → Actividades) o agrega la actividad <strong>Distribución</strong> a la empresa.
+        </p>
+
+        <div id="cfgArtContenido" class="tarjeta cfg-tarjeta">
+            <div class="cfg-tarjeta-cabecera">
+                <div>
+                    <h3 class="cfg-tarjeta-titulo">Artículos</h3>
+                    <p class="cfg-tarjeta-texto">
+                        Cada fila es un artículo en una presentación (ej. Leche · Caja de 12 litros). El precio de venta
+                        es el que ven los usuarios al hacer un pedido; se escribe con IVA (13 % se puede cambiar).
+                    </p>
+                </div>
+                <button type="button" id="cfgArtNuevo" class="boton boton-principal boton-chico">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Nuevo artículo</span>
+                </button>
+            </div>
+            <div class="cfg-art-filtros">
+                <input id="cfgArtBuscar" type="search" class="campo-input" placeholder="Buscar artículo, categoría o código" aria-label="Buscar artículo">
+                <label class="cfg-art-lista">
+                    <span>Precios de</span>
+                    <select id="cfgArtLista" class="campo-input" aria-label="Lista de precios"></select>
+                </label>
+            </div>
+            <div class="tabla-caja">
+                <table class="tabla cfg-tabla">
+                    <thead>
+                        <tr>
+                            <th>Artículo</th>
+                            <th>Presentación</th>
+                            <th>Unidad</th>
+                            <th class="dist-num">Cantidad</th>
+                            <th class="dist-num">Costo</th>
+                            <th class="dist-num">Precio de venta</th>
+                            <th class="dist-num">Margen</th>
+                            <th>Estado</th>
+                            <th class="tabla-col-acciones">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cfgArtTabla"></tbody>
+                </table>
+            </div>
+            <p id="cfgArtContador" class="cfg-tarjeta-texto"></p>
+        </div>
+    </section>
+
+    <!-- ==================================================
          MÓDULO: PLANES Y FUNCIONES (solo el Desarrollador)
          Plan de pago de cada empresa y las funciones que pueden usar sus administradores
          y usuarios (empresas.plan y empresas.funciones, sql/01 bloque 22).
@@ -1562,6 +1645,80 @@
         <div class="dialogo-botones">
             <button type="button" id="cfgCajCancelar" class="boton boton-secundario">Cancelar</button>
             <button type="submit" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Ventana del módulo Artículos de venta (js/secciones/configuracion/articulos.js) -->
+<dialog id="cfgArtDialogo" class="dialogo" aria-labelledby="cfgArtTitulo">
+    <form id="cfgArtForm" class="dialogo-form" novalidate>
+        <h3 id="cfgArtTitulo" class="dialogo-titulo">Nuevo artículo</h3>
+        <div class="campos">
+            <div class="campo campo-ancho">
+                <label for="cfgArtNombre" class="campo-etiqueta">Artículo *</label>
+                <input id="cfgArtNombre" type="text" maxlength="80" class="campo-input" list="cfgArtNombres" autocomplete="off" placeholder="Ej. Leche entera">
+                <datalist id="cfgArtNombres"></datalist>
+                <small id="cfgArtNombreAyuda" class="campo-ayuda">Si ya existe, se le agrega esta presentación.</small>
+            </div>
+            <div class="campo">
+                <label for="cfgArtCategoria" class="campo-etiqueta">Categoría</label>
+                <input id="cfgArtCategoria" type="text" maxlength="60" class="campo-input" list="cfgArtCategorias" autocomplete="off" placeholder="Ej. Lácteos">
+                <datalist id="cfgArtCategorias"></datalist>
+            </div>
+            <div class="campo">
+                <label for="cfgArtCodigo" class="campo-etiqueta">Código</label>
+                <input id="cfgArtCodigo" type="text" maxlength="40" class="campo-input" autocomplete="off" placeholder="Opcional">
+            </div>
+            <div class="campo">
+                <label for="cfgArtPresentacion" class="campo-etiqueta">Presentación *</label>
+                <input id="cfgArtPresentacion" type="text" maxlength="60" class="campo-input" list="cfgArtPresentaciones" autocomplete="off" placeholder="Ej. Unidad, Caja, Paquete">
+                <datalist id="cfgArtPresentaciones">
+                    <option value="Unidad"></option><option value="Caja"></option><option value="Paquete"></option>
+                    <option value="Bolsa"></option><option value="Paca"></option><option value="Docena"></option>
+                </datalist>
+            </div>
+            <div class="campo">
+                <label for="cfgArtUnidad" class="campo-etiqueta">Unidad</label>
+                <select id="cfgArtUnidad" class="campo-input">
+                    <option value="unidad">Unidad</option>
+                    <option value="kg">Kilogramo (kg)</option>
+                    <option value="g">Gramo (g)</option>
+                    <option value="litro">Litro</option>
+                    <option value="ml">Mililitro (ml)</option>
+                    <option value="metro">Metro</option>
+                    <option value="paquete">Paquete</option>
+                    <option value="caja">Caja</option>
+                    <option value="bolsa">Bolsa</option>
+                    <option value="docena">Docena</option>
+                </select>
+            </div>
+            <div class="campo">
+                <label for="cfgArtCantidad" class="campo-etiqueta">Cantidad que trae *</label>
+                <input id="cfgArtCantidad" type="number" min="0.01" step="any" class="campo-input" inputmode="decimal" value="1">
+                <small id="cfgArtCantidadAyuda" class="campo-ayuda">Ej. una caja de 12 unidades: 12.</small>
+            </div>
+            <div class="campo">
+                <label for="cfgArtCosto" class="campo-etiqueta">Costo (₡)</label>
+                <input id="cfgArtCosto" type="number" min="0" step="0.01" class="campo-input" inputmode="decimal" placeholder="Opcional">
+                <small class="campo-ayuda">Lo que le cuesta a la empresa. No lo ven los clientes.</small>
+            </div>
+            <div class="campo">
+                <label for="cfgArtPrecio" class="campo-etiqueta">Precio de venta con IVA (₡) *</label>
+                <input id="cfgArtPrecio" type="number" min="0" step="0.01" class="campo-input" inputmode="decimal">
+            </div>
+            <div class="campo">
+                <label for="cfgArtIva" class="campo-etiqueta">IVA %</label>
+                <input id="cfgArtIva" type="number" min="0" max="100" step="0.01" class="campo-input" inputmode="decimal" value="13">
+            </div>
+            <p id="cfgArtResumen" class="campo campo-ancho cfg-art-resumen" aria-live="polite"></p>
+            <div class="campo campo-ancho">
+                <label class="cfg-art-si-no"><input id="cfgArtActivo" type="checkbox" checked> Activo (se puede vender)</label>
+            </div>
+        </div>
+        <p id="cfgArtError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="cfgArtCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="cfgArtGuardar" class="boton boton-principal">Guardar</button>
         </div>
     </form>
 </dialog>
