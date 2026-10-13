@@ -1,0 +1,23 @@
+# Archivos del repositorio que NO se publican en acachetelogistics.com (Cloudflare, wrangler.jsonc).
+# Mismo formato que .gitignore. La app solo necesita: index.html, app.html, css, empresas,
+# img, js, python, responsive, secciones y web.
+.git
+.github
+.gitignore
+.assetsignore
+wrangler.jsonc
+.vscode
+ACACHETELOGISTICS/
+
+# Base de datos, documentación y herramientas internas
+sql/
+docs/
+herramientas/
+*.md
+*.ps1
+*.docx
+
+# Temporales
+Thumbs.db
+desktop.ini
+~$*

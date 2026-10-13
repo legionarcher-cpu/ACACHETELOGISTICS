@@ -1,0 +1,10 @@
+// Publicación en Cloudflare (Workers con archivos estáticos): acachetelogistics.com
+// Cada push a "main" en GitHub publica solo. No hay compilación: se suben los archivos tal cual.
+// Lo que NO se publica (sql, docs, herramientas, .md...) está en .assetsignore.
+{
+    "name": "acachetelogistics",
+    "compatibility_date": "2025-06-01",
+    "assets": {
+        "directory": "./"
+    }
+}
