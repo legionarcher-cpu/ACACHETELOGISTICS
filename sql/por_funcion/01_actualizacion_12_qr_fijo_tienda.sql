@@ -128,7 +128,7 @@ notify pgrst, 'reload schema';
 --   Se puede repetir.
 -- ==================================================
 
-insert into public.configuracion (clave, valor) values ('radio_marca_m', '150') on conflict (clave) do nothing;
+insert into public.configuracion (clave, valor) values ('radio_marca_m', '50') on conflict (clave) do nothing;
 
 alter table public.marcas_piloto
     add column if not exists lat         double precision,
