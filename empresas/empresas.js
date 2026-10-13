@@ -279,7 +279,7 @@ function empresaTieneRecoleccion() {
 // vehiculos, km (cobro por km), peso y productos (distribuidora). Se marcan en
 // Configuración -> Actividades. Valor de cada una si la base todavía no lo dice
 // (sin el bloque 26 o actividad desconocida): como antes.
-const PARTES_ACTIVIDAD = { vehiculos: true, km: true, peso: true, productos: false };
+const PARTES_ACTIVIDAD = { vehiculos: true, km: true, peso: true, productos: false, caja: true }; // caja: sql/01 bloque 30
 
 function actividadUsaParte(codigo, parte) {
     const info = typeof palabrasActividades !== 'undefined' ? palabrasActividades[codigo] : null;

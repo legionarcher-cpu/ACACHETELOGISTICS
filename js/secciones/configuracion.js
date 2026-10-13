@@ -253,7 +253,7 @@ registrarSeccion('configuracion', (zona) => {
         // Tipos de caja y fondo de cada piloto (js/secciones/configuracion/cajas.js).
         // El cierre se hace en la sección Caja. Si el plan de la empresa incluye "caja".
         cajas: {
-            permitido: () => esGeneral && enPlan('caja'),
+            permitido: () => esGeneral && enPlan('caja') && usaParte('caja'), // y alguna actividad cierra caja (bloque 30)
             abrir: () => abrirModuloExterno('cajas'),
         },
         // Plan de pago de cada empresa y funciones habilitadas

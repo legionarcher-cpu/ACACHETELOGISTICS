@@ -205,7 +205,8 @@ function refrescarPalabras() {
 async function cargarPalabras() {
     const columnas = 'codigo, palabra_registro, palabra_registros, palabra_conductor, palabra_conductores';
     const partes = 'usa_vehiculos, usa_km, usa_peso, usa_productos';
-    let { data, error } = await db.from('actividades').select(`${columnas}, usa_viajes, usa_recoleccion, ${partes}`);
+    let { data, error } = await db.from('actividades').select(`${columnas}, usa_viajes, usa_recoleccion, ${partes}, usa_caja`);
+    if (error && error.code === '42703') ({ data, error } = await db.from('actividades').select(`${columnas}, usa_viajes, usa_recoleccion, ${partes}`)); // sin el bloque 30
     if (error && error.code === '42703') ({ data, error } = await db.from('actividades').select(`${columnas}, usa_viajes, usa_recoleccion`)); // sin el bloque 26
     if (error && error.code === '42703') ({ data, error } = await db.from('actividades').select(columnas)); // sin el bloque 19
     if (error) {
@@ -223,6 +224,7 @@ async function cargarPalabras() {
             km: a.usa_km === undefined ? null : !!a.usa_km,
             peso: a.usa_peso === undefined ? null : !!a.usa_peso,
             productos: a.usa_productos === undefined ? null : !!a.usa_productos,
+            caja: a.usa_caja === undefined ? null : !!a.usa_caja, // bloque 30: sección Caja
         }]));
     }
     try {

@@ -338,6 +338,12 @@ registrarSeccion('distribucion', (zona) => {
                 b.dataset.accion = 'cerrar';
                 botones.push(b);
             }
+            // Mercadería cerrada: el dinero se cuadra en la Caja del piloto (si la empresa la usa)
+            if (r.cierre && typeof tienePermiso === 'function' && tienePermiso('caja')) {
+                const b = crearBotonIcono('editar', r.id, 'bi-safe', `Cerrar la caja de ${nombrePiloto(r.id)}`);
+                b.dataset.accion = 'caja';
+                botones.push(b);
+            }
             tr.append(crearCelda(nombrePiloto(r.id)), celdaNum(t.cargado), celdaNum(t.entregado), celdaNum(t.vendido), celdaNum(t.devuelto),
                 celdaNum(t.enMano), crearCelda(distDinero(t.valorMano), 'dist-num'), tdEstado, crearCeldaAcciones(...botones));
             cuerpoP.appendChild(tr);
@@ -360,6 +366,7 @@ registrarSeccion('distribucion', (zona) => {
     $('#disPilotos').addEventListener('click', (e) => {
         const b = e.target.closest('button[data-accion]');
         if (!b) return;
+        if (b.dataset.accion === 'caja') { location.hash = `caja?piloto=${b.dataset.id}`; return; } // js/secciones/caja.js
         abrirCuadre(Number(b.dataset.id), b.dataset.accion === 'cerrar');
     });
 
@@ -703,7 +710,8 @@ registrarSeccion('distribucion', (zona) => {
         }
         dlgCuadre.close();
         const falta = Number(data.unidades_faltantes) > 0;
-        aviso.mostrar(`Mercadería de ${data.piloto_nombre} cerrada: ${falta
+        const conCaja = typeof tienePermiso === 'function' && tienePermiso('caja');
+        aviso.mostrar(`Mercadería de ${data.piloto_nombre} cerrada${conCaja ? ' (cierra su caja con el botón de la caja fuerte)' : ''}: ${falta
             ? `${Number(data.unidades_faltantes) === 1 ? 'falta' : 'faltan'} ${disUnidades(data.unidades_faltantes)} (${distDinero(data.valor_faltante)}).` : 'cuadra.'}`, falta ? 'error' : 'ok');
         // Faltante: aviso al G3 y al G2 de la tienda y al piloto; queda en el reporte (Historial)
         if (falta) {

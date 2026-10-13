@@ -30,6 +30,7 @@
 --       carga, entrega parcial, venta en ruta, devolución y cierres)
 --   21. Tiendas: código libre (no depende de la región) y con o sin rutas
 --   22. Despacho: carga con evidencia por pedido y salida a ruta por slot
+--   23. Caja de pilotos como parte de cada actividad
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:

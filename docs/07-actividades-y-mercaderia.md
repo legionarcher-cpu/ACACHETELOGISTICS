@@ -38,6 +38,7 @@ según la actividad basta con ponerle esa clase. Dentro de un pedido manda la ac
 | Peso | Campos de kg de las tarifas, peso total del pedido |
 | Km **y** peso | Cotizador (menú y botón del pie) y el simulador de precios |
 | Productos | Productos, Bodega del día, Venta en ruta y Cierre de mercadería (distribuidora) |
+| Caja (`usa_caja`, sql/01 bloque 30) | Sección Caja (cierre de caja de pilotos) y Configuración → Cajas. Viene marcada en todas |
 
 **Palabras de la actividad** (sql/01 bloque 18): cada actividad puede llamar distinto al registro y al conductor
 (Configuración → Actividades; vacío = pedido / piloto). Si **todas** las actividades de la empresa usan la misma,

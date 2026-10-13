@@ -66,6 +66,7 @@
 --      devolución y cierres de mercadería.
 --  28. Tiendas: código libre (no depende de la región) y tiendas con o sin rutas.
 --  29. Despacho: carga con evidencia por pedido y salida a ruta por slot ("No salió a ruta").
+--  30. Caja de pilotos como parte de cada actividad (actividades.usa_caja).
 -- ==================================================
 
 

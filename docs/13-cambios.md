@@ -2,6 +2,20 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · Caja de pilotos como parte de cada actividad · versión de los archivos
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 30** (incluido en
+`sql/por_funcion/01_actualizacion_8_despacho_carga_y_salida.sql`; instalación nueva: `sql/00`, sección 23).
+
+- **Caja de pilotos** es una casilla más en Configuración → Actividades → "Qué usa en todo el sistema"
+  (`actividades.usa_caja`). La sección Caja y Configuración → Cajas aparecen si alguna actividad de la empresa la
+  usa (y su plan incluye "caja"). Todas las actividades vienen con caja: no desaparece nada.
+- **Distribución**: después de cerrar la mercadería de un piloto, botón de **caja fuerte** que abre su Caja
+  (`#caja?piloto=ID`) para cuadrar el dinero.
+- **Versión de los archivos** (`VERSION_APP` en `app.html`): cada JS, CSS y HTML se descarga con `?v=...`, así el
+  navegador no mezcla archivos nuevos con viejos (por eso Configuración no cargaba). Subirla al publicar
+  ([10-recetas.md](10-recetas.md)).
+
 ## 2026-10-12 · Despacho: carga con evidencia por pedido y salida a ruta por slot
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 29** (o `sql/por_funcion/01_actualizacion_8_despacho_carga_y_salida.sql`;

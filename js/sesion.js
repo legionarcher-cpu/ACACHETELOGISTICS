@@ -223,6 +223,8 @@ function seccionAplica(seccion) {
             && (typeof funcionHabilitada !== 'function' || funcionHabilitada('envios_clientes'));
     }
     if (SECCIONES_DE_VIAJES.includes(seccion) && typeof empresaTieneViajes === 'function') return empresaTieneViajes();
+    // Caja: solo si alguna actividad de la empresa cierra caja (sql/01 bloque 30)
+    if (seccion === 'caja' && typeof empresaUsa === 'function' && !empresaUsa('caja')) return false;
     // Distribución: solo si alguna actividad de la empresa usa productos (sql/01 bloque 26)
     if (seccion === 'distribucion' && typeof empresaUsa === 'function' && !empresaUsa('productos')) return false;
     // Cotizador: cobra por peso y distancia; sin ninguna de las dos no tiene sentido (sql/01 bloque 26)

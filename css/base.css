@@ -71,6 +71,7 @@ html.sin-vehiculos .solo-vehiculos,
 html.sin-km .solo-km,
 html.sin-peso .solo-peso,
 html.sin-peso.sin-km .solo-peso-o-km,
-html.sin-productos .solo-productos {
+html.sin-productos .solo-productos,
+html.sin-caja .solo-caja {
     display: none !important;
 }

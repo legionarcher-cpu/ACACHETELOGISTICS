@@ -1,4 +1,4 @@
--- 9 de 9 · sql/00_instalacion_completa.sql · Carga con evidencia por pedido y salida a ruta por slot (secciones 22 a 22).
+-- 9 de 9 · sql/00_instalacion_completa.sql · Carga con evidencia por pedido, salida a ruta por slot y caja por actividad (secciones 22 a 23).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -165,3 +165,17 @@ grant execute on function public.piloto_salir_ruta(jsonb) to anon;
 
 notify pgrst, 'reload schema';
 
+
+-- ==================================================
+-- 23. CAJA DE PILOTOS COMO PARTE DE CADA ACTIVIDAD (sql/01 bloque 30)
+--   actividades.usa_caja: la actividad cobra y cierra la caja de sus pilotos o
+--   conductores (sección Caja y Configuración -> Cajas). Se marca en
+--   Configuración -> Actividades -> "Qué usa en todo el sistema". La sección aparece
+--   si ALGUNA actividad de la empresa la usa (y su plan incluye "caja").
+--   Todas las actividades que ya existían quedan con caja (no cambia nada).
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.actividades add column if not exists usa_caja boolean not null default true;
+
+notify pgrst, 'reload schema';

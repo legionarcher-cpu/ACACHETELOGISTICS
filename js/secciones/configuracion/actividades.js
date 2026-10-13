@@ -46,6 +46,7 @@ const ACT_PARTES = {
     usa_km:        'Cobro por km',
     usa_peso:      'Peso',
     usa_productos: 'Productos',
+    usa_caja:      'Caja de pilotos', // sql/01 bloque 30
 };
 
 // Código de una actividad: minúsculas, números y _ (ej. 'transporte', 'farmacia_24h')
@@ -87,6 +88,7 @@ registrarModuloConfig('actividades', (seccion, ctx) => {
     let tieneUsos = true;        // false si falta sql/01_actualizacion_base_existente (solo existe usa_bodega)
     let tienePalabras = true;    // false si falta el bloque 18 de sql/01 (palabras de la actividad)
     let tienePartes = true;      // false si falta el bloque 26 de sql/01 (vehículos, km, peso, productos)
+    let tieneCaja = true;        // false si falta el bloque 30 de sql/01 (usa_caja)
     let editando = null;         // actividad que se está modificando (null = nueva)
     let creando = false;
     let codigoTocado = false;    // el código ya no sigue al nombre si se escribió a mano
@@ -103,8 +105,10 @@ registrarModuloConfig('actividades', (seccion, ctx) => {
         // Columnas que pueden faltar: partes (sql/01 bloque 26), palabras (bloque 18) y usos (bloque 7)
         const conPalabras = `${conUsos}, ${casillasPalabra.map((c) => c.dataset.palabra).join(', ')}`;
         let act = await db.from('actividades').select(`${conPalabras}, ${Object.keys(ACT_PARTES).join(', ')}`).order('orden');
+        tieneCaja = !faltaColumna(act.error);
+        if (!tieneCaja) act = await db.from('actividades').select(`${conPalabras}, ${Object.keys(ACT_PARTES).filter((k) => k !== 'usa_caja').join(', ')}`).order('orden');
         tienePartes = !faltaColumna(act.error);
-        if (!tienePartes) act = await db.from('actividades').select(conPalabras).order('orden');
+        if (!tienePartes) { tieneCaja = false; act = await db.from('actividades').select(conPalabras).order('orden'); }
         tienePalabras = !faltaColumna(act.error);
         if (!tienePalabras) act = await db.from('actividades').select(conUsos).order('orden');
         tieneUsos = !faltaColumna(act.error);
@@ -220,9 +224,9 @@ registrarModuloConfig('actividades', (seccion, ctx) => {
         casillasUso.forEach((c) => {
             const esParte = c.hasAttribute('data-parte');
             c.checked = a ? !!a[c.dataset.usa] : (esParte && c.dataset.usa !== 'usa_productos');
-            c.disabled = esParte ? !tienePartes : (!tieneUsos && c.dataset.usa !== 'usa_bodega');
+            c.disabled = esParte ? (c.dataset.usa === 'usa_caja' ? !tieneCaja : !tienePartes) : (!tieneUsos && c.dataset.usa !== 'usa_bodega');
         });
-        $('#cfgActPartesFalta').hidden = tienePartes;
+        $('#cfgActPartesFalta').hidden = tienePartes && tieneCaja;
 
         editar.showModal();
         campos.nombre.focus();

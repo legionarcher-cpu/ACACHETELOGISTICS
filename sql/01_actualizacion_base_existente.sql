@@ -62,6 +62,7 @@
 --      devolución y cierres de mercadería.
 --  28. Tiendas: código libre (no depende de la región) y tiendas con o sin rutas.
 --  29. Despacho: carga con evidencia por pedido y salida a ruta por slot ("No salió a ruta").
+--  30. Caja de pilotos como parte de cada actividad (actividades.usa_caja).
 -- ==================================================
 
 
@@ -4746,5 +4747,20 @@ $$;
 
 grant execute on function public.pedido_cargar(jsonb) to anon;
 grant execute on function public.piloto_salir_ruta(jsonb) to anon;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 30. CAJA DE PILOTOS COMO PARTE DE CADA ACTIVIDAD
+--   actividades.usa_caja: la actividad cobra y cierra la caja de sus pilotos o
+--   conductores (sección Caja y Configuración -> Cajas). Se marca en
+--   Configuración -> Actividades -> "Qué usa en todo el sistema". La sección aparece
+--   si ALGUNA actividad de la empresa la usa (y su plan incluye "caja").
+--   Todas las actividades que ya existían quedan con caja (no cambia nada).
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.actividades add column if not exists usa_caja boolean not null default true;
 
 notify pgrst, 'reload schema';

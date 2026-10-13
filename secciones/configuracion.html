@@ -1387,7 +1387,8 @@
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_km" data-parte> Cobro por km (tarifas, simulador y distancia del Cotizador)</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_peso" data-parte> Peso (tarifas por kg, peso del pedido y Cotizador)</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_productos" data-parte> Productos de distribuidora (presentaciones, precios con IVA, bodega del día, carga, venta en ruta y devolución)</label>
-                <small class="campo-ayuda" id="cfgActPartesFalta" hidden>Falta ejecutar el bloque 26 de sql/01_actualizacion_base_existente.sql.</small>
+                <label class="cfg-si-no"><input type="checkbox" data-usa="usa_caja" data-parte> Caja de pilotos: fondo, cobros y cierre de caja (sección Caja y Configuración → Cajas)</label>
+                <small class="campo-ayuda" id="cfgActPartesFalta" hidden>Falta ejecutar sql/01_actualizacion_base_existente.sql (bloques 26 y 30).</small>
             </fieldset>
         </div>
         <p id="cfgActError" class="form-error" role="alert"></p>
