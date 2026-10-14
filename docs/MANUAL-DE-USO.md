@@ -195,8 +195,14 @@ Menú **Pedidos** → **Nuevo pedido** (o "Crear pedido" en el Inicio).
 2. **Cliente.** Escribe su **teléfono o correo**: si ya existe, sus datos y su punto de entrega se llenan
    solos. Si no existe, escribe nombre y teléfono (se guardará solo al registrar).
 3. **Entrega.** Dirección, quién recibe (el cliente o un autorizado), fecha, **slot de despacho** y ruta.
-   En el **mapa A → B**, A es la tienda y B el lugar de entrega: se pueden mover los puntos, pegar un enlace
-   de Google Maps o tocar el mapa. Se ven los km y los minutos.
+   En el **mapa A → B**, A es la tienda y B el lugar de entrega. Para poner o corregir un punto toca
+   **Elegir B** (o toca el mapa): se abre el mapa a pantalla completa con un pin fijo en el centro; mueve
+   el mapa hasta que el pin quede en el lugar (o usa el buscador o **Mi ubicación**) y toca **Confirmar**.
+   También se puede pegar un enlace de Google Maps. Se ven los km y los minutos.
+   Si no sabes dónde es, toca **Pedir ubicación al cliente**: le llega un enlace por WhatsApp, el cliente
+   marca dónde entregar (con su GPS o en el mapa) y el punto B se pone solo en el formulario. Si cierras
+   el formulario, te llega un aviso cuando el cliente la marque y desde ahí lo abres ya con el punto.
+   El enlace sirve 24 horas y se cierra al registrar el pedido. No cambia ningún precio.
 4. **Mercadería.** Marca las categorías y llena sus datos (cajas, artículos con su peso, bultos...). Si la
    actividad vende **productos**, eliges la lista de precios y los productos con su cantidad (cada uno muestra
    su precio).

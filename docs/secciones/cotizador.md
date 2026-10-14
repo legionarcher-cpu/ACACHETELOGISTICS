@@ -18,8 +18,8 @@ Configuración:
    tiene **precio por km**, los km por calle se suman al precio (la tabla rápida es solo por peso).
 
 **En tablet y celular:** barra fija abajo con el precio, el peso y los km ("Ver detalle" lleva al
-desglose); cada bulto se ve como tarjeta (sin deslizar de lado); botón "Ampliar mapa" para poner los
-puntos con el dedo.
+desglose); cada bulto se ve como tarjeta (sin deslizar de lado); "Elegir A / B" (o tocar el mapa) abre el
+mapa a pantalla completa con pin fijo para poner los puntos con el dedo.
 3. **Mercadería:** una fila por bulto (o grupo de bultos iguales), con las **categorías de Encomiendas**:
    - `bulto` (cajas, bolsas): descripción, cantidad, tamaño S/M/L/XL (si la actividad **usa tamaños**) y peso.
    - `articulos` (línea blanca, electrónica...): al elegir un artículo del catálogo el **peso promedio se llena

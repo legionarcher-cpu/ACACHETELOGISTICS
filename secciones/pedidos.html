@@ -240,6 +240,14 @@
                                placeholder="Dirección, coordenadas o enlace de Google Maps">
                     </div>
 
+                    <!-- El cliente marca su ubicación desde un enlace por WhatsApp (ubicacion.html, sql/01 bloque 39) -->
+                    <div class="campo campo-ancho ped-ubicacion-cliente">
+                        <button type="button" id="pedPedirUbicacion" class="boton boton-secundario boton-chico">
+                            <i class="bi bi-whatsapp"></i> <span>Pedir ubicación al cliente</span>
+                        </button>
+                        <small id="pedUbicacionEstado" class="campo-ayuda" aria-live="polite">Le llega un enlace por WhatsApp: marca dónde entregar y el punto B se pone solo aquí.</small>
+                    </div>
+
                     <div class="campo campo-ancho">
                         <div id="pedMapa"></div>
                         <small class="campo-ayuda solo-km" id="pedAyudaKm">Revisa que A y B estén bien puestos: la distancia se cobra si la tarifa tiene precio por km.</small>

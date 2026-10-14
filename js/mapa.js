@@ -303,8 +303,10 @@ function enlacesNavegacion(a, b) {
 //   mapa.ubicarA() / mapa.ubicarB()                 -> busca el texto y pone el punto
 //   mapa.puntos() -> { a, b } · mapa.ruta() -> la última ruta · mapa.limpiar()
 //   mapa.destruir()  -> en la limpieza de la sección
-// Se puede: buscar la dirección, marcar con un clic en el mapa, arrastrar
-// los puntos, o pegar coordenadas / un enlace de Google Maps en el texto.
+// Se puede: escribir la dirección (sugerencias), "Elegir A / B" (mapa a pantalla completa
+// con pin fijo y "Mi ubicación": elegirPuntoEnMapa), clic en el mapa chico (abre lo mismo),
+// arrastrar los puntos (con mouse), o pegar coordenadas / un enlace de Google Maps.
+// En pantallas táctiles el mapa chico no se arrastra: la página baja con el dedo.
 // Estilos: .mapa-ruta en css/componentes.css
 // ==================================================
 function crearMapaRuta(caja, opciones = {}) {
@@ -323,7 +325,6 @@ function crearMapaRuta(caja, opciones = {}) {
     let vigia = null;
     let pendiente = 0;   // para ignorar rutas viejas si se mueve rápido
     const busqueda = { a: 0, b: 0 }; // para ignorar una búsqueda de dirección si mientras tanto se puso ese punto a mano
-    let proximoClic = 'b';
     let resultados = { lado: null, lista: [] };
 
     // ---------- Armado (textos con textContent) ----------
@@ -343,55 +344,46 @@ function crearMapaRuta(caja, opciones = {}) {
         return b;
     };
 
+    // "Elegir A / B en el mapa": abre el mapa a pantalla completa con un pin fijo en el
+    // centro (elegirPuntoEnMapa, más abajo). Sirve igual con el dedo que con el mouse.
     const barra = el('div', 'mapa-ruta-barra');
-    const botonA = boton('mapa-ruta-ubicar', 'bi-search', '');
-    const botonB = boton('mapa-ruta-ubicar', 'bi-search', '');
-    const clic = el('div', 'mapa-ruta-clic');
-    clic.setAttribute('role', 'group');
-    clic.append(el('span', null, 'Clic en el mapa pone:'));
-    const radios = {};
-    ['a', 'b'].forEach((lado) => {
-        const label = el('label', `mapa-ruta-lado mapa-ruta-lado-${lado}`);
-        const r = el('input');
-        r.type = 'radio';
-        r.name = `mapaRutaClic${Math.random().toString(36).slice(2, 7)}`;
-        r.value = lado;
-        r.addEventListener('change', () => { proximoClic = lado; });
-        radios[lado] = r;
-        label.append(r, el('b', null, lado.toUpperCase()));
-        clic.appendChild(label);
-    });
-    // Los radios de A y B deben compartir el mismo "name"
-    radios.b.name = radios.a.name;
-    radios.b.checked = true;
-    // Ampliar: el mapa crece (útil en celular para poner los puntos con el dedo)
-    const botonAmpliar = boton('mapa-ruta-ampliar', 'bi-arrows-angle-expand', 'Ampliar mapa');
-    botonAmpliar.setAttribute('aria-pressed', 'false');
-    botonAmpliar.addEventListener('click', () => {
-        const grande = caja.classList.toggle('mapa-ruta-grande');
-        botonAmpliar.setAttribute('aria-pressed', String(grande));
-        botonAmpliar.querySelector('i').className = `bi ${grande ? 'bi-arrows-angle-contract' : 'bi-arrows-angle-expand'}`;
-        botonAmpliar.querySelector('span').textContent = grande ? 'Achicar mapa' : 'Ampliar mapa';
-        if (mapa) setTimeout(() => { mapa.invalidateSize(); encuadrar(); }, 50);
-        if (grande) lienzo.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    });
-    barra.append(botonA, botonB, clic, botonAmpliar);
+    const botonA = boton('mapa-ruta-elegir mapa-ruta-elegir-a', 'bi-pin-map', '');
+    const botonB = boton('mapa-ruta-elegir mapa-ruta-elegir-b', 'bi-pin-map', '');
+    barra.append(botonA, botonB);
 
     const opcionesBusqueda = el('select', 'campo-input mapa-ruta-opciones');
     opcionesBusqueda.hidden = true;
     opcionesBusqueda.setAttribute('aria-label', 'Resultados de la búsqueda');
     const lienzo = el('div', 'mapa-ruta-mapa');
     lienzo.setAttribute('aria-label', 'Mapa de la ruta');
+    // En pantallas táctiles el mapa chico no se arrastra (así la página baja con el dedo):
+    // un toque lo abre a pantalla completa
+    const tactil = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+    if (tactil) lienzo.appendChild(el('span', 'mapa-ruta-toque', 'Toca el mapa para elegir el punto'));
     const estado = el('p', 'mapa-ruta-estado');
     caja.append(barra, opcionesBusqueda, lienzo, estado);
 
     function textosBotones() {
-        botonA.querySelector('span').textContent = `Ubicar A · ${o.etiquetaA}`;
-        botonB.querySelector('span').textContent = `Ubicar B · ${o.etiquetaB}`;
-        radios.a.parentElement.title = o.etiquetaA;
-        radios.b.parentElement.title = o.etiquetaB;
+        botonA.querySelector('span').textContent = `${puntos.a ? 'Cambiar' : 'Elegir'} A · ${o.etiquetaA}`;
+        botonB.querySelector('span').textContent = `${puntos.b ? 'Cambiar' : 'Elegir'} B · ${o.etiquetaB}`;
     }
     textosBotones();
+
+    // Abre el selector a pantalla completa para A o B. desde: punto donde empezar (clic en el mapa chico)
+    async function elegir(lado, desde = null) {
+        const texto = ((lado === 'a' ? o.textoA() : o.textoB()) || '').trim();
+        const r = await elegirPuntoEnMapa({
+            titulo: `${lado.toUpperCase()} · ${lado === 'a' ? o.etiquetaA : o.etiquetaB}`,
+            lado,
+            inicial: desde || puntos[lado] || null,
+            buscar: desde || puntos[lado] ? '' : texto,
+            cerca: zonaVisible(),
+        });
+        if (!r) return;
+        opcionesBusqueda.hidden = true;
+        busqueda[lado]++;
+        poner(lado, r);
+    }
 
     // ---------- Estado de abajo: distancia + enlaces ----------
     function pintarEstado(texto, tipo = '') {
@@ -400,7 +392,7 @@ function crearMapaRuta(caja, opciones = {}) {
         if (texto) { estado.textContent = texto; return; }
         if (!puntos.a || !puntos.b) {
             estado.textContent = !puntos.a && !puntos.b
-                ? `Ubica A (${o.etiquetaA}) y B (${o.etiquetaB}): con "Ubicar", con un clic en el mapa o pegando coordenadas.`
+                ? `Ubica A (${o.etiquetaA}) y B (${o.etiquetaB}): escribe la dirección, toca "Elegir" o pega coordenadas.`
                 : `Falta ubicar ${!puntos.a ? `A (${o.etiquetaA})` : `B (${o.etiquetaB})`}.`;
             return;
         }
@@ -438,7 +430,7 @@ function crearMapaRuta(caja, opciones = {}) {
             return;
         }
         if (!marcas[lado]) {
-            marcas[lado] = window.L.marker([p.lat, p.lng], { icon: icono(lado), draggable: true, title: lado === 'a' ? o.etiquetaA : o.etiquetaB })
+            marcas[lado] = window.L.marker([p.lat, p.lng], { icon: icono(lado), draggable: !tactil, title: lado === 'a' ? o.etiquetaA : o.etiquetaB })
                 .addTo(mapa);
             marcas[lado].on('dragend', () => {
                 const ll = marcas[lado].getLatLng();
@@ -463,6 +455,7 @@ function crearMapaRuta(caja, opciones = {}) {
         ruta = null;
         if (linea) { linea.remove(); linea = null; }
         ['a', 'b'].forEach(dibujarPunto);
+        textosBotones();
         pintarEstado();
         if (!puntos.a || !puntos.b) {
             encuadrar();
@@ -482,8 +475,6 @@ function crearMapaRuta(caja, opciones = {}) {
 
     function poner(lado, punto) {
         puntos[lado] = punto ? { lat: Number(punto.lat), lng: Number(punto.lng) } : null;
-        // El siguiente clic va al punto que falte
-        if (lado === 'a' && puntos.a && !puntos.b) { radios.b.checked = true; proximoClic = 'b'; }
         return recalcular();
     }
 
@@ -497,7 +488,7 @@ function crearMapaRuta(caja, opciones = {}) {
     async function ubicar(lado) {
         const texto = (lado === 'a' ? o.textoA() : o.textoB()) || '';
         if (!texto.trim()) {
-            pintarEstado(`Escribe primero la dirección de ${lado === 'a' ? o.etiquetaA : o.etiquetaB}, o marca el punto con un clic en el mapa.`, 'error');
+            pintarEstado(`Escribe primero la dirección de ${lado === 'a' ? o.etiquetaA : o.etiquetaB}, o toca "Elegir ${lado.toUpperCase()}" para marcarlo en el mapa.`, 'error');
             return;
         }
         pintarEstado('Buscando la dirección...');
@@ -507,13 +498,13 @@ function crearMapaRuta(caja, opciones = {}) {
             lista = await buscarDireccion(texto, { cerca: zonaVisible() });
         } catch (e) {
             console.error(e);
-            if (turno === busqueda[lado]) pintarEstado('No se pudo buscar la dirección (revisa internet). Puedes marcar el punto con un clic en el mapa.', 'error');
+            if (turno === busqueda[lado]) pintarEstado(`No se pudo buscar la dirección (revisa internet). Puedes marcar el punto con "Elegir ${lado.toUpperCase()}".`, 'error');
             return;
         }
         if (turno !== busqueda[lado]) return; // mientras buscaba, el punto se puso a mano: gana ese
         if (!lista.length) {
             opcionesBusqueda.hidden = true;
-            pintarEstado(`No se encontró "${texto}". Escribe barrio y cantón (ej. "Barrio Escalante, San José"), o marca el punto con un clic en el mapa.`, 'error');
+            pintarEstado(`No se encontró "${texto}". Escribe barrio y cantón (ej. "Barrio Escalante, San José"), o toca "Elegir ${lado.toUpperCase()}" y márcalo en el mapa.`, 'error');
             return;
         }
         // Varios resultados: se pone el primero y se puede elegir otro en la lista
@@ -527,8 +518,10 @@ function crearMapaRuta(caja, opciones = {}) {
         const r = resultados.lista[Number(opcionesBusqueda.value)];
         if (r) poner(resultados.lado, r);
     });
-    botonA.addEventListener('click', () => ubicar('a'));
-    botonB.addEventListener('click', () => ubicar('b'));
+    botonA.addEventListener('click', () => elegir('a'));
+    botonB.addEventListener('click', () => elegir('b'));
+    // El punto que toca elegir con un clic en el mapa chico: el que falte (B primero)
+    const ladoDelClic = () => (!puntos.b ? 'b' : !puntos.a ? 'a' : 'b');
 
     // Sugerencias mientras se escribe: al elegir una, el punto se pone en el mapa
     if (o.entradaA) sugerirDirecciones(o.entradaA, { cerca: zonaVisible, alElegir: (r) => { opcionesBusqueda.hidden = true; busqueda.a++; poner('a', r); } });
@@ -539,14 +532,18 @@ function crearMapaRuta(caja, opciones = {}) {
         if (!lienzo.isConnected && !caja.isConnected) return;
         // La rueda del mouse no acerca el mapa hasta hacer clic en él (así se puede
         // bajar por la página sin que el mapa "atrape" la rueda)
-        mapa = window.L.map(lienzo, { scrollWheelZoom: false }).setView([MAPA_CENTRO.lat, MAPA_CENTRO.lng], MAPA_ZOOM);
+        // Táctil: el mapa chico es solo para ver (no atrapa el dedo); un toque abre el selector
+        mapa = window.L.map(lienzo, {
+            scrollWheelZoom: false,
+            dragging: !tactil, touchZoom: !tactil, doubleClickZoom: !tactil, boxZoom: !tactil, keyboard: !tactil,
+        }).setView([MAPA_CENTRO.lat, MAPA_CENTRO.lng], MAPA_ZOOM);
         window.L.tileLayer(MAPA_CAPA.url, { maxZoom: MAPA_CAPA.zoomMaximo, attribution: MAPA_CAPA.credito }).addTo(mapa);
         mapa.on('focus click', () => mapa.scrollWheelZoom.enable());
         mapa.on('mouseout', () => mapa.scrollWheelZoom.disable());
+        // Clic en el mapa chico: abre el selector en ese lugar (o en el punto, si ya está)
         mapa.on('click', (e) => {
-            opcionesBusqueda.hidden = true;
-            busqueda[proximoClic]++;
-            poner(proximoClic, { lat: e.latlng.lat, lng: e.latlng.lng });
+            const lado = ladoDelClic();
+            elegir(lado, tactil && puntos[lado] ? null : { lat: e.latlng.lat, lng: e.latlng.lng });
         });
         // Si el mapa estaba oculto o cambia de tamaño, se reacomoda
         if (window.ResizeObserver) {
@@ -575,4 +572,181 @@ function crearMapaRuta(caja, opciones = {}) {
             mapa = null;
         },
     };
+}
+
+// ==================================================
+// MI UBICACIÓN (GPS del celular o la PC)
+//   miUbicacionGps() -> promesa { lat, lng, precision (metros) }; error con mensaje claro
+// ==================================================
+function miUbicacionGps() {
+    return new Promise((resolver, rechazar) => {
+        if (!navigator.geolocation) {
+            rechazar(new Error('Este navegador no puede dar la ubicación.'));
+            return;
+        }
+        navigator.geolocation.getCurrentPosition(
+            (p) => resolver({ lat: p.coords.latitude, lng: p.coords.longitude, precision: Math.round(p.coords.accuracy || 0) }),
+            (e) => rechazar(new Error(e.code === 1
+                ? 'No hay permiso para usar la ubicación. Actívalo en el navegador (o mueve el mapa hasta tu casa).'
+                : 'No se pudo obtener la ubicación. Revisa que el GPS esté encendido o mueve el mapa hasta el lugar.')),
+            { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 },
+        );
+    });
+}
+
+// ==================================================
+// ELEGIR UN PUNTO A PANTALLA COMPLETA (pin fijo en el centro)
+//   Se mueve el MAPA debajo del pin (como en las apps de taxi) y se toca "Confirmar".
+//   Arriba: buscador de direcciones (con sugerencias). Abajo: el lugar donde está el pin,
+//   "Mi ubicación" (GPS) y "Confirmar".
+//   elegirPuntoEnMapa({ titulo, lado: 'a' | 'b' | '', inicial: { lat, lng }, buscar: 'texto',
+//                       cerca: zona, gps: true (pide el GPS al abrir), confirmar: 'texto del botón' })
+//     -> promesa { lat, lng, precision } o null si se cerró sin confirmar.
+//        precision: metros del GPS, solo si se confirmó sin mover el mapa después del GPS.
+//   La usan crearMapaRuta ("Elegir A / B") y la página del cliente (ubicacion.html).
+//   Estilos: .mapa-elegir en css/componentes.css
+// ==================================================
+function elegirPuntoEnMapa(opciones = {}) {
+    const o = { titulo: 'Elegir el punto', lado: '', inicial: null, buscar: '', cerca: null, gps: false, confirmar: 'Confirmar este punto', ...opciones };
+    return new Promise((resolver) => {
+        let resultado = null;
+        let mapa = null;
+        let circulo = null;
+        let precision = null;      // metros del último GPS (se borra si se mueve el mapa)
+        let moviendoPorGps = false;
+        let esperaLugar = null;
+        let turnoLugar = 0;
+
+        const d = document.createElement('dialog');
+        d.className = `mapa-elegir${o.lado ? ` mapa-elegir-${o.lado}` : ''}`;
+        d.setAttribute('aria-label', o.titulo);
+        d.innerHTML = `
+            <div class="mapa-elegir-cabecera">
+                <button type="button" class="mapa-elegir-cerrar" data-m="cerrar" aria-label="Cerrar sin elegir"><i class="bi bi-x-lg"></i></button>
+                <strong data-m="titulo"></strong>
+            </div>
+            <div class="mapa-elegir-buscar">
+                <i class="bi bi-search" aria-hidden="true"></i>
+                <input type="search" class="campo-input" data-m="buscar" placeholder="Buscar barrio, lugar o dirección" enterkeyhint="search">
+            </div>
+            <div class="mapa-elegir-zona">
+                <div class="mapa-elegir-mapa" data-m="mapa"></div>
+                <span class="mapa-elegir-pin" aria-hidden="true"><i class="bi bi-geo-alt-fill"></i><b data-m="letra"></b></span>
+                <span class="mapa-elegir-punto" aria-hidden="true"></span>
+            </div>
+            <div class="mapa-elegir-pie">
+                <p class="mapa-elegir-lugar" data-m="lugar" aria-live="polite">Mueve el mapa hasta que el pin quede en el lugar exacto.</p>
+                <div class="mapa-elegir-botones">
+                    <button type="button" class="boton boton-secundario" data-m="gps"><i class="bi bi-crosshair"></i> <span>Mi ubicación</span></button>
+                    <button type="button" class="boton boton-principal" data-m="confirmar"><i class="bi bi-check2-circle"></i> <span></span></button>
+                </div>
+            </div>`;
+        const $ = (m) => d.querySelector(`[data-m="${m}"]`);
+        $('titulo').textContent = o.titulo;
+        $('letra').textContent = (o.lado || '').toUpperCase();
+        $('confirmar').querySelector('span').textContent = o.confirmar;
+        const lugar = (texto, tipo = '') => { $('lugar').textContent = texto; $('lugar').className = `mapa-elegir-lugar ${tipo}`; };
+
+        // Nombre del lugar donde quedó el pin (Nominatim: 1 consulta por segundo; se espera a que se quede quieto)
+        function nombrarLugar() {
+            clearTimeout(esperaLugar);
+            const turno = ++turnoLugar;
+            esperaLugar = setTimeout(async () => {
+                if (!mapa) return;
+                const c = mapa.getCenter();
+                const texto = await direccionDePunto({ lat: c.lat, lng: c.lng });
+                if (turno !== turnoLugar || !mapa) return;
+                const extra = precision ? ` · GPS con precisión de ${precision} m` : '';
+                lugar(texto ? `Cerca de: ${texto.split(',').slice(0, 4).join(',')}${extra}` : `Punto elegido${extra}`);
+            }, 900);
+        }
+
+        async function usarGps() {
+            const b = $('gps');
+            b.disabled = true;
+            lugar('Buscando tu ubicación...');
+            try {
+                const p = await miUbicacionGps();
+                if (!mapa) return;
+                moviendoPorGps = true;
+                mapa.setView([p.lat, p.lng], p.precision > 300 ? 15 : 18);
+                moviendoPorGps = false;
+                precision = p.precision || null;
+                if (circulo) circulo.remove();
+                circulo = p.precision ? window.L.circle([p.lat, p.lng], { radius: p.precision, color: '#2a78d6', weight: 1, fillOpacity: 0.08 }).addTo(mapa) : null;
+                if (p.precision > 100) lugar(`El GPS da una precisión de ${p.precision} m: mueve el mapa para ajustar el pin.`, 'aviso');
+                nombrarLugar();
+            } catch (e) {
+                lugar(e.message, 'error');
+            } finally {
+                b.disabled = false;
+            }
+        }
+
+        async function buscarYIr(texto) {
+            if (!texto || !mapa) return;
+            lugar('Buscando...');
+            try {
+                const lista = await buscarDireccion(texto, { cerca: o.cerca });
+                if (!mapa) return;
+                if (!lista.length) { lugar(`No se encontró "${texto}". Prueba con barrio y cantón, o mueve el mapa.`, 'error'); return; }
+                mapa.setView([lista[0].lat, lista[0].lng], 17);
+            } catch (e) {
+                lugar('No se pudo buscar (revisa internet). Mueve el mapa hasta el lugar.', 'error');
+            }
+        }
+
+        $('cerrar').addEventListener('click', () => d.close());
+        $('gps').addEventListener('click', usarGps);
+        $('confirmar').addEventListener('click', () => {
+            if (!mapa) return;
+            const c = mapa.getCenter();
+            resultado = { lat: Math.round(c.lat * 1e6) / 1e6, lng: Math.round(c.lng * 1e6) / 1e6, precision };
+            d.close();
+        });
+        const inputBuscar = $('buscar');
+        inputBuscar.value = o.buscar || '';
+        sugerirDirecciones(inputBuscar, {
+            cerca: () => (mapa ? { oeste: mapa.getBounds().getWest(), sur: mapa.getBounds().getSouth(), este: mapa.getBounds().getEast(), norte: mapa.getBounds().getNorth() } : o.cerca),
+            alElegir: (r) => { if (mapa) mapa.setView([r.lat, r.lng], 17); inputBuscar.blur(); },
+        });
+        // Enter sin elegir sugerencia: va al primer resultado
+        inputBuscar.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            const lista = inputBuscar.parentElement.querySelector('.mapa-sugerencias');
+            if (lista && !lista.hidden && lista.querySelector('li.activo')) return; // la elige sugerirDirecciones
+            if (lista) lista.hidden = true;
+            const punto = puntoDeTexto(inputBuscar.value);
+            if (punto && mapa) mapa.setView([punto.lat, punto.lng], 17);
+            else buscarYIr(inputBuscar.value.trim());
+            inputBuscar.blur();
+        });
+
+        d.addEventListener('cancel', (e) => { e.preventDefault(); d.close(); });
+        d.addEventListener('close', () => {
+            clearTimeout(esperaLugar);
+            if (mapa) mapa.remove();
+            mapa = null;
+            d.remove();
+            resolver(resultado);
+        });
+
+        document.body.appendChild(d);
+        d.showModal();
+        cargarLeaflet().then(() => {
+            if (!d.isConnected) return;
+            const inicio = o.inicial || MAPA_CENTRO;
+            mapa = window.L.map($('mapa'), { zoomControl: true, attributionControl: true })
+                .setView([inicio.lat, inicio.lng], o.inicial ? 17 : 12);
+            window.L.tileLayer(MAPA_CAPA.url, { maxZoom: MAPA_CAPA.zoomMaximo, attribution: MAPA_CAPA.credito }).addTo(mapa);
+            mapa.on('movestart', () => { if (!moviendoPorGps) d.classList.add('moviendo'); });
+            mapa.on('dragstart', () => { precision = null; if (circulo) { circulo.remove(); circulo = null; } });
+            mapa.on('moveend', () => { d.classList.remove('moviendo'); nombrarLugar(); });
+            setTimeout(() => { if (mapa) mapa.invalidateSize(); }, 60);
+            if (o.gps) usarGps();
+            else if (!o.inicial && o.buscar) buscarYIr(o.buscar);
+            else nombrarLugar();
+        }).catch(() => lugar('No se pudo cargar el mapa (revisa internet).', 'error'));
+    });
 }

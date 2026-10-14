@@ -21,3 +21,10 @@
 
 /python/*
   X-Robots-Tag: noindex, nofollow
+
+# Enlace que la tienda le manda al cliente para marcar su ubicación (sql/01 bloque 39)
+/ubicacion
+  X-Robots-Tag: noindex, nofollow
+
+/ubicacion.html
+  X-Robots-Tag: noindex, nofollow

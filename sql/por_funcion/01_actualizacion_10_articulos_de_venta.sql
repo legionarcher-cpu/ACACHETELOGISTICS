@@ -1,4 +1,4 @@
--- 10 de 15 · sql/01_actualizacion_base_existente.sql · Artículos de venta: unidad y costo de cada presentación (bloques 32 a 32).
+-- 10 de 16 · sql/01_actualizacion_base_existente.sql · Artículos de venta: unidad y costo de cada presentación (bloques 32 a 32).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

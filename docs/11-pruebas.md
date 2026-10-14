@@ -180,8 +180,13 @@ si se tocó Pedidos o Inicio). Tener la consola abierta (F12): no debe aparecer 
       al elegir una, el punto se pone y NO se mueve al salir del campo.
 - [ ] Mover el mapa a otra zona y buscar: salen primero los lugares de esa zona.
 - [ ] La rueda del mouse baja la página; tras un clic en el mapa, acerca el mapa.
-- [ ] Celular (≤ 600 px): botones del mapa a lo ancho, "Ampliar mapa" agranda y achica; en el Cotizador
-      la barra del precio queda fija abajo, "Ver detalle" baja al desglose y los bultos se ven como tarjetas.
+- [ ] Celular (≤ 600 px): botones del mapa a lo ancho; con el dedo la página baja sin mover el mapa chico;
+      tocar el mapa o "Elegir B" abre el mapa a pantalla completa (pin fijo, buscador, "Mi ubicación",
+      "Confirmar"); en el Cotizador la barra del precio queda fija abajo, "Ver detalle" baja al desglose y
+      los bultos se ven como tarjetas.
+- [ ] Nuevo pedido → "Pedir ubicación al cliente": abre WhatsApp con el enlace; al marcar el cliente en
+      `ubicacion.html`, B se pone solo en unos segundos. Cerrar el formulario, marcar otra vez: llega el
+      aviso y abre el formulario con el punto. Al registrar el pedido, el enlace dice "ya está registrado".
 
 ## Cotizador
 - [ ] El botón "Cotizador" aparece solo si la empresa realiza Encomiendas; el Piloto no lo ve.

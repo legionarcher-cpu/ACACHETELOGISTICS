@@ -1,4 +1,4 @@
--- 1 de 15 · sql/01_actualizacion_base_existente.sql · Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR (bloques 0 a 15).
+-- 1 de 16 · sql/01_actualizacion_base_existente.sql · Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR (bloques 0 a 15).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -75,6 +75,7 @@
 --  36. Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (se guardan 3 días).
 --  37. Entrega: foto del comprobante de pago (efectivo, voucher o SINPE), pedido_evidencias tipo 'pago'.
 --  38. Entrega con QR obligatorio (pedido_iniciar_entrega) y pedidos con productos solo si hay en la bodega del día.
+--  39. Ubicación compartida por el cliente: enlace por WhatsApp antes de registrar el pedido (ubicaciones_compartidas).
 -- ==================================================
 
 

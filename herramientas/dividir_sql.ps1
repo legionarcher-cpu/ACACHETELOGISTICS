@@ -39,7 +39,8 @@ $GRUPOS = @{
         @{ nombre = 'qr_fijo_tienda';        bloques = 27..28; que = 'QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS)' },
         @{ nombre = 'visitas';               bloques = 29..29; que = 'Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (3 días)' },
         @{ nombre = 'comprobante_de_pago';   bloques = 30..30; que = 'Entrega: foto del comprobante de pago (efectivo, voucher o SINPE)' },
-        @{ nombre = 'entrega_qr_y_bodega';   bloques = 31..31; que = 'Entrega con QR obligatorio y pedidos con productos solo si hay en la bodega del día' }
+        @{ nombre = 'entrega_qr_y_bodega';   bloques = 31..31; que = 'Entrega con QR obligatorio y pedidos con productos solo si hay en la bodega del día' },
+        @{ nombre = 'ubicacion_del_cliente'; bloques = 32..32; que = 'Ubicación compartida por el cliente (enlace antes de registrar el pedido)' }
     )
     '01_actualizacion_base_existente' = @(
         @{ nombre = 'base_y_pedidos';        bloques = 0..15;  que = 'Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR' },
@@ -56,7 +57,8 @@ $GRUPOS = @{
         @{ nombre = 'qr_fijo_tienda';        bloques = 34..35; que = 'QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS)' },
         @{ nombre = 'visitas';               bloques = 36..36; que = 'Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (3 días)' },
         @{ nombre = 'comprobante_de_pago';   bloques = 37..37; que = 'Entrega: foto del comprobante de pago (efectivo, voucher o SINPE)' },
-        @{ nombre = 'entrega_qr_y_bodega';   bloques = 38..38; que = 'Entrega con QR obligatorio y pedidos con productos solo si hay en la bodega del día' }
+        @{ nombre = 'entrega_qr_y_bodega';   bloques = 38..38; que = 'Entrega con QR obligatorio y pedidos con productos solo si hay en la bodega del día' },
+        @{ nombre = 'ubicacion_del_cliente'; bloques = 39..39; que = 'Ubicación compartida por el cliente (enlace antes de registrar el pedido)' }
     )
 }
 

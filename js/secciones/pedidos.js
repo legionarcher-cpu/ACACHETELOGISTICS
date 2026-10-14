@@ -1093,9 +1093,11 @@ registrarSeccion('pedidos', (zona) => {
     // ---------- Mapa A -> B (js/mapa.js): distancia por calle para el cobro por km ----------
     //   A = la tienda (sus coordenadas guardadas o su dirección). Si la actividad usa
     //       recolección y se escribió, A = la dirección de recolección.
-    //   B = la dirección de entrega (o la ubicación guardada del cliente).
-    // Cada dirección se ubica sola al terminar de escribirla; los puntos se pueden
-    // mover con un clic en el mapa o arrastrándolos.
+    //   B = la dirección de entrega (o la ubicación guardada del cliente, o la que el
+    //       cliente comparte con "Pedir ubicación al cliente", más abajo).
+    // Cada dirección se ubica sola al terminar de escribirla; los puntos se cambian con
+    // "Elegir A / B" (mapa a pantalla completa con pin fijo) o arrastrándolos.
+    // Si B se eligió en el mapa sin escribir la dirección, se escribe sola (nombre del lugar).
     let mapaRuta = null;
     let rutaForm = null; // { km, minutos, aproximada } o null
     const inputRecoleccion = $('#pedRecoleccion');
@@ -1136,8 +1138,20 @@ registrarSeccion('pedidos', (zona) => {
                 actualizarBotonUbicacionTienda();
                 recalcular();
                 programarCercanos();
+                completarDireccionB();
             },
         });
+    }
+
+    // B puesto en el mapa (o compartido por el cliente) sin dirección escrita: se escribe el lugar
+    async function completarDireccionB() {
+        const b = mapaRuta && mapaRuta.puntos().b;
+        if (!b || inputDireccion.value.trim()) return;
+        const texto = await direccionDePunto(b);
+        if (texto && !inputDireccion.value.trim()) {
+            inputDireccion.value = texto.split(',').slice(0, 3).map((s) => s.trim()).join(', ');
+            inputDireccion.dataset.ubicado = inputDireccion.value;
+        }
     }
 
     // ---------- Pedidos cercanos (un solo viaje) ----------
@@ -2178,7 +2192,7 @@ registrarSeccion('pedidos', (zona) => {
         if (!inputFecha.value) return fallo('Elige la fecha de entrega.', inputFecha);
         // Si la tarifa cobra por km, hace falta la distancia (A y B en el mapa)
         if (cobraKm(c.tarifa) && !rutaForm) {
-            return fallo('Esta tarifa cobra por distancia: ubica A y B en el mapa (con "Ubicar" o con un clic).');
+            return fallo('Esta tarifa cobra por distancia: ubica A y B en el mapa ("Elegir A / B" o "Pedir ubicación al cliente").');
         }
 
         const marca = marcasForm.find((m) => String(m.numero) === selMarca.value);
@@ -2318,6 +2332,132 @@ registrarSeccion('pedidos', (zona) => {
         if (!Object.keys(cambios).length) return;
         const { error } = await db.from('clientes').update(cambios).eq('id', c.id);
         if (error) console.error('Error al guardar la ubicación del cliente:', error);
+    }
+
+    // ---------- Ubicación que comparte el cliente (sql/01 bloque 39, ubicacion.html) ----------
+    //   "Pedir ubicación al cliente": crea (o reusa) el enlace y abre WhatsApp con el mensaje.
+    //   Mientras el formulario está abierto se revisa cada pocos segundos; cuando el cliente
+    //   marca el punto, B se pone solo. Al registrar el pedido el enlace se cierra (ubicacion_usar).
+    //   Desde la campana ("El cliente compartió su ubicación"): #pedidos?nuevo=1&ubicacion=7.
+    let ubicacionSol = null;     // { id, tienda_id, lat, lng, precision_m, compartida_en }
+    let ubicacionReloj = null;
+    const PED_UBICACION_ESPERA_MS = 5000;   // mientras el cliente no la marca
+    const PED_UBICACION_REVISA_MS = 15000;  // ya marcada (por si la cambia)
+
+    const enlaceUbicacion = (token) => new URL(`ubicacion.html?t=${token}`, location.href).href;
+
+    function estadoUbicacion(texto, tipo = '') {
+        const e = $('#pedUbicacionEstado');
+        e.textContent = texto;
+        e.className = `campo-ayuda ${tipo ? `ped-ubicacion-${tipo}` : ''}`.trim();
+    }
+
+    function pararUbicacion(limpiar = false) {
+        clearTimeout(ubicacionReloj);
+        ubicacionReloj = null;
+        if (limpiar) {
+            ubicacionSol = null;
+            estadoUbicacion('Le llega un enlace por WhatsApp: marca dónde entregar y el punto B se pone solo aquí.');
+        }
+    }
+
+    function aplicarUbicacion(d, avisar = true) {
+        const nueva = !ubicacionSol || ubicacionSol.compartida_en !== d.compartida_en;
+        ubicacionSol = { ...ubicacionSol, ...d };
+        if (!d.lat || !nueva) return;
+        if (mapaRuta) mapaRuta.ponerB({ lat: Number(d.lat), lng: Number(d.lng) });
+        const hora = new Date(d.compartida_en).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' });
+        estadoUbicacion(`El cliente marcó su ubicación (${hora}${d.precision_m ? `, GPS ±${d.precision_m} m` : ''}). El punto B ya está en el mapa.`, 'ok');
+        if (avisar) aviso.mostrar('El cliente compartió su ubicación: el punto B quedó en el mapa.');
+    }
+
+    function revisarUbicacion() {
+        clearTimeout(ubicacionReloj);
+        if (!ubicacionSol) return;
+        ubicacionReloj = setTimeout(async () => {
+            // Solo con el formulario a la vista
+            if (!ubicacionSol || $('#pedNuevoVista').hidden) { revisarUbicacion(); return; }
+            const { data, error } = await db.rpc('ubicacion_estado', { p: { usuario_id: sesion.id || null, id: ubicacionSol.id } });
+            if (!ubicacionSol) return;
+            if (!error && data) {
+                if (data.usada_en) { pararUbicacion(true); return; }
+                aplicarUbicacion(data);
+            }
+            revisarUbicacion();
+        }, ubicacionSol.lat ? PED_UBICACION_REVISA_MS : PED_UBICACION_ESPERA_MS);
+    }
+
+    $('#pedPedirUbicacion').addEventListener('click', async () => {
+        const tiendaId = tiendaElegida();
+        const telefono = $('#pedClienteTelefono').value.trim();
+        if (!tiendaId) { estadoUbicacion('Primero elige la tienda.', 'error'); return; }
+        if (telefono.replace(/\D/g, '').length < 8) {
+            estadoUbicacion('Primero escribe el teléfono del cliente (al menos 8 dígitos).', 'error');
+            $('#pedClienteTelefono').focus();
+            return;
+        }
+        const nombre = $('#pedClienteNombre').value.trim();
+        // La ventana de WhatsApp se abre YA (si se abre después de esperar a la base, el celular la bloquea)
+        const ventana = window.open('', '_blank');
+        const boton = $('#pedPedirUbicacion');
+        boton.disabled = true;
+        const { data, error } = await db.rpc('ubicacion_pedir', {
+            p: { usuario_id: sesion.id || null, tienda_id: tiendaId, cliente_id: clienteId || null, nombre, telefono },
+        });
+        boton.disabled = false;
+        if (error) {
+            if (ventana) ventana.close();
+            console.error('Error al pedir la ubicación:', error);
+            estadoUbicacion(error.code === 'P0001' ? error.message
+                : ['PGRST202', '42883'].includes(error.code) ? 'Falta ejecutar sql/01 (bloque 39: ubicación del cliente).'
+                    : 'No se pudo crear el enlace. Revisa la conexión.', 'error');
+            return;
+        }
+        ubicacionSol = { ...data, compartida_en: null, telefono: telefono.replace(/\D/g, '') };
+        const t = tiendaForm();
+        const primerNombre = nombre.split(/\s+/)[0] || '';
+        const texto = [
+            `Hola${primerNombre ? ` ${primerNombre}` : ''}, para tu pedido${t ? ` de ${t.nombre}` : ''} marca aquí dónde lo entregamos:`,
+            enlaceUbicacion(data.token),
+            'Puedes usar tu ubicación actual o buscar el lugar en el mapa.',
+        ].join('\n');
+        const url = `https://wa.me/${telefonoWhatsapp(telefono)}?text=${encodeURIComponent(texto)}`;
+        if (ventana) ventana.location.href = url; else window.open(url, '_blank');
+        if (data.lat) aplicarUbicacion(data, false);
+        else estadoUbicacion('Enlace enviado. Esperando que el cliente marque su ubicación... (el enlace vale 24 horas)', 'espera');
+        revisarUbicacion();
+    });
+
+    // Otro teléfono = otro cliente: la ubicación pedida ya no aplica
+    $('#pedClienteTelefono').addEventListener('input', () => {
+        if (!ubicacionSol || !ubicacionSol.telefono) return;
+        const d = $('#pedClienteTelefono').value.replace(/\D/g, '');
+        if (d.slice(-8) !== String(ubicacionSol.telefono).slice(-8)) pararUbicacion(true);
+    });
+
+    // Desde la campana: abre el formulario con el cliente y su punto
+    async function cargarUbicacionEnFormulario(id) {
+        const { data, error } = await db.rpc('ubicacion_estado', { p: { usuario_id: sesion.id || null, id } });
+        if (error || !data) {
+            aviso.mostrar(error && error.code === 'P0001' ? error.message : 'No se pudo cargar la ubicación del cliente.', 'error');
+            return;
+        }
+        if (data.usada_en) {
+            aviso.mostrar('Esa ubicación ya se usó en un pedido registrado.', 'error');
+            return;
+        }
+        if (data.tienda_id && tiendaElegida() !== data.tienda_id && tiendaPorId(data.tienda_id)) {
+            selTienda.value = String(data.tienda_id);
+            await alCambiarTienda();
+        }
+        const cli = data.cliente_id ? await db.from('clientes').select('*').eq('id', data.cliente_id).maybeSingle() : { data: null };
+        if (cli.data) elegirCliente(cli.data);
+        else {
+            $('#pedClienteNombre').value = data.cliente_nombre || '';
+            $('#pedClienteTelefono').value = String(data.telefono || '').slice(-8);
+        }
+        aplicarUbicacion(data, false);
+        revisarUbicacion();
     }
 
     // ---------- Registrar desde una solicitud de un cliente (#pedidos?nuevo=1&solicitud=12) ----------
@@ -2514,6 +2654,10 @@ registrarSeccion('pedidos', (zona) => {
                 minutos: rutaForm ? rutaForm.minutos : null,
                 aproximada: rutaForm ? rutaForm.aproximada : null,
             };
+            // B lo marcó el cliente con su enlace (sql/01 bloque 39)
+            const deCliente = ubicacionSol && ubicacionSol.lat != null && puntos.b
+                && Math.abs(Number(ubicacionSol.lat) - puntos.b.lat) < 1e-5 && Math.abs(Number(ubicacionSol.lng) - puntos.b.lng) < 1e-5;
+            if (deCliente) detalle.ruta.b_del_cliente = { precision_m: ubicacionSol.precision_m || null };
         }
 
         const pedido = {
@@ -2650,6 +2794,12 @@ registrarSeccion('pedidos', (zona) => {
             formError.textContent = `${prod.error.message} El pedido ${data.codigo} quedó cancelado.`;
             boton.disabled = false;
             return;
+        }
+        // El enlace de ubicación del cliente se cierra: ya no cambia nada (sql/01 bloque 39)
+        if (ubicacionSol) {
+            const usar = await db.rpc('ubicacion_usar', { p: { usuario_id: sesion.id || null, id: ubicacionSol.id, pedido_id: data.id } });
+            if (usar.error) console.error('No se pudo cerrar el enlace de ubicación:', usar.error);
+            pararUbicacion(true);
         }
         if (art.error || his.error || prod.error) {
             console.error('Error al guardar artículos, productos o historial:', art.error || prod.error || his.error);
@@ -4144,6 +4294,8 @@ registrarSeccion('pedidos', (zona) => {
             await abrirNuevo();
             // Registrar desde una solicitud de un cliente (Admin G3 o superior)
             if (params.get('solicitud') && puedeAprobarSol) await cargarSolicitudEnFormulario(Number(params.get('solicitud')));
+            // Desde el aviso "El cliente compartió su ubicación" (sql/01 bloque 39)
+            else if (params.get('ubicacion')) await cargarUbicacionEnFormulario(Number(params.get('ubicacion')));
         } else if (params.get('id')) {
             abrirDetalle(Number(params.get('id')), params.get('qr') === '1', params.get('abrir'));
         } else {
@@ -4159,5 +4311,6 @@ registrarSeccion('pedidos', (zona) => {
         apagarCamara();
         [dlgQr, dlgAsignar, dlgAccion, dlgSlot, dlgEscaner, dlgSolRechazo].forEach((d) => { if (d.open) d.close(); });
         if (mapaRuta) mapaRuta.destruir();
+        pararUbicacion(true);
     };
 });

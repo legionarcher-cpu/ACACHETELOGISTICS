@@ -1192,3 +1192,24 @@
     color: var(--color-verde);
     font-weight: 600;
 }
+
+/* ---------- "Pedir ubicación al cliente" (enlace por WhatsApp, sql/01 bloque 39) ---------- */
+.ped-ubicacion-cliente {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.444rem 0.667rem;
+}
+
+.ped-ubicacion-cliente .boton .bi-whatsapp {
+    color: #25D366;
+}
+
+.ped-ubicacion-cliente .campo-ayuda {
+    flex: 1 1 14rem;
+    margin: 0;
+}
+
+.ped-ubicacion-espera { color: var(--color-naranja); font-weight: 600; }
+.ped-ubicacion-ok     { color: var(--color-verde);   font-weight: 600; }
+.ped-ubicacion-error  { color: var(--color-rojo); }

@@ -277,7 +277,7 @@ registrarSeccion('envios', (zona) => {
         if (peso !== null && (!Number.isFinite(peso) || peso < 0)) return fallo('El peso debe ser un número (o déjalo vacío).', $('#envPeso'));
         if (!inputA.value.trim()) return fallo('Escribe dónde recogemos el paquete (A).', inputA);
         if (!inputB.value.trim()) return fallo('Escribe a dónde lo llevamos (B).', inputB);
-        if (!puntos.a || !puntos.b) return fallo('Ubica A y B en el mapa: con "Ubicar", tocando el mapa o pegando la ubicación.');
+        if (!puntos.a || !puntos.b) return fallo('Ubica A y B en el mapa: escribe la dirección, toca "Elegir A / B" o pega la ubicación.');
         if (otra && !recibeNombre) return fallo('Escribe el nombre de quien recibe.', $('#envRecibeNombre'));
         if (otra && recibeTel.replace(/\D/g, '').length < 8) return fallo('Escribe el teléfono de quien recibe (al menos 8 dígitos).', $('#envRecibeTelefono'));
         if (!fecha || fecha < hoy()) return fallo('Elige la fecha de entrega (hoy o después).', $('#envFecha'));

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- Página del cliente: no es para buscadores (también _headers) -->
+    <meta name="robots" content="noindex, nofollow">
+    <title>Dónde entregamos tu pedido</title>
+    <!--
+    ==================================================
+    UBICACIÓN DEL CLIENTE (sin iniciar sesión)
+    ACACHETE LOGISTICS
+
+    La tienda, antes de registrar un pedido, le manda al cliente por WhatsApp este
+    enlace: ubicacion.html?t=<token> ("Pedir ubicación al cliente" en Nuevo pedido).
+    El cliente marca dónde entregar con "Usar mi ubicación actual" (GPS) o "Buscar en
+    el mapa" (mapa a pantalla completa con pin fijo: elegirPuntoEnMapa, js/mapa.js).
+    El punto le llega al formulario de la tienda y queda en su ficha de cliente.
+    Se puede cambiar hasta que se registre el pedido; el enlace vence en 24 horas.
+    Base: ubicacion_ver / ubicacion_guardar (sql/01 bloque 39). No ve datos personales:
+    solo su primer nombre y el nombre de la tienda.
+    ==================================================
+    -->
+    <link rel="stylesheet" href="css/variables.css?v=20261013p">
+    <link rel="stylesheet" href="css/base.css?v=20261013p">
+    <link rel="stylesheet" href="css/componentes.css?v=20261013p">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="icon" type="image/png" href="img/logo.png">
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            background-color: var(--color-fondo);
+            color: var(--color-texto);
+        }
+
+        .ubi-tarjeta {
+            max-width: 30rem;
+            margin: 0 auto;
+            padding: 1.25rem;
+            border-radius: var(--radio);
+            background-color: var(--color-blanco);
+            box-shadow: 0 0.5rem 1.5rem rgba(0, 28, 59, 0.1);
+        }
+
+        .ubi-marca {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+            color: var(--color-azul);
+        }
+
+        .ubi-marca img {
+            width: 2rem;
+            height: 2rem;
+            object-fit: contain;
+        }
+
+        .ubi-titulo {
+            margin: 0 0 0.375rem;
+            font-size: 1.35rem;
+        }
+
+        .ubi-texto {
+            margin: 0 0 1rem;
+            color: var(--color-gris);
+            line-height: 1.5;
+        }
+
+        .ubi-botones {
+            display: flex;
+            flex-direction: column;
+            gap: 0.625rem;
+        }
+
+        .ubi-botones .boton {
+            justify-content: center;
+            min-height: 3rem;
+            font-size: 1rem;
+        }
+
+        .ubi-ayuda {
+            margin: 0.75rem 0 0;
+            font-size: 0.85rem;
+            color: var(--color-gris);
+        }
+
+        .ubi-mapa {
+            height: 12rem;
+            margin: 0 0 1rem;
+            border: 1px solid var(--color-borde);
+            border-radius: var(--radio);
+            overflow: hidden;
+            background-color: var(--color-azul-claro);
+        }
+
+        .ubi-mensaje {
+            margin: 0 0 1rem;
+            padding: 0.75rem;
+            border-radius: var(--radio);
+            font-weight: 600;
+        }
+
+        .ubi-mensaje.ok    { background-color: var(--color-verde-claro); color: var(--color-verde); }
+        .ubi-mensaje.error { background-color: var(--color-rojo-claro);  color: var(--color-rojo); }
+
+        [hidden] { display: none !important; }
+    </style>
+    <script src="empresas/empresas.js?v=20261013p"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
+    <script src="js/supabase.js?v=20261013p" defer></script>
+    <script src="js/mapa.js?v=20261013p" defer></script>
+</head>
+<body>
+    <main class="ubi-tarjeta">
+        <div class="ubi-marca"><img src="img/logo.png" alt=""> <span id="ubiMarca"></span></div>
+
+        <h1 class="ubi-titulo" id="ubiTitulo">Cargando...</h1>
+        <p class="ubi-texto" id="ubiTexto"></p>
+        <p class="ubi-mensaje" id="ubiMensaje" role="status" hidden></p>
+        <div class="ubi-mapa" id="ubiMapa" hidden></div>
+
+        <div class="ubi-botones" id="ubiBotones" hidden>
+            <button type="button" class="boton boton-principal" id="ubiGps"><i class="bi bi-crosshair"></i> <span>Usar mi ubicación actual</span></button>
+            <button type="button" class="boton boton-secundario" id="ubiBuscar"><i class="bi bi-map"></i> <span>Buscar en el mapa</span></button>
+        </div>
+        <p class="ubi-ayuda" id="ubiAyuda" hidden>
+            Si ahora no estás en el lugar de entrega, usa "Buscar en el mapa" y mueve el mapa hasta que el pin quede en la casa o el negocio.
+        </p>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const $ = (id) => document.getElementById(id);
+            const token = new URLSearchParams(location.search).get('t') || '';
+            let datos = null;
+            let miniMapa = null;
+
+            $('ubiMarca').textContent = (typeof EMPRESA !== 'undefined' && EMPRESA.nombre) || 'ACACHETE Logistics';
+
+            function mensaje(texto, tipo = 'ok') {
+                $('ubiMensaje').textContent = texto;
+                $('ubiMensaje').className = `ubi-mensaje ${tipo}`;
+                $('ubiMensaje').hidden = !texto;
+            }
+
+            // Mapa chico (solo para ver) con el punto que marcó
+            async function pintarPunto(lat, lng) {
+                $('ubiMapa').hidden = false;
+                await cargarLeaflet();
+                if (!miniMapa) {
+                    miniMapa = L.map($('ubiMapa'), { dragging: false, touchZoom: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, zoomControl: false });
+                    L.tileLayer(MAPA_CAPA.url, { maxZoom: MAPA_CAPA.zoomMaximo, attribution: MAPA_CAPA.credito }).addTo(miniMapa);
+                }
+                miniMapa.eachLayer((c) => { if (c instanceof L.Marker) c.remove(); });
+                L.marker([lat, lng]).addTo(miniMapa);
+                miniMapa.setView([lat, lng], 17);
+                setTimeout(() => miniMapa.invalidateSize(), 50);
+            }
+
+            function dibujar() {
+                const nombre = datos.nombre ? `Hola ${datos.nombre}` : 'Hola';
+                const tienda = datos.tienda || 'La tienda';
+                $('ubiBotones').hidden = true;
+                $('ubiAyuda').hidden = true;
+                if (datos.estado === 'no_existe') {
+                    $('ubiTitulo').textContent = 'Enlace no válido';
+                    $('ubiTexto').textContent = 'Revisa que el enlace esté completo o pídele a la tienda uno nuevo.';
+                    return;
+                }
+                if (datos.estado === 'vencida') {
+                    $('ubiTitulo').textContent = 'Este enlace venció';
+                    $('ubiTexto').textContent = `Pídele a ${tienda} un enlace nuevo para marcar tu ubicación.`;
+                    return;
+                }
+                if (datos.estado === 'usada') {
+                    $('ubiTitulo').textContent = '¡Tu pedido ya está registrado!';
+                    $('ubiTexto').textContent = `${tienda} ya tiene tu ubicación. Si cambió, avísale a la tienda.`;
+                    if (datos.lat != null) pintarPunto(Number(datos.lat), Number(datos.lng));
+                    return;
+                }
+                $('ubiTitulo').textContent = nombre;
+                $('ubiTexto').textContent = datos.estado === 'compartida'
+                    ? `Ya marcaste dónde entregar tu pedido de ${tienda}. Si te equivocaste, puedes cambiarlo.`
+                    : `${tienda} necesita saber dónde entregarte tu pedido. Marca el lugar exacto: así el repartidor llega sin perderse.`;
+                $('ubiGps').querySelector('span').textContent = datos.estado === 'compartida' ? 'Cambiar a mi ubicación actual' : 'Usar mi ubicación actual';
+                $('ubiBuscar').querySelector('span').textContent = datos.estado === 'compartida' ? 'Cambiar en el mapa' : 'Buscar en el mapa';
+                $('ubiBotones').hidden = false;
+                $('ubiAyuda').hidden = false;
+                if (datos.lat != null) pintarPunto(Number(datos.lat), Number(datos.lng));
+            }
+
+            async function elegir(conGps) {
+                mensaje('');
+                const p = await elegirPuntoEnMapa({
+                    titulo: 'Lugar de entrega',
+                    lado: 'b',
+                    gps: conGps,
+                    inicial: !conGps && datos.lat != null ? { lat: Number(datos.lat), lng: Number(datos.lng) } : null,
+                    confirmar: 'Entregar aquí',
+                });
+                if (!p) return;
+                $('ubiGps').disabled = true;
+                $('ubiBuscar').disabled = true;
+                const { error } = await db.rpc('ubicacion_guardar', { p_token: token, p_lat: p.lat, p_lng: p.lng, p_precision: p.precision || null });
+                $('ubiGps').disabled = false;
+                $('ubiBuscar').disabled = false;
+                if (error) {
+                    console.error(error);
+                    mensaje(error.code === 'P0001' ? error.message : 'No se pudo guardar. Revisa tu conexión e intenta de nuevo.', 'error');
+                    return;
+                }
+                datos = { ...datos, estado: 'compartida', lat: p.lat, lng: p.lng };
+                dibujar();
+                mensaje(`¡Listo! ${datos.tienda || 'La tienda'} ya tiene tu ubicación. Puedes cerrar esta página.`);
+            }
+
+            $('ubiGps').addEventListener('click', () => elegir(true));
+            $('ubiBuscar').addEventListener('click', () => elegir(false));
+
+            (async () => {
+                if (!token) {
+                    datos = { estado: 'no_existe' };
+                    dibujar();
+                    return;
+                }
+                const { data, error } = await db.rpc('ubicacion_ver', { p_token: token });
+                if (error) {
+                    console.error(error);
+                    $('ubiTitulo').textContent = 'No se pudo abrir';
+                    $('ubiTexto').textContent = 'Revisa tu conexión a internet y vuelve a abrir el enlace.';
+                    return;
+                }
+                datos = data || { estado: 'no_existe' };
+                dibujar();
+            })();
+        });
+    </script>
+</body>
+</html>

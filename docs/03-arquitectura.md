@@ -126,7 +126,9 @@ Todos los textos se ponen con `textContent` (nunca como HTML) para evitar proble
 
 | Función / constante | Qué hace |
 |---|---|
-| `crearMapaRuta(caja, opciones)` | Mapa "punto A → punto B": botones Ubicar A / Ubicar B, clic en el mapa, puntos que se arrastran, ruta dibujada, distancia, enlaces a Google Maps / Waze y botón "Ampliar mapa". La rueda del mouse solo acerca después de hacer clic en el mapa. Lo usan Pedidos y Cotizador |
+| `crearMapaRuta(caja, opciones)` | Mapa "punto A → punto B": botones "Elegir A / B" (y clic en el mapa) que abren `elegirPuntoEnMapa`, puntos que se arrastran con mouse, ruta dibujada, distancia y enlaces a Google Maps / Waze. En táctil el mapa chico no se arrastra (la página baja con el dedo). La rueda del mouse solo acerca después de hacer clic en el mapa. Lo usan Pedidos, Cotizador, Envíos y Viajes |
+| `elegirPuntoEnMapa(opciones)` | Mapa a pantalla completa con pin fijo en el centro, buscador, "Mi ubicación" (GPS) y "Confirmar" → `{ lat, lng, precision }`. Lo usan `crearMapaRuta` y `ubicacion.html` |
+| `miUbicacionGps()` | GPS del navegador → `{ lat, lng, precision }` con mensajes claros si no hay permiso |
 | `buscarDireccion(texto, { cerca })` | Nominatim (OpenStreetMap): dirección → puntos, con prioridad a la zona que se ve en el mapa. Acepta coordenadas o un enlace de Google Maps. Recuerda las búsquedas repetidas |
 | `sugerirDirecciones(input, { cerca, alElegir })` | Lista de sugerencias bajo el campo mientras se escribe (tras 0.7 s sin escribir; ↑ ↓ Enter Escape). `crearMapaRuta` la pone sola con `entradaA` / `entradaB` |
 | `entradaYaUbicada(input)` | `true` si el texto del campo es una sugerencia ya elegida (así no se vuelve a buscar al salir del campo) |

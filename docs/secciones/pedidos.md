@@ -66,8 +66,13 @@ Se cargan los pedidos de todas las actividades (para el número de cada pestaña
    - **B** = la dirección de entrega, o la ubicación guardada del cliente si tiene coordenadas o un enlace de mapas.
    - **Mientras se escribe** el punto de partida o la entrega aparecen **sugerencias** (primero las de la zona
      que se ve en el mapa); al elegir una, el punto se pone solo. Si no se elige, la dirección se busca al
-     salir del campo. Los puntos se corrigen con un clic en el mapa o arrastrándolos, y se pueden pegar
-     coordenadas o un enlace de Google Maps. "Ampliar mapa" lo agranda (útil en celular).
+     salir del campo. Los puntos se corrigen con "Elegir A / B" o un clic en el mapa (abren el mapa a
+     pantalla completa con pin fijo, buscador y "Mi ubicación": `elegirPuntoEnMapa`, js/mapa.js), arrastrándolos
+     (con mouse) o pegando coordenadas o un enlace de Google Maps. En celular el mapa chico no atrapa el dedo.
+     **Pedir ubicación al cliente** (sql/01 bloque 39): manda por WhatsApp el enlace `ubicacion.html?t=...`;
+     el cliente marca el punto y llega solo al formulario (se revisa cada 5 s). Si se cerró el formulario, el
+     aviso de la campana lo abre con el cliente y su punto (`#pedidos?nuevo=1&ubicacion=7`). Vale 24 h, se
+     puede cambiar hasta registrar el pedido (ahí se cierra) y queda en la ficha del cliente. No toca precios.
    - Muestra los **km por calle** (OSRM) y los minutos; si la tarifa tiene **precio por km**, se suman al
      envío y el pedido no se guarda sin A y B.
    - Administrador y G1 ven **"Guardar A como ubicación de la tienda"** (tabla `tiendas`: `lat`, `lng`).

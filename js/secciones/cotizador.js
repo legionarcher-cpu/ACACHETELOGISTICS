@@ -19,7 +19,7 @@
 
    RUTA A -> B (js/mapa.js, gratis): A = el punto de partida escrito o, si está vacío,
    la tienda; B = la entrega. Se ubican solos al escribir la dirección y se
-   pueden mover con un clic o arrastrándolos. Los km son POR CALLE.
+   pueden cambiar con "Elegir A / B" (mapa a pantalla completa) o arrastrándolos. Los km son POR CALLE.
 
    QUIÉN: se abre con el botón "Cotizador" del pie, que solo aparece si la
    empresa realiza Encomiendas (empresas/empresas.js). Todos menos el Piloto.

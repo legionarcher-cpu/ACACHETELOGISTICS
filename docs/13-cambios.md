@@ -2,6 +2,30 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · Punto B más fácil: mapa a pantalla completa y ubicación compartida por el cliente
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 39** (=
+`sql/por_funcion/01_actualizacion_16_ubicacion_del_cliente.sql`; instalación nueva: `sql/00`, sección 32).
+Solo hace falta para "Pedir ubicación al cliente"; el mapa a pantalla completa funciona sin él.
+
+- **Elegir A / B a pantalla completa** (todos los mapas A → B: Pedidos, Cotizador, Envíos, Viajes): los
+  botones "Ubicar", los radios "Clic en el mapa pone" y "Ampliar mapa" se cambian por **Elegir A / Elegir B**.
+  Abren el mapa en toda la pantalla con un **pin fijo en el centro**: se mueve el mapa y se toca **Confirmar**.
+  Tiene buscador (con sugerencias), **Mi ubicación** (GPS) y el nombre del lugar donde está el pin. Un clic
+  en el mapa chico abre lo mismo en ese lugar. En celular el mapa chico ya no atrapa el dedo (la página baja).
+  Si B se elige en el mapa sin dirección escrita, la dirección se escribe sola. (`js/mapa.js`:
+  `elegirPuntoEnMapa`, `miUbicacionGps`; estilos `.mapa-elegir` en `css/componentes.css`.)
+- **Pedir ubicación al cliente** (Nuevo pedido, junto a B): manda por WhatsApp un enlace a la página
+  `ubicacion.html?t=...` (sin iniciar sesión). El cliente toca **Usar mi ubicación actual** o **Buscar en el
+  mapa** y confirma. El punto llega solo al formulario (se revisa cada 5 s) y queda en su ficha de Clientes.
+  Si el formulario se cerró, a quien mandó el enlace le llega un aviso que abre "Nuevo pedido" con el
+  cliente y su punto. Se puede cambiar hasta que se **registre el pedido** (ahí el enlace se cierra);
+  vence en 24 horas. Si se vuelve a pedir para el mismo teléfono, se reusa el mismo enlace. **No cambia
+  ningún precio.** Base: tabla `ubicaciones_compartidas` (solo por funciones), `ubicacion_pedir`,
+  `ubicacion_estado`, `ubicacion_usar` (la tienda) y `ubicacion_ver`, `ubicacion_guardar` (el cliente;
+  solo puntos dentro de Costa Rica). `_headers`: `ubicacion` sin buscadores.
+- `VERSION_APP` y todos los `?v=` = `20261013p`.
+
 ## 2026-10-13 · Entrega con QR obligatorio, fotos livianas y pedidos solo con producto en bodega
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 38** (=
