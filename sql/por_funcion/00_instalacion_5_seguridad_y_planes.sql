@@ -1,4 +1,4 @@
--- 5 de 15 · sql/00_instalacion_completa.sql · Contraseñas cifradas, planes por empresa y solicitudes de envío de clientes (secciones 14 a 16).
+-- 5 de 16 · sql/00_instalacion_completa.sql · Contraseñas cifradas, planes por empresa y solicitudes de envío de clientes (secciones 14 a 16).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

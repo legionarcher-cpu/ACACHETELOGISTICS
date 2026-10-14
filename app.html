@@ -14,23 +14,23 @@
          index.css       -> marco del index (encabezado, menú, pie)
          encabezados.css -> imágenes del encabezado por marca y empresa (al final)
          El CSS de cada sección (css/secciones/) lo carga js/pagina_inicial.js -->
-    <link rel="stylesheet" href="css/variables.css?v=20261013n">
-    <link rel="stylesheet" href="css/base.css?v=20261013n">
-    <link rel="stylesheet" href="css/animaciones.css?v=20261013n">
-    <link rel="stylesheet" href="css/componentes.css?v=20261013n">
-    <link rel="stylesheet" href="css/index.css?v=20261013n">
-    <link rel="stylesheet" href="css/viajes.css?v=20261013n">
-    <link rel="stylesheet" href="css/distribucion.css?v=20261013n">
-    <link rel="stylesheet" href="css/despacho.css?v=20261013n">
+    <link rel="stylesheet" href="css/variables.css?v=20261013o">
+    <link rel="stylesheet" href="css/base.css?v=20261013o">
+    <link rel="stylesheet" href="css/animaciones.css?v=20261013o">
+    <link rel="stylesheet" href="css/componentes.css?v=20261013o">
+    <link rel="stylesheet" href="css/index.css?v=20261013o">
+    <link rel="stylesheet" href="css/viajes.css?v=20261013o">
+    <link rel="stylesheet" href="css/distribucion.css?v=20261013o">
+    <link rel="stylesheet" href="css/despacho.css?v=20261013o">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- Tablet y celular (carpeta responsive/): solo reglas @media, va al final.
          ?v=N: subir el número al cambiar el archivo, para que los celulares no usen la copia vieja -->
 
-    <link rel="stylesheet" href="responsive/responsive.css?v=20261013n">
+    <link rel="stylesheet" href="responsive/responsive.css?v=20261013o">
 
     <!-- Imágenes del encabezado de cada marca y empresa (logos e imagen del título).
          Va al final para que sus reglas ganen. Se cambian SOLO ahí. -->
-    <link rel="stylesheet" href="css/encabezados.css?v=20261013n">
+    <link rel="stylesheet" href="css/encabezados.css?v=20261013o">
 
     <link rel="icon" type="image/png" href="img/logo.png">
 
@@ -39,13 +39,13 @@
          dibujar la página. Se configura en empresas/empresas.js -->
     <!-- VERSIÓN de los archivos: se suma a cada JS, CSS y HTML que se descarga, así el navegador
          no usa copias viejas guardadas. SUBIRLA cada vez que se publiquen cambios (docs/10-recetas.md). -->
-    <script>window.VERSION_APP = '20261013n';</script>
-    <script src="empresas/empresas.js?v=20261013n"></script>
+    <script>window.VERSION_APP = '20261013o';</script>
+    <script src="empresas/empresas.js?v=20261013o"></script>
 
     <!-- Sesión: SIN defer, para saber ANTES de dibujar la página si hay sesión.
          Si no la hay, se marca <html class="sin-sesion"> (oculta el usuario y
          los botones del pie sin que se vean un instante). -->
-    <script src="js/sesion.js?v=20261013n"></script>
+    <script src="js/sesion.js?v=20261013o"></script>
     <script>
         // Sin sesión -> html.sin-sesion | Con sesión -> html[data-rol="..."] (ver css/index.css)
         const sesionInicial = obtenerSesion();
@@ -63,31 +63,31 @@
          pagina_inicial.js -> carga las secciones en .cuerpo-principal (va al final)
          Los JS propios de cada sección van en js/secciones/ y los carga pagina_inicial.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <script src="js/supabase.js?v=20261013n" defer></script>
-    <script src="js/avatar.js?v=20261013n" defer></script>
-    <script src="js/componentes.js?v=20261013n" defer></script>
+    <script src="js/supabase.js?v=20261013o" defer></script>
+    <script src="js/avatar.js?v=20261013o" defer></script>
+    <script src="js/componentes.js?v=20261013o" defer></script>
     <!-- Palabras de la actividad (Pedido -> Viaje, Piloto -> Conductor) en todo lo que se ve -->
-    <script src="js/palabras.js?v=20261013n" defer></script>
+    <script src="js/palabras.js?v=20261013o" defer></script>
     <!-- Mapa gratis (Leaflet + OpenStreetMap), búsqueda de direcciones y distancia por calle -->
-    <script src="js/mapa.js?v=20261013n" defer></script>
-    <script src="js/notificaciones.js?v=20261013n" defer></script>
+    <script src="js/mapa.js?v=20261013o" defer></script>
+    <script src="js/notificaciones.js?v=20261013o" defer></script>
     <!-- Ubicación del piloto en ruta cada 2 minutos (js/ubicacion.js, sql/01 bloque 25) -->
-    <script src="js/ubicacion.js?v=20261013n" defer></script>
+    <script src="js/ubicacion.js?v=20261013o" defer></script>
     <!-- QR: lector con la cámara, QR de pedido / marcas de tienda / piloto del día (js/qr.js) -->
-    <script src="js/qr.js?v=20261013n" defer></script>
+    <script src="js/qr.js?v=20261013o" defer></script>
     <!-- Viajes (Transporte): estados, precios, Inicio y reporte de viajes (js/viajes-comun.js) -->
-    <script src="js/viajes-comun.js?v=20261013n" defer></script>
+    <script src="js/viajes-comun.js?v=20261013o" defer></script>
     <!-- Distribuidora: precios con IVA, productos del pedido y entrega por producto (js/distribucion-comun.js) -->
-    <script src="js/distribucion-comun.js?v=20261013n" defer></script>
+    <script src="js/distribucion-comun.js?v=20261013o" defer></script>
     <!-- Despacho: carga del pedido con foto, bultos y efectivo (js/carga-comun.js, sql/01 bloque 29) -->
-    <script src="js/carga-comun.js?v=20261013n" defer></script>
-    <script src="js/permisos.js?v=20261013n" defer></script>
-    <script src="js/date.js?v=20261013n" defer></script>
-    <script src="js/menu-usuario.js?v=20261013n" defer></script>
-    <script src="js/menu-animado.js?v=20261013n" defer></script>
-    <script src="js/pagina_inicial.js?v=20261013n" defer></script>
+    <script src="js/carga-comun.js?v=20261013o" defer></script>
+    <script src="js/permisos.js?v=20261013o" defer></script>
+    <script src="js/date.js?v=20261013o" defer></script>
+    <script src="js/menu-usuario.js?v=20261013o" defer></script>
+    <script src="js/menu-animado.js?v=20261013o" defer></script>
+    <script src="js/pagina_inicial.js?v=20261013o" defer></script>
     <!-- Botón ☰ del menú en tablet y celular (responsive/responsive.js) -->
-    <script src="responsive/responsive.js?v=20261013n" defer></script>
+    <script src="responsive/responsive.js?v=20261013o" defer></script>
 
     <title>ACACHETE Logistics</title>
 </head>

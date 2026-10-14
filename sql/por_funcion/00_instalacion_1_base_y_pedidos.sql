@@ -1,4 +1,4 @@
--- 1 de 15 · sql/00_instalacion_completa.sql · Regiones, tiendas, vehículos, usuarios, clientes, configuración, horarios, actividades, rutas, pedidos (secciones 1 a 9).
+-- 1 de 16 · sql/00_instalacion_completa.sql · Regiones, tiendas, vehículos, usuarios, clientes, configuración, horarios, actividades, rutas, pedidos (secciones 1 a 9).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -38,6 +38,7 @@
 --   28. QR fijo: solo marca estando en la tienda (GPS)
 --   29. Visitas: quién entra, desde dónde y a qué pantallas (solo Desarrollador)
 --   30. Entrega: foto del comprobante de pago (efectivo, voucher o SINPE)
+--   31. Entrega con QR obligatorio y pedidos con productos solo si hay en la bodega del día
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:

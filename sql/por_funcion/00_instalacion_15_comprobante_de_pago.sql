@@ -1,4 +1,4 @@
--- 15 de 15 · sql/00_instalacion_completa.sql · Entrega: foto del comprobante de pago (efectivo, voucher o SINPE) (secciones 30 a 30).
+-- 15 de 16 · sql/00_instalacion_completa.sql · Entrega: foto del comprobante de pago (efectivo, voucher o SINPE) (secciones 30 a 30).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -18,3 +18,4 @@ alter table public.pedido_evidencias add constraint evidencias_tipo_valido
 create index if not exists pedido_evidencias_tipo_idx on public.pedido_evidencias (pedido_id, tipo);
 
 notify pgrst, 'reload schema';
+

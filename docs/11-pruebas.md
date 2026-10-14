@@ -119,7 +119,11 @@ si se tocó Pedidos o Inicio). Tener la consola abierta (F12): no debe aparecer 
       no hay región / tienda / "ver por" y puede exportar Excel / PDF de lo suyo.
 - [ ] Piloto: **Saliendo a ruta (N)** pasa los cargados a En ruta; la lista queda ordenada en cadena desde la
       tienda con "Siguiente" y la distancia al anterior.
-- [ ] **Entregar ahora** en uno: los demás quedan desactivados hasta cerrar ese con Entregado / No entregado.
+- [ ] **Escanear QR** en uno (con el QR del cliente; probar también el QR de otro pedido = aviso, y el código de
+      entrega escrito): pasa a Entregando y los demás quedan desactivados hasta cerrar ese con Entregado / No entregado.
+- [ ] "No entregado" desde En ruta (sin escanear) funciona; "Entregado" sin escanear no aparece.
+- [ ] Pedido con productos: más de lo que hay en la bodega del día no se registra; sin bodega ese día, el
+      Empleado lo deja "por autorizar" y el G3 lo autoriza desde el detalle.
 - [ ] En Supabase: `select * from pedidos_tiempos` y `select * from slots_carga` muestran los minutos de cada
       paso y la carga del slot (5 pedidos, 3 cargados → completo = false; min_carga corre hasta la salida).
 - [ ] Reportes: "Cancelaciones por motivo" cuenta los cancelados agrupados por su motivo.

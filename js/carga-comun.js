@@ -25,30 +25,97 @@
    ================================================== */
 
 const CARGA_BUCKET = 'evidencias';
-const CARGA_FOTO_LADO = 1600;   // px del lado más largo (las fotos del celular pesan mucho)
-const CARGA_FOTO_CALIDAD = 0.8; // JPEG
+// Las fotos del celular pesan 3-6 MB: se achican a JPEG liviano (unos 60-150 KB cada una).
+// Si con el primer intento pasa de CARGA_FOTO_MAX_BYTES, se baja la calidad y luego el tamaño.
+const CARGA_FOTO_INTENTOS = [[1024, 0.6], [1024, 0.45], [800, 0.45], [640, 0.4]]; // [px lado más largo, calidad]
+const CARGA_FOTO_MAX_BYTES = 150 * 1024;
 const CARGA_MAX_FOTOS = 6;
 
 const cargaDinero = (n) => `₡${Number(n || 0).toLocaleString('es-CR', { maximumFractionDigits: 2 })}`;
+const cargaPeso = (bytes) => (bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`);
 
 // Achica la foto a JPEG (la orientación ya la corrige el navegador al dibujarla)
 function cargaAchicarFoto(archivo) {
     return new Promise((resolver, rechazar) => {
         const url = URL.createObjectURL(archivo);
         const img = new Image();
-        img.onload = () => {
-            const escala = Math.min(1, CARGA_FOTO_LADO / Math.max(img.width, img.height));
-            const lienzo = document.createElement('canvas');
-            lienzo.width = Math.round(img.width * escala);
-            lienzo.height = Math.round(img.height * escala);
-            lienzo.getContext('2d').drawImage(img, 0, 0, lienzo.width, lienzo.height);
+        img.onload = async () => {
             URL.revokeObjectURL(url);
-            lienzo.toBlob((blob) => (blob ? resolver(blob) : rechazar(new Error('No se pudo leer la foto.'))), 'image/jpeg', CARGA_FOTO_CALIDAD);
+            const aBlob = (lienzo, calidad) => new Promise((r) => lienzo.toBlob(r, 'image/jpeg', calidad));
+            let blob = null;
+            for (const [lado, calidad] of CARGA_FOTO_INTENTOS) {
+                const escala = Math.min(1, lado / Math.max(img.width, img.height));
+                const lienzo = document.createElement('canvas');
+                lienzo.width = Math.round(img.width * escala);
+                lienzo.height = Math.round(img.height * escala);
+                const ctx = lienzo.getContext('2d');
+                ctx.fillStyle = '#FFFFFF'; // las capturas PNG con transparencia no quedan negras
+                ctx.fillRect(0, 0, lienzo.width, lienzo.height);
+                ctx.drawImage(img, 0, 0, lienzo.width, lienzo.height);
+                blob = (await aBlob(lienzo, calidad)) || blob;
+                if (blob && blob.size <= CARGA_FOTO_MAX_BYTES) break;
+            }
+            if (blob) resolver(blob); else rechazar(new Error('No se pudo leer la foto.'));
         };
         img.onerror = () => { URL.revokeObjectURL(url); rechazar(new Error('Ese archivo no es una foto.')); };
         img.src = url;
     });
 }
+
+// Botones para agregar fotos: "Cámara" (abre la cámara, una por vez) y "Galería"
+// (elige VARIAS a la vez, o capturas como la del SINPE). attr = 'data-c' o 'data-f'.
+const cargaBotonesFotoHtml = (attr) => `
+    <div class="carga-botones-foto">
+        <label class="boton boton-secundario boton-chico carga-tomar">
+            <i class="bi bi-camera"></i> <span>Cámara</span>
+            <input type="file" accept="image/*" capture="environment" hidden ${attr}="archivo">
+        </label>
+        <label class="boton boton-secundario boton-chico carga-tomar">
+            <i class="bi bi-images"></i> <span>Galería</span>
+            <input type="file" accept="image/*" multiple hidden ${attr}="archivo">
+        </label>
+        <small class="carga-contador" ${attr}="contador"></small>
+    </div>`;
+
+// Agrega a "fotos" los archivos elegidos (achicados), hasta CARGA_MAX_FOTOS. -> texto de error o ''
+async function cargaAgregarFotos(fotos, archivos) {
+    let error = '';
+    for (const archivo of archivos) {
+        if (fotos.length >= CARGA_MAX_FOTOS) { error = `Máximo ${CARGA_MAX_FOTOS} fotos.`; break; }
+        try {
+            const blob = await cargaAchicarFoto(archivo);
+            fotos.push({ blob, url: URL.createObjectURL(blob) });
+        } catch (err) {
+            error = err.message;
+        }
+    }
+    return error;
+}
+
+// Miniatura con su peso y el botón de quitar
+function cargaMiniatura(f, i, alt, alQuitar) {
+    const fig = document.createElement('figure');
+    fig.className = 'carga-foto';
+    const img = document.createElement('img');
+    img.src = f.url;
+    img.alt = `${alt} ${i + 1}`;
+    const peso = document.createElement('span');
+    peso.className = 'carga-peso';
+    peso.textContent = cargaPeso(f.blob.size);
+    const quitar = document.createElement('button');
+    quitar.type = 'button';
+    quitar.className = 'carga-quitar';
+    quitar.setAttribute('aria-label', `Quitar la foto ${i + 1}`);
+    quitar.innerHTML = '<i class="bi bi-x-lg"></i>';
+    quitar.addEventListener('click', alQuitar);
+    fig.append(img, peso, quitar);
+    return fig;
+}
+
+// "2 de 6 fotos · 210 KB"
+const cargaContador = (fotos) => (fotos.length
+    ? `${fotos.length} de ${CARGA_MAX_FOTOS} fotos · ${cargaPeso(fotos.reduce((s, f) => s + f.blob.size, 0))}`
+    : `Hasta ${CARGA_MAX_FOTOS} fotos`);
 
 // Bultos que tiene registrados el pedido (artículos o productos): referencia para el piloto
 async function cargaBultosEsperados(pedidoId) {
@@ -75,10 +142,7 @@ function abrirCargaPedido({ pedido, sesion }) {
                 <div class="campo">
                     <span class="campo-etiqueta">Fotos de lo que recibes *</span>
                     <div class="carga-fotos" data-c="fotos"></div>
-                    <label class="boton boton-secundario boton-chico carga-tomar">
-                        <i class="bi bi-camera"></i> <span>Tomar foto</span>
-                        <input type="file" accept="image/*" capture="environment" multiple hidden data-c="archivo">
-                    </label>
+                    ${cargaBotonesFotoHtml('data-c')}
                     <small class="campo-ayuda">Que se vean los bultos, cajas o bolsas que te entregan.</small>
                 </div>
                 <div class="campos">
@@ -121,44 +185,24 @@ function abrirCargaPedido({ pedido, sesion }) {
         function dibujarFotos() {
             const caja = $('fotos');
             caja.replaceChildren();
-            fotos.forEach((f, i) => {
-                const fig = document.createElement('figure');
-                fig.className = 'carga-foto';
-                const img = document.createElement('img');
-                img.src = f.url;
-                img.alt = `Foto ${i + 1}`;
-                const quitar = document.createElement('button');
-                quitar.type = 'button';
-                quitar.className = 'carga-quitar';
-                quitar.setAttribute('aria-label', `Quitar la foto ${i + 1}`);
-                quitar.innerHTML = '<i class="bi bi-x-lg"></i>';
-                quitar.addEventListener('click', () => { URL.revokeObjectURL(f.url); fotos.splice(i, 1); dibujarFotos(); });
-                fig.append(img, quitar);
-                caja.appendChild(fig);
-            });
+            fotos.forEach((f, i) => caja.appendChild(cargaMiniatura(f, i, 'Foto', () => {
+                URL.revokeObjectURL(f.url); fotos.splice(i, 1); dibujarFotos();
+            })));
             if (!fotos.length) {
                 const vacio = document.createElement('span');
                 vacio.className = 'carga-sin-fotos';
                 vacio.textContent = 'Todavía no hay fotos.';
                 caja.appendChild(vacio);
             }
+            $('contador').textContent = cargaContador(fotos);
         }
         dibujarFotos();
 
-        $('archivo').addEventListener('change', async (e) => {
-            $('error').textContent = '';
-            for (const archivo of [...e.target.files]) {
-                if (fotos.length >= CARGA_MAX_FOTOS) { $('error').textContent = `Máximo ${CARGA_MAX_FOTOS} fotos.`; break; }
-                try {
-                    const blob = await cargaAchicarFoto(archivo);
-                    fotos.push({ blob, url: URL.createObjectURL(blob) });
-                } catch (err) {
-                    $('error').textContent = err.message;
-                }
-            }
+        dlg.querySelectorAll('[data-c="archivo"]').forEach((input) => input.addEventListener('change', async (e) => {
+            $('error').textContent = await cargaAgregarFotos(fotos, [...e.target.files]);
             e.target.value = '';
             dibujarFotos();
-        });
+        }));
 
         const cerrar = () => dlg.close();
         dlg.addEventListener('close', () => {
@@ -255,10 +299,7 @@ function crearFotosEntrega(opciones = {}) {
     caja.innerHTML = `
         <span class="campo-etiqueta" data-f="titulo"></span>
         <div class="carga-fotos" data-f="lista"></div>
-        <label class="boton boton-secundario boton-chico carga-tomar">
-            <i class="bi bi-camera"></i> <span>Tomar foto</span>
-            <input type="file" accept="image/*" capture="environment" multiple hidden data-f="archivo">
-        </label>
+        ${cargaBotonesFotoHtml('data-f')}
         <small class="campo-ayuda" data-f="ayuda"></small>
         <p class="form-error" role="alert" data-f="error"></p>`;
     const $ = (f) => caja.querySelector(`[data-f="${f}"]`);
@@ -274,44 +315,24 @@ function crearFotosEntrega(opciones = {}) {
     function dibujar() {
         const lista = $('lista');
         lista.replaceChildren();
-        fotos.forEach((f, i) => {
-            const fig = document.createElement('figure');
-            fig.className = 'carga-foto';
-            const img = document.createElement('img');
-            img.src = f.url;
-            img.alt = `Foto de la entrega ${i + 1}`;
-            const quitar = document.createElement('button');
-            quitar.type = 'button';
-            quitar.className = 'carga-quitar';
-            quitar.setAttribute('aria-label', `Quitar la foto ${i + 1}`);
-            quitar.innerHTML = '<i class="bi bi-x-lg"></i>';
-            quitar.addEventListener('click', () => { URL.revokeObjectURL(f.url); fotos.splice(i, 1); dibujar(); });
-            fig.append(img, quitar);
-            lista.appendChild(fig);
-        });
+        fotos.forEach((f, i) => lista.appendChild(cargaMiniatura(f, i, 'Foto de la entrega', () => {
+            URL.revokeObjectURL(f.url); fotos.splice(i, 1); dibujar();
+        })));
         if (!fotos.length) {
             const vacio = document.createElement('span');
             vacio.className = 'carga-sin-fotos';
             vacio.textContent = 'Todavía no hay fotos.';
             lista.appendChild(vacio);
         }
+        $('contador').textContent = cargaContador(fotos);
     }
     dibujar();
 
-    $('archivo').addEventListener('change', async (e) => {
-        $('error').textContent = '';
-        for (const archivo of [...e.target.files]) {
-            if (fotos.length >= CARGA_MAX_FOTOS) { $('error').textContent = `Máximo ${CARGA_MAX_FOTOS} fotos.`; break; }
-            try {
-                const blob = await cargaAchicarFoto(archivo);
-                fotos.push({ blob, url: URL.createObjectURL(blob) });
-            } catch (err) {
-                $('error').textContent = err.message;
-            }
-        }
+    caja.querySelectorAll('[data-f="archivo"]').forEach((input) => input.addEventListener('change', async (e) => {
+        $('error').textContent = await cargaAgregarFotos(fotos, [...e.target.files]);
         e.target.value = '';
         dibujar();
-    });
+    }));
 
     const borrar = async (subidas) => {
         if (subidas && subidas.length) await db.storage.from(CARGA_BUCKET).remove(subidas.map((s) => s.ruta));

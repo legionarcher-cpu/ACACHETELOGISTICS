@@ -187,6 +187,7 @@ let qrLazo = null;
 let qrOcupado = false;
 let qrUltimo = { texto: '', hora: 0 };
 let qrAlLeer = null;
+let qrAlEscribir = null;
 
 function qrDialogoLector() {
     const d = qrDialogo('qrLectorDialogo', `
@@ -198,6 +199,13 @@ function qrDialogoLector() {
                 <p class="qr-sin-camara" data-sin-camara hidden></p>
             </div>
             <p class="qr-estado" data-estado aria-live="polite"></p>
+            <form class="qr-manual" data-manual hidden novalidate>
+                <label class="campo-etiqueta" for="qrManualCodigo" data-manual-etiqueta></label>
+                <div class="qr-manual-fila">
+                    <input id="qrManualCodigo" type="text" class="campo-input" inputmode="numeric" autocomplete="off" maxlength="20" data-manual-input>
+                    <button type="submit" class="boton boton-secundario boton-chico">Usar código</button>
+                </div>
+            </form>
             <div class="qr-resultado" data-resultado hidden></div>
             <div class="dialogo-botones">
                 <button type="button" class="boton boton-secundario" data-otra hidden><i class="bi bi-arrow-repeat"></i> <span>Escanear otro</span></button>
@@ -209,8 +217,16 @@ function qrDialogoLector() {
         d.addEventListener('close', qrApagar);
         d.querySelector('[data-otra]').addEventListener('click', () => {
             qrMostrarResultado(null);
+            d.querySelector('[data-manual]').hidden = !qrAlEscribir;
             qrEstado('Apunta la cámara al QR.');
             qrEncender();
+        });
+        // Código escrito a mano (si el QR no se puede leer): lo revisa la misma función que pidió la sección
+        d.querySelector('[data-manual]').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const texto = d.querySelector('[data-manual-input]').value.trim();
+            if (!texto || !qrAlEscribir || qrOcupado) return;
+            qrProcesar(texto, qrAlEscribir);
         });
     }
     return d;
@@ -231,6 +247,7 @@ function qrMostrarResultado(nodo) {
     if (nodo) caja.appendChild(nodo);
     d.querySelector('[data-otra]').hidden = !nodo;
     d.querySelector('.qr-camara').hidden = !!nodo;
+    if (nodo) d.querySelector('[data-manual]').hidden = true;
 }
 
 function qrApagar() {
@@ -242,10 +259,15 @@ function qrApagar() {
     if (v) v.srcObject = null;
 }
 
-async function abrirLectorQr({ titulo = 'Escanear QR', ayuda = 'Apunta la cámara al QR.', alLeer }) {
+// manual (opcional): { etiqueta, alEscribir(texto) } -> casilla para escribir un código si el QR no se lee
+async function abrirLectorQr({ titulo = 'Escanear QR', ayuda = 'Apunta la cámara al QR.', alLeer, manual = null }) {
     const d = qrDialogoLector();
     d.querySelector('[data-titulo]').textContent = titulo;
     qrAlLeer = alLeer;
+    qrAlEscribir = manual ? manual.alEscribir : null;
+    d.querySelector('[data-manual]').hidden = !manual;
+    d.querySelector('[data-manual-etiqueta]').textContent = manual ? manual.etiqueta : '';
+    d.querySelector('[data-manual-input]').value = '';
     qrUltimo = { texto: '', hora: 0 };
     qrMostrarResultado(null);
     qrEstado(ayuda);
@@ -301,12 +323,12 @@ function qrLeerCuadro() {
     qrLazo = requestAnimationFrame(qrLeerCuadro);
 }
 
-async function qrProcesar(texto) {
-    if (!qrAlLeer) return;
+async function qrProcesar(texto, revisar = qrAlLeer) {
+    if (!revisar) return;
     qrOcupado = true;
     qrEstado('Revisando...');
     try {
-        const r = (await qrAlLeer(texto)) || {};
+        const r = (await revisar(texto)) || {};
         qrEstado(r.mensaje || '', r.tipo || '');
         if (r.nodo) { qrApagar(); qrMostrarResultado(r.nodo); }
         if (r.tipo === 'ok' && navigator.vibrate) navigator.vibrate(120);
@@ -345,13 +367,71 @@ async function qrLeerGeneral(texto) {
 }
 
 // ---------- QR del PEDIDO: ventana con toda la información ----------
+//   El piloto que escanea el QR de SU pedido "En ruta" empieza a entregarlo (pasa a "Entregando").
 async function qrLeerPedido(token) {
-    const { data, error } = await db.from('pedidos').select('id').eq('token_qr', token).maybeSingle();
+    const { data, error } = await db.from('pedidos').select('id, codigo, estado, piloto_id').eq('token_qr', token).maybeSingle();
     if (error || !data) return { tipo: 'error', mensaje: 'No se encontró ese pedido.' };
+    const s = obtenerSesion() || {};
+    if (rolActual() === 'piloto' && data.piloto_id === s.id && data.estado === 'en_ruta') {
+        const r = await qrIniciarEntrega({ usuario_id: s.id, pedido_id: data.id, token });
+        if (r.tipo === 'error') return r;
+        qrAvisarEntregando(r.datos);
+    }
     const d = document.getElementById('qrLectorDialogo');
     if (d && d.open) d.close();
     mostrarPedidoQr(data.id);
     return { tipo: 'ok', mensaje: '' };
+}
+
+// ==================================================
+// EMPEZAR LA ENTREGA CON EL QR DEL PEDIDO (piloto)
+//   El piloto escanea el QR que tiene el cliente (o escribe su código de entrega si el QR
+//   no se lee) y el pedido pasa de "En ruta" a "Entregando" (pedido_iniciar_entrega, sql/01
+//   bloque 38). La base no deja pasar a "Entregando" de otra forma.
+//   escanearParaEntregar({ pedido, sesion }) -> promesa: { id, codigo, estado } o null
+// ==================================================
+
+async function qrIniciarEntrega(p) {
+    const { data, error } = await db.rpc('pedido_iniciar_entrega', { p });
+    if (!error) return { tipo: 'ok', datos: data };
+    console.error('Error al empezar la entrega:', error);
+    return {
+        tipo: 'error',
+        mensaje: error.code === 'P0001' ? error.message
+            : ['PGRST202', '42883'].includes(error.code) ? 'Falta ejecutar sql/01 (bloque 38: entrega con QR).'
+                : 'No se pudo revisar. Revisa la conexión e intenta de nuevo.',
+    };
+}
+
+// Avisa a la página que un pedido pasó a "Entregando" (Inicio recarga "Mi ruta")
+function qrAvisarEntregando(datos) {
+    window.dispatchEvent(new CustomEvent('acachete:entregando', { detail: datos || {} }));
+}
+
+function escanearParaEntregar({ pedido, sesion }) {
+    return new Promise((resolver) => {
+        let resultado = null;
+        const revisar = async (p) => {
+            const r = await qrIniciarEntrega({ usuario_id: sesion.id || null, pedido_id: pedido.id, ...p });
+            if (r.tipo === 'error') return r;
+            resultado = r.datos;
+            qrAvisarEntregando(r.datos);
+            return { tipo: 'ok', mensaje: `Pedido ${pedido.codigo}: entregando.`, cerrar: 700 };
+        };
+        abrirLectorQr({
+            titulo: `Entregar ${pedido.codigo}`,
+            ayuda: 'Escanea el QR del pedido que tiene el cliente.',
+            alLeer: (texto) => (texto.startsWith(QR_PREFIJO.pedido)
+                ? revisar({ token: texto.slice(QR_PREFIJO.pedido.length) })
+                : { tipo: 'error', mensaje: 'Ese no es el QR de un pedido.' }),
+            manual: {
+                etiqueta: '¿No se puede leer el QR? Escribe el código de entrega que te dice el cliente:',
+                alEscribir: (codigo) => revisar({ codigo }),
+            },
+        });
+        const d = document.getElementById('qrLectorDialogo');
+        d.addEventListener('close', () => resolver(resultado), { once: true });
+    });
 }
 
 // ¿El usuario conectado puede ver este pedido? (igual que en Pedidos)

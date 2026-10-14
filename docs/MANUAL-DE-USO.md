@@ -245,16 +245,20 @@ En **Mi ruta** del piloto hay un renglón por **slot** con el botón **Salir a r
 
 En **Mi ruta**, los pedidos salen **ordenados del más cercano al más lejano**; el primero dice **Siguiente**.
 
-1. **Entregar ahora**: el pedido pasa a **Entregando** (solo uno a la vez). Arriba están los enlaces
+1. Al llegar donde el cliente, toca **Escanear QR** y escanea el **QR del pedido** que te muestra el cliente:
+   el pedido pasa a **Entregando** (solo uno a la vez). Si el QR no se puede leer, escribe el **código de
+   entrega** que te dice el cliente. Sin escanear no se puede marcar "Entregado". Arriba están los enlaces
    **Ir con Google Maps / Waze**.
 2. **Cerrar entrega** → dentro del pedido:
    - **Entregado**: si hay que cobrar, elige **cómo pagó** el cliente (Efectivo, SINPE Móvil o Tarjeta). Si
      lleva **alcohol**, confirma la **mayoría de edad**. Si son **productos**, escribe **cuánto recibió de
-     cada uno**; si es menos, el **motivo** es obligatorio (queda "Entregado con incidencia"). Con **Tomar foto**
-     guarda fotos de lo que entregas (y de dónde lo dejas); quedan en el pedido como prueba de entrega.
+     cada uno**; si es menos, el **motivo** es obligatorio (queda "Entregado con incidencia"). Con **Cámara**
+     (una foto por vez) o **Galería** (varias a la vez) guarda hasta 6 fotos de lo que entregas (y de dónde lo
+     dejas); se achican solas a unos 50-150 KB y quedan en el pedido como prueba de entrega.
      Si cobraste, toma también la foto del **comprobante de pago**: el **efectivo** recibido, el **voucher** de
      la tarjeta o el **comprobante de SINPE** del cliente (con él la tienda verifica el SINPE en la caja).
-   - **No entregado**: escribe el **motivo** (cliente ausente, dirección errada...). Le llega al G2.
+   - **No entregado**: escribe el **motivo** (cliente ausente, dirección errada...). Le llega al G2. Se puede
+     marcar también sin escanear (desde "En ruta"), por ejemplo si el cliente no estaba.
 3. El **código de entrega de 4 dígitos** (o el QR del pedido) sirve para confirmar que la persona que
    recibe es la correcta.
 
@@ -401,7 +405,7 @@ Los avisos "pendientes" se cierran solos cuando alguien resuelve el asunto.
 1. Al llegar: **marcar** (QR de la tienda o "Mi QR del día").
 2. **Cargar** cada pedido listo (foto, bultos, efectivo).
 3. **Salir a ruta** por slot.
-4. **Entregar ahora** → **Entregado** (cómo pagó) o **No entregado** (motivo).
+4. **Escanear QR** del pedido (o el código del cliente) → **Entregado** (cómo pagó y fotos) o **No entregado** (motivo).
 5. Al terminar: devolver la mercadería (distribuidora) y entregar el efectivo para el **cierre de caja**.
 
 ---

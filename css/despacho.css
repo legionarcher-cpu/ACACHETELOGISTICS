@@ -60,6 +60,32 @@
     cursor: pointer;
 }
 
+/* Peso de cada foto ya achicada (abajo a la izquierda de la miniatura) */
+.carga-peso {
+    position: absolute;
+    left: 0.222rem;
+    bottom: 0.222rem;
+    padding: 0 0.278rem;
+    border-radius: 0.333rem;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: #FFFFFF;
+    font-size: 0.7rem;
+    line-height: 1.4;
+}
+
+/* "Cámara" + "Galería" + contador "2 de 6 fotos · 210 KB" */
+.carga-botones-foto {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.444rem;
+}
+
+.carga-contador {
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
 /* Fotos de la entrega (crearFotosEntrega: ventana "Entregado" de Pedidos y entrega por producto) */
 .entrega-fotos {
     margin-top: 0.778rem;

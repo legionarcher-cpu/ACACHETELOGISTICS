@@ -1,4 +1,4 @@
--- 6 de 15 · sql/00_instalacion_completa.sql · Caja de pilotos y ubicación en tiempo real (secciones 17 a 18).
+-- 6 de 16 · sql/00_instalacion_completa.sql · Caja de pilotos y ubicación en tiempo real (secciones 17 a 18).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

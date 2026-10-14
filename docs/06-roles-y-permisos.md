@@ -66,7 +66,7 @@ Reservar, cambiar la hora, cancelar y avanzar un viaje lo revisan **las funcione
 | Asignar piloto / horario / ruta, reprogramar | ✔ | ✔ | Su región | Solo solicita (fecha) | Solo solicita (fecha) | — |
 | Alistando / Listo para despachar / Aprobar salida (dentro del pedido) | ✔ | ✔ | Su región | Su tienda | Su tienda | — |
 | Cancelar pedido (con motivo; ya no se anula) | ✔ | ✔ | ✔ | ✔ | — | — |
-| Recibido para ruta / Saliendo a ruta / Entregar ahora / Entregado / No entregado | — | — | — | — | — | Solo sus pedidos |
+| Recibido para ruta / Saliendo a ruta / Escanear QR (entregando) / Entregado / No entregado | — | — | — | — | — | Solo sus pedidos |
 | Config. → Slots | ✔ | ✔ | Ver | — | — | — |
 | Rutas: crear y asignar pilotos | ✔ | ✔ | Su región | Ver | — | — |
 | Reportes: exportar | ✔ | ✔ | ✔ | Solo ver | — | Sus pedidos de 7 días |

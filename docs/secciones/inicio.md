@@ -60,7 +60,7 @@ Sus pedidos por despachar y en ruta (`INI_MI_RUTA`), con un botón según el est
 |---|---|
 | Listo para despachar / Recibido para ruta | **Cargar** → foto(s), bultos recibidos y efectivo que lleva (`js/carga-comun.js`, `pedido_cargar`) |
 | Cargado | (espera) — arriba, **un renglón por slot** con **Salir a ruta**: pasa los cargados del slot a *En ruta* (hora de salida) y los listos sin cargar a **No salió a ruta** (aviso al G2 para reprogramar). Sin ningún cargado el botón queda desactivado |
-| En ruta | **Entregar ahora** — solo uno a la vez (la base no deja dos *Entregando*) |
+| En ruta | **Escanear QR** — escanea el QR del pedido que tiene el cliente (o escribe su código de entrega) y pasa a *Entregando*; solo uno a la vez (sql/01 bloque 38) |
 | Entregando | **Cerrar entrega** → detalle del pedido (Entregado / No entregado) |
 
 Orden: **del más cercano al más lejano en cadena** (`ordenarEnCadena`) desde la tienda (o desde el que

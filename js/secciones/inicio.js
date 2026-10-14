@@ -790,9 +790,12 @@ registrarSeccion('inicio', (zona) => {
     //                   pasan a En ruta (salida_en) y los listos sin cargar quedan
     //                   "No salió a ruta" (el G2 los reprograma; se le avisa)
     //   En ruta      -> ordenados del más cercano al más lejano: cadena desde la
-    //                   tienda (cada uno, el más cercano al anterior). "Entregar
-    //                   ahora" en UNO a la vez (la base no deja dos "Entregando").
-    //   Entregando   -> se cierra en el detalle (Entregado / No entregado).
+    //                   tienda (cada uno, el más cercano al anterior). "Escanear QR":
+    //                   el piloto escanea el QR del pedido que tiene el cliente (o escribe
+    //                   su código de entrega) y pasa a "Entregando" (js/qr.js ->
+    //                   pedido_iniciar_entrega, sql/01 bloque 38). UNO a la vez.
+    //   Entregando   -> se cierra en el detalle (Entregado / No entregado). Sin pasar por
+    //                   "Entregando" (sin el QR) la base no deja marcarlo "Entregado".
     // ==================================================
 
     const INI_MI_RUTA = ['listo_despacho', 'recibido_ruta', 'cargado', 'en_ruta', 'en_entrega'];
@@ -961,28 +964,14 @@ registrarSeccion('inicio', (zona) => {
         // Listo para despachar (o recibido con el flujo anterior): se carga con evidencia
         if (['listo_despacho', 'recibido_ruta'].includes(p.estado)) return crear('Cargar', 'bi-box-arrow-in-down', 'boton-principal', () => cargarPedido(p));
         if (p.estado === 'en_entrega') return crear('Cerrar entrega', 'bi-check2-circle', 'boton-principal', () => { location.hash = `pedidos?id=${p.id}`; });
+        // En ruta: la entrega se empieza escaneando el QR del pedido que tiene el cliente (js/qr.js)
         if (p.estado === 'en_ruta') {
-            const b = crear('Entregar ahora', 'bi-geo-alt', 'boton-secundario', () => entregarAhora(p));
+            const b = crear('Escanear QR', 'bi-qr-code-scan', 'boton-secundario', () => entregarAhora(p));
             b.disabled = hayEntregando;
             if (hayEntregando) b.title = 'Primero termina el pedido que estás entregando';
             return b;
         }
         return null; // cargado: espera "Salir a ruta" de su slot
-    }
-
-    // Cambia el estado (solo si sigue en el que se ve) y lo deja en la línea de tiempo
-    async function cambiarMiPedido(ids, antes, despues, evento = 'estado') {
-        const { data, error } = await db.from('pedidos')
-            .update({ estado: despues, actualizado_en: new Date().toISOString() })
-            .in('id', ids).eq('estado', antes).eq('piloto_id', sesion.id || 0).select('id');
-        if (error) return { error };
-        if (data.length) {
-            await db.from('pedido_historial').insert(data.map((p) => ({
-                pedido_id: p.id, evento, estado_anterior: antes, estado_nuevo: despues,
-                usuario_id: sesion.id || null, usuario_nombre: sesion.nombre || null,
-            })));
-        }
-        return { cambiados: data.length };
     }
 
     // Carga con evidencia: foto, bultos recibidos y efectivo (js/carga-comun.js -> pedido_cargar)
@@ -1055,7 +1044,7 @@ registrarSeccion('inicio', (zona) => {
         const salen = data.en_ruta || [];
         const quedan = data.no_salio || [];
         avisoRuta.mostrar(`¡Buen viaje! ${plural(salen.length, 'pedido', 'pedidos')} en ruta`
-            + `${quedan.length ? ` · ${plural(quedan.length, 'no salió', 'no salieron')} (se avisó para reprogramar)` : ''}. Marca "Entregar ahora" en el que vas a entregar.`);
+            + `${quedan.length ? ` · ${plural(quedan.length, 'no salió', 'no salieron')} (se avisó para reprogramar)` : ''}. Al llegar donde el cliente, toca "Escanear QR" y escanea el QR de su pedido.`);
         enviarUbicacion(); // js/ubicacion.js: la primera ubicación de la ruta, sin esperar 2 minutos
 
         // Avisos (js/notificaciones.js): a la tienda, qué salió; al G2, qué hay que reprogramar
@@ -1080,16 +1069,10 @@ registrarSeccion('inicio', (zona) => {
         cargarMiRuta();
     }
 
+    // Escanea el QR del pedido (o el código del cliente): pasa a "Entregando" (pedido_iniciar_entrega)
     async function entregarAhora(p) {
-        const r = await cambiarMiPedido([p.id], 'en_ruta', 'en_entrega');
-        if (r.error) {
-            console.error(r.error);
-            avisoRuta.mostrar(r.error.code === '23505'
-                ? 'Primero marca como entregado (o no entregado) el pedido que estás entregando.'
-                : 'No se pudo marcar. Intenta de nuevo.', 'error');
-        } else {
-            avisoRuta.mostrar(`Pedido ${p.codigo}: entregando. Ciérralo en su detalle al terminar.`);
-        }
+        const r = await escanearParaEntregar({ pedido: p, sesion });
+        if (r) avisoRuta.mostrar(`Pedido ${p.codigo}: entregando. Ciérralo en su detalle ("Cerrar entrega") al terminar.`);
         cargarMiRuta();
     }
 
@@ -1429,6 +1412,9 @@ registrarSeccion('inicio', (zona) => {
     // Cada vez que el piloto manda su ubicación (js/ubicacion.js): su línea y su camión en el mapa
     const alUbicar = () => { if (esPiloto) { pintarUbicacion(); dibujarMarcadores(); } };
     window.addEventListener('acachete:ubicacion', alUbicar);
+    // Un pedido pasó a "Entregando" escaneando su QR (js/qr.js, también desde el botón del encabezado)
+    const alEntregar = () => cargarMiRuta();
+    window.addEventListener('acachete:entregando', alEntregar);
 
     return () => {
         activa = false;
@@ -1436,6 +1422,7 @@ registrarSeccion('inicio', (zona) => {
         if (relojMarcas) clearInterval(relojMarcas);
         window.removeEventListener('acachete:marca', alMarcar);
         window.removeEventListener('acachete:ubicacion', alUbicar);
+        window.removeEventListener('acachete:entregando', alEntregar);
         aviso.limpiar();
         avisoRuta.limpiar();
         avisoMarcas.limpiar();

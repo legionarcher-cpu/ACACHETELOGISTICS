@@ -1143,6 +1143,31 @@ html:not([data-rol="desarrollador"]) [data-solo-desarrollador] {
 .qr-estado.ok    { background-color: var(--color-verde-claro); color: var(--color-verde); }
 .qr-estado.error { background-color: var(--color-rojo-claro);  color: var(--color-rojo); }
 
+/* Código escrito a mano si el QR no se lee (ej. el código de entrega del cliente) */
+.qr-manual {
+    margin-top: 0.75rem;
+}
+
+.qr-manual[hidden] {
+    display: none;
+}
+
+.qr-manual .campo-etiqueta {
+    display: block;
+    margin-bottom: 0.375rem;
+    font-size: 0.85rem;
+}
+
+.qr-manual-fila {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.qr-manual-fila .campo-input {
+    flex: 1;
+    min-width: 0;
+}
+
 /* Ficha del piloto validado: foto grande y nombre */
 .qr-ficha {
     display: flex;

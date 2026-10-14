@@ -2,6 +2,35 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-13 · Entrega con QR obligatorio, fotos livianas y pedidos solo con producto en bodega
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 38** (=
+`sql/por_funcion/01_actualizacion_15_entrega_qr_y_bodega.sql`; instalación nueva: `sql/00`, sección 31).
+Sin él, "Escanear QR" avisa que falta el bloque 38 y los pedidos con productos se registran como antes.
+
+- **Entrega con QR**: en "Mi ruta" (Inicio) y en el detalle del pedido, el botón "Entregar ahora" ahora es
+  **Escanear QR**. El piloto escanea el QR del pedido que tiene el cliente y el pedido pasa a **Entregando**
+  (`pedido_iniciar_entrega`: solo su piloto, solo desde "En ruta", uno a la vez, y el QR tiene que ser de ESE
+  pedido). Si el QR no se lee, se escribe el **código de entrega** que da el cliente. También sirve el botón
+  "Escanear QR" del encabezado. La línea de tiempo dice si fue con el QR o con el código.
+- **La base lo exige** (trigger `pedidos_entrega_con_qr`): no se pasa a "Entregando" sin escanear, ni se marca
+  "Entregado" sin haber pasado por "Entregando". **"No entregado"** ahora también se puede desde "En ruta" (el
+  cliente no estaba: no hay QR que escanear).
+- **Fotos** (carga, entrega y comprobante de pago): dos botones, **Cámara** (una por vez) y **Galería** (varias a
+  la vez, o la captura del SINPE), hasta 6. Se achican a JPEG liviano: lado de 1024 px y, si pasa de 150 KB, se
+  baja la calidad y el tamaño (una foto de celular de 3-10 MB queda en 50-150 KB). Cada miniatura muestra su peso
+  y abajo dice "2 de 6 fotos · 196 KB". Archivo: `js/carga-comun.js` (`CARGA_FOTO_INTENTOS`, `CARGA_FOTO_MAX_BYTES`).
+- **Pedidos con productos (Distribuidora)**: al registrar se revisa la **bodega del día** de la ruta y fecha
+  (`dist_disponible`): disponible = lo que entró ese día (ingresos + ajustes − salida − devuelto dañado) − lo ya
+  pedido en otros pedidos (los entregados y las ventas en ruta cuentan lo entregado; los cancelados, devueltos,
+  no entregados, no salió y reprogramados no cuentan). Si falta, **no se registra** y dice qué falta. La base
+  también lo revisa al guardar los productos (trigger `pedido_productos_revisar_bodega`).
+- **Sin bodega ese día** (ej. pedido para mañana): si lo registra un Admin G3 o superior, confirma y queda
+  autorizado; si lo registra un Empleado, queda **por autorizar** (`detalle.autorizacion`), se avisa al G3 y al
+  G2, y no se puede alistar, asignar ni cargar hasta que un G3 o superior toque **Autorizar** en el detalle (o lo
+  cancele con su motivo).
+- `VERSION_APP` y todos los `?v=` = `20261013o`.
+
 ## 2026-10-13 · Detalle del pedido: "Cliente y entrega" en bloques
 
 SQL: **ninguno**.

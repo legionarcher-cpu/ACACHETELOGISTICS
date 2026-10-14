@@ -67,6 +67,19 @@ se elige la **lista de precios** y los **productos con su cantidad** (`crearSele
 productos con IVA (más el envío, si la actividad tiene tarifa). Se guarda en `pedido_productos` (cantidad pedida,
 precio sin IVA e IVA de ese momento) y el resumen en `pedidos.detalle.productos` (`lista_id`, `subtotal`, `iva`, `total`).
 
+**Solo con producto en la bodega** (sql/01 bloque 38): al registrar se revisa la **bodega del día** de la ruta y
+la fecha de entrega (sin ruta: las de la tienda ese día) con `dist_disponible`:
+
+- **Disponible** = lo que entró ese día (ingresos + ajustes − salida − devuelto dañado) − lo ya pedido en otros
+  pedidos (los entregados y las ventas en ruta cuentan lo entregado; cancelados, devueltos, no entregados, no
+  salió y reprogramados no cuentan).
+- Si se pide más de lo disponible (o el producto está en 0), **no se registra** y se dice qué falta. La base lo
+  revisa otra vez al guardar cada producto (trigger `pedido_productos_revisar_bodega`).
+- Si ese día **todavía no hay bodega** (pedido para otro día): si lo registra un Admin G3 o superior, confirma y
+  queda autorizado; si lo registra un Empleado, queda **por autorizar** (`detalle.autorizacion.estado =
+  'pendiente'`), se avisa al G3 y al G2, y no se puede alistar, asignar ni cargar hasta que un G3 o superior toque
+  **Autorizar** en el detalle (o lo cancele).
+
 **Entrega** (piloto, botón "Entregado"): se abre la ventana **cuánto recibió de cada producto**
 (`abrirEntregaProductos`). Si es menos, el **motivo es obligatorio**. La base (`dist_entregar`):
 
@@ -133,6 +146,7 @@ Distribución → **Historial y faltantes** (G3 o superior), por fechas y ruta:
 | `dist_cerrar_bodega(p)` | Salida de lo que queda, bodega en 0 y resumen del día |
 | `dist_bodega_saldo(bodega)` | Lo que hay en la bodega por producto (para leer) |
 | `dist_piloto_resumen(bodega, piloto)` | Lo que lleva un piloto por producto (para leer) |
+| `dist_disponible(p)` / `dist_disponible_de(...)` | Disponible para pedidos en la bodega del día de una ruta (bloque 38) |
 
 Las tablas `bodegas_dia`, `bodega_movimientos` y `cierres_mercaderia` la página solo las lee; `pedido_productos` la
 página la crea con el pedido y solo la base pone lo entregado.

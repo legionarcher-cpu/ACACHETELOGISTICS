@@ -48,8 +48,14 @@
        El piloto no toca un pedido hasta que está "Listo para despachar".
      - PILOTO (solo sus pedidos): "Cargar" con evidencia (foto, bultos, efectivo;
        js/carga-comun.js), "Salir a ruta" POR SLOT (en Inicio; los listos sin cargar quedan
-       "No salió a ruta" y el G2 los reprograma), "Entregar ahora" (uno a la vez) y
-       "Entregado" / "No entregado". (sql/01 bloque 29)
+       "No salió a ruta" y el G2 los reprograma), "Escanear QR" (escanea el QR del pedido que
+       tiene el cliente, o escribe su código de entrega: pasa a "Entregando", uno a la vez;
+       js/qr.js -> pedido_iniciar_entrega) y "Entregado" / "No entregado". Sin el QR la base no
+       deja marcarlo "Entregado" ("No entregado" sí, desde "En ruta"). (sql/01 bloques 29 y 38)
+     - PRODUCTOS (distribuidora): no se registra si la bodega del día de la ruta no tiene lo
+       pedido (dist_disponible; la base también lo revisa). Si ese día aún no hay bodega, el
+       pedido queda "por autorizar" (detalle.autorizacion) y se avisa al G3 o superior; sin
+       autorizar no se puede alistar, asignar ni cargar. (sql/01 bloque 38)
 
    REGLAS:
      - Un pedido NUNCA se borra: se cancela (con motivo).
@@ -2427,6 +2433,33 @@ registrarSeccion('pedidos', (zona) => {
         });
     }
 
+    // ¿La bodega del día de la ruta tiene lo pedido? (dist_disponible, sql/01 bloque 38)
+    //   -> { error: texto } si falta producto | { sinBodega: true } si ese día no hay bodega | {}
+    async function revisarBodega(tiendaId, rutaId, fecha, lineas) {
+        const { data, error } = await db.rpc('dist_disponible', { p: { tienda_id: tiendaId, ruta_id: rutaId || null, fecha } });
+        if (error) {
+            console.error('Error al revisar la bodega:', error);
+            // Base sin el bloque 38: se registra como antes
+            return ['PGRST202', '42883'].includes(error.code) ? {} : { error: 'No se pudo revisar la bodega. Revisa la conexión e intenta de nuevo.' };
+        }
+        if (!Number(data.bodegas)) return { sinBodega: true };
+        const pedido = new Map(); // presentación -> { descripcion, cantidad }
+        lineas.forEach((l) => {
+            const x = pedido.get(l.presentacion_id) || { descripcion: l.descripcion, cantidad: 0 };
+            x.cantidad += Number(l.cantidad);
+            pedido.set(l.presentacion_id, x);
+        });
+        const faltan = [...pedido.entries()]
+            .map(([id, x]) => ({ ...x, hay: Math.max(0, Number((data.productos || {})[id] || 0)) }))
+            .filter((x) => x.cantidad > x.hay);
+        if (!faltan.length) return {};
+        return {
+            error: `No hay suficiente en la bodega del ${fechaCorta(fecha)}: `
+                + faltan.map((x) => `${x.descripcion} (pides ${distCantidad(x.cantidad)}, ${x.hay ? `quedan ${distCantidad(x.hay)}` : 'no hay'})`).join('; ')
+                + '. Baja la cantidad o pide que ingresen producto a la bodega.',
+        };
+    }
+
     form.addEventListener('submit', async (evento) => {
         evento.preventDefault();
         if (!puedeGestionar) return;
@@ -2533,6 +2566,32 @@ registrarSeccion('pedidos', (zona) => {
 
         const boton = $('#pedGuardar');
         boton.disabled = true;
+
+        // Productos: solo si la bodega del día de la ruta los tiene (sql/01 bloque 38). Sin bodega
+        // ese día: un G3 o superior lo autoriza al registrar; si no, queda "por autorizar" con aviso.
+        let porAutorizarNuevo = false;
+        if (lineasProd.length) {
+            const b = await revisarBodega(tiendaId, rutaId, inputFecha.value, lineasProd);
+            if (b.error) {
+                formError.textContent = b.error;
+                boton.disabled = false;
+                return;
+            }
+            if (b.sinBodega) {
+                const donde = `${rutaId ? `la ruta ${nombreRuta(rutaId) || ''}`.trim() : 'la tienda'} el ${fechaCorta(inputFecha.value)}`;
+                if (puedeCancelar) {
+                    if (!confirm(`No hay bodega del día abierta para ${donde}, así que no se puede revisar si hay producto.\n\n¿Autorizas registrar el pedido igual?`)) {
+                        boton.disabled = false;
+                        return;
+                    }
+                    detalle.autorizacion = { estado: 'autorizado', motivo: 'sin_bodega', por: sesion.nombre || null, por_id: sesion.id || null, en: new Date().toISOString() };
+                } else {
+                    detalle.autorizacion = { estado: 'pendiente', motivo: 'sin_bodega' };
+                    porAutorizarNuevo = true;
+                }
+            }
+        }
+
         // Cliente escrito a mano (no elegido del buscador): se agrega solo a Clientes
         if (!clienteId) {
             clienteId = await clienteDesdePedido(tiendaId, rutaId);
@@ -2582,6 +2641,16 @@ registrarSeccion('pedidos', (zona) => {
                 })))
                 : Promise.resolve({ error: null }),
         ]);
+        // Otro pedido se llevó el producto mientras se registraba este (la base lo revisa al guardar):
+        // el pedido queda cancelado con el motivo y se avisa aquí mismo
+        if (prod.error && prod.error.code === 'P0001') {
+            console.error('Sin producto en la bodega:', prod.error);
+            await db.from('pedidos').update({ estado: 'cancelado', motivo_cancelacion: `No se registró: ${prod.error.message}` }).eq('id', data.id);
+            await registrarEvento(data.id, 'estado', { antes: estado, despues: 'cancelado', detalle: { motivo: prod.error.message } });
+            formError.textContent = `${prod.error.message} El pedido ${data.codigo} quedó cancelado.`;
+            boton.disabled = false;
+            return;
+        }
         if (art.error || his.error || prod.error) {
             console.error('Error al guardar artículos, productos o historial:', art.error || prod.error || his.error);
             sessionStorage.setItem('ped_aviso', `Pedido ${data.codigo} registrado, pero no se guardó todo el detalle. Revísalo.`);
@@ -2599,6 +2668,16 @@ registrarSeccion('pedidos', (zona) => {
         // Pedidos cercanos: al piloto se le dice que puede aprovechar el viaje; si el más cercano
         // lo lleva otro piloto, se sugiere al G2 asignárselo (o reasignarlo) para un solo viaje.
         const enlace = `#pedidos?id=${data.id}`;
+        // Sin bodega del día: el G3 (y el G2) lo autorizan
+        if (porAutorizarNuevo) {
+            await avisar({
+                tiendaId, a: ['g3', 'g2'], tipo: 'pendiente', enlace, referenciaTipo: 'pedido_autorizar', referenciaId: data.id,
+                titulo: 'Pedido por autorizar (sin bodega)',
+                mensaje: `${sesion.nombre || 'Alguien'} registró el pedido ${data.codigo} para el ${fechaCorta(inputFecha.value)}, `
+                    + 'pero ese día no hay bodega abierta para su ruta: revisa que haya producto y autorízalo o cancélalo.',
+            });
+            sessionStorage.setItem('ped_aviso', `${sessionStorage.getItem('ped_aviso') || ''} Queda por autorizar: no hay bodega del día; se avisó al Admin G3.`.trim());
+        }
         const sugerencia = (x) => `${pedTextoCercano(x, 'Su')} (piloto ${textoPilotoCercano(x.pedido.piloto_id)})`;
         if (!pilotoId) {
             await avisar({
@@ -2681,6 +2760,7 @@ registrarSeccion('pedidos', (zona) => {
 
         dibujarDetalle();
         dibujarSolicitud();
+        dibujarAutorizacion();
         dibujarArticulos();
         dibujarProductos();
         dibujarCobro();
@@ -2706,7 +2786,9 @@ registrarSeccion('pedidos', (zona) => {
     function abrirDesdePie(abrir) {
         const p = pedido;
         if (abrir === 'reasignar') {
-            if (p.anulado || !MODOS_LISTA.reasignar.estados.includes(p.estado)) {
+            if (porAutorizar(p)) {
+                aviso.mostrar('Primero un Admin G3 o superior debe autorizar el pedido (no había bodega del día).', 'error');
+            } else if (p.anulado || !MODOS_LISTA.reasignar.estados.includes(p.estado)) {
                 aviso.mostrar('Este pedido ya no se puede reasignar.', 'error');
             } else if (puedeAsignar) {
                 abrirAsignar(PED_POR_REPROGRAMAR.includes(p.estado) ? 'reprogramar' : 'asignar');
@@ -3026,6 +3108,7 @@ registrarSeccion('pedidos', (zona) => {
         anulado: 'Pedido anulado',
         solicitud_reasignacion: 'Solicitud de reasignación',
         solicitud_rechazada: 'Solicitud de reasignación rechazada',
+        autorizado: 'Pedido autorizado (sin bodega del día)',
     };
 
     function dibujarHistorial(eventos) {
@@ -3060,6 +3143,7 @@ registrarSeccion('pedidos', (zona) => {
             if (d.piloto) partes.push(`Piloto: ${d.piloto}`);
             if (d.motivo) partes.push(`Motivo: ${d.motivo}`);
             if (d.nota) partes.push(d.nota);
+            if (d.verificado) partes.push(d.verificado === 'qr' ? 'Con el QR del pedido' : 'Con el código de entrega del cliente');
             if (e.usuario_nombre) partes.push(`Por ${e.usuario_nombre}`);
             if (partes.length) {
                 const s = document.createElement('small');
@@ -3079,11 +3163,15 @@ registrarSeccion('pedidos', (zona) => {
     //     Alistando -> Listo para despachar (elige el slot; desde aquí lo ve el piloto) ->
     //     [piloto] Cargar con evidencia (foto, bultos, efectivo; js/carga-comun.js) = Cargado ->
     //     [piloto, en Inicio] Salir a ruta POR SLOT = En ruta (los listos sin cargar del slot
-    //     quedan "No salió a ruta" y el G2 los reprograma) -> [piloto] Entregar ahora (UNO a la
-    //     vez) -> Entregado / No entregado. Ya no se anula: solo se cancela (con motivo).
+    //     quedan "No salió a ruta" y el G2 los reprograma) -> [piloto] Escanear QR del pedido (UNO
+    //     a la vez, pasa a Entregando) -> Entregado / No entregado (este también desde En ruta).
+    //     Ya no se anula: solo se cancela (con motivo).
     //     (Los que quedaron "Recibido para ruta" con el flujo anterior se cargan igual, o la
     //     tienda escanea su QR.)
     const esSuPiloto = (p) => esPiloto && p.piloto_id === sesion.id;
+    // Pedido con productos registrado sin bodega del día: espera que un G3 o superior lo autorice
+    const porAutorizar = (p) => ((p.detalle || {}).autorizacion || {}).estado === 'pendiente';
+    const PED_ESPERAN_AUTORIZACION = ['bodega', 'alistar', 'listo', 'escanear', 'asignar', 'cargar'];
     const PED_ACCIONES = [
         { id: 'qr', texto: 'QR', icono: 'bi-qr-code', clase: 'boton-secundario', siempre: true, quien: () => true, si: (p) => puedeVerQr(p) },
         { id: 'bodega', texto: 'Recibido en bodega', icono: 'bi-building-check', estados: ['registrado'], quien: () => puedeGestionar,
@@ -3105,14 +3193,14 @@ registrarSeccion('pedidos', (zona) => {
         // (foto, bultos recibidos y efectivo); sale a ruta con todo el slot desde Inicio.
         { id: 'cargar', texto: 'Cargar (foto y bultos)', icono: 'bi-box-arrow-in-down', estados: ['listo_despacho', 'recibido_ruta'],
           quien: () => esPiloto, si: esSuPiloto },
-        // Ya en ruta: marca cuál entrega AHORA (uno a la vez) y luego lo cierra
-        { id: 'entregar_ahora', texto: 'Entregar ahora', icono: 'bi-geo-alt', estados: ['en_ruta'], quien: () => esPiloto, si: esSuPiloto,
-          nuevo: 'en_entrega', ayuda: 'Hasta que lo marques entregado o no entregado no podrás empezar otro pedido.' },
+        // Ya en ruta: escanea el QR del pedido que tiene el cliente (uno a la vez) y luego lo cierra
+        { id: 'entregar_ahora', texto: 'Escanear QR', icono: 'bi-qr-code-scan', estados: ['en_ruta'], quien: () => esPiloto, si: esSuPiloto },
         { id: 'entregado', texto: 'Entregado', icono: 'bi-check2-circle', estados: ['en_entrega'], quien: () => esPiloto, si: esSuPiloto,
           nuevo: 'entregado', motivo: 'opcional',
-          ayuda: 'Confirma que entregaste el pedido. (Más adelante se hará desde la app con el QR y la foto.)' },
-        { id: 'no_entregado', texto: 'No entregado', icono: 'bi-x-circle', estados: ['en_entrega'], quien: () => esPiloto, si: esSuPiloto,
-          nuevo: 'no_entregado', motivo: 'requerido' },
+          ayuda: 'Confirma que entregaste el pedido.' },
+        // Desde "En ruta" también (el cliente no estaba: no hay QR que escanear)
+        { id: 'no_entregado', texto: 'No entregado', icono: 'bi-x-circle', clase: 'boton-secundario', estados: ['en_ruta', 'en_entrega'],
+          quien: () => esPiloto, si: esSuPiloto, nuevo: 'no_entregado', motivo: 'requerido' },
         { id: 'reprogramar', texto: 'Reprogramar', icono: 'bi-calendar-event', estados: PED_POR_REPROGRAMAR, quien: () => puedeAsignar },
         { id: 'devuelto', texto: 'Devuelto', icono: 'bi-arrow-return-left', estados: ['no_entregado'], quien: () => puedeCancelar,
           nuevo: 'devuelto', motivo: 'requerido' },
@@ -3144,7 +3232,9 @@ registrarSeccion('pedidos', (zona) => {
             b.innerHTML = `<i class="bi ${a.icono}"></i> <span></span>`;
             b.querySelector('span').textContent = a.texto;
             // Se ve pero todavía no se puede usar (el motivo queda en el globo)
-            const motivo = a.bloqueado ? a.bloqueado(p) : '';
+            const motivo = porAutorizar(p) && PED_ESPERAN_AUTORIZACION.includes(a.id)
+                ? 'Falta que un Admin G3 o superior autorice el pedido (no había bodega del día).'
+                : (a.bloqueado ? a.bloqueado(p) : '');
             if (motivo) { b.disabled = true; b.title = motivo; }
             caja.appendChild(b);
         });
@@ -3159,6 +3249,7 @@ registrarSeccion('pedidos', (zona) => {
         else if (accion.id === 'listo') abrirListo();
         else if (accion.id === 'escanear') abrirEscaner();
         else if (accion.id === 'cargar') cargarConEvidencia();
+        else if (accion.id === 'entregar_ahora') escanearEntrega();
         else if (accion.id === 'asignar') abrirAsignar('asignar');
         else if (accion.id === 'reprogramar') abrirAsignar('reprogramar');
         else if (accion.id === 'solicitar') abrirAsignar('solicitar');
@@ -3195,6 +3286,55 @@ registrarSeccion('pedidos', (zona) => {
         if (b.dataset.solicitud === 'aplicar') abrirAsignar('aplicar');
         else abrirAccion(ACCION_RECHAZAR);
     });
+
+    // ---------- Pedido por autorizar (con productos y sin bodega del día al registrarlo) ----------
+    //   Lo autoriza un Admin G3 o superior (puedeCancelar); si no, lo cancela con su motivo.
+    function dibujarAutorizacion() {
+        const caja = $('#pedDetAutorizacion');
+        caja.hidden = !porAutorizar(pedido) || pedido.anulado || ['cancelado', 'devuelto'].includes(pedido.estado);
+        if (caja.hidden) return;
+        $('#pedDetAutorizacionTexto').textContent = 'Pedido por autorizar: al registrarlo no había bodega del día abierta para su ruta y fecha, '
+            + 'así que no se pudo revisar si hay producto. '
+            + (puedeCancelar ? 'Revisa que haya mercadería y autorízalo, o cancélalo con su motivo.'
+                : 'Esperando que un Admin G3 o superior lo autorice.');
+        const botones = $('#pedDetAutorizacionBotones');
+        botones.replaceChildren();
+        if (!puedeCancelar) return;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'boton boton-principal boton-chico';
+        b.innerHTML = '<i class="bi bi-shield-check"></i> <span>Autorizar</span>';
+        b.addEventListener('click', autorizarPedido);
+        botones.appendChild(b);
+    }
+
+    async function autorizarPedido() {
+        if (!puedeCancelar || !porAutorizar(pedido)) return;
+        if (!confirm(`¿Autorizar el pedido ${pedido.codigo}? Confirma que la tienda tendrá la mercadería para esa fecha.`)) return;
+        const detalle = {
+            ...(pedido.detalle || {}),
+            autorizacion: { ...pedido.detalle.autorizacion, estado: 'autorizado', por: sesion.nombre || null, por_id: sesion.id || null, en: new Date().toISOString() },
+        };
+        const { data, error } = await db.from('pedidos').update({ detalle, actualizado_en: new Date().toISOString() })
+            .eq('id', pedido.id).eq('estado', pedido.estado).select('id');
+        if (error || !data.length) {
+            console.error('Error al autorizar el pedido:', error);
+            aviso.mostrar(error ? 'No se pudo autorizar. Intenta de nuevo.' : 'Otra persona cambió este pedido. Se recargó con los datos actuales.', 'error');
+            recargarDetalle();
+            return;
+        }
+        await registrarEvento(pedido.id, 'autorizado', { detalle: { nota: 'Sin bodega del día al registrarlo' } });
+        await resolverPendientes('pedido_autorizar', pedido.id);
+        if (pedido.creado_por && pedido.creado_por !== sesion.id) {
+            await notificarResultado({
+                usuarioId: pedido.creado_por, aprobado: true, enlace: `#pedidos?id=${pedido.id}`,
+                referenciaTipo: 'pedido', referenciaId: pedido.id,
+                titulo: 'Pedido autorizado', mensaje: `${sesion.nombre || 'Un administrador'} autorizó el pedido ${pedido.codigo}.`,
+            });
+        }
+        aviso.mostrar(`Pedido ${pedido.codigo} autorizado.`);
+        recargarDetalle();
+    }
 
     // Al resolver una solicitud: se cierran los avisos y se avisa a quien la pidió (js/notificaciones.js)
     async function cerrarSolicitud(aprobada, motivo = '') {
@@ -3287,6 +3427,13 @@ registrarSeccion('pedidos', (zona) => {
         si.className = `boton ${accion.clase === 'boton-peligro' ? 'boton-peligro' : 'boton-principal'}`;
         dlgAccion.showModal();
         if (accion.motivo) $('#pedAccionMotivo').focus();
+    }
+
+    // Escanear el QR del pedido (o el código del cliente) -> "Entregando" (js/qr.js, sql/01 bloque 38)
+    async function escanearEntrega() {
+        const r = await escanearParaEntregar({ pedido, sesion });
+        if (r) aviso.mostrar(`Pedido ${pedido.codigo}: entregando. Al terminar márcalo "Entregado" o "No entregado".`);
+        recargarDetalle();
     }
 
     // Carga con evidencia del piloto (js/carga-comun.js -> pedido_cargar, sql/01 bloque 29)
@@ -3408,9 +3555,8 @@ registrarSeccion('pedidos', (zona) => {
         if (resultado) {
             console.error(`Error en la acción ${accion.id}:`, resultado);
             aviso.mostrar(resultado.mensajePropio
-                // Índice pedidos_un_en_entrega: ya tiene otro pedido "Entregando"
-                || (resultado.code === '23505' && accion.id === 'entregar_ahora'
-                    ? 'Primero marca como entregado (o no entregado) el pedido que estás entregando.'
+                // Reglas de la base (ej. sql/01 bloque 38: sin escanear el QR no se marca entregado)
+                || (resultado.code === 'P0001' ? resultado.message
                     : resultado.code === '23514' ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 12: despacho).'
                         : 'No se pudo completar la acción. Intenta de nuevo.'), 'error');
         } else {
@@ -3445,7 +3591,7 @@ registrarSeccion('pedidos', (zona) => {
                 mensaje: `El pedido ${p.codigo} no se entregó. Motivo: ${motivo}. El Admin G2 lo reprogramará o cancelará.`,
             });
         } else if (accionId === 'cancelar' || accionId === 'devuelto') {
-            await Promise.all(['pedido_no_entregado', 'pedido_asignar', 'pedido_salida', 'pedido_reasignacion']
+            await Promise.all(['pedido_no_entregado', 'pedido_asignar', 'pedido_salida', 'pedido_reasignacion', 'pedido_autorizar']
                 .map((tipo) => resolverPendientes(tipo, p.id)));
             const texto = accionId === 'cancelar' ? 'cancelado' : 'devuelto';
             await avisar({

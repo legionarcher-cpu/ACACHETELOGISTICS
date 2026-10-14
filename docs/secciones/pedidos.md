@@ -147,10 +147,22 @@ Cancelado (antes de salir, con motivo; sale en Reportes). Ya no se anula.
 | Solicitar reasignación (de fecha) | Antes de salir / No entregado | Admin G3 y Empleado (le llega al G2) |
 | **Cargar (foto y bultos)** — foto, bultos recibidos y efectivo (`js/carga-comun.js`) | Listo para despachar / Recibido para ruta | **Solo el piloto del pedido** |
 | **Reprogramar** | No entregado / **No salió a ruta** | G2 o superior |
-| **Entregar ahora** | En ruta (si no tiene otro "Entregando") | **Solo el piloto del pedido** |
-| Entregado / No entregado | Entregando | **Solo el piloto del pedido** |
+| **Escanear QR** (QR del pedido que tiene el cliente, o su código de entrega) → Entregando | En ruta (si no tiene otro "Entregando") | **Solo el piloto del pedido** |
+| Entregado | Entregando (sin escanear el QR la base no deja) | **Solo el piloto del pedido** |
+| No entregado | En ruta / Entregando | **Solo el piloto del pedido** |
+| **Autorizar** (aviso arriba del detalle) | Pedido con productos registrado sin bodega del día ("por autorizar") | Admin G3 o superior |
 | Reprogramar | No entregado | G2 o superior |
 | Devuelto / Cancelar | Según estado | Admin G3 o superior (el Empleado no) |
+
+**Escanear QR (entrega):** el piloto escanea el QR del pedido que le muestra el cliente; si es el de otro
+pedido avisa. Si el QR no se lee, escribe el código de entrega que le dice el cliente. Pasa a "Entregando"
+(`pedido_iniciar_entrega`, sql/01 bloque 38) y la línea de tiempo dice si fue con QR o con código. La base no
+deja pasar a "Entregando" de otra forma ni marcar "Entregado" sin pasar por "Entregando".
+
+**Pedidos con productos y bodega:** al registrar se revisa la bodega del día de la ruta (`dist_disponible`): si
+lo pedido es más de lo disponible (lo que entró ese día menos lo ya pedido), no se registra. Si ese día no hay
+bodega, un Admin G3 o superior lo autoriza al registrarlo; un Empleado lo deja "por autorizar" (aviso al G3 y
+G2) y no se puede alistar, asignar ni cargar hasta que lo autoricen.
 
 **Aprobar salida:** es la aprobación de salida de **cada pedido**, por eso está dentro de su detalle (no en la
 lista). Cámara del celular o de la PC (librería gratis jsQR; solo funciona con https o en localhost). Solo vale
