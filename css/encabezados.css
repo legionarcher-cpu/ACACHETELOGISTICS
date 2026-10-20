@@ -108,14 +108,14 @@ html[data-empresa-id="5"] .logo-img-2 { background-image: url("../img/logo-5-b.p
 html[data-empresa-id="5"] #log-sec    { background-image: url("../img/logo-5-chico.png"); }
 */
 
-/* ---------- 02 · Corporacion Dinant ----------
+/* ---------- 02 · Transportes-Valle ----------
    La 01 es la empresa principal: lleva el encabezado y los logos originales de
    ACACHETE aunque la marca activa sea otra. Las demás empresas parten de la 02. */
 html[data-empresa="02"] .encabezado-imagen {
     background-image: url("../img/web/encabezado.jpg");
     --encabezado-ajuste: cover;
 }
-html[data-empresa="02"] .logo-img-1 { background-image: url("../img/logo-web-slog.png"); }
+html[data-empresa="02"] .logo-img-1 { background-image: url("../img/logo-ak7.jpg"); }
 html[data-empresa="02"] .logo-img-2 { background-image: url("../img/encabezado-ak7.jpg"); }
 html[data-empresa="02"] #log-sec    { background-image: url("../img/web/app-uso-1.jpg"); }
 

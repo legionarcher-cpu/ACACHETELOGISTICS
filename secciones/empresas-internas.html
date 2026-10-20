@@ -96,6 +96,49 @@
             </div>
             <p id="empCodigoAviso" class="campo-ancho emp-codigo-aviso" hidden></p>
 
+            <!-- Datos de la empresa (sql/01 bloque 41): todos opcionales -->
+            <div class="campo">
+                <label for="empRazonSocial" class="campo-etiqueta">Razón social</label>
+                <input id="empRazonSocial" type="text" class="campo-input" maxlength="120" autocomplete="off"
+                       placeholder="Transportes del Valle S.A.">
+            </div>
+
+            <div class="campo">
+                <label for="empCedulaJuridica" class="campo-etiqueta">Cédula jurídica</label>
+                <input id="empCedulaJuridica" type="text" class="campo-input" maxlength="30" autocomplete="off"
+                       placeholder="3-101-123456">
+            </div>
+
+            <div class="campo">
+                <label for="empTelefono" class="campo-etiqueta">Teléfono</label>
+                <input id="empTelefono" type="tel" class="campo-input" maxlength="30" autocomplete="off"
+                       inputmode="tel" placeholder="2222-3333">
+            </div>
+
+            <div class="campo campo-ancho">
+                <label for="empGiro" class="campo-etiqueta">A qué se dedica</label>
+                <input id="empGiro" type="text" class="campo-input" maxlength="200" autocomplete="off"
+                       placeholder="Distribución de alimentos y bebidas">
+            </div>
+
+            <div class="campo campo-ancho">
+                <label for="empDireccion" class="campo-etiqueta">Dirección</label>
+                <input id="empDireccion" type="text" class="campo-input" maxlength="250" autocomplete="off"
+                       placeholder="San José, Pavas, 200 m norte de la iglesia">
+            </div>
+
+            <div class="campo campo-ancho">
+                <label for="empUbicacion" class="campo-etiqueta">Ubicación</label>
+                <div class="emp-ubicacion-fila">
+                    <input id="empUbicacion" type="text" class="campo-input" maxlength="300" autocomplete="off"
+                           placeholder="Coordenadas (9.93, -84.08) o enlace de Google Maps">
+                    <button type="button" id="empUbicacionMapa" class="boton boton-secundario">
+                        <i class="bi bi-geo-alt"></i>
+                        <span>Mapa</span>
+                    </button>
+                </div>
+            </div>
+
             <!-- Qué hace: entregas de tienda, encomiendas o las dos (multifunción) -->
             <div class="campo campo-ancho">
                 <span class="campo-etiqueta">Actividades que realiza *</span>

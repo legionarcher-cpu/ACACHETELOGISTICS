@@ -37,7 +37,7 @@
             <div class="buscador">
                 <i class="bi bi-search"></i>
                 <input id="usrBuscar" type="search" class="buscador-input"
-                       placeholder="Buscar por nombre, usuario, rol o tienda" aria-label="Buscar usuarios">
+                       placeholder="Buscar por nombre, usuario, cédula, departamento, rol o tienda" aria-label="Buscar usuarios">
             </div>
             <button type="button" id="usrNuevo" class="boton boton-principal">
                 <i class="bi bi-person-plus"></i>
@@ -219,6 +219,21 @@
             <div class="campo">
                 <label for="usrTelefono" class="campo-etiqueta">Teléfono</label>
                 <input id="usrTelefono" type="tel" class="campo-input" autocomplete="off">
+            </div>
+
+            <!-- Cédula y departamento (sql/01 bloque 42): opcionales, para buscar -->
+            <div class="campo" id="usrCampoCedula">
+                <label for="usrCedula" class="campo-etiqueta">Cédula</label>
+                <input id="usrCedula" type="text" class="campo-input" maxlength="30" autocomplete="off"
+                       placeholder="1-1234-5678">
+            </div>
+
+            <div class="campo" id="usrCampoDepartamento">
+                <label for="usrDepartamento" class="campo-etiqueta">Departamento</label>
+                <input id="usrDepartamento" type="text" class="campo-input" maxlength="60" autocomplete="off"
+                       list="usrDepartamentos" placeholder="Ej. Bodega, Ventas">
+                <datalist id="usrDepartamentos"></datalist>
+                <small class="campo-ayuda">Elige uno de la lista o escribe uno nuevo.</small>
             </div>
 
             <div class="campo">

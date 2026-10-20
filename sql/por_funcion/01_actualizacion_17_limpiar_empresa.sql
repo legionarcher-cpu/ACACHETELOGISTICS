@@ -1,4 +1,4 @@
--- 17 de 17 · sql/01_actualizacion_base_existente.sql · Limpiar los datos de una empresa (botón del Desarrollador) (bloques 40 a 40).
+-- 17 de 19 · sql/01_actualizacion_base_existente.sql · Limpiar los datos de una empresa (botón del Desarrollador) (bloques 40 a 40).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -143,4 +143,5 @@ revoke execute on function public.limpiar_empresa(jsonb) from public;
 grant execute on function public.limpiar_empresa(jsonb) to anon;
 
 notify pgrst, 'reload schema';
+
 

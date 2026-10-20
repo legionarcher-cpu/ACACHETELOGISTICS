@@ -2,10 +2,21 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
-## 2026-10-19 · Limpiar una empresa con un botón (solo Desarrollador)
+## 2026-10-19 · Limpiar una empresa con un botón, datos de la empresa y cédula / departamento de usuarios
 
-SQL: **`sql/01_actualizacion_base_existente.sql` bloque 40** (=
-`sql/por_funcion/01_actualizacion_17_limpiar_empresa.sql`; instalación nueva: `sql/00`, sección 33).
+SQL: **`sql/01_actualizacion_base_existente.sql` bloques 40, 41 y 42** (=
+`sql/por_funcion/01_actualizacion_17_limpiar_empresa.sql`, `01_actualizacion_18_datos_empresa.sql` y
+`01_actualizacion_19_usuarios_cedula.sql`; instalación nueva: `sql/00`, secciones 33, 34 y 35).
+
+- **Usuarios: cédula y departamento** (opcionales, Nuevo / Modificar usuario). El buscador de Usuarios
+  también busca por ellos y se ven bajo el nombre. Departamento sugiere los que ya existen en la empresa
+  (para escribirlos igual). Columnas nuevas `usuarios.cedula` y `usuarios.departamento`; el bloque vuelve a
+  ejecutar `usuarios_ocultar_clave()` para que la página las pueda leer. Sin el bloque 42 los campos no aparecen.
+
+- **Datos de la empresa** (Tiendas → Empresas → Nueva / Modificar): razón social, cédula jurídica, teléfono, a qué se dedica
+  (por escrito), dirección y ubicación (con botón **Mapa**). Todos opcionales; columnas nuevas en `empresas`
+  (`razon_social`, `cedula_juridica`, `telefono`, `giro`, `direccion`, `ubicacion`). La lista los muestra bajo el nombre. Sin el
+  bloque 41 la empresa se sigue guardando, pero sin estos datos.
 
 - **Tiendas → Empresas → Limpiar datos** (goma de borrar en cada empresa): hace lo mismo que
   `herramientas/vaciar_base_datos.sql` en modo empresa sin abrir Supabase. Se escribe el ID de la empresa y la

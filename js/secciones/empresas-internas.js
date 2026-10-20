@@ -8,6 +8,8 @@
    Guía: docs/secciones/empresas-internas.md. Tabla empresas (sql/01 bloques 16 y 21).
    - Lista todas las empresas con cuántas regiones, tiendas y usuarios tiene cada
      una (db.fromTodas: sin el filtro de empresa de js/supabase.js).
+   - Datos (sql/01 bloque 41, opcionales): razón social, cédula jurídica, teléfono, a qué se dedica,
+     dirección y ubicación (botón "Mapa": elegirPuntoEnMapa de js/mapa.js).
    - Nueva / Modificar: ID (2 números, va al final de sus usuarios: jperez01;
      al cambiarlo se renombran todos sus usuarios con la función
      cambiar_codigo_empresa), nombre, actividades (entregas de tienda, encomiendas
@@ -26,6 +28,16 @@
 const EMP_COLUMNAS_TABLA = 8;
 // '*': trae la paleta (colores) si la base ya tiene el bloque 21, y funciona sin él
 const EMP_SELECT = '*';
+
+// Datos de la empresa (sql/01 bloque 41): columna -> id del campo del formulario
+const EMP_DATOS = {
+    razon_social: 'empRazonSocial',
+    cedula_juridica: 'empCedulaJuridica',
+    telefono: 'empTelefono',
+    giro: 'empGiro',
+    direccion: 'empDireccion',
+    ubicacion: 'empUbicacion',
+};
 
 // Opciones de la lista "Elegir": "Colores de la marca", los modelos de PALETAS_MODELO
 // (empresas/empresas.js: ahí se agregan) y "Personalizada" (los 2 colores elegidos)
@@ -142,6 +154,15 @@ registrarSeccion('empresas-internas', (zona) => {
                 marca.textContent = 'Trabajando con esta';
                 tdNombre.appendChild(marca);
             }
+            // Razón social, cédula jurídica, a qué se dedica y teléfono (bloque 41), si los tiene
+            const datos = [e.razon_social, e.cedula_juridica && `Céd. ${e.cedula_juridica}`, e.giro, e.telefono]
+                .filter(Boolean).join(' · ');
+            if (datos) {
+                const linea = document.createElement('small');
+                linea.className = 'emp-datos';
+                linea.textContent = datos;
+                tdNombre.appendChild(linea);
+            }
             tr.appendChild(tdNombre);
 
             const tdAct = document.createElement('td');
@@ -195,6 +216,7 @@ registrarSeccion('empresas-internas', (zona) => {
         // La empresa principal siempre es la 01: su ID no se cambia
         $('#empCodigo').disabled = !!empresa && empresa.codigo === EMPRESA_PRINCIPAL;
         $('#empNombre').value = empresa ? empresa.nombre : '';
+        Object.entries(EMP_DATOS).forEach(([columna, id]) => { $(`#${id}`).value = (empresa && empresa[columna]) || ''; });
         const acts = empresa ? empresa.actividades || [] : actividades.filter((a) => a.activa !== false).map((a) => a.codigo);
         zona.querySelectorAll('input[name="empActividad"]').forEach((c) => { c.checked = acts.includes(c.value); });
         $('#empEstado').value = !empresa || empresa.activa ? 'activa' : 'inactiva';
@@ -363,6 +385,18 @@ registrarSeccion('empresas-internas', (zona) => {
         const datos = { nombre, actividades: acts, activa: $('#empEstado').value === 'activa', colores };
         if (!editando) datos.codigo = codigo; // empresa nueva: el ID va directo (aún no tiene usuarios)
 
+        // Razón social, cédula jurídica, teléfono, giro, dirección y ubicación: solo las columnas
+        // que la base ya tiene (bloque 41; cedula_juridica se agregó después al mismo bloque)
+        const extra = Object.fromEntries(Object.entries(EMP_DATOS)
+            .map(([columna, id]) => [columna, $(`#${id}`).value.trim().replace(/\s+/g, ' ') || null]));
+        const faltan = Object.keys(extra).filter((columna) => !empresas.some((e) => columna in e));
+        if (faltan.some((columna) => extra[columna])) {
+            errorForm.textContent = 'Para guardar los datos de la empresa (razón social, cédula jurídica, teléfono...) falta ejecutar sql/01 (bloque 41).';
+            return;
+        }
+        faltan.forEach((columna) => delete extra[columna]);
+        Object.assign(datos, extra);
+
         const boton = $('#empGuardar');
         boton.disabled = true;
         // ID cambiado: primero se renombran sus usuarios (todo o nada, en la base)
@@ -409,6 +443,18 @@ registrarSeccion('empresas-internas', (zona) => {
             : `Empresa ${data.codigo} · "${nombre}" creada. Usa "Trabajar con esta" para crear sus regiones, tiendas y usuarios.${nota}`,
             nota ? 'error' : 'ok');
         cargar();
+    });
+
+    // Ubicación: se elige en el mapa (js/mapa.js) y queda como "9.930000, -84.080000"
+    $('#empUbicacionMapa').addEventListener('click', async () => {
+        const campo = $('#empUbicacion');
+        const punto = await elegirPuntoEnMapa({
+            titulo: 'Ubicación de la empresa',
+            inicial: puntoDeTexto(campo.value),
+            buscar: puntoDeTexto(campo.value) ? '' : $('#empDireccion').value.trim(),
+            confirmar: 'Usar este punto',
+        });
+        if (punto) campo.value = `${punto.lat.toFixed(6)}, ${punto.lng.toFixed(6)}`;
     });
 
     $('#empNueva').addEventListener('click', () => abrirFormulario());

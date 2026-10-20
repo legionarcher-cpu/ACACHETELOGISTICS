@@ -7,6 +7,8 @@
      - Crear:     botón "Nuevo usuario" -> formulario -> insert.
      - Modificar: icono del lápiz -> mismo formulario con los datos -> update.
      - Eliminar:  icono del basurero -> ventana de confirmación -> delete.
+     - Cédula y departamento (sql/01 bloque 42): opcionales, el buscador los usa.
+                  Departamento sugiere los que ya hay. Sin el bloque, no aparecen.
      - Foto:      en el formulario, "Elegir foto" / "Quitar". Se aplica al
                   presionar Guardar. Funciones en js/avatar.js (bucket "avatares").
      - Vehículo:  solo para Pilotos. Se elige uno de la tabla "vehiculos" (agrupados
@@ -157,6 +159,8 @@ registrarSeccion('usuarios', (zona) => {
         id_usuario: $('#usrIdUsuario'),
         clave:      $('#usrClave'),
         telefono:   $('#usrTelefono'),
+        cedula:     $('#usrCedula'),
+        departamento: $('#usrDepartamento'),
         permisos:   $('#usrPermisos'),
     };
     const prefijo           = $('#usrPrefijo');
@@ -195,6 +199,7 @@ registrarSeccion('usuarios', (zona) => {
     let vehiculoPorRegistrar = null; // { marca, placa } si en el formulario se registra un vehículo nuevo
     let usuarioEditando = null;      // usuario tal como estaba antes de modificarlo
     let hayMultitienda = false;      // true si existe la columna multitienda
+    let hayCedula = false;           // true si existen cedula y departamento (sql/01 bloque 42)
     let empresas = [];               // solo el Desarrollador: [{ id, codigo, nombre, activa }]
 
     // Foto en el formulario (se aplica al guardar)
@@ -280,6 +285,19 @@ registrarSeccion('usuarios', (zona) => {
             mostrarAviso('No se pudieron cargar los usuarios. Revisa la conexión.', 'error');
             return;
         }
+
+        // Cédula y departamento (sql/01 bloque 42): aparte, así la lista carga aunque la
+        // base todavía no los tenga (sin ellos los campos del formulario se ocultan)
+        const extra = await db.from('usuarios').select('id, cedula, departamento');
+        hayCedula = !extra.error;
+        if (hayCedula) {
+            const porId = new Map(extra.data.map((x) => [x.id, x]));
+            data.forEach((u) => Object.assign(u, porId.get(u.id) || {}));
+        }
+        $('#usrCampoCedula').hidden = $('#usrCampoDepartamento').hidden = !hayCedula;
+        // Sugerencias de departamento: los que ya usa la empresa (así se escriben igual)
+        $('#usrDepartamentos').replaceChildren(...[...new Set(data.map((u) => u.departamento).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, 'es')).map((d) => new Option(d)));
 
         // Admin G2: solo ve usuarios de las tiendas de su región
         // Admin G3: solo ve usuarios de su tienda
@@ -464,7 +482,8 @@ registrarSeccion('usuarios', (zona) => {
             (!region || regionParaFiltro(u) === region) &&
             (!tienda || String(u.tienda_id) === tienda) &&
             (!rol || u.rol === rol) &&
-            coincideBusqueda([u.nombre, u.id_usuario, u.telefono, USR_ROLES[u.rol], textoTienda(u), textoVehiculo(u)], filtro)
+            coincideBusqueda([u.nombre, u.id_usuario, u.telefono, u.cedula, u.departamento,
+                USR_ROLES[u.rol], textoTienda(u), textoVehiculo(u)], filtro)
         );
 
         cuerpo.replaceChildren();
@@ -510,6 +529,14 @@ registrarSeccion('usuarios', (zona) => {
                 const fecha = u.solicitado_en ? ` el ${new Date(u.solicitado_en).toLocaleDateString('es')}` : '';
                 const quien = u.solicitante ? ` · creado por ${u.solicitante.nombre}` : '';
                 detalle.textContent = `⏳ Pendiente de aprobación${quien}${fecha}`;
+                tdNombre.appendChild(detalle);
+            }
+            // Departamento y cédula (sql/01 bloque 42), si los tiene
+            const datosPersona = [u.departamento, u.cedula && `Céd. ${u.cedula}`].filter(Boolean).join(' · ');
+            if (datosPersona) {
+                const detalle = document.createElement('span');
+                detalle.className = 'celda-detalle';
+                detalle.textContent = datosPersona;
                 tdNombre.appendChild(detalle);
             }
             tr.appendChild(tdNombre);
@@ -850,6 +877,8 @@ registrarSeccion('usuarios', (zona) => {
             casillaMultitienda.checked = !!usuario.multitienda;
             campos.id_usuario.value = quitarPrefijo(usuario);
             campos.telefono.value   = usuario.telefono || '';
+            campos.cedula.value     = usuario.cedula || '';
+            campos.departamento.value = usuario.departamento || '';
             campos.permisos.value   = (usuario.permisos || []).join(', ');
         }
 
@@ -979,6 +1008,10 @@ registrarSeccion('usuarios', (zona) => {
             const empresa = empresaDelUsuario();
             if (!empresa) return fallo('Elige la empresa.', selEmpresa);
             datos.empresa_id = empresa.id;
+        }
+        if (hayCedula) {
+            datos.cedula = campos.cedula.value.trim().replace(/\s+/g, ' ') || null;
+            datos.departamento = campos.departamento.value.trim().replace(/\s+/g, ' ') || null;
         }
         if (clave) datos.clave = clave; // si está vacía (al modificar), no se cambia
         if (hayMultitienda) datos.multitienda = rol === 'piloto' && casillaMultitienda.checked;

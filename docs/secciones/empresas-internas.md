@@ -66,7 +66,9 @@ slots, tamaños de bulto, motivos de retraso, número de pedido y código de res
 
 ## Nueva empresa
 
-ID, nombre, actividades, estado y **paleta de colores** (obligatoria al crear). Al crear se puede **copiar la configuración de pedidos** de la empresa
+ID, nombre, actividades, estado y **paleta de colores** (obligatoria al crear). Opcionales (sql/01 bloque 41):
+**razón social, cédula jurídica, teléfono, a qué se dedica** (por escrito), **dirección** y **ubicación** (coordenadas o enlace
+de Google Maps; el botón **Mapa** la elige en el mapa). En la lista se ven bajo el nombre. Al crear se puede **copiar la configuración de pedidos** de la empresa
 activa (solo de las actividades que hará): categorías con sus artículos y pesos, tarifas generales y
 descuentos generales. Sin copiarla, en Configuración → Pedidos se crea su tarifa general (la opción
 "General" aparece mientras le falte a alguna actividad).

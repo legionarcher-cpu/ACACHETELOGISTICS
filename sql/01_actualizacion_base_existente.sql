@@ -73,6 +73,8 @@
 --  38. Entrega con QR obligatorio (pedido_iniciar_entrega) y pedidos con productos solo si hay en la bodega del día.
 --  39. Ubicación compartida por el cliente: enlace por WhatsApp antes de registrar el pedido (ubicaciones_compartidas).
 --  40. Limpiar los datos de una empresa desde Tiendas -> Empresas (solo Desarrollador, con su contraseña).
+--  41. Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y a qué se dedica (giro).
+--  42. Usuarios: cédula y departamento (opcionales, para búsquedas).
 -- ==================================================
 
 
@@ -5990,5 +5992,48 @@ $$;
 
 revoke execute on function public.limpiar_empresa(jsonb) from public;
 grant execute on function public.limpiar_empresa(jsonb) to anon;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 41. DATOS DE CADA EMPRESA INTERNA: RAZÓN SOCIAL, CÉDULA JURÍDICA, TELÉFONO, DIRECCIÓN, UBICACIÓN Y GIRO
+--   Los llena el Desarrollador en Tiendas -> Empresas -> Nueva / Modificar
+--   (js/secciones/empresas-internas.js). Todos opcionales.
+--   - razon_social: nombre legal (ej. "Corporación Dinant S.A.")
+--   - cedula_juridica: cédula jurídica (ej. "3-101-123456")
+--   - telefono:     teléfono de la empresa
+--   - direccion:    dirección escrita
+--   - ubicacion:    coordenadas "9.93, -84.08" o enlace de Google Maps (botón "Mapa")
+--   - giro:         a qué se dedica, por escrito (ej. "Distribución de alimentos")
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.empresas add column if not exists razon_social text;
+alter table public.empresas add column if not exists cedula_juridica text;
+alter table public.empresas add column if not exists telefono text;
+alter table public.empresas add column if not exists direccion text;
+alter table public.empresas add column if not exists ubicacion text;
+alter table public.empresas add column if not exists giro text;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 42. USUARIOS: CÉDULA Y DEPARTAMENTO (para búsquedas)
+--   Los llena quien crea o modifica el usuario (Usuarios -> Nuevo / Modificar,
+--   js/secciones/usuarios.js). Los dos opcionales; el buscador de Usuarios los usa.
+--   - cedula:       cédula de identidad (ej. "1-1234-5678")
+--   - departamento: área donde trabaja (ej. "Bodega", "Ventas", "Contabilidad")
+--   Al final se vuelve a ejecutar usuarios_ocultar_clave() (sql/01 bloque 20): la
+--   página solo lee las columnas con permiso, y las nuevas lo necesitan.
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.usuarios add column if not exists cedula text;
+alter table public.usuarios add column if not exists departamento text;
+create index if not exists usuarios_cedula_idx on public.usuarios (cedula) where cedula is not null;
+
+select public.usuarios_ocultar_clave();
 
 notify pgrst, 'reload schema';

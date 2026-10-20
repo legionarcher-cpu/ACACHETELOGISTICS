@@ -125,6 +125,24 @@
     display: none;
 }
 
+/* Ubicación: campo + botón "Mapa" */
+.emp-ubicacion-fila {
+    display: flex;
+    gap: 0.444rem;
+}
+
+.emp-ubicacion-fila .campo-input {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Razón social y a qué se dedica, bajo el nombre en la lista */
+.emp-datos {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--color-gris);
+}
+
 .emp-copiar {
     display: flex;
     align-items: center;
