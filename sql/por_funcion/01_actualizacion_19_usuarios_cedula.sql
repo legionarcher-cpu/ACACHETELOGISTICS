@@ -1,4 +1,4 @@
--- 19 de 19 · sql/01_actualizacion_base_existente.sql · Usuarios: cédula y departamento (para búsquedas) (bloques 42 a 42).
+-- 19 de 22 · sql/01_actualizacion_base_existente.sql · Usuarios: cédula y departamento (para búsquedas) (bloques 42 a 42).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -20,3 +20,5 @@ create index if not exists usuarios_cedula_idx on public.usuarios (cedula) where
 select public.usuarios_ocultar_clave();
 
 notify pgrst, 'reload schema';
+
+

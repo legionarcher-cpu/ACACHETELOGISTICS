@@ -44,6 +44,15 @@ Cada usuario es de **una empresa interna** y todo lo que ve es de esa empresa (v
 🔒 = candado en el menú (`js/sesion.js`: `SECCIONES_POR_ROL`, `SECCIONES_BLOQUEADAS_POR_ROL`). La opción
 "Configuración" del menú del usuario también se oculta a quien no tiene permiso (`js/permisos.js`).
 
+**Módulos y funciones de cada usuario** (Usuarios → Nuevo / Modificar): la tabla de arriba y la de abajo son lo
+que **trae cada rol** (viene marcado al crear el usuario). Al personal (G1, G2, G3, Empleado) se le puede quitar o
+**dar** cualquier módulo y, dentro de cada uno, funciones (registrar pedidos, alistar, despachar, cancelar, cerrar
+caja, exportar...), aunque su rol no las traiga ("otro rol"). Ej.: dos Empleados, uno de bodega (ve, alista,
+despacha y cierra la caja de los pilotos) y otro de ventas (registra y ve). Lo que **ve** sigue siendo su alcance
+(G2 su región; G3 y Empleado su tienda). Al piloto solo se le puede quitar. Catálogo: `MODULOS_USUARIO` en
+`js/sesion.js`; cada sección usa `puedeHacer('modulo.funcion', loQueDaSuRol)`. Columna `permisos` (ver
+`USAR_PERMISOS`). El Administrador y el Desarrollador no se limitan.
+
 **Transporte (sql/01 bloque 19):** **Viajes** la ven todos los roles si la empresa hace viajes (el cliente, los suyos;
 el piloto, los que maneja; el personal, la agenda). Si la empresa es **solo** de viajes, Pedidos, Rutas y Cotizador
 no aparecen (`seccionAplica`), y el piloto no tiene Reportes. El **cliente** solo ve Inicio, Viajes y Mi perfil (las

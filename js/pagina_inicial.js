@@ -384,12 +384,22 @@ const BOTONES_PIE_VIAJES = {
 // sección y al cambiar la sesión (js/sesion.js: actualizarSegunEmpresa):
 //   Cotizador -> solo si realiza Encomiendas
 //   Asignar Piloto y Cargar Pedidos -> no, si la empresa es solo de viajes
+//   Y cualquiera que lleve a un módulo que el usuario no tiene (js/sesion.js: tienePermiso)
 function ajustarPie() {
     const soloViajes = typeof empresaTienePedidos === 'function' && !empresaTienePedidos();
+    // Función que pide cada botón (Usuarios -> "Módulos y funciones"; js/sesion.js: puedeHacer)
+    const funcion = { '.btn-crear': soloViajes ? 'viajes.solicitar' : 'pedidos.crear', '.btn-piloto': 'rutas.gestionar',
+        '.btn-del': soloViajes ? null : 'pedidos.cancelar' };
+    const sinPermiso = (selector) => {
+        const destino = (soloViajes && BOTONES_PIE_VIAJES[selector]) || BOTONES_PIE[selector];
+        if (!destino || !obtenerSesion()) return false;
+        return !tienePermiso(destino.split('?')[0]) || (!!funcion[selector] && !puedeHacer(funcion[selector]));
+    };
     const ocultar = (selector, si) => {
         const boton = document.querySelector(`.pie ${selector}`);
-        if (boton) boton.hidden = si;
+        if (boton) boton.hidden = si || sinPermiso(selector);
     };
+    ['.btn-crear', '.btn-hor', '.btn-del'].forEach((selector) => ocultar(selector, false));
     // Plan de la empresa (empresas/empresas.js: funcionHabilitada)
     const enPlan = (clave) => typeof funcionHabilitada !== 'function' || funcionHabilitada(clave);
     ocultar('.btn-cotizar', soloViajes || !empresaTieneActividad('encomiendas') || !enPlan('cotizador')

@@ -40,7 +40,9 @@ registrarSeccion('rutas', (zona) => {
     const sesion = obtenerSesion() || {};
     const esGeneral = esAdministrador() || esAdminG1();
     const regionG2 = esAdminG2() ? regionActual() : null;
-    const puedeGestionar = esGeneral || !!regionG2;
+    // Por rol, salvo que a ESTE usuario se le quite o se le dé (Usuarios -> "Módulos y funciones",
+    // js/sesion.js). G3 y Empleado solo ven las rutas de su tienda (abajo, cargarTiendas).
+    const puedeGestionar = puedeHacer('rutas.gestionar', esGeneral || !!regionG2);
 
     // ---------- Elementos ----------
     const selTienda = $('#rutTienda');

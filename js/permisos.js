@@ -19,9 +19,10 @@
    cargar una sección, por si alguien escribe el # a mano en la URL.
 
    Necesita: js/sesion.js y js/avatar.js cargados antes.
-   Los permisos de cada usuario vienen de la columna "permisos" de la
-   tabla usuarios (Supabase). Por ahora están desactivados:
-   USAR_PERMISOS = false en js/sesion.js (todos ven todo).
+   Los módulos de cada usuario vienen de la columna "permisos" de la
+   tabla usuarios (Usuarios -> Modificar -> "Módulos a los que entra"),
+   siempre dentro de lo que permite su rol (js/sesion.js: USAR_PERMISOS,
+   MODULOS_USUARIO). Al abrir la página se vuelven a leer de la base.
    ================================================== */
 
 function aplicarPermisos() {
@@ -90,5 +91,25 @@ document.querySelector('.menu-lista').addEventListener('click', (evento) => {
     if (item && item.classList.contains('bloqueado')) evento.preventDefault();
 });
 
+// Los módulos del usuario (columna permisos) se guardan en la sesión al entrar. Al abrir
+// o recargar la página se vuelven a leer: si se los cambiaron en Usuarios, valen ya sin
+// cerrar sesión. Si falla (sin conexión), sigue con los de la sesión.
+async function refrescarPermisosSesion() {
+    const sesion = obtenerSesion();
+    if (!sesion || !sesion.id || ROLES_SIN_LIMITE.includes(sesion.rol) || sesion.rol === 'cliente' || typeof db === 'undefined') return;
+    try {
+        const { data, error } = await db.from('usuarios').select('permisos').eq('id', sesion.id).maybeSingle();
+        if (error || !data) return;
+        const nuevos = data.permisos || [];
+        if (JSON.stringify(nuevos) === JSON.stringify(sesion.permisos || [])) return;
+        guardarSesion({ ...sesion, permisos: nuevos }); // vuelve a pintar el menú (aplicarPermisos)
+        // Si la sección abierta ya no le corresponde, se muestra de nuevo (dirá "No tienes permiso")
+        if (typeof mostrarSeccionActual === 'function') mostrarSeccionActual();
+    } catch {
+        // sin conexión: se queda con los de la sesión
+    }
+}
+
 // Al abrir la página
 aplicarPermisos();
+refrescarPermisosSesion();

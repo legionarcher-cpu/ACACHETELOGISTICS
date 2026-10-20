@@ -246,11 +246,162 @@ function palabrasDeBusqueda(texto) {
         .filter(Boolean);
 }
 
-// true si alguno de los valores contiene el texto buscado (sin distinguir mayúsculas ni tildes)
+// true si alguno de los valores contiene el texto buscado (sin distinguir mayúsculas ni tildes).
+// Teléfonos y cédulas se comparan también solo en dígitos: "88881234" encuentra "8888-1234"
 function coincideBusqueda(valores, filtro) {
     if (!filtro) return true;
     const buscado = textoParaBuscar(filtro);
-    return valores.some((valor) => textoParaBuscar(valor).includes(buscado));
+    const digitos = /^[\d\s+().-]+$/.test(filtro) ? filtro.replace(/\D/g, '') : '';
+    return valores.some((valor) => textoParaBuscar(valor).includes(buscado)
+        || (digitos.length >= 3 && String(valor ?? '').replace(/\D/g, '').includes(digitos)));
+}
+
+// ---------- Lista con "+ Nuevo…" (en vez de <datalist>) ----------
+// Dentro de una ventana (dialog) el navegador dibuja el <datalist> fuera de lugar. En su
+// lugar: un <select> con los valores que ya existen y, al final, "+ Nuevo…", que muestra
+// un campo para escribir uno nuevo. Si lo escrito ya existe con otras mayúsculas o tildes
+// ("lacteos" / "Lácteos"), se usa el que ya existía (así no quedan repetidos).
+// HTML: <select id="xLista" class="campo-input"></select>
+//       <input id="x" class="campo-input campo-nuevo" hidden>
+// Uso:
+//   const lista = crearListaConNuevo(select, input, { vacio: 'Sin categoría', textoNuevo: '+ Nueva categoría…' });
+//   lista.poner(['Lácteos', 'Granos'], valorActual);  -> al abrir la ventana
+//   lista.poner(nombres, actual, { escribir: true }); -> solo el campo, para cambiar un nombre
+//   lista.valor();   -> lo elegido o escrito ('' si nada)
+//   lista.campo();   -> a cuál dar el foco (la lista o el campo)
+// vacio: texto de la primera opción sin valor; sin él, lo primero es "+ Nuevo…".
+// textoNuevo: null -> lista sin "+ Nuevo…" (solo se elige de lo que existe).
+const LISTA_NUEVO = '__nuevo';
+
+function crearListaConNuevo(select, input, { vacio = '', textoNuevo = '+ Nuevo…' } = {}) {
+    const igual = (t) => textoParaBuscar(String(t || '').trim().replace(/\s+/g, ' '));
+    let opciones = [];
+    const escribiendo = () => select.hidden || select.value === LISTA_NUEVO;
+
+    select.addEventListener('change', () => {
+        input.hidden = !escribiendo();
+        if (escribiendo()) input.focus();
+    });
+
+    return {
+        poner(lista, valor = '', { escribir = false } = {}) {
+            // Sin vacíos ni repetidos (sin importar mayúsculas ni tildes)
+            const vistos = new Set();
+            opciones = lista.filter((o) => o && !vistos.has(igual(o)) && vistos.add(igual(o)));
+            select.replaceChildren(
+                ...(vacio ? [new Option(vacio, '')] : []),
+                ...opciones.map((o) => new Option(o, o)),
+                ...(textoNuevo ? [new Option(textoNuevo, LISTA_NUEVO)] : []));
+            const existente = valor ? opciones.find((o) => igual(o) === igual(valor)) : null;
+            select.hidden = escribir;
+            select.value = existente && !escribir ? existente
+                : textoNuevo && (valor || !vacio) ? LISTA_NUEVO : '';
+            input.value = escribiendo() ? valor || '' : '';
+            input.hidden = !escribiendo();
+        },
+        valor() {
+            if (!escribiendo()) return select.value;
+            const escrito = input.value.trim().replace(/\s+/g, ' ');
+            return opciones.find((o) => igual(o) === igual(escrito)) || escrito;
+        },
+        campo: () => (escribiendo() ? input : select),
+    };
+}
+
+// ---------- Formatos de Costa Rica: teléfono y cédulas ----------
+// Un campo con data-formato="..." se acomoda solo mientras se escribe o se pega: quita lo
+// que no es número, pone los guiones y no deja pasar más dígitos de los que lleva el dato.
+// Así nunca se guarda un dato más largo de la cuenta ni con otra forma.
+//   telefono         8 dígitos, empieza con 2, 4, 5, 6, 7 u 8     -> 8888-1234 (al pegar quita el +506)
+//   cedula           cédula física, 9 dígitos                     -> 1-0234-0567
+//   cedula_juridica  10 dígitos, empieza con 2, 3, 4 o 5          -> 3-101-123456
+//   identificacion   cédula física (9) o DIMEX de extranjero (11 o 12 dígitos, sin guiones)
+// Al guardar:
+//   validarDato(tipo, texto, obligatorio) -> '' si está bien, o el mensaje de error
+//   datoConFormato(tipo, texto)           -> el dato con su formato, o null si está vacío
+const FORMATOS_CR = {
+    telefono: {
+        nombre: 'el teléfono', ejemplo: '8888-1234', maximo: 8, grupos: [4, 4],
+        patron: /^[245678]\d{7}$/, regla: 'tener 8 dígitos y empezar con 2, 4, 5, 6, 7 u 8',
+    },
+    cedula: {
+        nombre: 'la cédula', ejemplo: '1-0234-0567', maximo: 9, grupos: [1, 4, 4],
+        patron: /^[1-9]\d{8}$/, regla: 'tener 9 dígitos',
+    },
+    cedula_juridica: {
+        nombre: 'la cédula jurídica', ejemplo: '3-101-123456', maximo: 10, grupos: [1, 3, 6],
+        patron: /^[2-5]\d{9}$/, regla: 'tener 10 dígitos y empezar con 2, 3, 4 o 5',
+    },
+    identificacion: {
+        nombre: 'la cédula', ejemplo: '1-0234-0567', maximo: 12, grupos: [1, 4, 4],
+        patron: /^[1-9](\d{8}|\d{10,11})$/, regla: 'tener 9 dígitos (cédula física) o 11 a 12 (DIMEX)',
+    },
+};
+
+// Dígitos del dato (al teléfono se le quita el código de país 506 si viene de más)
+function digitosDeDato(tipo, texto) {
+    const d = String(texto || '').replace(/\D/g, '');
+    return tipo === 'telefono' && d.length > 8 && d.startsWith('506') ? d.slice(3) : d;
+}
+
+// "88881234" -> "8888-1234". Sirve también a medio escribir ("88881" -> "8888-1")
+function datoFormateado(tipo, texto) {
+    const formato = FORMATOS_CR[tipo];
+    if (!formato) return String(texto || '');
+    const d = digitosDeDato(tipo, texto).slice(0, formato.maximo);
+    // El DIMEX (más de 9 dígitos) va sin guiones
+    const grupos = tipo === 'identificacion' && d.length > 9 ? [] : formato.grupos;
+    const partes = [];
+    let i = 0;
+    for (const largo of grupos) {
+        if (i >= d.length) break;
+        partes.push(d.slice(i, i + largo));
+        i += largo;
+    }
+    if (i < d.length) partes.push(d.slice(i));
+    return partes.join('-');
+}
+
+function validarDato(tipo, texto, obligatorio = false) {
+    const formato = FORMATOS_CR[tipo];
+    const valor = String(texto || '').trim();
+    const nombre = formato.nombre.charAt(0).toUpperCase() + formato.nombre.slice(1);
+    if (!valor) return obligatorio ? `Escribe ${formato.nombre}.` : '';
+    if (/[^\d\s+().-]/.test(valor) || !formato.patron.test(digitosDeDato(tipo, valor))) {
+        return `${nombre} debe ${formato.regla} (ej. ${formato.ejemplo}).`;
+    }
+    return '';
+}
+
+function datoConFormato(tipo, texto) {
+    return String(texto || '').trim() ? datoFormateado(tipo, texto) : null;
+}
+
+// Mientras se escribe (en captura: antes que los "input" de cada sección)
+document.addEventListener('input', (evento) => {
+    const campo = evento.target;
+    const tipo = campo && campo.dataset ? campo.dataset.formato : '';
+    if (!FORMATOS_CR[tipo]) return;
+    const antes = campo.value;
+    const nuevo = datoFormateado(tipo, antes);
+    if (nuevo === antes) return;
+    // El cursor queda detrás del mismo número de dígitos que tenía antes
+    const cursor = campo.selectionStart ?? antes.length;
+    const digitosAntes = antes.slice(0, cursor).replace(/\D/g, '').length;
+    campo.value = nuevo;
+    let posicion = 0;
+    for (let vistos = 0; posicion < nuevo.length && vistos < digitosAntes; posicion++) {
+        if (/\d/.test(nuevo[posicion])) vistos++;
+    }
+    try { campo.setSelectionRange(posicion, posicion); } catch (e) { /* tipo de campo sin cursor */ }
+}, true);
+
+// Para poner el valor desde el código (al editar un registro). Un dato viejo que no
+// cumple el formato se deja tal cual, así validarDato lo marca en vez de recortarlo
+function ponerDato(campo, valor) {
+    const tipo = campo.dataset.formato;
+    const bueno = valor && FORMATOS_CR[tipo] && !validarDato(tipo, valor);
+    campo.value = bueno ? datoFormateado(tipo, valor) : (valor || '');
 }
 
 // ---------- Tiendas sin rutas (no envían pedidos; sql/01 bloque 28: tiendas.usa_rutas) ----------

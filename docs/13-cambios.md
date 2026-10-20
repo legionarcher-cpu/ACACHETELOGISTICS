@@ -2,15 +2,108 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
-## 2026-10-19 · Limpiar una empresa con un botón, datos de la empresa y cédula / departamento de usuarios
+## 2026-10-19 · Limpiar una empresa con un botón, datos de la empresa, usuarios y clientes persona / empresa
 
-SQL: **`sql/01_actualizacion_base_existente.sql` bloques 40, 41 y 42** (=
-`sql/por_funcion/01_actualizacion_17_limpiar_empresa.sql`, `01_actualizacion_18_datos_empresa.sql` y
-`01_actualizacion_19_usuarios_cedula.sql`; instalación nueva: `sql/00`, secciones 33, 34 y 35).
+SQL: **`sql/01_actualizacion_base_existente.sql` bloques 40 a 45** (=
+`sql/por_funcion/01_actualizacion_17_limpiar_empresa.sql`, `01_actualizacion_18_datos_empresa.sql`,
+`01_actualizacion_19_usuarios_cedula.sql`, `01_actualizacion_20_clientes_persona_empresa.sql`,
+`01_actualizacion_21_telefonos_y_cedulas.sql` y `01_actualizacion_22_costos_margen.sql`; instalación nueva:
+`sql/00`, secciones 33 a 38).
 
+- **Todo lo de artículos en Configuración → Artículos** (sin SQL). Las tarjetas **Categorías de mercadería** y
+  **Artículos frecuentes** salen de Configuración → Pedidos (ahí quedan tarifas, descuentos, tamaños, motivos,
+  numeración y código de respaldo) y pasan al módulo **Artículos** (antes "Artículos de venta y precios"), con
+  las mismas tablas (`categorias_mercaderia`, `articulos_catalogo`): Pedidos y Cotizador funcionan igual.
+  Tres tarjetas: **Categorías** (crear y cambiar solo el Administrador; G1 las ve; dice cuántos artículos con peso
+  y de venta tiene cada una), **Artículos de venta** y **Pesos para el envío** (antes "artículos frecuentes").
+  **Ligadas**: la categoría de un artículo de venta ya no es texto libre, se elige de la lista de Categorías (las
+  viejas escritas a mano se conservan); al renombrar una categoría, sus artículos de venta pasan al nombre nuevo.
+  Si los artículos de venta tienen categorías que no están en la lista, la tarjeta lo avisa y el Administrador
+  las trae con **"Traerlas a Categorías"**: van a la actividad que usa productos (tipo Artículos, activas); si
+  ninguna usa productos, a la primera actividad pero inactivas (para no agregar casillas a sus pedidos).
+  `crearListaConNuevo` acepta `textoNuevo: null` (lista sin "+ Nuevo…"). Además, Costos de operación ya no
+  exige que alguna actividad use vehículos para aparecer.
+
+- **Costos de operación sin vehículos, con margen y precio** (bloque 45). Antes el gasto del mes y los costos
+  salían de los vehículos (sin vehículos: gasto ₡0 y sin costo por entrega). Ahora todo lo que cuesta operar se
+  escribe como **gasto del mes** (el combustible también, como gasto variable) y se reparte entre las entregas o
+  viajes del mes (las reales de 30 días o un estimado). Se quitaron la tarjeta **Por vehículo** (y su ventana), el
+  campo Vehículo del gasto y los datos de combustible y velocidad de este módulo (la velocidad sigue en
+  Transporte). Los gastos viejos que tenían vehículo lo conservan para el reporte de Viajes.
+  **Cuánto cuesta operar**: gasto del mes (fijo y variable), entregas al mes, costo por entrega y costo por km
+  (con los km de 30 días). **Margen y precio**: precio mínimo para cubrir gastos (= costo por entrega), precio
+  sugerido con el margen de utilidad deseado (costo ÷ (1 − margen); también dice "costo + X %"), ingreso del mes
+  para cubrir gastos y para la utilidad, y margen real de 30 días (cobrado − gastos, en verde o rojo). Con el
+  precio promedio de hoy dice si se pierde, si falta para el margen y cuántas entregas al mes hacen falta.
+  Cobrado = `pedidos.costo_envio` de los entregados + `viajes.total` de los terminados. Todo se recalcula
+  mientras se escribe. Columnas nuevas de `transporte_config`: `margen_objetivo` (0 a 90, 20 por defecto) y
+  `trabajos_mes` (opcional). Sin el bloque 45 calcula igual, pero no las guarda.
+
+- **Listas dentro de ventanas sin `<datalist>`** (sin SQL). Dentro de una ventana (`dialog`) el navegador dibuja
+  el `datalist` fuera de lugar. Ahora son una lista (`select`) con los valores que ya existen y, al final,
+  "+ Nuevo…", que muestra un campo para escribir uno nuevo (si ya existía con otras mayúsculas o tildes, se usa el
+  que había). Pieza común: `crearListaConNuevo` en `js/componentes.js` (estilo `.campo-nuevo` en
+  `css/componentes.css`). Se usa en Configuración → Artículos de venta (artículo, categoría y presentación; al
+  modificar, el nombre del artículo se escribe directo para poder cambiarlo) y en Costos de operación (concepto del
+  gasto: los sugeridos y los que ya usa la empresa). Usuarios → departamento ya lo hacía así. Las listas de
+  artículos de Pedidos y del Cotizador siguen con `datalist`: están en la página, no en una ventana.
+
+- **Teléfonos y cédulas con el formato de Costa Rica** (bloque 44). Los campos con `data-formato` se acomodan
+  solos al escribir o pegar (quitan letras, ponen guiones y no dejan pasar más dígitos de la cuenta) y se validan
+  al guardar (`FORMATOS_CR`, `validarDato`, `datoConFormato` y `ponerDato` en `js/componentes.js`):
+  - Teléfono: 8 dígitos, empieza con 2, 4, 5, 6, 7 u 8 → `8888-1234` (al pegar `+506 8888 1234` quita el 506).
+  - Cédula física: 9 dígitos → `1-0234-0567`. DIMEX (extranjero): 11 o 12 dígitos, sin guiones.
+  - Cédula jurídica: 10 dígitos, empieza con 2, 3, 4 o 5 → `3-101-123456`.
+  Dónde: Clientes (teléfono; cédula según Persona o Empresa), Usuarios (teléfono y cédula), Empresas (teléfono y
+  cédula jurídica), Tiendas, registro de usuario (login), Pedidos (cliente y quien recibe), Envíos y venta en ruta
+  (Distribución). Se guardan siempre con guiones. Un dato viejo que no cumple se muestra tal cual al editar y pide
+  corregirlo al guardar. Los buscadores de las listas encuentran `8888-1234` escribiendo `88881234`.
+  En la base el bloque pone topes de largo y de caracteres (teléfono 20, cédula 20, razón social 150, nombre 60…;
+  teléfonos de pedidos, viajes y solicitudes 30). Cada tope se agrega solo si ningún dato existente lo incumple;
+  si alguno lo incumple sale un aviso (NOTICE) con la tabla y cuántas filas, para corregirlas y repetir el bloque.
+
+- **Clientes: persona o empresa** (bloque 43). Al crear o modificar se elige **Persona** (nombre, apellidos y
+  cédula opcional) o **Empresa** (razón social y cédula jurídica obligatorias; el nombre pasa a ser el de la
+  persona de contacto y su apellido es opcional). Columnas nuevas `clientes.tipo` ('persona' | 'empresa'),
+  `cedula` y `razon_social`; "busqueda" se rehace para incluir la razón social y la cédula. En la lista la empresa
+  sale con su razón social y la etiqueta "Empresa" (debajo el contacto y la cédula). En Pedidos el buscador de
+  clientes ahora también busca **por nombre o razón social** (con letras; con "@" por correo, con números por
+  teléfono) y la empresa sale como "Razón social (contacto)". Sin el bloque 43 todo funciona como antes.
+
+- **Responsive** (`responsive/responsive.css`, sin SQL): en tablet y celular los campos usan letra de 16px (el
+  iPhone ya no acerca la pantalla al tocar un campo); en tablas anchas la columna de acciones (lápiz, basurero)
+  queda fija a la derecha mientras la tabla se desliza; en celular los botones de las ventanas bajan de línea si
+  no caben y se estiran. En pantallas táctiles (`pointer: coarse`) los botones de icono miden ~40px y las
+  casillas son más grandes. Las ventanas nuevas (Limpiar datos, datos de la empresa, regiones, módulos y
+  funciones) se acomodan a 1 columna en celular.
+- **Usuarios: módulos y funciones de cada uno** (Nuevo / Modificar usuario, sin SQL nuevo). Dos usuarios con
+  el mismo rol pueden hacer cosas distintas (ej. dos Empleados: el de bodega alista, despacha y cierra la caja
+  de los pilotos, pero no registra pedidos; el de ventas registra y ve cómo van, pero no alista ni despacha).
+  Casillas por módulo (Pedidos, Viajes, Pilotos, Caja, Distribución, Rutas, Tiendas y clientes, Reportes,
+  Cotizador, Usuarios, Configuración) y, debajo, sus funciones. **El rol solo da lo que viene marcado al crear
+  el usuario**: al personal (G1, G2, G3, Empleado) se le puede quitar o DAR cualquier módulo o función de la
+  empresa (lo de otros roles dice "otro rol"). Lo que ve sigue siendo su alcance (G2 su región; G3 y Empleado su
+  tienda: Caja, Distribución, Reportes y Usuarios ahora limitan también al Empleado a su tienda). Al piloto solo
+  se le puede quitar. "Volver a los de su rol" deja lo de su rol.
+  Funciones (`MODULOS_USUARIO` en `js/sesion.js`; cada sección las revisa con `puedeHacer('modulo.funcion')`):
+  - Pedidos: registrar · recibido en bodega · alistar · listo para despachar y aprobar salida · asignar piloto,
+    horario y reprogramar · solicitar reasignación · cancelar, devolver y autorizar · aprobar solicitudes de clientes.
+  - Viajes: registrar viajes. Caja: cerrar caja. Distribución: bodega del día · productos y precios.
+    Rutas: crear rutas y asignar pilotos. Tiendas: crear y modificar tiendas y regiones · registrar y modificar
+    clientes · aprobar y eliminar clientes. Reportes: exportar. Usuarios: crear · modificar, eliminar y aprobar.
+    Configuración (Admin G1): cambiarla (sin ella, solo la ve).
+  - Las acciones del piloto (cargar, salir a ruta, entregar) siguen por su rol.
+  Se guarda en la columna `permisos` (ya existía): igual que su rol = `{*}`; nada = `{inicio}`; un módulo con
+  las funciones de su rol = su nombre; con otras = nombre + `modulo.ver` + las marcadas (ej. `{pedidos,pedidos.ver,
+  pedidos.alistar,pedidos.despachar,caja,caja.ver,caja.cerrar}`). Cada sección usa
+  `puedeHacer('modulo.funcion', loQueDaSuRol)`. `USAR_PERMISOS` pasa a `true`; los usuarios de antes (lista
+  vacía o `{*}`) siguen con lo de su rol. El Administrador y el Desarrollador no se limitan. Al abrir o recargar la
+  página se vuelven a leer de la base (`js/permisos.js`). Los botones del pie también se ocultan sin la función
+  (Crear pedido, Asignar piloto, Cancelar). La columna de la lista se llama ahora "Módulos" (ej. "Pedidos (3 de 8)").
+  ⚠ Como el resto de los permisos, lo controla la página (la protección en la base es la Fase 7).
 - **Usuarios: cédula y departamento** (opcionales, Nuevo / Modificar usuario). El buscador de Usuarios
-  también busca por ellos y se ven bajo el nombre. Departamento sugiere los que ya existen en la empresa
-  (para escribirlos igual). Columnas nuevas `usuarios.cedula` y `usuarios.departamento`; el bloque vuelve a
+  también busca por ellos y se ven bajo el nombre. Departamento es una lista con los que ya existen en la empresa
+  y "+ Nuevo departamento…" para escribir uno (si ya existía con otras mayúsculas o tildes, se usa el que había). Columnas nuevas `usuarios.cedula` y `usuarios.departamento`; el bloque vuelve a
   ejecutar `usuarios_ocultar_clave()` para que la página las pueda leer. Sin el bloque 42 los campos no aparecen.
 
 - **Datos de la empresa** (Tiendas → Empresas → Nueva / Modificar): razón social, cédula jurídica, teléfono, a qué se dedica

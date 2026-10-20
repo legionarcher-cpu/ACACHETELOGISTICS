@@ -119,13 +119,41 @@
         </p>
 
         <div class="campos">
-            <div class="campo">
-                <label for="cliNombre" class="campo-etiqueta">Nombre *</label>
-                <input id="cliNombre" type="text" class="campo-input" autocomplete="off" required>
+            <!-- Persona o empresa (sql/01 bloque 43). Empresa: razón social + cédula jurídica,
+                 y el nombre pasa a ser el de la persona de contacto. -->
+            <fieldset id="cliCampoTipo" class="campo-ancho cli-tipo">
+                <legend class="campo-etiqueta">El cliente es *</legend>
+                <label class="cli-tipo-opcion">
+                    <input type="radio" name="cliTipo" value="persona" checked>
+                    <i class="bi bi-person"></i> <span>Persona</span>
+                </label>
+                <label class="cli-tipo-opcion">
+                    <input type="radio" name="cliTipo" value="empresa">
+                    <i class="bi bi-building"></i> <span>Empresa</span>
+                </label>
+            </fieldset>
+
+            <div id="cliCampoRazonSocial" class="campo campo-ancho" hidden>
+                <label for="cliRazonSocial" class="campo-etiqueta">Razón social *</label>
+                <input id="cliRazonSocial" type="text" class="campo-input" autocomplete="off" maxlength="150"
+                       placeholder="Distribuidora del Valle S.A.">
+            </div>
+
+            <div id="cliCampoCedula" class="campo">
+                <label id="cliCedulaEtiqueta" for="cliCedula" class="campo-etiqueta">Cédula</label>
+                <!-- data-formato: guiones y tope de dígitos al escribir (js/componentes.js, FORMATOS_CR) -->
+                <input id="cliCedula" type="text" class="campo-input" autocomplete="off" maxlength="16" inputmode="numeric"
+                       data-formato="identificacion" placeholder="1-0234-0567">
+                <small id="cliCedulaAyuda" class="campo-ayuda">Física: 9 dígitos (1-0234-0567). Extranjero: DIMEX de 11 o 12 dígitos.</small>
             </div>
 
             <div class="campo">
-                <label for="cliApellido1" class="campo-etiqueta">Primer apellido *</label>
+                <label id="cliNombreEtiqueta" for="cliNombre" class="campo-etiqueta">Nombre *</label>
+                <input id="cliNombre" type="text" class="campo-input" autocomplete="off" maxlength="60" required>
+            </div>
+
+            <div class="campo">
+                <label id="cliApellido1Etiqueta" for="cliApellido1" class="campo-etiqueta">Primer apellido *</label>
                 <input id="cliApellido1" type="text" class="campo-input" autocomplete="off" maxlength="60" required>
             </div>
 
@@ -136,7 +164,8 @@
 
             <div class="campo">
                 <label for="cliTelefono" class="campo-etiqueta">Teléfono *</label>
-                <input id="cliTelefono" type="tel" class="campo-input" autocomplete="off" inputmode="tel" maxlength="20" required>
+                <input id="cliTelefono" type="tel" class="campo-input" autocomplete="off" inputmode="tel" maxlength="16" required
+                       data-formato="telefono" placeholder="8888-1234">
             </div>
 
             <!-- El correo no se repite entre clientes: sirve para encontrarlo al crear un pedido -->

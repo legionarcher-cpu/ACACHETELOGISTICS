@@ -29,9 +29,9 @@
     color: var(--color-azul);
 }
 
-/* Debajo de este ancho aparece el scroll horizontal (6 columnas) */
+/* Debajo de este ancho aparece el scroll horizontal (5 columnas) */
 .plt-tabla {
-    min-width: 42.222rem;
+    min-width: 34rem;
 }
 
 /* Columna de la mini foto: angosta */

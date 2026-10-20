@@ -17,6 +17,7 @@
      ≤ 900px  -> tablet: menú lateral pasa a menú desplegable (☰)
      ≤ 600px  -> celular: encabezado mínimo, botones del pie solo con icono
      ≤ 420px  -> celular angosto: logos más chicos (siguen visibles)
+     (pointer: coarse) -> pantalla táctil: botones de icono y casillas más grandes
 
    IMPORTANTE: el CSS de cada sección (css/secciones/) se carga después
    que este archivo. Por eso las reglas que tocan una sección empiezan con
@@ -258,6 +259,37 @@
         max-height: calc(100dvh - 1.25rem);
     }
 
+    /* ---------- Campos: letra de 16px ----------
+       Con menos, el iPhone (Safari) acerca la pantalla al tocar un campo y queda
+       descuadrada. Sin "html body": si una sección pone una letra más grande, gana. */
+    .campo-input,
+    .buscador-input,
+    .filtro,
+    dialog input[type="text"],
+    dialog input[type="search"],
+    dialog input[type="tel"],
+    dialog input[type="email"],
+    dialog input[type="number"],
+    dialog input[type="password"],
+    dialog select,
+    dialog textarea {
+        font-size: 1rem;
+    }
+
+    /* ---------- Tablas anchas: la columna de acciones queda fija a la derecha ----------
+       La tabla se desliza de lado (.tabla-caja), pero el lápiz / basurero siempre se ven */
+    .tabla td.tabla-col-acciones,
+    .tabla th.tabla-col-acciones {
+        position: sticky;
+        right: 0;
+        z-index: 1;
+        box-shadow: -0.5rem 0 0.5rem -0.5rem rgba(0, 28, 59, 0.25);
+    }
+
+    .tabla td.tabla-col-acciones {
+        background-color: var(--color-blanco);
+    }
+
     /* ---------- Secciones ---------- */
     html body .pagina {
         padding: 1rem;
@@ -395,6 +427,16 @@
         width: auto;
     }
 
+    /* ---------- Botones de las ventanas ----------
+       Si no caben en una línea bajan, y cada uno ocupa lo que pueda (más fáciles de tocar) */
+    .dialogo-botones {
+        flex-wrap: wrap;
+    }
+
+    .dialogo-botones .boton {
+        flex: 1 1 auto;
+    }
+
     /* ---------- Secciones ---------- */
     html body .pagina {
         padding: 0.75rem;
@@ -432,6 +474,35 @@
     .acceso-btn {
         min-width: 2.5rem;
         padding: 0 0.5rem;
+    }
+}
+
+/* ==================================================
+   PANTALLA TÁCTIL (celular, tablet o computadora con pantalla táctil)
+   Botones de icono (lápiz, basurero, QR...) y botones al menos de ~40px para el dedo.
+   Va por el tipo de puntero y no por el ancho: una tablet grande también es táctil.
+   ================================================== */
+
+@media (pointer: coarse) {
+    .boton-icono {
+        width: 2.5rem;
+        height: 2.5rem;
+        font-size: 1.1rem;
+    }
+
+    .boton {
+        min-height: 2.5rem;
+    }
+
+    .tabla-botones {
+        gap: 0.25rem;
+    }
+
+    /* Casillas un poco más grandes */
+    input[type="checkbox"],
+    input[type="radio"] {
+        width: 1.15rem;
+        height: 1.15rem;
     }
 }
 

@@ -216,7 +216,7 @@ registrarSeccion('empresas-internas', (zona) => {
         // La empresa principal siempre es la 01: su ID no se cambia
         $('#empCodigo').disabled = !!empresa && empresa.codigo === EMPRESA_PRINCIPAL;
         $('#empNombre').value = empresa ? empresa.nombre : '';
-        Object.entries(EMP_DATOS).forEach(([columna, id]) => { $(`#${id}`).value = (empresa && empresa[columna]) || ''; });
+        Object.entries(EMP_DATOS).forEach(([columna, id]) => ponerDato($(`#${id}`), (empresa && empresa[columna]) || ''));
         const acts = empresa ? empresa.actividades || [] : actividades.filter((a) => a.activa !== false).map((a) => a.codigo);
         zona.querySelectorAll('input[name="empActividad"]').forEach((c) => { c.checked = acts.includes(c.value); });
         $('#empEstado').value = !empresa || empresa.activa ? 'activa' : 'inactiva';
@@ -379,6 +379,11 @@ registrarSeccion('empresas-internas', (zona) => {
         }
         if (!nombre) { errorForm.textContent = 'Escribe el nombre de la empresa.'; $('#empNombre').focus(); return; }
         if (!acts.length) { errorForm.textContent = 'Marca al menos una actividad.'; return; }
+        // Cédula jurídica y teléfono (opcionales) con el formato de Costa Rica (js/componentes.js)
+        for (const [tipo, id] of [['cedula_juridica', 'empCedulaJuridica'], ['telefono', 'empTelefono']]) {
+            const mal = validarDato(tipo, $(`#${id}`).value);
+            if (mal) { errorForm.textContent = mal; $(`#${id}`).focus(); return; }
+        }
         const colores = paletaElegida();
         if (!colores) { errorForm.textContent = 'Elige la paleta de colores de la empresa.'; selPaleta.focus(); return; }
 
@@ -388,7 +393,9 @@ registrarSeccion('empresas-internas', (zona) => {
         // Razón social, cédula jurídica, teléfono, giro, dirección y ubicación: solo las columnas
         // que la base ya tiene (bloque 41; cedula_juridica se agregó después al mismo bloque)
         const extra = Object.fromEntries(Object.entries(EMP_DATOS)
-            .map(([columna, id]) => [columna, $(`#${id}`).value.trim().replace(/\s+/g, ' ') || null]));
+            .map(([columna, id]) => [columna, $(`#${id}`).dataset.formato
+                ? datoConFormato($(`#${id}`).dataset.formato, $(`#${id}`).value)
+                : $(`#${id}`).value.trim().replace(/\s+/g, ' ') || null]));
         const faltan = Object.keys(extra).filter((columna) => !empresas.some((e) => columna in e));
         if (faltan.some((columna) => extra[columna])) {
             errorForm.textContent = 'Para guardar los datos de la empresa (razón social, cédula jurídica, teléfono...) falta ejecutar sql/01 (bloque 41).';

@@ -1,4 +1,4 @@
--- 11 de 20 · sql/00_instalacion_completa.sql · Artículos de venta: unidad y costo de cada presentación (secciones 25 a 25).
+-- 11 de 23 · sql/00_instalacion_completa.sql · Artículos de venta: unidad y costo de cada presentación (secciones 25 a 25).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

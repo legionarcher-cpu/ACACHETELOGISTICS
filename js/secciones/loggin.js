@@ -370,7 +370,9 @@ async function montarSolicitudUsuario(zona, inputUsuario) {
         const fallo = (texto, campo) => { errorRegistro.textContent = texto; if (campo) $(campo).focus(); };
         if (datos.nombre.length < 2) return fallo('Escribe tu nombre.', '#regNombre');
         if (datos.apellido1.length < 2) return fallo('Escribe tu primer apellido.', '#regApellido1');
-        if (datos.telefono.replace(/\D/g, '').length < 8) return fallo('El teléfono debe tener al menos 8 dígitos.', '#regTelefono');
+        const malTelefono = validarDato('telefono', datos.telefono, true); // formato de Costa Rica (js/componentes.js)
+        if (malTelefono) return fallo(malTelefono, '#regTelefono');
+        datos.telefono = datoConFormato('telefono', datos.telefono);
         if (datos.correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(datos.correo)) return fallo('El correo no es válido.', '#regCorreo');
         if (!/^[a-z0-9]{3,20}$/.test(datos.usuario)) return fallo('El usuario: de 3 a 20 letras o números, sin espacios.', '#regUsuario');
         if (datos.clave.length < 6) return fallo('La contraseña debe tener al menos 6 caracteres.', '#regClave');

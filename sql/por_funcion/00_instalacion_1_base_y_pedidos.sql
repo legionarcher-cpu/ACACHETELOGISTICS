@@ -1,4 +1,4 @@
--- 1 de 20 · sql/00_instalacion_completa.sql · Regiones, tiendas, vehículos, usuarios, clientes, configuración, horarios, actividades, rutas, pedidos (secciones 1 a 9).
+-- 1 de 23 · sql/00_instalacion_completa.sql · Regiones, tiendas, vehículos, usuarios, clientes, configuración, horarios, actividades, rutas, pedidos (secciones 1 a 9).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -43,6 +43,9 @@
 --   33. Limpiar los datos de una empresa (botón del Desarrollador en Tiendas -> Empresas)
 --   34. Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y giro
 --   35. Usuarios: cédula y departamento
+--   36. Clientes: persona o empresa, cédula y razón social
+--   37. Teléfonos y cédulas: formato de Costa Rica y tope de largo
+--   38. Costos de operación: margen de utilidad y entregas al mes
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:

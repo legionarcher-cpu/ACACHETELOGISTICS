@@ -43,7 +43,10 @@ $GRUPOS = @{
         @{ nombre = 'ubicacion_del_cliente'; bloques = 32..32; que = 'Ubicación compartida por el cliente (enlace antes de registrar el pedido)' },
         @{ nombre = 'limpiar_empresa';       bloques = 33..33; que = 'Limpiar los datos de una empresa (botón del Desarrollador)' },
         @{ nombre = 'datos_empresa';         bloques = 34..34; que = 'Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y giro' },
-        @{ nombre = 'usuarios_cedula';       bloques = 35..35; que = 'Usuarios: cédula y departamento (para búsquedas)' }
+        @{ nombre = 'usuarios_cedula';       bloques = 35..35; que = 'Usuarios: cédula y departamento (para búsquedas)' },
+        @{ nombre = 'clientes_persona_empresa'; bloques = 36..36; que = 'Clientes: persona o empresa, cédula y razón social' },
+        @{ nombre = 'telefonos_y_cedulas';   bloques = 37..37; que = 'Teléfonos y cédulas: formato de Costa Rica y tope de largo' },
+        @{ nombre = 'costos_margen';         bloques = 38..38; que = 'Costos de operación: margen de utilidad y entregas al mes' }
     )
     '01_actualizacion_base_existente' = @(
         @{ nombre = 'base_y_pedidos';        bloques = 0..15;  que = 'Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR' },
@@ -64,7 +67,10 @@ $GRUPOS = @{
         @{ nombre = 'ubicacion_del_cliente'; bloques = 39..39; que = 'Ubicación compartida por el cliente (enlace antes de registrar el pedido)' },
         @{ nombre = 'limpiar_empresa';       bloques = 40..40; que = 'Limpiar los datos de una empresa (botón del Desarrollador)' },
         @{ nombre = 'datos_empresa';         bloques = 41..41; que = 'Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y giro' },
-        @{ nombre = 'usuarios_cedula';       bloques = 42..42; que = 'Usuarios: cédula y departamento (para búsquedas)' }
+        @{ nombre = 'usuarios_cedula';       bloques = 42..42; que = 'Usuarios: cédula y departamento (para búsquedas)' },
+        @{ nombre = 'clientes_persona_empresa'; bloques = 43..43; que = 'Clientes: persona o empresa, cédula y razón social' },
+        @{ nombre = 'telefonos_y_cedulas';   bloques = 44..44; que = 'Teléfonos y cédulas: formato de Costa Rica y tope de largo' },
+        @{ nombre = 'costos_margen';         bloques = 45..45; que = 'Costos de operación: margen de utilidad y entregas al mes' }
     )
 }
 

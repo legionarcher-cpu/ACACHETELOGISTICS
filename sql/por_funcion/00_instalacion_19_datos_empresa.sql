@@ -1,4 +1,4 @@
--- 19 de 20 · sql/00_instalacion_completa.sql · Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y giro (secciones 34 a 34).
+-- 19 de 23 · sql/00_instalacion_completa.sql · Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y giro (secciones 34 a 34).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

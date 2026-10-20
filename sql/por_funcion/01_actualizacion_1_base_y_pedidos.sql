@@ -1,4 +1,4 @@
--- 1 de 19 · sql/01_actualizacion_base_existente.sql · Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR (bloques 0 a 15).
+-- 1 de 22 · sql/01_actualizacion_base_existente.sql · Admin protegido, número de pedido, rutas, vehículos, actividades, mercadería, clientes, slots, marcas y QR (bloques 0 a 15).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -79,6 +79,9 @@
 --  40. Limpiar los datos de una empresa desde Tiendas -> Empresas (solo Desarrollador, con su contraseña).
 --  41. Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y a qué se dedica (giro).
 --  42. Usuarios: cédula y departamento (opcionales, para búsquedas).
+--  43. Clientes: persona o empresa, cédula (o cédula jurídica) y razón social.
+--  44. Teléfonos y cédulas: formato de Costa Rica y tope de largo (nada se guarda desbordado).
+--  45. Costos de operación: margen de utilidad deseado y entregas al mes (sin depender de vehículos).
 -- ==================================================
 
 

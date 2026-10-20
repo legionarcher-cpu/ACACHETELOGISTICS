@@ -34,9 +34,11 @@ registrarSeccion('caja', (zona) => {
     // ---------- Permisos (js/sesion.js) ----------
     const esGeneral = esAdministrador() || esAdminG1();
     const regionFija = esAdminG2() ? regionActual() : null;
-    const tiendaFija = esAdminG3() ? tiendaActual() : null;
+    // Solo su tienda: Admin G3, y el Empleado al que se le dio Caja (ej. encargado de bodega)
+    const tiendaFija = esAdminG3() || rolActual() === 'empleado' ? tiendaActual() : null;
     const esPiloto = rolActual() === 'piloto';
-    const puedeCerrar = esGeneral || !!regionFija || !!tiendaFija;
+    // Por rol, salvo que a ESTE usuario se le quite o se le dé (Usuarios -> "Módulos y funciones", js/sesion.js)
+    const puedeCerrar = puedeHacer('caja.cerrar', esGeneral || !!regionFija || esAdminG3());
     const conViajes = typeof empresaTieneViajes === 'function' && empresaTieneViajes();
 
     // ---------- Elementos ----------

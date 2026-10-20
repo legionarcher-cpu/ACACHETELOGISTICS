@@ -1,4 +1,4 @@
--- 20 de 20 · sql/00_instalacion_completa.sql · Usuarios: cédula y departamento (para búsquedas) (secciones 35 a 35).
+-- 20 de 23 · sql/00_instalacion_completa.sql · Usuarios: cédula y departamento (para búsquedas) (secciones 35 a 35).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -20,3 +20,4 @@ create index if not exists usuarios_cedula_idx on public.usuarios (cedula) where
 select public.usuarios_ocultar_clave();
 
 notify pgrst, 'reload schema';
+

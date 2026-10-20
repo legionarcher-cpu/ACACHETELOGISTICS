@@ -105,14 +105,15 @@
 
             <div class="campo">
                 <label for="empCedulaJuridica" class="campo-etiqueta">Cédula jurídica</label>
-                <input id="empCedulaJuridica" type="text" class="campo-input" maxlength="30" autocomplete="off"
-                       placeholder="3-101-123456">
+                <!-- data-formato: formato de Costa Rica al escribir (js/componentes.js, FORMATOS_CR) -->
+                <input id="empCedulaJuridica" type="text" class="campo-input" maxlength="16" autocomplete="off"
+                       inputmode="numeric" data-formato="cedula_juridica" placeholder="3-101-123456">
             </div>
 
             <div class="campo">
                 <label for="empTelefono" class="campo-etiqueta">Teléfono</label>
-                <input id="empTelefono" type="tel" class="campo-input" maxlength="30" autocomplete="off"
-                       inputmode="tel" placeholder="2222-3333">
+                <input id="empTelefono" type="tel" class="campo-input" maxlength="16" autocomplete="off"
+                       inputmode="tel" data-formato="telefono" placeholder="2222-3333">
             </div>
 
             <div class="campo campo-ancho">

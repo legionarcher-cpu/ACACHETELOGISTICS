@@ -58,6 +58,123 @@
    Se ve como un solo campo: el borde lo pone .campo-input.
    ================================================== */
 
+/* ---------- Módulos a los que entra (casillas) ---------- */
+.usr-modulos {
+    margin: 0;
+    padding: 0.667rem 0.778rem 0.778rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+    display: flex;
+    flex-direction: column;
+    gap: 0.556rem;
+}
+
+.usr-modulos[hidden] {
+    display: none;
+}
+
+.usr-modulos legend {
+    padding: 0 0.333rem;
+}
+
+.usr-modulos-botones {
+    display: flex;
+    gap: 0.889rem;
+}
+
+.usr-enlace {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-azul);
+    font: inherit;
+    font-size: 0.85rem;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.usr-modulos-lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
+    gap: 0.556rem;
+    align-items: start;
+}
+
+/* Un módulo y, debajo, sus funciones */
+.usr-modulo-bloque {
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+    overflow: hidden;
+}
+
+.usr-modulo-bloque:has(> .usr-modulo input:checked) {
+    border-color: var(--color-azul);
+}
+
+.usr-modulo {
+    display: flex;
+    align-items: center;
+    gap: 0.444rem;
+    padding: 0.444rem 0.556rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.usr-modulo:has(input:checked) {
+    background-color: var(--color-azul-claro);
+}
+
+.usr-modulo input,
+.usr-accion input {
+    accent-color: var(--color-azul);
+}
+
+.usr-acciones {
+    display: flex;
+    flex-direction: column;
+    gap: 0.222rem;
+    padding: 0.333rem 0.556rem 0.444rem 1.6rem;
+    border-top: 1px solid var(--color-borde);
+}
+
+.usr-accion {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.444rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+
+.usr-accion input {
+    margin-top: 0.15rem;
+    flex-shrink: 0;
+}
+
+/* "otro rol": módulo o función que su rol no trae (se le da solo a este usuario) */
+.usr-otro-rol {
+    display: inline-block;
+    margin-left: 0.222rem;
+    padding: 0 0.333rem;
+    border-radius: 999px;
+    background-color: var(--color-naranja-claro);
+    color: #B34A07;
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Funciones de un módulo sin marcar: apagadas */
+.usr-accion:has(input:disabled) {
+    color: var(--color-gris);
+    cursor: not-allowed;
+}
+
+/* Departamento nuevo: campo bajo la lista (al elegir "Nuevo departamento…") */
+.usr-departamento-nuevo {
+    margin-top: 0.333rem;
+}
+
 .usr-input-compuesto {
     display: flex;
     align-items: center;

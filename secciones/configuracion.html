@@ -41,12 +41,10 @@
        - SOLO el Desarrollador (el Administrador no ve la tarjeta).
 
      Módulo PEDIDOS (sql/00 sección 6; lógica en js/secciones/configuracion/pedidos.js):
-       - Categorías de mercadería de cada actividad: SOLO el Administrador.
-       - Artículos frecuentes = pesos promedio de cada artículo, por actividad.
        - Simulador de precios peso × distancia con Python (python/tarifas.py, corre en el navegador).
          La regla de cada tarifa en palabras se ve en su formulario (tarifaEnPalabras).
-       - Artículos frecuentes, tamaños de bulto, motivos de retraso, número de
-         pedido y código de respaldo: Admin y G1.
+       - Tamaños de bulto, motivos de retraso, número de pedido y código de respaldo: Admin y G1.
+       - (Categorías de mercadería y pesos promedio: módulo ARTÍCULOS.)
        - Tarifas y descuentos: Admin y G1 los generales; Admin G2 los de su región.
 
      data-solo-general -> el JS lo oculta a Admin G2.
@@ -108,7 +106,7 @@
             <span class="cfg-modulo-icono"><i class="bi bi-receipt"></i></span>
             <span class="cfg-modulo-textos">
                 <span class="cfg-modulo-nombre">Pedidos</span>
-                <span class="cfg-modulo-descripcion">Tarifas, descuentos, mercadería, tamaños, motivos de retraso y numeración.</span>
+                <span class="cfg-modulo-descripcion">Tarifas, descuentos, tamaños, motivos de retraso y numeración.</span>
                 <span class="cfg-modulo-acceso">Administrador, Admin G1 y Admin G2 (tarifas y descuentos de su región)</span>
             </span>
             <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
@@ -128,7 +126,7 @@
             <span class="cfg-modulo-icono"><i class="bi bi-calculator"></i></span>
             <span class="cfg-modulo-textos">
                 <span class="cfg-modulo-nombre">Costos de operación</span>
-                <span class="cfg-modulo-descripcion">Gastos del mes, combustible y lo que cuesta cada km, cada vehículo y cada entrega o viaje.</span>
+                <span class="cfg-modulo-descripcion">Gastos del mes, costo de cada entrega o viaje y el precio para cubrir gastos y tener utilidad.</span>
                 <span class="cfg-modulo-acceso">Administrador y Admin G1</span>
             </span>
             <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
@@ -137,8 +135,8 @@
         <button type="button" class="cfg-modulo-tarjeta" data-modulo="articulos">
             <span class="cfg-modulo-icono"><i class="bi bi-tags"></i></span>
             <span class="cfg-modulo-textos">
-                <span class="cfg-modulo-nombre">Artículos de venta y precios</span>
-                <span class="cfg-modulo-descripcion">Crea los artículos que vendes: unidad, cantidad, presentación, costo y precio de venta.</span>
+                <span class="cfg-modulo-nombre">Artículos</span>
+                <span class="cfg-modulo-descripcion">Categorías, pesos para el envío y artículos de venta (unidad, presentación, costo y precio).</span>
                 <span class="cfg-modulo-acceso">Administrador y Admin G1</span>
             </span>
             <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
@@ -932,8 +930,8 @@
 
     <!-- ==================================================
          MÓDULO: COSTOS DE OPERACIÓN (todas las empresas, si su plan incluye "cfg_costos")
-         El gasto del mes se DIVIDE entre las horas y los km del mes -> costo por hora,
-         por km y por entrega o viaje (real: últimos 30 días).
+         Sin vehículos: los gastos del mes (combustible incluido) ÷ entregas o viajes del mes
+         = costo de cada uno; con él, el precio mínimo y el sugerido con margen de utilidad.
          Lógica: js/secciones/configuracion/costos.js. Ids "cfgCos".
          ================================================== -->
     <section class="cfg-modulo" data-modulo="costos" hidden>
@@ -950,66 +948,57 @@
 
         <div id="cfgCosContenido" class="cfg-tra">
 
-            <!-- ---------- 1. Resumen y combustible ---------- -->
+            <!-- ---------- 1. Cuánto cuesta operar ---------- -->
             <div class="tarjeta cfg-tarjeta">
                 <div class="cfg-tarjeta-cabecera">
                     <div>
                         <h3 class="cfg-tarjeta-titulo">Cuánto cuesta operar</h3>
                         <p class="cfg-tarjeta-texto">
-                            Escribe el gasto de cada mes: el sistema lo <strong>divide</strong> para saber cuánto cuesta cada hora
-                            y cada km. <strong>Fijos</strong> (cuota, seguro, marchamo, salario…) ÷ horas de trabajo del mes = costo por hora.
-                            <strong>Variables</strong> (mantenimiento, llantas…) ÷ km del mes + combustible (precio del litro ÷ km por litro) = costo por km.
-                            Los gastos de "toda la empresa" se reparten igual entre los vehículos.
+                            Es la suma de los <strong>gastos del mes</strong> que registras abajo (salarios, combustible, seguros,
+                            mantenimiento…) repartida entre las entregas o viajes que haces en el mes. Así sale el
+                            <strong>costo de cada uno</strong>.
                         </p>
                     </div>
                 </div>
 
                 <div id="cfgCosResumen" class="resumen cfg-tra-resumen"></div>
 
-                <form id="cfgCosCombustible" class="cfg-tra-combustible" novalidate>
+                <!-- Entregas al mes (transporte_config.trabajos_mes, sql/01 bloque 45). Vacío = las reales de 30 días -->
+                <form id="cfgCosDatos" class="cfg-tra-combustible" novalidate>
                     <div class="campo">
-                        <label for="cfgCosLitro" class="campo-etiqueta">Precio del litro de combustible</label>
-                        <input id="cfgCosLitro" type="number" min="0" step="1" class="campo-input" data-cfg="precio_litro">
-                    </div>
-                    <div class="campo">
-                        <label for="cfgCosVelocidad" class="campo-etiqueta">Velocidad promedio (km/h)</label>
-                        <input id="cfgCosVelocidad" type="number" min="1" step="1" class="campo-input" data-cfg="velocidad_kmh">
+                        <label for="cfgCosTrabajosMes" class="campo-etiqueta">Entregas o viajes al mes (estimado)</label>
+                        <input id="cfgCosTrabajosMes" type="number" min="0" step="1" class="campo-input" inputmode="numeric"
+                               placeholder="Vacío: las de los últimos 30 días">
                     </div>
                     <button type="submit" class="boton boton-secundario boton-chico">Guardar</button>
                 </form>
                 <p class="cfg-tarjeta-texto">
-                    La velocidad sirve para sumar el tiempo al costo de 1 km y para estimar los minutos de las entregas sin dato del mapa.
+                    Déjalo vacío para usar las entregas reales de los últimos 30 días. Escríbelo si recién empiezas o si el mes
+                    pasado no fue normal.
                 </p>
             </div>
 
-            <!-- ---------- 2. Por vehículo ---------- -->
+            <!-- ---------- 2. Margen y precio ---------- -->
             <div class="tarjeta cfg-tarjeta">
                 <div class="cfg-tarjeta-cabecera">
                     <div>
-                        <h3 class="cfg-tarjeta-titulo">Por vehículo</h3>
+                        <h3 class="cfg-tarjeta-titulo">Margen y precio</h3>
                         <p class="cfg-tarjeta-texto">
-                            Con el lápiz se escriben las horas y los km de cada mes y su rendimiento (km por litro).
-                            "Real" usa lo que hizo el vehículo en los últimos 30 días (entregas de su piloto y viajes terminados).
+                            <strong>Cubrir gastos</strong>: cobrar al menos el costo de cada entrega (utilidad 0). <strong>Utilidad</strong>:
+                            el margen es la parte del precio que queda de ganancia. Precio sugerido = costo ÷ (1 − margen).
+                            Ej. costo ₡2 000 con 20 % de margen → ₡2 500 (₡500 de utilidad).
                         </p>
                     </div>
                 </div>
-                <div class="tabla-caja">
-                    <table class="tabla cfg-tabla">
-                        <thead>
-                            <tr>
-                                <th>Vehículo</th>
-                                <th>Gasto fijo</th>
-                                <th>Gasto variable</th>
-                                <th>Horas / km al mes</th>
-                                <th>Costo por hora</th>
-                                <th>Costo por km</th>
-                                <th>Real (30 días)</th>
-                                <th class="tabla-col-acciones">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="cfgCosVehiculos"></tbody>
-                    </table>
+                <div class="cfg-cos-margen">
+                    <div class="campo">
+                        <label for="cfgCosMargen" class="campo-etiqueta">Margen de utilidad deseado (%)</label>
+                        <input id="cfgCosMargen" type="number" min="0" max="90" step="1" class="campo-input" inputmode="decimal">
+                    </div>
+                    <button type="button" id="cfgCosMargenGuardar" class="boton boton-secundario boton-chico">Guardar margen</button>
                 </div>
+                <div id="cfgCosMargenResumen" class="resumen cfg-tra-resumen"></div>
+                <p id="cfgCosMargenNota" class="cfg-tarjeta-texto"></p>
             </div>
 
             <!-- ---------- 3. Gastos del mes ---------- -->
@@ -1017,7 +1006,11 @@
                 <div class="cfg-tarjeta-cabecera">
                     <div>
                         <h3 class="cfg-tarjeta-titulo">Gastos del mes</h3>
-                        <p class="cfg-tarjeta-texto">Lo que se paga cada mes. El combustible no se escribe aquí: se calcula solo.</p>
+                        <p class="cfg-tarjeta-texto">
+                            Todo lo que cuesta operar en un mes, combustible incluido. <strong>Fijo</strong>: se paga aunque no
+                            haya trabajo (salario, seguro, cuota). <strong>Variable</strong>: sube o baja con el trabajo
+                            (combustible, mantenimiento, llantas).
+                        </p>
                     </div>
                     <button type="button" id="cfgCosNuevoGasto" class="boton boton-principal boton-chico">
                         <i class="bi bi-plus-lg"></i>
@@ -1030,7 +1023,6 @@
                             <tr>
                                 <th>Concepto</th>
                                 <th>Tipo</th>
-                                <th>Vehículo</th>
                                 <th>Monto al mes</th>
                                 <th class="tabla-col-acciones">Acciones</th>
                             </tr>
@@ -1119,17 +1111,67 @@
     </section>
 
     <!-- ==================================================
-         MÓDULO: ARTÍCULOS DE VENTA Y PRECIOS (Administrador y Admin G1)
-         Un artículo = producto + presentación + precio (tablas productos,
-         producto_presentaciones y precios, sql/01 bloques 27 y 32). Es el mismo catálogo
-         que usa la distribuidora (Distribución -> Productos y precios).
+         MÓDULO: ARTÍCULOS (Administrador y Admin G1) — todo lo de artículos en un lugar
+         1. Categorías (categorias_mercaderia): las casillas del pedido (conteo, artículos,
+            bultos, documentos) y la categoría de los artículos de venta. Crear y cambiar: solo
+            el Administrador (G1 las ve).
+         2. Artículos de venta: producto + presentación + precio (tablas productos,
+            producto_presentaciones y precios, sql/01 bloques 27 y 32). Es el mismo catálogo
+            que usa la distribuidora (Distribución -> Productos y precios). Su categoría se
+            elige de la lista de Categorías.
+         3. Pesos para el envío (articulos_catalogo, antes "artículos frecuentes"): peso
+            promedio de cada artículo de las categorías de tipo "artículos"; en el pedido el
+            peso se llena solo.
          Lógica: js/secciones/configuracion/articulos.js. Ids "cfgArt".
          ================================================== -->
     <section class="cfg-modulo" data-modulo="articulos" hidden>
 
         <div class="cfg-modulo-cabecera">
             <a href="#configuracion" class="cfg-volver"><i class="bi bi-arrow-left"></i> Configuración</a>
-            <h3 class="cfg-modulo-titulo"><i class="bi bi-tags"></i> Artículos de venta y precios</h3>
+            <h3 class="cfg-modulo-titulo"><i class="bi bi-tags"></i> Artículos</h3>
+        </div>
+
+        <!-- ---------- 1. Categorías ---------- -->
+        <div class="tarjeta cfg-tarjeta">
+            <div class="cfg-tarjeta-cabecera">
+                <div>
+                    <h3 class="cfg-tarjeta-titulo"><i class="bi bi-ui-checks"></i> Categorías</h3>
+                    <p class="cfg-tarjeta-texto">
+                        Una sola lista para todo: son las casillas que se marcan al registrar un pedido y la categoría de
+                        los artículos de venta. <strong>Conteo</strong> = abarrotes; <strong>Artículos</strong> = línea
+                        blanca, electrónica… (con peso promedio); <strong>Bultos</strong> = cajas y bolsas;
+                        <strong>Documentos</strong> = sobres.
+                    </p>
+                    <p id="cfgArtCatSoloAdmin" class="cfg-tarjeta-texto" hidden>Solo el Administrador las crea o cambia.</p>
+                </div>
+                <button type="button" id="cfgArtCatNueva" class="boton boton-secundario boton-chico">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Nueva categoría</span>
+                </button>
+            </div>
+            <!-- Categorías escritas en los artículos de venta que no están en esta lista (de antes de
+                 ligarlas): el Administrador las trae con un clic -->
+            <div id="cfgArtCatSueltas" class="cfg-nota cfg-art-sueltas" hidden>
+                <span><i class="bi bi-info-circle"></i> <span id="cfgArtCatSueltasTexto"></span></span>
+                <button type="button" id="cfgArtCatTraer" class="boton boton-principal boton-chico">
+                    <i class="bi bi-box-arrow-in-down"></i>
+                    <span>Traerlas a Categorías</span>
+                </button>
+            </div>
+            <div class="tabla-caja">
+                <table class="tabla cfg-tabla">
+                    <thead>
+                        <tr>
+                            <th>Categoría</th>
+                            <th>Tipo</th>
+                            <th class="dist-num">Artículos</th>
+                            <th>Estado</th>
+                            <th class="tabla-col-acciones">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cfgArtCatTabla"></tbody>
+                </table>
+            </div>
         </div>
 
         <p id="cfgArtFaltaSql" class="cfg-nota" hidden>
@@ -1151,7 +1193,7 @@
         <div id="cfgArtContenido" class="tarjeta cfg-tarjeta">
             <div class="cfg-tarjeta-cabecera">
                 <div>
-                    <h3 class="cfg-tarjeta-titulo">Artículos</h3>
+                    <h3 class="cfg-tarjeta-titulo"><i class="bi bi-tags"></i> Artículos de venta</h3>
                     <p class="cfg-tarjeta-texto">
                         Cada fila es un artículo en una presentación (ej. Leche · Caja de 12 litros). El precio de venta
                         es el que ven los usuarios al hacer un pedido; se escribe con IVA (13 % se puede cambiar).
@@ -1188,6 +1230,36 @@
                 </table>
             </div>
             <p id="cfgArtContador" class="cfg-tarjeta-texto"></p>
+        </div>
+
+        <!-- ---------- 3. Pesos para el envío (antes "Artículos frecuentes") ---------- -->
+        <div id="cfgArtPesoTarjeta" class="tarjeta cfg-tarjeta">
+            <div class="cfg-tarjeta-cabecera">
+                <div>
+                    <h3 class="cfg-tarjeta-titulo"><i class="bi bi-list-check"></i> Pesos para el envío</h3>
+                    <p class="cfg-tarjeta-texto">
+                        Peso promedio de cada artículo de las categorías de tipo <strong>Artículos</strong>. Al registrar un
+                        pedido o cotizar, el peso se llena solo y el empleado lo puede corregir.
+                    </p>
+                </div>
+                <button type="button" id="cfgArtPesoNuevo" class="boton boton-secundario boton-chico">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Agregar peso</span>
+                </button>
+            </div>
+            <div class="tabla-caja">
+                <table class="tabla cfg-tabla">
+                    <thead>
+                        <tr>
+                            <th>Artículo</th>
+                            <th class="dist-num">Peso aprox.</th>
+                            <th>Estado</th>
+                            <th class="tabla-col-acciones">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cfgArtPesoTabla"></tbody>
+                </table>
+            </div>
         </div>
     </section>
 
@@ -1655,27 +1727,31 @@
         <h3 id="cfgArtTitulo" class="dialogo-titulo">Nuevo artículo</h3>
         <div class="campos">
             <div class="campo campo-ancho">
-                <label for="cfgArtNombre" class="campo-etiqueta">Artículo *</label>
-                <input id="cfgArtNombre" type="text" maxlength="80" class="campo-input" list="cfgArtNombres" autocomplete="off" placeholder="Ej. Leche entera">
-                <datalist id="cfgArtNombres"></datalist>
+                <!-- Listas con "+ Nuevo…" (no datalist: dentro de la ventana el navegador la dibuja
+                     fuera de lugar). Las arma crearListaConNuevo (js/componentes.js) -->
+                <label for="cfgArtNombreLista" class="campo-etiqueta">Artículo *</label>
+                <select id="cfgArtNombreLista" class="campo-input"></select>
+                <input id="cfgArtNombre" type="text" maxlength="80" class="campo-input campo-nuevo" autocomplete="off"
+                       placeholder="Escribe el artículo nuevo (ej. Leche entera)" aria-label="Nombre del artículo" hidden>
                 <small id="cfgArtNombreAyuda" class="campo-ayuda">Si ya existe, se le agrega esta presentación.</small>
             </div>
             <div class="campo">
-                <label for="cfgArtCategoria" class="campo-etiqueta">Categoría</label>
-                <input id="cfgArtCategoria" type="text" maxlength="60" class="campo-input" list="cfgArtCategorias" autocomplete="off" placeholder="Ej. Lácteos">
-                <datalist id="cfgArtCategorias"></datalist>
+                <!-- Se elige de la tarjeta Categorías (misma lista que los pedidos); sin "+ Nueva" aquí -->
+                <label for="cfgArtCategoriaLista" class="campo-etiqueta">Categoría</label>
+                <select id="cfgArtCategoriaLista" class="campo-input"></select>
+                <input id="cfgArtCategoria" type="text" maxlength="60" class="campo-input campo-nuevo" autocomplete="off"
+                       aria-label="Categoría" hidden>
+                <small id="cfgArtCategoriaAyuda" class="campo-ayuda">Se elige de la tarjeta Categorías (las crea el Administrador).</small>
             </div>
             <div class="campo">
                 <label for="cfgArtCodigo" class="campo-etiqueta">Código</label>
                 <input id="cfgArtCodigo" type="text" maxlength="40" class="campo-input" autocomplete="off" placeholder="Opcional">
             </div>
             <div class="campo">
-                <label for="cfgArtPresentacion" class="campo-etiqueta">Presentación *</label>
-                <input id="cfgArtPresentacion" type="text" maxlength="60" class="campo-input" list="cfgArtPresentaciones" autocomplete="off" placeholder="Ej. Unidad, Caja, Paquete">
-                <datalist id="cfgArtPresentaciones">
-                    <option value="Unidad"></option><option value="Caja"></option><option value="Paquete"></option>
-                    <option value="Bolsa"></option><option value="Paca"></option><option value="Docena"></option>
-                </datalist>
+                <label for="cfgArtPresentacionLista" class="campo-etiqueta">Presentación *</label>
+                <select id="cfgArtPresentacionLista" class="campo-input"></select>
+                <input id="cfgArtPresentacion" type="text" maxlength="60" class="campo-input campo-nuevo" autocomplete="off"
+                       placeholder="Escribe la presentación nueva (ej. Six pack)" aria-label="Presentación nueva" hidden>
             </div>
             <div class="campo">
                 <label for="cfgArtUnidad" class="campo-etiqueta">Unidad</label>
@@ -1723,41 +1799,121 @@
     </form>
 </dialog>
 
+<!-- Módulo Artículos: ventana de una categoría (tabla categorias_mercaderia; solo el Administrador) -->
+<dialog id="cfgArtCatDialogo" class="dialogo" aria-labelledby="cfgArtCatTitulo">
+    <form id="cfgArtCatForm" class="dialogo-form" novalidate>
+        <h3 id="cfgArtCatTitulo" class="dialogo-titulo">Nueva categoría</h3>
+        <div class="campos">
+            <div class="campo">
+                <label for="cfgArtCatActividad" class="campo-etiqueta">Actividad *</label>
+                <select id="cfgArtCatActividad" class="campo-input"></select>
+                <small class="campo-ayuda">En qué pedidos aparece la casilla. No se cambia después.</small>
+            </div>
+            <div class="campo">
+                <label for="cfgArtCatNombre" class="campo-etiqueta">Nombre *</label>
+                <input id="cfgArtCatNombre" type="text" maxlength="40" class="campo-input" autocomplete="off" placeholder="Ej. Línea blanca">
+            </div>
+            <div class="campo">
+                <label for="cfgArtCatTipo" class="campo-etiqueta">Tipo *</label>
+                <select id="cfgArtCatTipo" class="campo-input">
+                    <option value="articulos">Artículos con peso (del catálogo de pesos)</option>
+                    <option value="conteo">Conteo (cajas, bolsas, hieleras y peso aproximado)</option>
+                    <option value="bulto">Bultos (cantidad, tamaño y peso de cada uno)</option>
+                    <option value="documento">Documentos (solo cantidad; peso fijo por unidad)</option>
+                </select>
+            </div>
+            <div class="campo" id="cfgArtCatPesoCampo" hidden>
+                <label for="cfgArtCatPeso" class="campo-etiqueta">Peso de cada documento (kg)</label>
+                <input id="cfgArtCatPeso" type="number" min="0" step="0.01" class="campo-input" inputmode="decimal" value="0.2">
+                <small class="campo-ayuda">Se suma al peso total del pedido (para el cobro).</small>
+            </div>
+            <div class="campo">
+                <label for="cfgArtCatIcono" class="campo-etiqueta">Icono</label>
+                <select id="cfgArtCatIcono" class="campo-input">
+                    <option value="bi-box">Caja</option>
+                    <option value="bi-box-seam">Caja de cartón</option>
+                    <option value="bi-bag">Bolsa</option>
+                    <option value="bi-envelope">Sobre / documento</option>
+                    <option value="bi-basket">Canasta</option>
+                    <option value="bi-snow">Frío / línea blanca</option>
+                    <option value="bi-tv">Electrónica</option>
+                    <option value="bi-lamp">Hogar / muebles</option>
+                    <option value="bi-capsule">Farmacia</option>
+                </select>
+            </div>
+            <div class="campo">
+                <label for="cfgArtCatOrden" class="campo-etiqueta">Orden</label>
+                <input id="cfgArtCatOrden" type="number" min="0" step="1" class="campo-input" inputmode="numeric" value="0">
+            </div>
+            <div class="campo campo-ancho">
+                <label class="cfg-art-si-no"><input id="cfgArtCatActiva" type="checkbox" checked> Activa (aparece como casilla en los pedidos)</label>
+            </div>
+        </div>
+        <p id="cfgArtCatError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="cfgArtCatCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="cfgArtCatGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Módulo Artículos: ventana de un peso para el envío (tabla articulos_catalogo) -->
+<dialog id="cfgArtPesoDialogo" class="dialogo dialogo-chico" aria-labelledby="cfgArtPesoTitulo">
+    <form id="cfgArtPesoForm" class="dialogo-form" novalidate>
+        <h3 id="cfgArtPesoTitulo" class="dialogo-titulo">Agregar peso</h3>
+        <div class="campos">
+            <div class="campo campo-ancho">
+                <label for="cfgArtPesoCategoria" class="campo-etiqueta">Categoría *</label>
+                <select id="cfgArtPesoCategoria" class="campo-input"></select>
+            </div>
+            <div class="campo campo-ancho">
+                <label for="cfgArtPesoNombre" class="campo-etiqueta">Artículo *</label>
+                <input id="cfgArtPesoNombre" type="text" maxlength="60" class="campo-input" autocomplete="off" placeholder="Ej. Refrigeradora">
+            </div>
+            <div class="campo">
+                <label for="cfgArtPesoKg" class="campo-etiqueta">Peso promedio (kg) *</label>
+                <input id="cfgArtPesoKg" type="number" min="0" step="0.01" class="campo-input" inputmode="decimal">
+            </div>
+            <div class="campo">
+                <label for="cfgArtPesoOrden" class="campo-etiqueta">Orden</label>
+                <input id="cfgArtPesoOrden" type="number" min="0" step="1" class="campo-input" inputmode="numeric" value="0">
+            </div>
+            <div class="campo campo-ancho">
+                <label class="cfg-art-si-no"><input id="cfgArtPesoActivo" type="checkbox" checked> Activo (aparece al registrar pedidos)</label>
+            </div>
+        </div>
+        <p id="cfgArtPesoError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="cfgArtPesoCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="cfgArtPesoGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
 <!-- Ventanas del módulo Costos de operación (js/secciones/configuracion/costos.js) -->
 <dialog id="cfgCosGastoDialogo" class="dialogo" aria-labelledby="cfgCosGastoTitulo">
     <form id="cfgCosGastoForm" class="dialogo-form" novalidate>
         <h3 id="cfgCosGastoTitulo" class="dialogo-titulo">Nuevo gasto</h3>
         <div class="campos">
             <div class="campo campo-ancho">
-                <label for="cfgCosGaConcepto" class="campo-etiqueta">Concepto *</label>
-                <input id="cfgCosGaConcepto" type="text" maxlength="60" class="campo-input" list="cfgCosConceptos" placeholder="Ej. Seguro">
-                <datalist id="cfgCosConceptos">
-                    <option value="Cuota del vehículo"></option>
-                    <option value="Seguro"></option>
-                    <option value="Marchamo"></option>
-                    <option value="Salario del conductor"></option>
-                    <option value="Plan de teléfono"></option>
-                    <option value="Parqueo"></option>
-                    <option value="Mantenimiento"></option>
-                    <option value="Llantas"></option>
-                    <option value="Lavado"></option>
-                </datalist>
+                <!-- Lista con "+ Nuevo concepto…" (no datalist: dentro de la ventana se dibuja fuera de
+                     lugar). Los conceptos sugeridos están en js/secciones/configuracion/costos.js -->
+                <label for="cfgCosGaConceptoLista" class="campo-etiqueta">Concepto *</label>
+                <select id="cfgCosGaConceptoLista" class="campo-input"></select>
+                <input id="cfgCosGaConcepto" type="text" maxlength="60" class="campo-input campo-nuevo" autocomplete="off"
+                       placeholder="Escribe el concepto nuevo (ej. Revisión técnica)" aria-label="Concepto nuevo" hidden>
             </div>
             <div class="campo">
                 <label for="cfgCosGaTipo" class="campo-etiqueta">Tipo *</label>
                 <select id="cfgCosGaTipo" class="campo-input">
                     <option value="fijo">Fijo (se paga aunque no haya trabajo)</option>
-                    <option value="variable">Variable (depende de los km)</option>
+                    <option value="variable">Variable (sube o baja con el trabajo)</option>
                 </select>
             </div>
             <div class="campo">
                 <label for="cfgCosGaMonto" class="campo-etiqueta">Monto al mes *</label>
-                <input id="cfgCosGaMonto" type="number" min="0" step="100" class="campo-input">
-            </div>
-            <div class="campo campo-ancho">
-                <label for="cfgCosGaVehiculo" class="campo-etiqueta">Vehículo</label>
-                <select id="cfgCosGaVehiculo" class="campo-input"></select>
-                <small class="campo-ayuda">"Toda la empresa" se reparte igual entre los vehículos. El combustible se calcula solo (precio del litro ÷ km por litro).</small>
+                <input id="cfgCosGaMonto" type="number" min="0" step="100" class="campo-input" inputmode="decimal">
+                <small class="campo-ayuda">Lo que se paga en un mes normal (el combustible: lo que se gasta al mes).</small>
             </div>
         </div>
         <p id="cfgCosGaError" class="form-error" role="alert"></p>
@@ -1768,28 +1924,3 @@
     </form>
 </dialog>
 
-<dialog id="cfgCosVehDialogo" class="dialogo dialogo-chico" aria-labelledby="cfgCosVehTitulo">
-    <form id="cfgCosVehForm" class="dialogo-form" novalidate>
-        <h3 id="cfgCosVehTitulo" class="dialogo-titulo">Datos de costos</h3>
-        <div class="campos">
-            <div class="campo">
-                <label for="cfgCosVeHoras" class="campo-etiqueta">Horas de trabajo al mes</label>
-                <input id="cfgCosVeHoras" type="number" min="0" step="1" class="campo-input">
-            </div>
-            <div class="campo">
-                <label for="cfgCosVeKm" class="campo-etiqueta">Km al mes (estimado)</label>
-                <input id="cfgCosVeKm" type="number" min="0" step="1" class="campo-input">
-            </div>
-            <div class="campo">
-                <label for="cfgCosVeLitro" class="campo-etiqueta">Km por litro</label>
-                <input id="cfgCosVeLitro" type="number" min="0" step="0.1" class="campo-input">
-            </div>
-        </div>
-        <p class="campo-ayuda">Ej. 26 días × 10 horas = 260 horas. Con un mes de entregas o viajes, la tabla muestra también lo real.</p>
-        <p id="cfgCosVeError" class="form-error" role="alert"></p>
-        <div class="dialogo-botones">
-            <button type="button" id="cfgCosVeCancelar" class="boton boton-secundario">Cancelar</button>
-            <button type="submit" class="boton boton-principal">Guardar</button>
-        </div>
-    </form>
-</dialog>

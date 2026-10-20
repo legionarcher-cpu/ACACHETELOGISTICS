@@ -186,11 +186,11 @@
                          Al elegir, el buscador se cambia por la ficha del cliente ("Cambiar" para buscar otro). -->
                     <div class="campo campo-ancho">
                         <div id="pedClienteBuscarCaja" class="ped-cli-buscar">
-                            <label for="pedBuscarCliente" class="campo-etiqueta">Teléfono o correo del cliente</label>
+                            <label for="pedBuscarCliente" class="campo-etiqueta">Teléfono, correo o nombre del cliente</label>
                             <div class="ped-cli-campo">
                                 <i class="bi bi-search" aria-hidden="true"></i>
                                 <input id="pedBuscarCliente" type="search" class="campo-input" autocomplete="off" enterkeyhint="search"
-                                       placeholder="Ej. 8888-1234 o ana@correo.com"
+                                       placeholder="Ej. 8888-1234, ana@correo.com o Distribuidora"
                                        role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="pedClientesResultados">
                             </div>
                             <p id="pedClientesEstado" class="ped-cli-estado" aria-live="polite"></p>
@@ -216,7 +216,9 @@
                     </div>
                     <div class="campo">
                         <label for="pedClienteTelefono" class="campo-etiqueta">Teléfono *</label>
-                        <input id="pedClienteTelefono" type="tel" class="campo-input" maxlength="20" autocomplete="off">
+                        <!-- data-formato: formato de Costa Rica al escribir (js/componentes.js, FORMATOS_CR) -->
+                        <input id="pedClienteTelefono" type="tel" class="campo-input" maxlength="16" autocomplete="off"
+                               data-formato="telefono" placeholder="8888-1234">
                     </div>
                 </div>
             </div>
@@ -279,7 +281,8 @@
                     </div>
                     <div class="campo" data-solo-autorizado hidden>
                         <label for="pedRecibeTelefono" class="campo-etiqueta">Teléfono de quien recibe</label>
-                        <input id="pedRecibeTelefono" type="tel" class="campo-input" maxlength="20" autocomplete="off">
+                        <input id="pedRecibeTelefono" type="tel" class="campo-input" maxlength="16" autocomplete="off"
+                               data-formato="telefono" placeholder="8888-1234">
                     </div>
 
                     <div class="campo">

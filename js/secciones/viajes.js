@@ -39,7 +39,8 @@ registrarSeccion('viajes', (zona) => {
     const cliente = esCliente();
     const conductor = rolActual() === 'piloto';
     const personal = !cliente && !conductor;
-    const puedeSolicitar = cliente || personal;
+    // El personal: según su función en Usuarios -> "Módulos y funciones" (js/sesion.js)
+    const puedeSolicitar = cliente || (personal && puedeHacer('viajes.solicitar', true));
 
     // ---------- Estado ----------
     let config = { ...VIA_CONFIG_BASE };

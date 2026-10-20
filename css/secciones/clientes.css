@@ -48,6 +48,55 @@
     margin-right: 0.333rem;
 }
 
+/* Persona o empresa: dos botones grandes (radio) */
+.cli-tipo {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.556rem;
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.cli-tipo[hidden] {
+    display: none;
+}
+
+.cli-tipo legend {
+    grid-column: 1 / -1;
+    margin-bottom: 0.333rem;
+    padding: 0;
+}
+
+.cli-tipo-opcion {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.444rem;
+    min-height: 2.5rem;
+    padding: 0.444rem 0.667rem;
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cli-tipo-opcion:has(input:checked) {
+    border-color: var(--color-azul);
+    background-color: var(--color-azul-claro);
+    color: var(--color-azul-marino);
+}
+
+.cli-tipo-opcion input {
+    accent-color: var(--color-azul);
+}
+
+/* Etiqueta "Empresa" junto al nombre en la lista */
+.cli-etiqueta-empresa {
+    margin-left: 0.333rem;
+    vertical-align: middle;
+}
+
 /* Casillas de tiendas: en columnas que se acomodan al ancho */
 .cli-tiendas {
     display: grid;

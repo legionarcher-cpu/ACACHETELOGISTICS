@@ -161,7 +161,10 @@ registrarSeccion('configuracion', (zona) => {
 
     // ---------- Permisos (js/sesion.js) ----------
     // Administrador y Admin G1: todo. Admin G2: solo lo de SU región.
-    const esGeneral = esAdministrador() || esAdminG1();
+    // Por rol Administrador y G1, salvo que a ESTE usuario se le quite o se le dé "configuracion.general"
+    // (Usuarios -> "Módulos y funciones", js/sesion.js); sin ella ve la configuración pero no la
+    // cambia. Pasa a los módulos de Configuración por ctx.
+    const esGeneral = puedeHacer('configuracion.general', esAdministrador() || esAdminG1());
     const regionG2 = esAdminG2() ? regionActual() : null; // ej. 'CEN' (null si no es G2)
     // Valores base, horas de las marcas, horario por día y agregar vehículos
     const puedeModificar = esGeneral;
@@ -244,13 +247,14 @@ registrarSeccion('configuracion', (zona) => {
             permitido: () => esGeneral && empresaTieneViajes() && enPlan('cfg_transporte'),
             abrir: () => abrirModuloExterno('transporte'),
         },
-        // Calculador de costos: gastos del mes, combustible y costo por km de cada vehículo
-        // (js/secciones/configuracion/costos.js). Si su plan lo incluye y usa vehículos.
+        // Costos de operación: gastos del mes, costo por entrega y margen
+        // (js/secciones/configuracion/costos.js). Si su plan lo incluye (no depende de vehículos).
         costos: {
-            permitido: () => esGeneral && enPlan('cfg_costos') && usaParte('vehiculos'), // costos por vehículo y por km
+            permitido: () => esGeneral && enPlan('cfg_costos'),
             abrir: () => abrirModuloExterno('costos'),
         },
-        // Artículos de venta: producto + presentación + precio (js/secciones/configuracion/articulos.js).
+        // Artículos: categorías de mercadería, pesos promedio y artículos de venta
+        // (producto + presentación + precio) (js/secciones/configuracion/articulos.js).
         // Siempre visible para Administrador y G1 (si ninguna actividad usa productos, el módulo lo avisa).
         articulos: {
             permitido: () => esGeneral,

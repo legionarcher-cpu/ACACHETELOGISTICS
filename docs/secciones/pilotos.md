@@ -8,7 +8,8 @@
 ## Qué hace
 
 Solo **muestra** los usuarios con rol Piloto, agrupados por tienda: foto, usuario, teléfono, vehículo.
-Filtro por región y buscador (nombre, usuario, tienda, placa). Columna "Funciones": por definir.
+Filtro por región y buscador (nombre, usuario, tienda, placa). Lo que puede hacer cada piloto se define en
+Usuarios → "Módulos y funciones" (aquí ya no hay columna "Funciones").
 
 Un piloto aparece solo con tener el rol Piloto en **Usuarios**; sus datos se cambian allá.
 

@@ -26,7 +26,7 @@
 | 3 | **Colores a variables sin cambio visual** | Los ~90 colores escritos a mano pasan a variables **con el mismo valor**. Si algún caso cambiara la estética, se deja como está. Animaciones y transiciones no se tocan | No |
 | 4 | ~~**Usuario: opción C**~~ **Resuelto** (sql/01 bloques 16 y 17) | El usuario ya no lleva la tienda: `cenjperez01` (región + nombre + empresa). Solo cambia si la tienda cambia de región | Hecho |
 | 5 | **Un solo catálogo de artículos** | Línea blanca, Electrónica, etc. existen una vez con su peso promedio, compartido por todas las actividades; el peso sigue siendo modificable en cada pedido | **Sí** |
-| 6 | **Normalización sencilla** | Abarrotes como filas (cajas, bolsas, hieleras) y no repetido en `detalle`; estados del pedido en una sola definición; quitar la columna `permisos`; unir horario base y horario por día | **Sí** |
+| 6 | **Normalización sencilla** | Abarrotes como filas (cajas, bolsas, hieleras) y no repetido en `detalle`; estados del pedido en una sola definición; unir horario base y horario por día | **Sí** |
 | 7 | **Pilotos en tabla propia** | Vehículo y multitienda pasan a una tabla `pilotos` (uno a uno con `usuarios`) | **Sí** |
 
 ### Detalle del cambio 4 (usuario, opción C)

@@ -81,7 +81,7 @@
                     <th>Tienda</th>
                     <th class="solo-vehiculos">Vehículo</th>
                     <th>Teléfono</th>
-                    <th>Permisos</th>
+                    <th>Módulos</th>
                     <th class="tabla-col-acciones">Acciones</th>
                 </tr>
             </thead>
@@ -218,30 +218,38 @@
 
             <div class="campo">
                 <label for="usrTelefono" class="campo-etiqueta">Teléfono</label>
-                <input id="usrTelefono" type="tel" class="campo-input" autocomplete="off">
+                <!-- data-formato: formato de Costa Rica al escribir (js/componentes.js, FORMATOS_CR) -->
+                <input id="usrTelefono" type="tel" class="campo-input" autocomplete="off" maxlength="16"
+                       data-formato="telefono" placeholder="8888-1234">
             </div>
 
             <!-- Cédula y departamento (sql/01 bloque 42): opcionales, para buscar -->
             <div class="campo" id="usrCampoCedula">
                 <label for="usrCedula" class="campo-etiqueta">Cédula</label>
-                <input id="usrCedula" type="text" class="campo-input" maxlength="30" autocomplete="off"
-                       placeholder="1-1234-5678">
+                <input id="usrCedula" type="text" class="campo-input" maxlength="16" autocomplete="off" inputmode="numeric"
+                       data-formato="identificacion" placeholder="1-0234-0567 o DIMEX">
             </div>
 
             <div class="campo" id="usrCampoDepartamento">
-                <label for="usrDepartamento" class="campo-etiqueta">Departamento</label>
-                <input id="usrDepartamento" type="text" class="campo-input" maxlength="60" autocomplete="off"
-                       list="usrDepartamentos" placeholder="Ej. Bodega, Ventas">
-                <datalist id="usrDepartamentos"></datalist>
-                <small class="campo-ayuda">Elige uno de la lista o escribe uno nuevo.</small>
+                <!-- Lista de los que ya usa la empresa (no datalist: dentro de la ventana el
+                     navegador la dibuja fuera de lugar) + "Nuevo departamento…" que muestra el campo -->
+                <label for="usrDepartamentoLista" class="campo-etiqueta">Departamento</label>
+                <select id="usrDepartamentoLista" class="campo-input"></select>
+                <input id="usrDepartamento" type="text" class="campo-input usr-departamento-nuevo" maxlength="60"
+                       autocomplete="off" placeholder="Escribe el departamento nuevo (ej. Bodega)" aria-label="Departamento nuevo" hidden>
             </div>
 
-            <div class="campo">
-                <label for="usrPermisos" class="campo-etiqueta">Permisos</label>
-                <input id="usrPermisos" type="text" class="campo-input" autocomplete="off"
-                       placeholder="Ej. pedidos, rutas   ( * = todas )">
-                <small class="campo-ayuda">Secciones separadas por coma. Por ahora no se aplican.</small>
-            </div>
+            <!-- Módulos y funciones (columna permisos; catálogo y reglas en js/sesion.js: MODULOS_USUARIO).
+                 Vienen marcados los de su rol; se pueden quitar o dar de otros roles. Igual que su rol = {*}. -->
+            <fieldset id="usrCampoModulos" class="campo-ancho usr-modulos">
+                <legend class="campo-etiqueta">Módulos y funciones</legend>
+                <div class="usr-modulos-botones">
+                    <button type="button" id="usrModulosTodos" class="usr-enlace">Volver a los de su rol</button>
+                    <button type="button" id="usrModulosNinguno" class="usr-enlace">Quitar todos</button>
+                </div>
+                <div id="usrModulos" class="usr-modulos-lista"></div>
+                <small id="usrModulosAyuda" class="campo-ayuda">Vienen marcados los de su rol. Puedes quitarle o darle otros ("otro rol"), por ejemplo a un Empleado de bodega que cierra la caja. Sin ninguna función, solo ve el módulo. Inicio y Mi perfil siempre los tiene; lo que no se marque le aparece con candado.</small>
+            </fieldset>
         </div>
 
         <!-- Error del formulario (ej. "Ese usuario ya existe") -->

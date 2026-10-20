@@ -92,7 +92,10 @@ Funciones que usan otros archivos: `irA(nombre)`, `mostrarSeccionActual()`, `lim
   - `SECCIONES_LIBRES`: `inicio`, `perfil` (todos).
   - `SECCIONES_POR_ROL`: el piloto **solo** `inicio` y `pedidos`.
   - `SECCIONES_BLOQUEADAS_POR_ROL`: el empleado **no** `usuarios`, `pilotos`, `reportes`, `rutas`.
-  - `USAR_PERMISOS = false`: la columna `permisos` de cada usuario **no se usa** por ahora.
+  - `USAR_PERMISOS = true`: dentro de lo que permite su rol, cada usuario entra solo a los módulos y hace solo
+    las funciones marcadas en Usuarios → "Módulos y funciones" (columna `permisos`; `MODULOS_USUARIO`;
+    `puedeHacer('pedidos.alistar')`). Vacía o `{*}` = todo; el Administrador y el Desarrollador no se limitan.
+    Al abrir la página se vuelven a leer (`js/permisos.js`).
 - `aplicarPermisos()` (permisos.js) se llama al abrir, al iniciar y al cerrar sesión: pone el nombre y la
   foto, enciende/apaga la campana y bloquea con candado las secciones sin permiso.
 - **Dentro de cada sección**, lo que ve y hace cada rol lo decide su propio JS (ver

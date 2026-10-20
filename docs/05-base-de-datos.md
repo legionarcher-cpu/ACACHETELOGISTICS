@@ -129,7 +129,7 @@ de sus entregas; la guardan Administrador y G1 desde el formulario de Pedidos; s
 | `aprobado`, `solicitado_por`, `solicitado_en` | Aprobación de usuarios creados por un G3 |
 | `vehiculo_id` | Vehículo asignado (solo pilotos) |
 | `multitienda` | Piloto que puede trabajar en otras tiendas de su región |
-| `permisos` | Lista de secciones (**no se usa**: `USAR_PERMISOS = false`) |
+| `permisos` | Módulos a los que entra (Usuarios → "Módulos a los que entra"): `{*}` o vacía = todos los de su rol, `{inicio}` = ninguno, o la lista (`{pedidos,caja}`). Ver `js/sesion.js` |
 
 Reglas: tienda/región según el rol; vehículo y multitienda solo pilotos; el usuario `admin` no se
 elimina ni cambia de usuario o rol (trigger `proteger_admin`).

@@ -782,7 +782,8 @@
 
 .cfg-tra-sim-controles,
 .cfg-tra-combustible,
-.cfg-tra-cerrado {
+.cfg-tra-cerrado,
+.cfg-cos-margen {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
@@ -807,6 +808,15 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(min(12rem, 100%), 1fr));
     margin: 0.667rem 0;
+}
+
+/* Costos -> Margen y precio: el número en verde (utilidad) o rojo (pérdida) */
+.cfg-cos-gana .resumen-numero {
+    color: var(--color-verde);
+}
+
+.cfg-cos-pierde .resumen-numero {
+    color: var(--color-rojo);
 }
 
 .cfg-tra-subtitulo {
@@ -893,6 +903,20 @@
 
 .cfg-art-inactivo td {
     color: var(--color-gris);
+}
+
+/* Artículos -> Categorías: aviso "hay categorías en tus artículos que no están en la lista" */
+.cfg-art-sueltas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.556rem;
+    margin-bottom: 0.667rem;
+}
+
+.cfg-art-sueltas[hidden] {
+    display: none;
 }
 
 .cfg-art-resumen {

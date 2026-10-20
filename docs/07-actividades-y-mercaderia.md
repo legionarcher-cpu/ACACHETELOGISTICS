@@ -68,7 +68,9 @@ pantalla (Excel, PDF): `cambiarPalabras(texto)` o `palabra('registros')`.
 
 ## Categorías de mercadería
 
-Configuración → Pedidos → Categorías (solo Administrador). Cada una pertenece a **una actividad**.
+Configuración → **Artículos** → Categorías (crear y cambiar: solo Administrador; G1 las ve). Cada una pertenece
+a **una actividad**. Es la misma lista que da la categoría a los **artículos de venta** (se elige de ella, ya no
+es texto libre; al renombrar una categoría sus artículos de venta pasan al nombre nuevo).
 
 | Tipo | Qué se registra | Ejemplos actuales |
 |---|---|---|
@@ -81,7 +83,8 @@ Una categoría desactivada deja de aparecer como casilla; los pedidos viejos no 
 
 ## Pesos promedio (catálogo de artículos)
 
-- Configuración → Pedidos → **Artículos frecuentes (pesos promedio)** (Administrador y G1).
+- Configuración → Artículos → **Pesos para el envío** (antes "Artículos frecuentes" en Configuración → Pedidos;
+  Administrador y G1).
 - En el pedido, al elegir el artículo **el peso se llena solo** y el empleado **lo puede cambiar**.
 - `python python/pesos_promedio.py` compara el catálogo con los pesos reales de los pedidos
   (`--aplicar` para guardar, `--agregar` para sumar artículos que se escriben a mano seguido).
@@ -123,7 +126,7 @@ Desde la página, sin SQL (solo Desarrollador):
 2. Dejar marcada **"Agregarla a la empresa con la que trabajas"**. Las demás empresas la marcan en
    Tiendas → Empresas (la casilla aparece sola). Sin empresas internas: agregar el código a
    `actividades` en `empresas.js`.
-3. Configuración → Pedidos: su **tarifa general** y sus **categorías** de mercadería.
+3. Configuración → Pedidos: su **tarifa general**. Configuración → Artículos: sus **categorías**.
 
 No hace falta programar el formulario: se arma con sus categorías y lo que usa. Una actividad con
 **"Viajes con agenda"** (`usa_viajes`, como Transporte) no usa categorías ni tarifas: se configura en

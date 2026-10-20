@@ -6,7 +6,7 @@
    tarjeta "Pedidos" (#configuracion?modulo=pedidos).
    Tablas: sql/00, sección 6. Guía: docs/secciones/configuracion.md.
 
-   Cómo está hecho: cada lista (tarifas, descuentos, categorías...) es un
+   Cómo está hecho: cada lista (tarifas, descuentos, tamaños, motivos) es un
    "CATÁLOGO" descrito en CATALOGOS más abajo: qué tabla usa, qué columnas
    muestra, qué campos tiene su formulario y quién puede cambiarlo. Con esa
    descripción se arma sola su tarjeta, su tabla y su ventana
@@ -19,11 +19,12 @@
      - Código de respaldo: número aleatorio y/o últimos 4 dígitos del teléfono
        (se pueden marcar los dos).
 
+   Las CATEGORÍAS DE MERCADERÍA y los PESOS PROMEDIO (artículos frecuentes) se movieron a
+   Configuración -> Artículos (configuracion/articulos.js): todo lo de artículos en un lugar.
+   Las ACTIVIDADES tienen su propia ventana: configuracion/actividades.js.
+
    Permisos (sección 31.8):
-     - CATEGORÍAS DE MERCADERÍA: SOLO el Administrador (ve y cambia).
-       (Pendiente: también el rol Desarrollador.)
-       Las ACTIVIDADES se movieron a su propia ventana: configuracion/actividades.js.
-     - Administrador y Admin G1: todo lo demás.
+     - Administrador y Admin G1: todo.
      - Admin G2: tarifas y descuentos de SU región (y de sus tiendas);
        lo demás lo ve sin poder cambiarlo.
    ⚠ Lo controla la página; la regla real llega en la Fase 7.
@@ -73,29 +74,9 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
         return t ? `${t.codigo} · ${t.nombre}` : 'Tienda eliminada';
     };
     const regionDeTienda = (id) => (tiendas.find((t) => t.id === id) || {}).region;
-    const categoriaPorId = (id) => (filas.categorias || []).find((c) => c.id === id);
-    // "Encomiendas · Línea blanca" (la misma categoría puede estar en dos actividades)
-    const nombreCategoria = (id) => {
-        const c = categoriaPorId(id);
-        return c ? `${nombreActividad(c.actividad)} · ${c.nombre}` : 'Sin categoría';
-    };
-    // Orden: primero por actividad (su orden), luego por el orden de la categoría
-    const ordenActividad = (codigo) => { const i = actividades.findIndex((a) => a.codigo === codigo); return i < 0 ? 99 : i; };
-    const ordenCategoria = (id) => {
-        const c = categoriaPorId(id);
-        return c ? ordenActividad(c.actividad) * 1000 + (c.orden || 0) : 99999;
-    };
     // ¿La fila es de una actividad de pedidos que realiza la empresa? (empresas/empresas.js)
     // Las de viajes (Transporte) se configuran en Configuración -> Transporte.
     const deLaEmpresa = (f) => !f.actividad || (empresaTieneActividad(f.actividad) && !esActividadDeViajes(f.actividad));
-
-    // Tipos de categoría (regla categorias_tipo_valido) y su explicación
-    const TIPOS_CATEGORIA = {
-        conteo:    'Conteo (cajas, bolsas, hieleras y peso aproximado)',
-        articulos: 'Artículos con peso (del catálogo de pesos promedio)',
-        bulto:     'Bultos (cantidad, tamaño y peso de cada uno)',
-        documento: 'Documentos (solo cantidad; peso fijo por unidad)',
-    };
 
     // Regiones y tiendas que puede elegir el usuario (G2: solo las suyas)
     const regionesMias = () => (regionG2 ? regiones.filter((r) => r.codigo === regionG2) : regiones);
@@ -107,15 +88,6 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
     const etiquetaEstado = (activo) => (activo
         ? crearCeldaEtiqueta('Activa', 'etiqueta-verde')
         : crearCeldaEtiqueta('Inactiva', 'etiqueta-gris'));
-
-    // Celda con icono + texto
-    function celdaIcono(icono, texto) {
-        const td = document.createElement('td');
-        const i = document.createElement('i');
-        i.className = `bi ${icono} cfg-icono-fila`;
-        td.append(i, ` ${texto}`);
-        return td;
-    }
 
     // Costo de envío con una tarifa: la MISMA fórmula de Pedidos y del Cotizador
     // (calcularEnvioTarifa en js/componentes.js, sección 31.5)
@@ -321,100 +293,8 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
             puedeEliminar: (f) => esGeneral || (!!regionG2 && f.region === regionG2),
         },
 
-        // ---------- Categorías de mercadería (de cada actividad) ----------
-        categorias: {
-            titulo: 'Categorías de mercadería',
-            texto: 'Casillas que se marcan al registrar un pedido, por actividad. Conteo = abarrotes; Artículos = línea blanca, electrónica...; Bultos = cajas y bolsas; Documentos = sobres. Los artículos que se VENDEN (unidad, cantidad, presentación y precio) se crean en Configuración → Artículos de venta y precios.',
-            icono: 'bi-ui-checks',
-            sql: '01_actualizacion_base_existente.sql', // tipos bulto / documento y peso_referencia
-            tabla: 'categorias_mercaderia', clave: 'id', select: 'id, actividad, nombre, tipo, icono, peso_referencia, activa, orden', orden: 'orden',
-            singular: 'categoría',
-            agrupar: (f) => nombreActividad(f.actividad),
-            ordenar: (a, b) => (ordenActividad(a.actividad) - ordenActividad(b.actividad)) || (a.orden - b.orden),
-            columnas: [
-                ['Categoría', (f) => celdaIcono(f.icono, f.nombre)],
-                ['Tipo', (f) => (f.tipo === 'documento' && f.peso_referencia != null
-                    ? `Documentos (${kilos(f.peso_referencia)} c/u)`
-                    : (TIPOS_CATEGORIA[f.tipo] || f.tipo).split(' (')[0])],
-                ['Estado', (f) => etiquetaEstado(f.activa)],
-            ],
-            campos: [
-                { nombre: 'actividad', etiqueta: 'Actividad', tipo: 'opciones', requerido: true, soloAlCrear: true,
-                  opciones: () => actividades.map((a) => [a.codigo, a.nombre]) },
-                { nombre: 'nombre', etiqueta: 'Nombre', tipo: 'texto', requerido: true, max: 40 },
-                { nombre: 'tipo', etiqueta: 'Tipo', tipo: 'opciones', requerido: true, porDefecto: 'articulos',
-                  opciones: () => Object.entries(TIPOS_CATEGORIA) },
-                { nombre: 'peso_referencia', etiqueta: 'Peso de cada documento (kg)', tipo: 'numero', min: 0, porDefecto: 0.2,
-                  ayuda: 'Se suma al peso total del pedido (para el cobro).', visible: (v) => v.tipo === 'documento' },
-                { nombre: 'icono', etiqueta: 'Icono', tipo: 'opciones', porDefecto: 'bi-box',
-                  opciones: () => [['bi-box', 'Caja'], ['bi-box-seam', 'Caja de cartón'], ['bi-bag', 'Bolsa'],
-                      ['bi-envelope', 'Sobre / documento'], ['bi-basket', 'Canasta'], ['bi-snow', 'Frío / línea blanca'],
-                      ['bi-tv', 'Electrónica'], ['bi-lamp', 'Hogar / muebles'], ['bi-capsule', 'Farmacia']] },
-                { nombre: 'orden', etiqueta: 'Orden', tipo: 'numero', min: 0, porDefecto: 0, entero: true },
-                { nombre: 'activa', etiqueta: 'Activa (aparece como casilla en los pedidos)', tipo: 'si_no', porDefecto: true },
-            ],
-            preparar(v, fila) {
-                const datos = {
-                    nombre: v.nombre, tipo: v.tipo, icono: v.icono || 'bi-box', orden: v.orden || 0, activa: v.activa,
-                    peso_referencia: v.tipo === 'documento' ? (v.peso_referencia === '' ? 0 : v.peso_referencia) : null,
-                };
-                if (!fila) datos.actividad = v.actividad; // al modificar no cambia de actividad
-                return datos;
-            },
-            visible: deLaEmpresa,
-            duplicado: 'Ya existe una categoría con ese nombre en esa actividad.',
-            textoEliminar: (f) => `¿Eliminar la categoría "${f.nombre}"? También se borran sus artículos frecuentes. Los pedidos que ya la usaron conservan el nombre. (Para ocultarla sin borrarla, desactívala.)`,
-            // SOLO el Administrador la ve y la cambia
-            // (G1 y G2 no ven esta tarjeta; los artículos frecuentes sí los administra G1)
-            mostrar: () => esAdministrador(),
-            puedeCrear: () => esAdministrador(),
-            puedeEditar: () => esAdministrador(),
-            puedeEliminar: () => esAdministrador(),
-        },
-
-        // ---------- Artículos frecuentes = pesos promedio (tabla articulos_catalogo) ----------
-        // Al marcar Línea blanca o Electrónica en un pedido (tienda o encomienda),
-        // el artículo se elige de esta lista y el peso se llena solo (se puede
-        // corregir en el pedido). Cada actividad tiene sus propios pesos.
-        // python/pesos_promedio.py los ajusta con los pesos reales de los pedidos.
-        articulos: {
-            titulo: 'Artículos frecuentes (pesos promedio)',
-            texto: 'Peso promedio de cada artículo, por actividad y categoría. Al registrar un pedido el peso se llena solo y el empleado lo puede corregir. (Artículos para vender con precio: Configuración → Artículos de venta y precios.)',
-            icono: 'bi-list-check',
-            sql: '00_instalacion_completa.sql', // si falta la tabla, solo esta tarjeta lo avisa
-            tabla: 'articulos_catalogo', clave: 'id', select: 'id, categoria_id, nombre, peso_kg, activo, orden', orden: 'orden',
-            singular: 'artículo',
-            // Agrupados por categoría (en el orden de las categorías)
-            agrupar: (f) => nombreCategoria(f.categoria_id),
-            ordenar: (a, b) => (ordenCategoria(a.categoria_id) - ordenCategoria(b.categoria_id)) || (a.orden - b.orden) || a.nombre.localeCompare(b.nombre),
-            columnas: [
-                ['Artículo', (f) => f.nombre],
-                ['Peso aprox.', (f) => kilos(f.peso_kg)],
-                ['Estado', (f) => etiquetaEstado(f.activo)],
-            ],
-            campos: [
-                { nombre: 'categoria_id', etiqueta: 'Actividad y categoría', tipo: 'opciones', requerido: true,
-                  // Solo las categorías de tipo "artículos" de las actividades de la empresa
-                  opciones: () => (filas.categorias || []).filter((c) => c.tipo === 'articulos' && deLaEmpresa(c))
-                      .sort((a, b) => ordenCategoria(a.id) - ordenCategoria(b.id))
-                      .map((c) => [String(c.id), nombreCategoria(c.id)]),
-                  valorInicial: (f) => String(f.categoria_id) },
-                { nombre: 'nombre', etiqueta: 'Artículo', tipo: 'texto', requerido: true, max: 60, ayuda: 'Ej. "Refrigeradora".' },
-                { nombre: 'peso_kg', etiqueta: 'Peso promedio (kg)', tipo: 'numero', requerido: true, min: 0 },
-                { nombre: 'orden', etiqueta: 'Orden', tipo: 'numero', min: 0, porDefecto: 0, entero: true },
-                { nombre: 'activo', etiqueta: 'Activo (aparece al registrar pedidos)', tipo: 'si_no', porDefecto: true },
-            ],
-            preparar: (v) => ({ categoria_id: Number(v.categoria_id), nombre: v.nombre, peso_kg: v.peso_kg, orden: v.orden || 0, activo: v.activo }),
-            // Solo los de categorías de actividades de la empresa
-            // (las categorías ya vienen solo de la empresa activa: un artículo sin su
-            //  categoría en la lista es de otra empresa y no se muestra)
-            visible: (f) => { const c = categoriaPorId(f.categoria_id); return !!c && deLaEmpresa(c); },
-            duplicado: 'Ese artículo ya existe en esa categoría.',
-            textoEliminar: (f) => `¿Eliminar "${f.nombre}" del catálogo? Los pedidos que ya lo usaron no cambian. (Para ocultarlo sin borrarlo, desactívalo.)`,
-            puedeCrear: soloGeneral,
-            puedeEditar: soloGeneral,
-            puedeEliminar: soloGeneral,
-        },
+        // (Categorías de mercadería y pesos promedio se movieron a Configuración -> Artículos:
+        //  js/secciones/configuracion/articulos.js)
 
         // ---------- Tamaños de bulto ----------
         tamanos: {
@@ -606,17 +486,6 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
             db.from('tiendas').select('id, codigo, nombre, region').order('codigo'),
             ...consultas,
         ]);
-
-        // Categorías sin sql/01_actualizacion_base_existente (no existe peso_referencia): se leen igual, sin
-        // esa columna, para que los artículos sigan agrupados por categoría
-        const iCat = nombres.indexOf('categorias');
-        if (resultados[iCat].error && resultados[iCat].error.code === '42703') {
-            const viejo = await db.from('categorias_mercaderia').select('id, actividad, nombre, tipo, icono, activa, orden').order('orden');
-            if (!viejo.error) {
-                resultados[iCat] = viejo;
-                aviso.mostrar('Falta ejecutar sql/01_actualizacion_base_existente.sql en Supabase (categorías de encomiendas, bultos y documentos).', 'error');
-            }
-        }
 
         // Una lista cuyo SQL aún no se ejecutó en esta base (ver "sql" del catálogo):
         // solo su tarjeta avisa, el resto funciona

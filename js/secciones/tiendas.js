@@ -99,8 +99,9 @@ registrarSeccion('tiendas', (zona) => {
     // ---------- Permisos (js/sesion.js) ----------
     const admin = esAdministrador();             // crear, modificar todo, eliminar
     const g1 = esAdminG1();                      // crear y modificar datos
-    const puedeCrear = admin || g1;
-    const puedeModificar = admin || g1;
+    // Por rol, salvo que a ESTE usuario se le quite o se le dé (Usuarios -> "Módulos y funciones", js/sesion.js)
+    const puedeCrear = puedeHacer('tiendas.gestionar', admin || g1);
+    const puedeModificar = puedeCrear;
     const regionFija = esAdminG2() ? regionActual() : null; // Admin G2: solo su región
     const tiendaFija = esAdminG3() ? tiendaActual() : null; // Admin G3: solo su tienda
 
@@ -387,7 +388,7 @@ registrarSeccion('tiendas', (zona) => {
             campos.codigo.value    = tienda.codigo || '';
             campos.nombre.value    = tienda.nombre || '';
             campos.direccion.value = tienda.direccion || '';
-            campos.telefono.value  = tienda.telefono || '';
+            ponerDato(campos.telefono, tienda.telefono);
             campos.estado.value    = tienda.estado || 'activa';
             campos.usaRutas.checked = tienda.usa_rutas !== false;
         } else {
@@ -432,13 +433,15 @@ registrarSeccion('tiendas', (zona) => {
             return fallo('El código: letras, números y guion (hasta 20), sin espacios. Ej. SUC-01.', campos.codigo);
         }
         if (!nombre) return fallo('Escribe el nombre de la tienda.', campos.nombre);
+        const malTelefono = validarDato('telefono', campos.telefono.value); // formato de Costa Rica (js/componentes.js)
+        if (malTelefono) return fallo(malTelefono, campos.telefono);
 
         const datos = {
             codigo,
             region: campos.region.value || null, // opcional (sql/01 bloque 31)
             nombre,
             direccion: campos.direccion.value.trim() || null,
-            telefono: campos.telefono.value.trim() || null,
+            telefono: datoConFormato('telefono', campos.telefono.value),
             estado: campos.estado.value,
         };
         if (tieneUsaRutas) datos.usa_rutas = campos.usaRutas.checked;

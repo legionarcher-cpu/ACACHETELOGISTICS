@@ -157,7 +157,7 @@ registrarSeccion('cotizador', (zona) => {
         const notas = [];
         if (!actividad) notas.push('La actividad Encomiendas no existe en la base de datos.');
         else if (actividad.activa === false) notas.push('Encomiendas está desactivada en Configuración → Actividades: la cotización es solo de referencia.');
-        if (!categorias.length) notas.push('Encomiendas no tiene categorías activas (Configuración → Pedidos → Categorías de mercadería); se cotiza por bulto.');
+        if (!categorias.length) notas.push('Encomiendas no tiene categorías activas (Configuración → Artículos → Categorías); se cotiza por bulto.');
         $('#cotNota').textContent = notas.join(' ');
         $('#cotNota').hidden = !notas.length;
 

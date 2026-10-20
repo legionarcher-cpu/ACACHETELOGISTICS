@@ -215,18 +215,27 @@ registrarSeccion('pedidos', (zona) => {
     const esPiloto = rolActual() === 'piloto';
     const esEmpleado = rolActual() === 'empleado';
     const tiendaPropia = tiendaActual();            // G3, Empleado y Piloto
-    const puedeGestionar = !esPiloto;               // registrar pedidos y ver su QR
-    const puedeAsignar = esGeneral || !!regionG2;   // piloto, ruta y horario (fecha): G2 o superior
-    const puedeSolicitar = esAdminG3() || esEmpleado; // G3 y Empleado solo SOLICITAN la reasignación
-    const puedeCancelar = puedeGestionar && !esEmpleado; // el Empleado no cancela
-    // Alistar, marcar listo para despachar (con su slot) y escanear el QR del piloto:
-    // Empleado, Admin G3 y superiores (todos menos el piloto)
-    const puedeDespachar = puedeGestionar;
-    // El horario del piloto (marca) solo lo ven el piloto y Admin G2 en adelante
-    const verMarca = esPiloto || puedeAsignar;
-    // Solicitudes de envío de los clientes ("Mis envíos"): las aprueba o rechaza el Admin G3
-    // de la tienda o superior, si el plan de la empresa las incluye (sql/01 bloque 23)
-    const puedeAprobarSol = (esGeneral || !!regionG2 || esAdminG3())
+    // Cada regla: lo que hace el ROL (el 2.º dato de puedeHacer), salvo que a ESE usuario se
+    // le haya quitado o dado en Usuarios -> "Módulos y funciones" (js/sesion.js). Ej.: un
+    // Empleado de bodega alista y despacha sin registrar; uno de ventas, al revés.
+    // El piloto no hace nada de esto (sus acciones van por su rol).
+    const puedeGestionar = !esPiloto;               // ver el QR y las solicitudes del pedido
+    const funcion = (clave, porRol) => puedeGestionar && puedeHacer(clave, porRol);
+    const puedeRegistrar = funcion('pedidos.crear', true);
+    const asignaPorRol = esGeneral || !!regionG2;   // piloto, ruta y horario (fecha): G2 o superior
+    const puedeAsignar = funcion('pedidos.asignar', asignaPorRol);
+    // G3 y Empleado solo SOLICITAN la reasignación (quien puede asignar no la necesita)
+    const puedeSolicitar = !puedeAsignar && funcion('pedidos.solicitar', esAdminG3() || esEmpleado);
+    const puedeCancelar = funcion('pedidos.cancelar', !esEmpleado); // por rol, el Empleado no cancela
+    const puedeRecibirBodega = funcion('pedidos.bodega', true);
+    // Alistar / marcar listo para despachar (con su slot) y escanear el QR del piloto
+    const puedeAlistar = funcion('pedidos.alistar', true);
+    const puedeDespachar = funcion('pedidos.despachar', true);
+    // El horario del piloto (marca) solo lo ven el piloto y quien asigna
+    const verMarca = esPiloto || asignaPorRol || puedeAsignar;
+    // Solicitudes de envío de los clientes ("Mis envíos"): por rol el Admin G3 de la tienda o
+    // superior, si el plan de la empresa las incluye (sql/01 bloque 23)
+    const puedeAprobarSol = funcion('pedidos.solicitudes', esGeneral || !!regionG2 || esAdminG3())
         && (typeof funcionHabilitada !== 'function' || funcionHabilitada('envios_clientes'));
 
     // ==================================================
@@ -622,7 +631,7 @@ registrarSeccion('pedidos', (zona) => {
             actividadLista, alCambiarActividadLista);
         $('#pedPestanas').hidden = actividades.length <= 1;
 
-        $('#pedNuevo').hidden = !puedeGestionar;
+        $('#pedNuevo').hidden = !puedeRegistrar;
 
         // Cuadros del resumen
         const resumen = $('#pedResumen');
@@ -1371,7 +1380,7 @@ registrarSeccion('pedidos', (zona) => {
             label.append(casilla, icono, ` ${c.nombre}`);
             cajaCategorias.appendChild(label);
         });
-        if (!lista.length) cajaCategorias.textContent = 'Esta actividad no tiene categorías activas (Configuración → Pedidos → Categorías de mercadería).';
+        if (!lista.length) cajaCategorias.textContent = 'Esta actividad no tiene categorías activas (Configuración → Artículos → Categorías).';
     }
 
     // ---------- Tienda: actividades, clientes, pilotos y marcas ----------
@@ -1478,7 +1487,9 @@ registrarSeccion('pedidos', (zona) => {
     // ---------- Buscar cliente (por TELÉFONO o CORREO) ----------
     // El teléfono y el correo son la clave del cliente. Se busca en la base (no se cargan
     // todos los clientes) entre los clientes APROBADOS de la tienda elegida:
-    //   - con letras o "@" -> por correo ("ana@", "ana@correo.com")
+    //   - con "@"          -> por correo ("ana@", "ana@correo.com")
+    //   - con letras       -> por nombre, razón social de la empresa, cédula o inicio del correo
+    //                         (columna "busqueda", sin tildes; sql/01 bloques 11 y 43)
     //   - solo números     -> por teléfono, sin importar guiones o espacios ("8888-1234")
     // Si el teléfono (8+ dígitos) o el correo coinciden COMPLETOS con un solo cliente, se
     // elige solo y se llenan sus datos. Si coinciden con varios (ej. un teléfono de familia)
@@ -1494,15 +1505,22 @@ registrarSeccion('pedidos', (zona) => {
     let esperaCli = null;
     let turnoCli = 0;
 
-    const nombreCliente = (c) => [c.nombre, c.apellido1, c.apellido2].filter(Boolean).join(' ');
-    const inicialesCliente = (c) => `${(c.nombre || '?')[0]}${(c.apellido1 || '')[0] || ''}`.toUpperCase();
+    // Empresa (sql/01 bloque 43): "Razón social (contacto)"; persona: "Nombre Apellidos"
+    const nombrePersonaCli = (c) => [c.nombre, c.apellido1, c.apellido2].filter((x) => x && x !== '-').join(' ');
+    const nombreCliente = (c) => (c.tipo === 'empresa' && c.razon_social
+        ? `${c.razon_social}${nombrePersonaCli(c) ? ` (${nombrePersonaCli(c)})` : ''}`
+        : nombrePersonaCli(c));
+    const inicialesCliente = (c) => (c.tipo === 'empresa' && c.razon_social
+        ? c.razon_social.split(/\s+/).slice(0, 2).map((p) => p[0] || '').join('')
+        : `${(c.nombre || '?')[0]}${(c.apellido1 || '')[0] || ''}`).toUpperCase();
 
-    // ¿Escribió un correo (letras o @) o un teléfono (solo números)? -> { modo, valor }
+    // ¿Escribió un correo (con @), un nombre (letras: nombre, razón social, cédula o el
+    // inicio del correo) o un teléfono (solo números)? -> { modo, valor }
     function claveCliente(texto) {
         const t = texto.trim();
-        return /[a-z@]/i.test(t)
-            ? { modo: 'correo', valor: t.toLowerCase() }
-            : { modo: 'telefono', valor: t.replace(/\D/g, '') };
+        if (t.includes('@')) return { modo: 'correo', valor: t.toLowerCase() };
+        if (/[a-záéíóúüñ]/i.test(t)) return { modo: 'texto', valor: textoParaBuscar(t).replace(/\s+/g, ' ') };
+        return { modo: 'telefono', valor: t.replace(/\D/g, '') };
     }
 
     // Mismo teléfono completo (8+ dígitos). Acepta el código de país de más o de menos (506)
@@ -1517,15 +1535,17 @@ registrarSeccion('pedidos', (zona) => {
         const { modo, valor } = claveCliente(texto);
         const patron = `%${valor.replace(/[%_\\]/g, '\\$&')}%`;
         let q = db.from('clientes')
-            .select('id, nombre, apellido1, apellido2, telefono, correo, direccion, ubicacion, clientes_tiendas!inner(tienda_id)')
+            // "*": trae tipo y razón social si la base ya tiene el bloque 43 (y funciona sin él)
+            .select('*, clientes_tiendas!inner(tienda_id)')
             .eq('clientes_tiendas.tienda_id', tiendaElegida()).eq('aprobado', true);
         // "busqueda" lleva el teléfono solo en dígitos (sql/01 bloque 11)
         q = modo === 'correo' ? q.ilike('correo', patron) : q.ilike('busqueda', patron);
         const { data, error } = await q.order('nombre').order('apellido1').limit(CLI_MAXIMO + 1);
         if (error) throw error;
 
-        const exacto = (c) => (modo === 'correo'
-            ? (c.correo || '').toLowerCase() === valor
+        // Por nombre no hay coincidencia "completa": siempre se elige de la lista
+        const exacto = (c) => (modo === 'correo' ? (c.correo || '').toLowerCase() === valor
+            : modo === 'texto' ? false
             : mismoTelefono(c.telefono, valor));
         const exactos = data.filter(exacto);
         return { modo, valor, exactos, lista: data.sort((a, b) => exacto(b) - exacto(a)) };
@@ -1608,7 +1628,7 @@ registrarSeccion('pedidos', (zona) => {
         clienteId = c.id;
         clienteElegido = c;
         $('#pedClienteNombre').value = nombreCliente(c);
-        $('#pedClienteTelefono').value = c.telefono;
+        ponerDato($('#pedClienteTelefono'), c.telefono);
         const direccionVacia = !inputDireccion.value;
         if (c.direccion && direccionVacia) inputDireccion.value = c.direccion;
         // Punto B: la ubicación guardada del cliente (coordenadas o enlace de mapas) o su dirección
@@ -1646,7 +1666,7 @@ registrarSeccion('pedidos', (zona) => {
 
     // Qué hacer con lo encontrado (ver "Buscar cliente")
     function resolverBusquedaCli({ modo, valor, exactos, lista }) {
-        const dato = modo === 'correo' ? 'correo' : 'teléfono';
+        const dato = modo === 'correo' ? 'correo' : modo === 'texto' ? 'nombre' : 'teléfono';
         // Coincidencia completa con un solo cliente: se elige solo y se llenan sus datos
         if (exactos.length === 1) {
             elegirCliente(exactos[0]);
@@ -1659,13 +1679,14 @@ registrarSeccion('pedidos', (zona) => {
         if (lista.length) {
             pintarResultadosCli(lista.slice(0, CLI_MAXIMO), lista.length > CLI_MAXIMO
                 ? `Hay más de ${CLI_MAXIMO} coincidencias: sigue escribiendo el ${dato}.`
+                : modo === 'texto' ? 'Toca el cliente correcto.'
                 : `Escribe el ${dato} completo para llenar los datos, o toca el cliente.`);
             return;
         }
         // Sin cliente: el teléfono completo ya queda escrito en el formulario
         const inputTel = $('#pedClienteTelefono');
         const telefonoCompleto = modo === 'telefono' && valor.length >= 8;
-        if (telefonoCompleto && !inputTel.value.trim()) inputTel.value = inputBuscarCli.value.trim();
+        if (telefonoCompleto && !inputTel.value.trim()) ponerDato(inputTel, inputBuscarCli.value.trim());
         pintarResultadosCli([], telefonoCompleto
             ? 'No hay un cliente con ese teléfono en esta tienda: escribe el nombre abajo (el teléfono ya quedó puesto).'
             : `No hay un cliente con ese ${dato} en esta tienda. Revisa lo escrito o llena los datos abajo.`);
@@ -1679,7 +1700,7 @@ registrarSeccion('pedidos', (zona) => {
         if (valor.length < 3) {
             turnoCli++;
             cerrarResultadosCli();
-            mostrarEstadoCli(texto && modo === 'telefono' && !valor ? 'Escribe un teléfono (números) o un correo.' : '');
+            mostrarEstadoCli(texto && modo === 'telefono' && !valor ? 'Escribe un teléfono (números), un correo o un nombre.' : '');
             return;
         }
         esperaCli = setTimeout(async () => {
@@ -2185,10 +2206,14 @@ registrarSeccion('pedidos', (zona) => {
             if (!/^[A-Za-z0-9._\-/]+$/.test(cod)) return fallo('El número de pedido solo puede tener letras, números, punto, guion y barra.', $('#pedCodigo'));
         }
         if (!$('#pedClienteNombre').value.trim()) return fallo('Escribe el nombre del cliente.', $('#pedClienteNombre'));
-        if ($('#pedClienteTelefono').value.replace(/\D/g, '').length < 8) return fallo('Escribe el teléfono del cliente (al menos 8 dígitos).', $('#pedClienteTelefono'));
+        // Teléfonos con el formato de Costa Rica (js/componentes.js)
+        const malTelefono = validarDato('telefono', $('#pedClienteTelefono').value, true);
+        if (malTelefono) return fallo(malTelefono.replace('el teléfono', 'el teléfono del cliente'), $('#pedClienteTelefono'));
         if (!$('#pedDireccion').value.trim()) return fallo('Escribe la dirección de entrega.', $('#pedDireccion'));
         const autorizado = form.querySelector('input[name="pedRecibe"]:checked').value === 'autorizado';
         if (autorizado && !$('#pedRecibeNombre').value.trim()) return fallo('Escribe el nombre de la persona autorizada.', $('#pedRecibeNombre'));
+        const malRecibe = autorizado ? validarDato('telefono', $('#pedRecibeTelefono').value) : '';
+        if (malRecibe) return fallo(malRecibe, $('#pedRecibeTelefono'));
         if (!inputFecha.value) return fallo('Elige la fecha de entrega.', inputFecha);
         // Si la tarifa cobra por km, hace falta la distancia (A y B en el mapa)
         if (cobraKm(c.tarifa) && !rutaForm) {
@@ -2288,7 +2313,7 @@ registrarSeccion('pedidos', (zona) => {
     // con su dirección y su punto de entrega (aprobado: lo registró la tienda).
     // Devuelve el id o null (el pedido se registra igual, sin cliente enlazado).
     async function clienteDesdePedido(tiendaId, rutaId) {
-        const telefono = $('#pedClienteTelefono').value.trim();
+        const telefono = datoConFormato('telefono', $('#pedClienteTelefono').value) || '';
         const digitos = telefono.replace(/\D/g, '');
         if (digitos.length < 8) return null;
         let id = null;
@@ -2454,7 +2479,7 @@ registrarSeccion('pedidos', (zona) => {
         if (cli.data) elegirCliente(cli.data);
         else {
             $('#pedClienteNombre').value = data.cliente_nombre || '';
-            $('#pedClienteTelefono').value = String(data.telefono || '').slice(-8);
+            ponerDato($('#pedClienteTelefono'), String(data.telefono || '').slice(-8));
         }
         aplicarUbicacion(data, false);
         revisarUbicacion();
@@ -2505,7 +2530,7 @@ registrarSeccion('pedidos', (zona) => {
         if (cli.data) elegirCliente(cli.data);
         else {
             $('#pedClienteNombre').value = s.cliente_nombre;
-            $('#pedClienteTelefono').value = s.cliente_telefono;
+            ponerDato($('#pedClienteTelefono'), s.cliente_telefono);
         }
 
         // Quién recibe
@@ -2514,7 +2539,7 @@ registrarSeccion('pedidos', (zona) => {
             otro.checked = true;
             otro.dispatchEvent(new Event('change', { bubbles: true }));
             $('#pedRecibeNombre').value = s.recibe_nombre;
-            $('#pedRecibeTelefono').value = s.recibe_telefono || '';
+            ponerDato($('#pedRecibeTelefono'), s.recibe_telefono);
         }
 
         // Fecha (si ya pasó, hoy) y lo que depende de ella
@@ -2602,7 +2627,7 @@ registrarSeccion('pedidos', (zona) => {
 
     form.addEventListener('submit', async (evento) => {
         evento.preventDefault();
-        if (!puedeGestionar) return;
+        if (!puedeRegistrar) return;
         const c = calcularCobro();
         if (!validarFormulario(c)) return;
 
@@ -2665,13 +2690,13 @@ registrarSeccion('pedidos', (zona) => {
             tienda_id: tiendaId,
             cliente_id: clienteId,
             cliente_nombre: $('#pedClienteNombre').value.trim(),
-            cliente_telefono: $('#pedClienteTelefono').value.trim(),
+            cliente_telefono: datoConFormato('telefono', $('#pedClienteTelefono').value),
             direccion_recoleccion: usa('usa_recoleccion') ? ($('#pedRecoleccion').value.trim() || null) : null,
             direccion_entrega: $('#pedDireccion').value.trim(),
             distancia_km: rutaForm ? rutaForm.km : null,
             recibe_tipo: autorizado ? 'autorizado' : 'cliente',
             recibe_nombre: autorizado ? $('#pedRecibeNombre').value.trim() : null,
-            recibe_telefono: autorizado ? ($('#pedRecibeTelefono').value.trim() || null) : null,
+            recibe_telefono: autorizado ? datoConFormato('telefono', $('#pedRecibeTelefono').value) : null,
             fecha_entrega: inputFecha.value,
             marca_numero: puedeAsignar && selMarca.value ? Number(selMarca.value) : null,
             ...(selSlot.value ? { slot_numero: Number(selSlot.value) } : {}), // slot de despacho (sql/01 bloque 12)
@@ -3324,10 +3349,10 @@ registrarSeccion('pedidos', (zona) => {
     const PED_ESPERAN_AUTORIZACION = ['bodega', 'alistar', 'listo', 'escanear', 'asignar', 'cargar'];
     const PED_ACCIONES = [
         { id: 'qr', texto: 'QR', icono: 'bi-qr-code', clase: 'boton-secundario', siempre: true, quien: () => true, si: (p) => puedeVerQr(p) },
-        { id: 'bodega', texto: 'Recibido en bodega', icono: 'bi-building-check', estados: ['registrado'], quien: () => puedeGestionar,
+        { id: 'bodega', texto: 'Recibido en bodega', icono: 'bi-building-check', estados: ['registrado'], quien: () => puedeRecibirBodega,
           si: (p) => actividadPorCodigo(p.actividad).usa_bodega, nuevo: 'recibido_bodega' },
         // Despacho: Empleado, Admin G3 y superiores
-        { id: 'alistar', texto: 'Alistando', icono: 'bi-box2', estados: PED_POR_ALISTAR, quien: () => puedeDespachar, nuevo: 'alistando',
+        { id: 'alistar', texto: 'Alistando', icono: 'bi-box2', estados: PED_POR_ALISTAR, quien: () => puedeAlistar, nuevo: 'alistando',
           ayuda: 'Empieza a preparar el pedido. Cuando esté listo, márcalo "Listo para despachar".' },
         { id: 'listo', texto: 'Listo para despachar', icono: 'bi-box-seam', estados: ['alistando'], quien: () => puedeDespachar },
         // Flujo anterior: un pedido que quedó "Recibido para ruta" se aprueba escaneando su QR
@@ -4290,7 +4315,8 @@ registrarSeccion('pedidos', (zona) => {
         }
 
         const params = parametrosSeccion(); // js/pagina_inicial.js
-        if (params.get('nuevo') && puedeGestionar) {
+        if (params.get('nuevo') && !puedeRegistrar) aviso.mostrar('No tienes permiso para registrar pedidos.', 'error');
+        if (params.get('nuevo') && puedeRegistrar) {
             await abrirNuevo();
             // Registrar desde una solicitud de un cliente (Admin G3 o superior)
             if (params.get('solicitud') && puedeAprobarSol) await cargarSolicitudEnFormulario(Number(params.get('solicitud')));

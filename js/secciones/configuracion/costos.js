@@ -4,22 +4,26 @@
 
    Lo carga js/secciones/configuracion.js la primera vez que se abre la tarjeta
    "Costos de operación" (todas las empresas si su plan incluye "cfg_costos";
-   Administrador y Admin G1). Tablas: sql/01 bloque 19 (transporte_costos,
-   transporte_config y los datos de costos de vehiculos).
+   Administrador y Admin G1). Tablas: sql/01 bloque 19 (transporte_costos y
+   transporte_config) y bloque 45 (margen_objetivo y trabajos_mes).
 
-   Qué hace (todo es de la empresa activa):
-     1. Resumen: gasto del mes, costo por hora, por km, de 1 km contando el tiempo y
-        costo promedio de cada entrega o viaje (últimos 30 días).
-        Combustible: precio del litro y velocidad promedio (transporte_config).
-     2. Por vehículo: el gasto del mes se DIVIDE entre sus horas y km del mes (estimado)
-        y entre lo que hizo de verdad en 30 días (real).
-     3. Gastos del mes (fijos y variables, de un vehículo o de toda la empresa).
-   Fórmulas: costosPorVehiculo y costoDeViaje (js/viajes-comun.js).
-   "Real" junta:
-     - viajes terminados (vehiculo_id, km y minutos), si la empresa hace viajes;
-     - pedidos entregados: el vehículo es el del piloto (usuarios.vehiculo_id), los km
-       son distancia_km y los minutos los del mapa (detalle.ruta.minutos) o, si no hay,
-       km ÷ velocidad promedio.
+   NO depende de vehículos: todo lo que cuesta operar (salarios, seguros, combustible,
+   mantenimiento…) se escribe como un gasto del mes.
+     1. Cuánto cuesta operar: suma de los gastos del mes ÷ entregas o viajes del mes
+        (los reales de 30 días o el estimado que se escriba) = costo de cada uno.
+        Con los km de los últimos 30 días: costo por km.
+     2. Margen y precio: precio mínimo para cubrir gastos (= costo), precio sugerido con
+        el margen de utilidad deseado (costo ÷ (1 − margen)), ingreso del mes necesario y
+        margen real de 30 días (cobrado − gastado). Se recalcula mientras se escribe.
+     3. Gastos del mes (fijos y variables).
+   Sin el bloque 45 se calcula igual con lo escrito, pero el margen y las entregas al mes
+   no se guardan.
+   "Real" (30 días) junta:
+     - viajes terminados (km y lo cobrado: total), si la empresa hace viajes;
+     - pedidos entregados (km: distancia_km o los del mapa; cobrado: costo_envio, ya con
+       descuento).
+   Los gastos viejos que tenían un vehículo (vehiculo_id) lo conservan: el reporte de
+   Viajes los sigue usando (costosPorVehiculo, js/viajes-comun.js).
    ================================================== */
 
 registrarModuloConfig('costos', (seccion, ctx) => {
@@ -27,23 +31,28 @@ registrarModuloConfig('costos', (seccion, ctx) => {
     const $ = (selector) => zona.querySelector(selector);         // ventanas (fuera del <section>)
     const enSeccion = (selector) => seccion.querySelector(selector);
 
+    const COS_MARGEN_BASE = 20;                                // % de utilidad si la empresa no guardó el suyo
+    const COS_COLUMNAS_45 = ['trabajos_mes', 'margen_objetivo']; // sql/01 bloque 45
+    // Conceptos sugeridos al crear un gasto (más los que ya usa la empresa)
+    const COS_CONCEPTOS = ['Combustible', 'Salario del conductor', 'Cuota del vehículo', 'Seguro', 'Marchamo',
+        'Plan de teléfono', 'Parqueo', 'Mantenimiento', 'Llantas', 'Lavado'];
+
     // ---------- Estado ----------
-    let config = { ...VIA_CONFIG_BASE };
+    let config = {};
     let costos = [];
-    let vehiculos = [];
-    let trabajos30 = [];  // [{ vehiculo_id, estado: 'terminado', km, minutos }] (entregas y viajes)
-    let resumen = { porVehiculo: new Map(), empresa: {} };
+    let trabajos30 = [];  // [{ km, ingreso }] entregas y viajes terminados de los últimos 30 días
     let editandoGasto = null;
-    let editandoVehiculo = null;
     let activo = true;
 
     const faltaSql = (e) => !!e && ['42P01', 'PGRST205', '42703', 'PGRST200'].includes(e.code);
     const dinero = (n) => viaDinero(n);
+    const porcentaje = (n) => `${(Math.round(n * 10) / 10).toLocaleString('es-CR')} %`;
     const tieneViajes = typeof empresaTieneViajes === 'function' && empresaTieneViajes();
     const tienePedidos = typeof empresaTienePedidos !== 'function' || empresaTienePedidos();
     // Cómo se llama cada trabajo en esta empresa
     const [unidad, unidades] = tieneViajes && tienePedidos ? ['entrega o viaje', 'entregas y viajes']
         : tieneViajes ? ['viaje', 'viajes'] : ['entrega', 'entregas'];
+    const unidadCorta = unidad.split(' ')[0];
 
     function errorBase(error, accion) {
         console.error(`Error al ${accion}:`, error);
@@ -54,192 +63,206 @@ registrarModuloConfig('costos', (seccion, ctx) => {
     // CARGAR
     // ==================================================
 
-    // Entregas y viajes de los últimos 30 días, cada uno con su vehículo, km y minutos
-    async function cargarTrabajos30(velocidad) {
+    // Entregas y viajes de los últimos 30 días: km y lo cobrado de cada uno
+    async function cargarTrabajos30() {
         const hace30 = new Date(Date.now() - 30 * 86400000);
         const consultas = [];
         if (tieneViajes) {
-            consultas.push(db.from('viajes').select('vehiculo_id, estado, km, minutos')
+            consultas.push(db.from('viajes').select('km, total')
                 .eq('estado', 'terminado').gte('inicio', hace30.toISOString())
-                .then(({ data, error }) => (error ? [] : data)));
+                .then(({ data, error }) => (error ? [] : data.map((v) => ({ km: Number(v.km || 0), ingreso: Number(v.total || 0) })))));
         }
         if (tienePedidos) {
-            consultas.push(Promise.all([
-                db.from('pedidos').select('piloto_id, distancia_km, ruta:detalle->ruta')
-                    .in('estado', ['entregado', 'entregado_incidencia']).gte('fecha_entrega', viaFechaISO(hace30)),
-                db.from('usuarios').select('id, vehiculo_id').eq('rol', 'piloto').not('vehiculo_id', 'is', null),
-            ]).then(([pe, pi]) => {
-                if (pe.error) return [];
-                const vehiculoDe = new Map((pi.error ? [] : pi.data).map((p) => [p.id, p.vehiculo_id]));
-                return pe.data.map((p) => {
-                    const ruta = p.ruta || {};
-                    const km = Number(p.distancia_km ?? ruta.km ?? 0);
-                    const minutos = ruta.minutos != null ? Number(ruta.minutos) : (km / Math.max(1, velocidad)) * 60;
-                    return { vehiculo_id: vehiculoDe.get(p.piloto_id) || null, estado: 'terminado', km, minutos };
-                });
-            }));
+            consultas.push(db.from('pedidos').select('distancia_km, costo_envio, ruta:detalle->ruta')
+                .in('estado', ['entregado', 'entregado_incidencia']).gte('fecha_entrega', viaFechaISO(hace30))
+                .then(({ data, error }) => (error ? [] : data.map((p) => ({
+                    km: Number(p.distancia_km ?? (p.ruta || {}).km ?? 0),
+                    ingreso: Number(p.costo_envio || 0),
+                })))));
         }
         return (await Promise.all(consultas)).flat();
     }
 
     async function cargar() {
-        const [cfg, co, ve] = await Promise.all([
+        const [cfg, co] = await Promise.all([
             db.from('transporte_config').select('*').maybeSingle(),
             db.from('transporte_costos').select('*').order('concepto'),
-            db.from('vehiculos').select('id, placa, marca, estado, horas_mes, km_mes, km_por_litro').order('placa'),
         ]);
         if (!activo) return;
-        const error = cfg.error || co.error || ve.error;
+        const error = cfg.error || co.error;
         enSeccion('#cfgCosFaltaSql').hidden = !faltaSql(error);
         enSeccion('#cfgCosContenido').hidden = faltaSql(error);
         if (error) {
             if (!faltaSql(error)) errorBase(error, 'cargar los costos');
             return;
         }
-        config = { ...VIA_CONFIG_BASE, ...(cfg.data || {}) };
+        config = cfg.data || {};
         costos = co.data;
-        vehiculos = ve.data;
-        trabajos30 = await cargarTrabajos30(Number(config.velocidad_kmh) || 30);
+        trabajos30 = await cargarTrabajos30();
         if (!activo) return;
-        resumen = costosPorVehiculo(vehiculos, costos, config, trabajos30);
-        pintarCombustible();
-        dibujarResumen();
-        dibujarVehiculos();
+        pintarDatos();
+        dibujarCalculo();
         dibujarGastos();
     }
 
     // ==================================================
-    // 1. RESUMEN Y COMBUSTIBLE
+    // 1. CUÁNTO CUESTA OPERAR  y  2. MARGEN Y PRECIO
     // ==================================================
 
-    // Costo promedio de cada entrega o viaje de los últimos 30 días. Sin vehículo
-    // (piloto sin vehículo asignado) se usan los costos de toda la empresa.
-    function costoPromedioTrabajo() {
-        if (!trabajos30.length) return null;
-        const e = resumen.empresa;
-        const total = trabajos30.reduce((s, t) => s + costoDeViaje(t,
-            resumen.porVehiculo.get(t.vehiculo_id) || { costoHora: e.costoHora, costoKm: e.costoKm }), 0);
-        return total / trabajos30.length;
+    // Número escrito en un campo (vacío o inválido = null). Se lee lo escrito aunque no
+    // se haya guardado: así el cálculo cambia mientras se escribe.
+    const leerNumero = (selector) => {
+        const texto = enSeccion(selector).value.trim();
+        const n = Number(texto);
+        return texto === '' || !Number.isFinite(n) ? null : n;
+    };
+
+    function calcular() {
+        const sumaTipo = (tipo) => costos.filter((c) => c.tipo === tipo).reduce((s, c) => s + Number(c.monto_mes || 0), 0);
+        const fijos = sumaTipo('fijo');
+        const variables = sumaTipo('variable');
+        const gastoMes = fijos + variables;
+
+        // Entregas del mes: el estimado escrito o las reales de 30 días.
+        // Los km del mes salen del promedio real por entrega.
+        const reales = trabajos30.length;
+        const estimado = leerNumero('#cfgCosTrabajosMes');
+        const trabajos = estimado > 0 ? Math.round(estimado) : reales;
+        const kmReal = trabajos30.reduce((s, t) => s + t.km, 0);
+        const kmMes = reales ? (kmReal / reales) * trabajos : 0;
+        const costoTrabajo = trabajos > 0 ? gastoMes / trabajos : null;
+
+        const margenPct = Math.min(90, Math.max(0, leerNumero('#cfgCosMargen') ?? COS_MARGEN_BASE));
+        const m = margenPct / 100;
+        const ingreso30 = trabajos30.reduce((s, t) => s + t.ingreso, 0);
+
+        return {
+            fijos, variables, gastoMes, reales, trabajos, estimado: estimado > 0, kmMes, costoTrabajo,
+            costoKm: kmMes > 0 ? gastoMes / kmMes : null,
+            margenPct, recargoPct: (m / (1 - m)) * 100,
+            precioSugerido: costoTrabajo != null ? costoTrabajo / (1 - m) : null,
+            ingresoNecesario: gastoMes / (1 - m),
+            // Real de 30 días: lo cobrado contra los gastos del mes
+            ingreso30, precioPromedio: reales && ingreso30 > 0 ? ingreso30 / reales : null,
+        };
     }
 
-    function dibujarResumen() {
-        const e = resumen.empresa;
-        const cuadro = (titulo, valor, detalle) => {
-            const d = viaElemento('div', 'resumen-item via-kpi');
-            d.append(viaElemento('span', 'resumen-texto', titulo), viaElemento('span', 'resumen-numero', valor), viaElemento('span', 'via-kpi-detalle', detalle));
-            return d;
-        };
-        const promedio = costoPromedioTrabajo();
+    const cuadro = (titulo, valor, detalle, clase = '') => {
+        const d = viaElemento('div', `resumen-item via-kpi ${clase}`.trim());
+        d.append(viaElemento('span', 'resumen-texto', titulo), viaElemento('span', 'resumen-numero', valor), viaElemento('span', 'via-kpi-detalle', detalle));
+        return d;
+    };
+
+    function dibujarResumen(c) {
+        const deDonde = c.estimado ? 'estimado' : 'últimos 30 días';
         enSeccion('#cfgCosResumen').replaceChildren(
-            cuadro('Gasto del mes', dinero((e.fijos || 0) + (e.variables || 0)), `Fijo ${dinero(e.fijos)} · variable ${dinero(e.variables)}`),
-            cuadro('Costo por hora', e.costoHora ? dinero(e.costoHora) : '—', e.costoHora ? 'Gasto fijo ÷ horas del mes' : 'Falta: horas al mes de los vehículos'),
-            cuadro('Costo por km', e.costoKm ? dinero(e.costoKm) : '—', 'Variable ÷ km del mes + combustible'),
-            cuadro('Costo de 1 km (con el tiempo)', e.costoKmTotal ? dinero(e.costoKmTotal) : '—', `A ${config.velocidad_kmh} km/h. Compárelo con el precio por km`),
-            cuadro(`Costo por ${unidad}`, promedio ? dinero(promedio) : '—',
-                trabajos30.length ? `Promedio de ${plural(trabajos30.length, unidad.split(' ')[0], unidades)} (30 días)` : `Sin ${unidades} en los últimos 30 días`),
+            cuadro('Gasto del mes', dinero(c.gastoMes),
+                costos.length ? `Fijo ${dinero(c.fijos)} · variable ${dinero(c.variables)}` : 'Agrega los gastos abajo'),
+            cuadro(`${unidades.charAt(0).toUpperCase()}${unidades.slice(1)} al mes`, c.trabajos ? c.trabajos.toLocaleString('es-CR') : '—',
+                c.trabajos ? deDonde : `Sin ${unidades} en 30 días: escribe cuántas haces al mes`),
+            cuadro(`Costo por ${unidad}`, c.costoTrabajo != null ? dinero(c.costoTrabajo) : '—',
+                c.costoTrabajo != null ? `${dinero(c.gastoMes)} ÷ ${plural(c.trabajos, unidadCorta, unidades)}` : 'Falta saber cuántas haces al mes'),
+            cuadro('Costo por km', c.costoKm != null ? dinero(c.costoKm) : '—',
+                c.kmMes ? `${Math.round(c.kmMes).toLocaleString('es-CR')} km al mes` : 'Sin km registrados en 30 días'),
         );
     }
 
-    const camposCombustible = () => [...enSeccion('#cfgCosCombustible').querySelectorAll('[data-cfg]')];
+    function dibujarMargen(c) {
+        const hay = c.costoTrabajo != null;
+        const utilidad30 = c.ingreso30 - c.gastoMes;
+        const margen30 = c.ingreso30 > 0 ? (utilidad30 / c.ingreso30) * 100 : null;
+        enSeccion('#cfgCosMargenResumen').replaceChildren(
+            cuadro('Precio mínimo (cubrir gastos)', hay ? dinero(c.costoTrabajo) : '—',
+                hay ? `Por ${unidad}: utilidad ₡0` : `Falta saber cuántas ${unidades} haces al mes`),
+            cuadro(`Precio sugerido (${porcentaje(c.margenPct)} de margen)`, hay ? dinero(c.precioSugerido) : '—',
+                hay ? `Utilidad ${dinero(c.precioSugerido - c.costoTrabajo)} por ${unidad} · costo + ${porcentaje(c.recargoPct)}` : '—'),
+            cuadro('Ingreso al mes para cubrir gastos', dinero(c.gastoMes),
+                `Con ${porcentaje(c.margenPct)} de margen: ${dinero(c.ingresoNecesario)} (utilidad ${dinero(c.ingresoNecesario - c.gastoMes)})`),
+            cuadro('Margen real (30 días)', margen30 != null ? porcentaje(margen30) : '—',
+                margen30 != null
+                    ? `Cobrado ${dinero(c.ingreso30)} − gastos ${dinero(c.gastoMes)} = ${utilidad30 >= 0 ? 'utilidad' : 'pérdida'} ${dinero(Math.abs(utilidad30))}`
+                    : `Sin cobros de ${unidades} en los últimos 30 días`,
+                margen30 == null ? '' : margen30 >= 0 ? 'cfg-cos-gana' : 'cfg-cos-pierde'),
+        );
 
-    function pintarCombustible() {
-        camposCombustible().forEach((c) => { c.value = config[c.dataset.cfg] ?? ''; });
+        // Qué tan lejos está el precio de hoy
+        const nota = [];
+        if (c.precioPromedio && hay) {
+            nota.push(`Hoy cobras en promedio ${dinero(c.precioPromedio)} por ${unidad}.`);
+            nota.push(c.precioPromedio < c.costoTrabajo
+                ? `Está por debajo del costo: pierdes ${dinero(c.costoTrabajo - c.precioPromedio)} en cada una.`
+                : c.precioPromedio < c.precioSugerido
+                    ? `Cubre los gastos, pero para llegar al ${porcentaje(c.margenPct)} de margen faltan ${dinero(c.precioSugerido - c.precioPromedio)} por ${unidad}.`
+                    : 'Ya llega al margen deseado.');
+            nota.push(`A ese precio necesitas ${Math.ceil(c.gastoMes / c.precioPromedio)} al mes para cubrir gastos y `
+                + `${Math.ceil(c.ingresoNecesario / c.precioPromedio)} para el ${porcentaje(c.margenPct)} de margen.`);
+        }
+        nota.push(`Cobrado = envío de los pedidos entregados${tieneViajes ? ' y total de los viajes terminados' : ''}.`);
+        enSeccion('#cfgCosMargenNota').textContent = nota.join(' ');
     }
 
-    enSeccion('#cfgCosCombustible').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const datos = {};
-        for (const c of camposCombustible()) {
-            const n = Number(c.value);
-            if (c.value.trim() === '' || !Number.isFinite(n) || n < 0) {
-                aviso.mostrar('Usa números mayores o iguales a 0.', 'error');
-                c.focus();
-                return;
-            }
-            datos[c.dataset.cfg] = n;
-        }
-        if (datos.velocidad_kmh !== undefined && datos.velocidad_kmh <= 0) { aviso.mostrar('La velocidad debe ser mayor que 0.', 'error'); return; }
+    function dibujarCalculo() {
+        const c = calcular();
+        dibujarResumen(c);
+        dibujarMargen(c);
+    }
+
+    function pintarDatos() {
+        enSeccion('#cfgCosTrabajosMes').value = config.trabajos_mes ?? '';
+        enSeccion('#cfgCosMargen').value = config.margen_objetivo ?? COS_MARGEN_BASE;
+    }
+
+    // Mientras se escribe, el cálculo cambia (sin guardar)
+    enSeccion('#cfgCosTrabajosMes').addEventListener('input', dibujarCalculo);
+    enSeccion('#cfgCosMargen').addEventListener('input', dibujarCalculo);
+
+    // Guarda en transporte_config. Sin el bloque 45 avisa (el cálculo de la pantalla sí usa lo escrito).
+    async function guardarConfig(datos, mensaje) {
         datos.actualizado_en = new Date().toISOString();
         const { error } = await db.from('transporte_config').upsert(datos, { onConflict: 'empresa_id' });
-        if (error) { errorBase(error, 'guardar el combustible'); return; }
-        aviso.mostrar('Combustible y velocidad guardados.');
+        if (error && ['42703', 'PGRST204'].includes(error.code) && Object.keys(datos).some((k) => COS_COLUMNAS_45.includes(k))) {
+            aviso.mostrar('Para guardar el margen y las entregas al mes falta ejecutar '
+                + 'sql/01_actualizacion_base_existente.sql (bloque 45). El cálculo de la pantalla sí los usa.', 'error');
+            return;
+        }
+        if (error) { errorBase(error, 'guardar los datos del cálculo'); return; }
+        aviso.mostrar(mensaje);
         cargar();
-    });
-
-    // ==================================================
-    // 2. POR VEHÍCULO
-    // ==================================================
-
-    function dibujarVehiculos() {
-        const cuerpo = enSeccion('#cfgCosVehiculos');
-        cuerpo.replaceChildren();
-        if (!vehiculos.length) cuerpo.appendChild(crearFilaVacia('No hay vehículos (Configuración → Vehículos).', 8));
-        vehiculos.forEach((v) => {
-            const c = resumen.porVehiculo.get(v.id) || {};
-            const tr = document.createElement('tr');
-            tr.appendChild(crearCelda(`${v.placa} · ${v.marca}`));
-            tr.appendChild(crearCelda(dinero(c.fijos)));
-            tr.appendChild(crearCelda(dinero(c.variables)));
-            tr.appendChild(crearCelda([v.horas_mes ? `${v.horas_mes} h` : 'sin horas', v.km_mes ? `${v.km_mes} km` : 'sin km',
-                v.km_por_litro ? `${v.km_por_litro} km/l` : null].filter(Boolean).join(' · ')));
-            tr.appendChild(crearCelda(c.costoHora != null ? dinero(c.costoHora) : '—'));
-            tr.appendChild(crearCelda(c.costoKm ? dinero(c.costoKm) : '—'));
-            tr.appendChild(crearCelda(c.viajesReal
-                ? `${plural(c.viajesReal, unidad.split(' ')[0], unidades)}: ${Math.round(c.horasReal * 10) / 10} h, ${Math.round(c.kmReal)} km → `
-                    + `${c.costoHoraReal != null ? `${dinero(c.costoHoraReal)}/h` : '—'} · ${c.costoKmReal != null ? `${dinero(c.costoKmReal)}/km` : '—'}`
-                : `Sin ${unidades}`));
-            tr.appendChild(crearCeldaAcciones(crearBotonIcono('editar-vehiculo', v.id, 'bi-pencil', 'Horas, km y rendimiento')));
-            cuerpo.appendChild(tr);
-        });
     }
 
-    enSeccion('#cfgCosVehiculos').addEventListener('click', (e) => {
-        const b = e.target.closest('button[data-accion="editar-vehiculo"]');
-        if (!b) return;
-        const v = vehiculos.find((x) => x.id === Number(b.dataset.id));
-        if (!v) return;
-        editandoVehiculo = v;
-        $('#cfgCosVehTitulo').textContent = `Costos de ${v.placa}`;
-        $('#cfgCosVeError').textContent = '';
-        $('#cfgCosVeHoras').value = v.horas_mes ?? '';
-        $('#cfgCosVeKm').value = v.km_mes ?? '';
-        $('#cfgCosVeLitro').value = v.km_por_litro ?? '';
-        $('#cfgCosVehDialogo').showModal();
+    enSeccion('#cfgCosDatos').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const trabajos = leerNumero('#cfgCosTrabajosMes');
+        if (enSeccion('#cfgCosTrabajosMes').value.trim() !== '' && (trabajos == null || trabajos < 0)) {
+            aviso.mostrar('Las entregas al mes: un número de 0 o más (o vacío para usar las reales).', 'error');
+            enSeccion('#cfgCosTrabajosMes').focus();
+            return;
+        }
+        guardarConfig({ trabajos_mes: trabajos ? Math.round(trabajos) : null }, `${unidades.charAt(0).toUpperCase()}${unidades.slice(1)} al mes guardadas.`);
     });
 
-    $('#cfgCosVehForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        if (!editandoVehiculo) return;
-        const leer = (s) => { const t = $(s).value.trim(); return t === '' ? null : Number(t); };
-        const datos = { horas_mes: leer('#cfgCosVeHoras'), km_mes: leer('#cfgCosVeKm'), km_por_litro: leer('#cfgCosVeLitro') };
-        if (Object.values(datos).some((n) => n !== null && (!Number.isFinite(n) || n < 0))) { $('#cfgCosVeError').textContent = 'Usa números mayores o iguales a 0.'; return; }
-        if (datos.km_por_litro === 0) datos.km_por_litro = null;
-        const { error } = await db.from('vehiculos').update(datos).eq('id', editandoVehiculo.id);
-        if (error) { $('#cfgCosVeError').textContent = viaErrorTexto(error, 'guardar los datos del vehículo'); return; }
-        $('#cfgCosVehDialogo').close();
-        aviso.mostrar(`Datos de ${editandoVehiculo.placa} guardados.`);
-        cargar();
+    enSeccion('#cfgCosMargenGuardar').addEventListener('click', () => {
+        const margen = leerNumero('#cfgCosMargen');
+        if (margen == null || margen < 0 || margen > 90) {
+            aviso.mostrar('El margen va de 0 a 90 %.', 'error');
+            enSeccion('#cfgCosMargen').focus();
+            return;
+        }
+        guardarConfig({ margen_objetivo: margen }, `Margen de ${porcentaje(margen)} guardado.`);
     });
-    $('#cfgCosVeCancelar').addEventListener('click', () => $('#cfgCosVehDialogo').close());
 
     // ==================================================
     // 3. GASTOS DEL MES
     // ==================================================
 
-    const textoVehiculo = (id) => {
-        const v = vehiculos.find((x) => x.id === id);
-        return v ? `${v.placa} · ${v.marca}` : 'Toda la empresa';
-    };
-
     function dibujarGastos() {
         const cuerpo = enSeccion('#cfgCosGastos');
         cuerpo.replaceChildren();
-        if (!costos.length) cuerpo.appendChild(crearFilaVacia('Sin gastos. Usa "Nuevo gasto" (ej. Seguro, fijo, ₡45000 al mes).', 5));
+        if (!costos.length) cuerpo.appendChild(crearFilaVacia('Sin gastos. Usa "Nuevo gasto" (ej. Combustible, variable, ₡300000 al mes).', 4));
         costos.forEach((g) => {
             const tr = document.createElement('tr');
             tr.appendChild(crearCelda(g.concepto));
             tr.appendChild(g.tipo === 'fijo' ? crearCeldaEtiqueta('Fijo', 'etiqueta-azul') : crearCeldaEtiqueta('Variable', 'etiqueta-naranja'));
-            tr.appendChild(crearCelda(textoVehiculo(g.vehiculo_id)));
             tr.appendChild(crearCelda(dinero(g.monto_mes)));
             tr.appendChild(crearCeldaAcciones(
                 crearBotonIcono('editar-gasto', g.id, 'bi-pencil', 'Modificar gasto'),
@@ -248,31 +271,40 @@ registrarModuloConfig('costos', (seccion, ctx) => {
         });
     }
 
+    // Concepto: lista con los sugeridos y los que ya usa la empresa, más "+ Nuevo concepto…"
+    // (js/componentes.js; no datalist, que dentro de la ventana se dibuja fuera de lugar)
+    const listaConcepto = crearListaConNuevo($('#cfgCosGaConceptoLista'), $('#cfgCosGaConcepto'),
+        { vacio: 'Elige el concepto…', textoNuevo: '+ Nuevo concepto…' });
+
     function abrirGasto(g = null) {
         editandoGasto = g;
         $('#cfgCosGastoTitulo').textContent = g ? `Modificar gasto: ${g.concepto}` : 'Nuevo gasto';
         $('#cfgCosGaError').textContent = '';
-        $('#cfgCosGaConcepto').value = g ? g.concepto : '';
+        const usados = costos.map((x) => x.concepto).filter((c) => !COS_CONCEPTOS.includes(c)).sort((a, b) => a.localeCompare(b, 'es'));
+        listaConcepto.poner([...COS_CONCEPTOS, ...usados], g ? g.concepto : '');
         $('#cfgCosGaTipo').value = g ? g.tipo : 'fijo';
         $('#cfgCosGaMonto').value = g ? g.monto_mes : '';
-        const sel = $('#cfgCosGaVehiculo');
-        sel.replaceChildren(new Option('Toda la empresa', ''), ...vehiculos.map((v) => new Option(`${v.placa} · ${v.marca}`, v.id)));
-        sel.value = g && g.vehiculo_id ? String(g.vehiculo_id) : '';
         $('#cfgCosGastoDialogo').showModal();
-        $('#cfgCosGaConcepto').focus();
+        listaConcepto.campo().focus();
     }
+
+    // El combustible cambia con lo que se trabaja: se sugiere "variable"
+    $('#cfgCosGaConceptoLista').addEventListener('change', () => {
+        if (!editandoGasto && listaConcepto.valor() === 'Combustible') $('#cfgCosGaTipo').value = 'variable';
+    });
 
     $('#cfgCosGastoForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const error = $('#cfgCosGaError');
-        const concepto = $('#cfgCosGaConcepto').value.trim();
+        const concepto = listaConcepto.valor();
         const monto = Number($('#cfgCosGaMonto').value);
-        if (!concepto) { error.textContent = 'Escribe el concepto.'; return; }
+        if (!concepto) { error.textContent = 'Elige el concepto o escribe uno nuevo.'; listaConcepto.campo().focus(); return; }
         if ($('#cfgCosGaMonto').value.trim() === '' || !Number.isFinite(monto) || monto < 0) { error.textContent = 'Escribe el monto del mes (0 o más).'; return; }
-        const datos = { concepto, tipo: $('#cfgCosGaTipo').value, monto_mes: monto, vehiculo_id: Number($('#cfgCosGaVehiculo').value) || null };
+        // Sin vehículo: el gasto es de la empresa (uno viejo con vehículo lo conserva)
+        const datos = { concepto, tipo: $('#cfgCosGaTipo').value, monto_mes: monto };
         const { error: err } = editandoGasto
             ? await db.from('transporte_costos').update(datos).eq('id', editandoGasto.id)
-            : await db.from('transporte_costos').insert(datos);
+            : await db.from('transporte_costos').insert({ ...datos, vehiculo_id: null });
         if (err) { error.textContent = viaErrorTexto(err, 'guardar el gasto'); return; }
         $('#cfgCosGastoDialogo').close();
         aviso.mostrar(editandoGasto ? 'Gasto actualizado.' : 'Gasto agregado.');
@@ -304,6 +336,7 @@ registrarModuloConfig('costos', (seccion, ctx) => {
 
     return () => {
         activo = false;
-        ['#cfgCosGastoDialogo', '#cfgCosVehDialogo'].forEach((s) => { const d = $(s); if (d && d.open) d.close(); });
+        const d = $('#cfgCosGastoDialogo');
+        if (d && d.open) d.close();
     };
 });

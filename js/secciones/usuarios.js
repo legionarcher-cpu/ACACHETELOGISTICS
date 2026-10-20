@@ -8,7 +8,8 @@
      - Modificar: icono del lápiz -> mismo formulario con los datos -> update.
      - Eliminar:  icono del basurero -> ventana de confirmación -> delete.
      - Cédula y departamento (sql/01 bloque 42): opcionales, el buscador los usa.
-                  Departamento sugiere los que ya hay. Sin el bloque, no aparecen.
+                  Departamento: lista de los que ya hay + "Nuevo departamento…" (no datalist:
+                  en la ventana el navegador la dibuja fuera de lugar). Sin el bloque, no aparecen.
      - Foto:      en el formulario, "Elegir foto" / "Quitar". Se aplica al
                   presionar Guardar. Funciones en js/avatar.js (bucket "avatares").
      - Vehículo:  solo para Pilotos. Se elige uno de la tabla "vehiculos" (agrupados
@@ -161,7 +162,6 @@ registrarSeccion('usuarios', (zona) => {
         telefono:   $('#usrTelefono'),
         cedula:     $('#usrCedula'),
         departamento: $('#usrDepartamento'),
-        permisos:   $('#usrPermisos'),
     };
     const prefijo           = $('#usrPrefijo');
     const sufijo            = $('#usrSufijo');
@@ -200,6 +200,8 @@ registrarSeccion('usuarios', (zona) => {
     let usuarioEditando = null;      // usuario tal como estaba antes de modificarlo
     let hayMultitienda = false;      // true si existe la columna multitienda
     let hayCedula = false;           // true si existen cedula y departamento (sql/01 bloque 42)
+    let departamentos = [];          // los que ya usa la empresa, para la lista del formulario
+    let modulosMarcados = ['*'];     // permisos que muestran las casillas del formulario (['*'] = todo lo de su rol)
     let empresas = [];               // solo el Desarrollador: [{ id, codigo, nombre, activa }]
 
     // Foto en el formulario (se aplica al guardar)
@@ -217,36 +219,44 @@ registrarSeccion('usuarios', (zona) => {
     const admin = esAdministrador();
     const g1 = esAdminG1();
     const g2 = esAdminG2();
-    const g3 = esAdminG3();
+    // Admin G3, y el Empleado al que se le da Usuarios (Usuarios -> "Módulos y funciones"): los dos
+    // solo ven su tienda y solo crean Empleados de su tienda, que quedan pendientes de aprobación
+    const g3 = esAdminG3() || rolActual() === 'empleado';
     const miRegion = regionActual(); // solo Admin G2 (ej. 'NOR')
     const miTienda = tiendaActual(); // Admin G3 (y empleados/pilotos)
-    const puedeGestionarUsuarios = admin || g1 || g2;           // modificar / eliminar
-    const puedeCrearUsuarios = puedeGestionarUsuarios || g3;    // crear (G3: con aprobación)
+    // Por rol, salvo que a ESTE usuario se le quite o se le dé (Usuarios -> "Módulos y funciones", js/sesion.js)
+    const modificaUsuarios = puedeHacer('usuarios.modificar', admin || g1 || g2);
+    const puedeGestionarUsuarios = modificaUsuarios;                                         // modificar / eliminar
+    const puedeCrearUsuarios = puedeHacer('usuarios.crear', admin || g1 || g2 || esAdminG3()); // crear (G3: con aprobación)
+    const conAcciones = puedeCrearUsuarios || puedeGestionarUsuarios; // columna de acciones
 
     // Región de la tienda de un usuario (Admin G3, empleados y pilotos), ej. 'NOR'
     const regionDeUsuario = (u) => (u.tiendas ? u.tiendas.region : null);
 
     // ¿Puede aprobar o rechazar a este usuario pendiente?
     //   Administrador, Admin G1 o el Admin G2 de la región de su tienda
+    //   (G3 / Empleado solo si se le dio "Modificar, eliminar y aprobar usuarios": los de su tienda)
     const puedeAprobar = (u) =>
-        u.aprobado === false && (admin || g1 || (g2 && regionDeUsuario(u) === miRegion));
+        u.aprobado === false && modificaUsuarios && (admin || g1 || (g2 && regionDeUsuario(u) === miRegion)
+            || (g3 && u.tienda_id === miTienda && u.id !== sesion.id));
 
     // ¿El usuario conectado puede modificar o eliminar a este usuario?
     //   Administrador -> a cualquiera
     //   Admin G1      -> solo Empleados y Pilotos
     //   Admin G2      -> solo Empleados y Pilotos de SU región
+    //   G3 / Empleado -> (si se le dio la función) solo Empleados de SU tienda, menos él mismo
     function puedeGestionar(u) {
+        if (!modificaUsuarios) return false;
         if (admin) return true;
         if (g1) return USR_ROLES_PERSONAL.includes(u.rol);
         if (g2) return USR_ROLES_PERSONAL.includes(u.rol) && regionDeUsuario(u) === miRegion;
+        if (g3) return u.rol === 'empleado' && u.tienda_id === miTienda && u.id !== sesion.id;
         return false;
     }
 
     // Empleados y pilotos: solo ven la lista (sin "Nuevo usuario" ni acciones)
-    if (!puedeCrearUsuarios) {
-        $('#usrNuevo').hidden = true;
-        $('.usr-tabla th.tabla-col-acciones').remove();
-    }
+    if (!puedeCrearUsuarios) $('#usrNuevo').hidden = true;
+    if (!conAcciones) $('.usr-tabla th.tabla-col-acciones').remove();
 
     // Solo el Administrador asigna roles de administración:
     //   Admin G1 / G2 -> Empleado y Piloto
@@ -259,7 +269,7 @@ registrarSeccion('usuarios', (zona) => {
     }
 
     // Número de columnas de la tabla (para las filas que ocupan todo el ancho)
-    const columnasTabla = puedeCrearUsuarios ? 9 : 8;
+    const columnasTabla = conAcciones ? 9 : 8;
 
     // ==================================================
     // CARGAR DATOS (usuarios, tiendas y regiones)
@@ -295,9 +305,9 @@ registrarSeccion('usuarios', (zona) => {
             data.forEach((u) => Object.assign(u, porId.get(u.id) || {}));
         }
         $('#usrCampoCedula').hidden = $('#usrCampoDepartamento').hidden = !hayCedula;
-        // Sugerencias de departamento: los que ya usa la empresa (así se escriben igual)
-        $('#usrDepartamentos').replaceChildren(...[...new Set(data.map((u) => u.departamento).filter(Boolean))]
-            .sort((a, b) => a.localeCompare(b, 'es')).map((d) => new Option(d)));
+        // Departamentos que ya usa la empresa (así se escriben igual)
+        departamentos = [...new Set(data.map((u) => u.departamento).filter(Boolean))]
+            .sort((a, b) => a.localeCompare(b, 'es'));
 
         // Admin G2: solo ve usuarios de las tiendas de su región
         // Admin G3: solo ve usuarios de su tienda
@@ -451,11 +461,19 @@ registrarSeccion('usuarios', (zona) => {
     // TABLA
     // ==================================================
 
-    // Texto de la columna Permisos
-    function textoPermisos(permisos) {
-        if (!permisos || permisos.length === 0) return '—';
-        if (permisos.includes('*')) return 'Todas';
-        return permisos.join(', ');
+    // Texto de la columna Módulos: "Los de su rol", "Ninguno" o sus módulos con cuántas
+    // funciones tiene: "Pedidos (3 funciones), Caja (1 función)" (js/sesion.js: MODULOS_USUARIO)
+    function textoPermisos(u) {
+        const modulos = modulosDelRol(u.rol);
+        const lista = Array.isArray(u.permisos) ? u.permisos : [];
+        if (!modulos.length) return 'Todo';
+        if (!listaPermisosPropia(lista)) return 'Los de su rol';
+        const partes = modulos.filter((m) => permisoDeLista(lista, m.seccion, m.delRol)).map((m) => {
+            if (!m.acciones.length) return m.nombre;
+            const n = m.acciones.filter((a) => permisoDeLista(lista, `${m.seccion}.${a.clave}`, a.delRol)).length;
+            return `${m.nombre} (${n ? plural(n, 'función', 'funciones') : 'solo ver'})`;
+        });
+        return partes.length ? partes.join(', ') : 'Ninguno';
     }
 
     // Texto de la columna Vehículo (solo pilotos): "P123ABC · Toyota"
@@ -504,6 +522,7 @@ registrarSeccion('usuarios', (zona) => {
             // frente a un administrador, o Admin G3 que solo crea), se explica el motivo.
             const sinPermiso = puedeGestionar(u)
                 ? null
+                : !modificaUsuarios ? 'No tienes la función "Modificar, eliminar y aprobar usuarios"'
                 : g3 ? 'El Admin G3 solo puede crear empleados nuevos'
                 : `Solo el Administrador puede modificar a un ${USR_ROLES[u.rol] || u.rol}`;
 
@@ -545,9 +564,9 @@ registrarSeccion('usuarios', (zona) => {
             tr.appendChild(crearCelda(textoTienda(u)));
             tr.appendChild(crearCelda(textoVehiculo(u), 'solo-vehiculos'));
             tr.appendChild(crearCelda(u.telefono));
-            tr.appendChild(crearCelda(textoPermisos(u.permisos)));
+            tr.appendChild(crearCelda(textoPermisos(u)));
             // Acciones: Administrador, Admin G1, G2 y G3 (G3 las ve desactivadas)
-            if (puedeCrearUsuarios) {
+            if (conAcciones) {
                 const botones = [];
                 // Revisar (aprobar/rechazar) un usuario pendiente
                 if (puedeAprobar(u)) {
@@ -693,6 +712,7 @@ registrarSeccion('usuarios', (zona) => {
     //   Empleado / Piloto        -> tienda obligatoria
     //   Todos: el ID de la empresa al final ("01")
     function ajustarSegunRol() {
+        pintarModulos(); // los módulos que permite el rol elegido
         const sinTienda = rolSinTienda();
         const esRolG2 = campos.rol.value === 'admin_g2';
         campoEmpresa.hidden = !eligeEmpresa();
@@ -773,6 +793,114 @@ registrarSeccion('usuarios', (zona) => {
     }
 
     campos.rol.addEventListener('change', ajustarSegunRol);
+
+    // ==================================================
+    // MÓDULOS Y FUNCIONES (columna permisos; catálogo y reglas en js/sesion.js:
+    // MODULOS_USUARIO, modulosDelRol, permisoDeLista). Al personal se le ofrecen TODOS los
+    // módulos que usa la empresa, cada uno con sus funciones debajo; vienen marcados los de
+    // su ROL y los de otros roles dicen "otro rol" (se pueden dar igual, ej. un Empleado de
+    // bodega que cierra caja). Al piloto, solo los suyos (solo se le quitan).
+    // Sin marcar el módulo, sus funciones quedan apagadas.
+    // Se guarda: igual que su rol = {*}; nada = {inicio}; un módulo con las funciones de su
+    // rol = solo su nombre; con otras = nombre + "modulo.ver" + las marcadas.
+    // El Administrador no se limita (no se muestran).
+    // ==================================================
+
+    const cajaModulos = $('#usrModulos');
+
+    function casilla(valor, marcada, extra = {}) {
+        const c = document.createElement('input');
+        c.type = 'checkbox';
+        c.value = valor;
+        c.checked = marcada;
+        Object.assign(c.dataset, extra);
+        return c;
+    }
+
+    // "otro rol": lo que no trae su rol (se le puede dar igual)
+    function marcaOtroRol() {
+        const s = document.createElement('span');
+        s.className = 'usr-otro-rol';
+        s.textContent = 'otro rol';
+        s.title = 'Su rol no lo trae: se le da solo a este usuario';
+        return s;
+    }
+
+    function pintarModulos() {
+        const modulos = modulosDelRol(campos.rol.value); // js/sesion.js
+        $('#usrCampoModulos').hidden = !modulos.length;
+        cajaModulos.replaceChildren(...modulos.map((m) => {
+            const bloque = document.createElement('div');
+            bloque.className = 'usr-modulo-bloque';
+            const entra = permisoDeLista(modulosMarcados, m.seccion, m.delRol);
+            const label = document.createElement('label');
+            label.className = 'usr-modulo';
+            const icono = document.createElement('i');
+            icono.className = `bi ${m.icono}`;
+            label.append(casilla(m.seccion, entra, { tipo: 'modulo' }), icono, m.nombre);
+            if (!m.delRol) label.appendChild(marcaOtroRol());
+            bloque.appendChild(label);
+            if (m.acciones.length) {
+                const lista = document.createElement('div');
+                lista.className = 'usr-acciones';
+                m.acciones.forEach((a) => {
+                    const clave = `${m.seccion}.${a.clave}`;
+                    const fila = document.createElement('label');
+                    fila.className = 'usr-accion';
+                    const c = casilla(clave, entra && permisoDeLista(modulosMarcados, clave, a.delRol), { modulo: m.seccion });
+                    c.disabled = !entra;
+                    const texto = document.createElement('span');
+                    texto.textContent = a.nombre;
+                    if (!a.delRol) texto.append(' ', marcaOtroRol());
+                    fila.append(c, texto);
+                    lista.appendChild(fila);
+                });
+                bloque.appendChild(lista);
+            }
+            return bloque;
+        }));
+    }
+
+    // Lista "permisos" según las casillas (ver arriba cómo se guarda)
+    function permisosDeCasillas() {
+        const modulos = modulosDelRol(campos.rol.value);
+        if (!modulos.length) return ['*'];
+        const marcada = (valor) => !!cajaModulos.querySelector(`input[value="${valor}"]:checked`);
+        const lista = [];
+        let comoSuRol = true;
+        modulos.forEach((m) => {
+            const entra = marcada(m.seccion);
+            if (entra !== m.delRol) comoSuRol = false;
+            if (!entra) return;
+            lista.push(m.seccion);
+            const suyas = m.acciones.filter((a) => marcada(`${m.seccion}.${a.clave}`));
+            const delRol = m.acciones.filter((a) => a.delRol);
+            if (suyas.length !== delRol.length || suyas.some((a) => !a.delRol)) {
+                comoSuRol = false;
+                lista.push(`${m.seccion}.ver`, ...suyas.map((a) => `${m.seccion}.${a.clave}`));
+            }
+        });
+        if (comoSuRol) return ['*'];
+        return lista.length ? lista : ['inicio']; // nada: solo Inicio y Mi perfil
+    }
+
+    cajaModulos.addEventListener('change', (evento) => {
+        const c = evento.target;
+        // Al marcar un módulo se marcan todas sus funciones (después se quitan las que no);
+        // al quitarlo, sus funciones se apagan
+        if (c.dataset.tipo === 'modulo') {
+            cajaModulos.querySelectorAll(`input[data-modulo="${c.value}"]`).forEach((x) => {
+                x.checked = c.checked;
+                x.disabled = !c.checked;
+            });
+        }
+        modulosMarcados = permisosDeCasillas();
+    });
+    $('#usrModulosTodos').addEventListener('click', () => { modulosMarcados = ['*']; pintarModulos(); });
+    $('#usrModulosNinguno').addEventListener('click', () => { modulosMarcados = ['inicio']; pintarModulos(); });
+
+    // Lo que se guarda en la columna permisos
+    const permisosDelFormulario = () => permisosDeCasillas();
     selEmpresa.addEventListener('change', actualizarVistaPrevia);
     campos.tienda.addEventListener('change', () => { actualizarVistaPrevia(); actualizarAvisoTienda(); });
     campos.id_usuario.addEventListener('input', actualizarVistaPrevia);
@@ -876,11 +1004,14 @@ registrarSeccion('usuarios', (zona) => {
             campos.vehiculo.value   = usuario.vehiculo_id || '';
             casillaMultitienda.checked = !!usuario.multitienda;
             campos.id_usuario.value = quitarPrefijo(usuario);
-            campos.telefono.value   = usuario.telefono || '';
-            campos.cedula.value     = usuario.cedula || '';
-            campos.departamento.value = usuario.departamento || '';
-            campos.permisos.value   = (usuario.permisos || []).join(', ');
+            ponerDato(campos.telefono, usuario.telefono);
+            ponerDato(campos.cedula, usuario.cedula);
         }
+
+        ponerDepartamento(usuario ? usuario.departamento : '');
+        // Módulos y funciones: su lista (vacía o {*} = todo). Se pintan en ajustarSegunRol.
+        const lista = usuario && Array.isArray(usuario.permisos) ? usuario.permisos : [];
+        modulosMarcados = !lista.length || lista.includes('*') ? ['*'] : [...lista];
 
         // No se puede cambiar el rol propio (evita quitarse el acceso de administrador)
         // ni el rol o el usuario de "admin" (usuario protegido)
@@ -913,6 +1044,37 @@ registrarSeccion('usuarios', (zona) => {
         campos.nombre.focus();
     }
 
+    // ---------- Departamento: lista + "Nuevo departamento…" ----------
+    const listaDepartamento = $('#usrDepartamentoLista');
+    const USR_DEPARTAMENTO_NUEVO = '__nuevo';
+
+    // Llena la lista y deja elegido "valor" (vacío = sin departamento)
+    function ponerDepartamento(valor) {
+        listaDepartamento.replaceChildren(
+            new Option('Sin departamento', ''),
+            ...departamentos.map((d) => new Option(d, d)),
+            new Option('+ Nuevo departamento…', USR_DEPARTAMENTO_NUEVO));
+        listaDepartamento.value = valor && departamentos.includes(valor) ? valor : '';
+        campos.departamento.value = '';
+        campos.departamento.hidden = true;
+    }
+
+    listaDepartamento.addEventListener('change', () => {
+        const nuevo = listaDepartamento.value === USR_DEPARTAMENTO_NUEVO;
+        campos.departamento.hidden = !nuevo;
+        if (nuevo) campos.departamento.focus();
+    });
+
+    // Departamento elegido o escrito. Si el escrito ya existe con otras mayúsculas o
+    // tildes ("bodega" / "Bodega"), se usa el que ya existe (así la búsqueda los junta).
+    function departamentoElegido() {
+        if (listaDepartamento.value !== USR_DEPARTAMENTO_NUEVO) return listaDepartamento.value || null;
+        const escrito = campos.departamento.value.trim().replace(/\s+/g, ' ');
+        if (!escrito) return null;
+        const igual = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+        return departamentos.find((d) => igual(d) === igual(escrito)) || escrito;
+    }
+
     $('#usrNuevo').addEventListener('click', () => {
         if (puedeCrearUsuarios) abrirFormulario();
     });
@@ -930,12 +1092,14 @@ registrarSeccion('usuarios', (zona) => {
         const base     = campos.id_usuario.value.trim().toLowerCase();
         const clave    = campos.clave.value;
         const telefono = campos.telefono.value.trim();
-        const permisos = campos.permisos.value
-            .split(',')
-            .map((p) => p.trim().toLowerCase())
-            .filter(Boolean); // "pedidos, rutas" -> ['pedidos', 'rutas']
+        const permisos = permisosDelFormulario(rol);
 
         if (!nombre) return fallo('Escribe el nombre.', campos.nombre);
+        // Teléfono y cédula (opcionales) con el formato de Costa Rica (js/componentes.js)
+        const malTelefono = validarDato('telefono', telefono);
+        if (malTelefono) return fallo(malTelefono, campos.telefono);
+        const malaCedula = hayCedula ? validarDato('identificacion', campos.cedula.value) : '';
+        if (malaCedula) return fallo(malaCedula, campos.cedula);
 
         // Solo el Administrador asigna roles de administración
         if (!admin && !USR_ROLES_PERSONAL.includes(rol)) {
@@ -999,7 +1163,7 @@ registrarSeccion('usuarios', (zona) => {
             region: rol === 'admin_g2' ? region : null,
             vehiculo_id: vehiculoId, // si es nuevo, se completa al guardar
             id_usuario: usuarioDelFormulario(),
-            telefono: telefono || null,
+            telefono: datoConFormato('telefono', telefono),
             permisos,
         };
         // Empresa elegida por el Desarrollador (Administrador / Admin G1). Los demás:
@@ -1010,8 +1174,8 @@ registrarSeccion('usuarios', (zona) => {
             datos.empresa_id = empresa.id;
         }
         if (hayCedula) {
-            datos.cedula = campos.cedula.value.trim().replace(/\s+/g, ' ') || null;
-            datos.departamento = campos.departamento.value.trim().replace(/\s+/g, ' ') || null;
+            datos.cedula = datoConFormato('identificacion', campos.cedula.value);
+            datos.departamento = departamentoElegido();
         }
         if (clave) datos.clave = clave; // si está vacía (al modificar), no se cambia
         if (hayMultitienda) datos.multitienda = rol === 'piloto' && casillaMultitienda.checked;
@@ -1297,7 +1461,7 @@ registrarSeccion('usuarios', (zona) => {
     // ==================================================
 
     // (los vehículos solo hacen falta para asignarlos a pilotos)
-    if (puedeGestionarUsuarios) cargarVehiculos();
+    if (conAcciones) cargarVehiculos();
 
     // Primero regiones y tiendas (las usan los filtros y el formulario),
     // luego los usuarios

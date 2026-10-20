@@ -548,6 +548,16 @@
     box-shadow: var(--sombra-foco);
 }
 
+/* Lista con "+ Nuevo…" (js/componentes.js, crearListaConNuevo): el campo para escribir
+   el valor nuevo va debajo de la lista; sin la lista (al modificar un nombre), sin espacio */
+.campo-nuevo {
+    margin-top: 0.333rem;
+}
+
+select[hidden] + .campo-nuevo {
+    margin-top: 0;
+}
+
 /* Campo desactivado (ej. tienda cuando el rol es Administrador) */
 .campo-input:disabled {
     background-color: var(--color-borde-suave);

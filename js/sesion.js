@@ -27,11 +27,82 @@
 // activa (empresas/empresas.js): al cambiar de empresa no se mezclan sesiones.
 const CLAVE_SESION = typeof EMPRESA_ACTIVA !== 'undefined' ? `acachete_sesion_${EMPRESA_ACTIVA}` : 'acachete_sesion';
 
-// ¿Se bloquean secciones según la columna "permisos" de la tabla usuarios?
-//   false -> POR AHORA: todo usuario que exista puede abrir todas las secciones.
-//   true  -> cada usuario solo abre las secciones de su lista de permisos
-//            (ej. {pedidos,rutas}; {*} = todas).
-const USAR_PERMISOS = false;
+// ¿Se usa la columna "permisos" de la tabla usuarios (Usuarios -> "Módulos y funciones")?
+//   true  -> El ROL solo da lo que viene marcado al crear el usuario. Al personal
+//            (Admin G1, G2, G3 y Empleado) se le puede QUITAR lo que trae su rol o DAR
+//            módulos y funciones de otros roles (ej. un Empleado encargado de bodega que
+//            cierra la caja de los pilotos). Lo de cada usuario manda sobre su rol.
+//            Lo que ve sigue siendo SU alcance (G2 su región; G3 y Empleado su tienda).
+//            Piloto: solo se le puede quitar (sus pantallas son las de su ruta).
+//            Administrador y Desarrollador: todo, no se limitan.
+//   false -> todos hacen lo de su rol (no se mira la lista).
+// Cómo se guarda (columna permisos, text[]):
+//   {} o {*}                -> lo de su rol (así quedan los usuarios de antes)
+//   {inicio}                -> ningún módulo (solo Inicio y Mi perfil)
+//   {pedidos,caja}          -> esos módulos (aunque su rol no los tenga), cada uno con
+//                              las funciones que trae su rol
+//   {pedidos,pedidos.ver,pedidos.alistar,caja,caja.ver,caja.cerrar}
+//                           -> esos módulos con SOLO esas funciones (sean o no de su rol;
+//                              "modulo.ver" = entra al módulo sin ninguna función)
+const USAR_PERMISOS = true;
+
+// Grupos de roles (sin Administrador ni Desarrollador: ellos no se limitan)
+const ROLES_PERSONAL_TIENDA = ['admin_g1', 'admin_g2', 'admin_g3', 'empleado'];
+const ROLES_ADMIN_G1_G3 = ['admin_g1', 'admin_g2', 'admin_g3'];
+const ROLES_ADMIN_G1_G2 = ['admin_g1', 'admin_g2'];
+
+// Módulos (en el orden del menú) y sus FUNCIONES. "roles" = los roles que la traen (vienen
+// marcadas al crear el usuario); a cada usuario se le pueden quitar o dar otras. Las usa
+// cada sección con puedeHacer('pedidos.alistar', loQueDaSuRol). Para agregar una: ponerla
+// aquí y en la sección cambiar su regla "x" por "puedeHacer('modulo.funcion', x)".
+const MODULOS_USUARIO = [
+    { seccion: 'pedidos', nombre: 'Pedidos', icono: 'bi-box-seam', acciones: [
+        { clave: 'crear', nombre: 'Registrar pedidos nuevos', roles: ROLES_PERSONAL_TIENDA },
+        { clave: 'bodega', nombre: 'Marcar "Recibido en bodega"', roles: ROLES_PERSONAL_TIENDA },
+        { clave: 'alistar', nombre: 'Alistar pedidos ("Alistando")', roles: ROLES_PERSONAL_TIENDA },
+        { clave: 'despachar', nombre: 'Marcar "Listo para despachar" y aprobar la salida', roles: ROLES_PERSONAL_TIENDA },
+        { clave: 'asignar', nombre: 'Asignar piloto y horario, y reprogramar', roles: ROLES_ADMIN_G1_G2 },
+        { clave: 'solicitar', nombre: 'Solicitar reasignación', roles: ['admin_g3', 'empleado'] },
+        { clave: 'cancelar', nombre: 'Cancelar, devolver y autorizar pedidos', roles: ROLES_ADMIN_G1_G3 },
+        { clave: 'solicitudes', nombre: 'Aprobar solicitudes de envío de clientes', roles: ROLES_ADMIN_G1_G3 },
+    ] },
+    { seccion: 'viajes', nombre: 'Viajes', icono: 'bi-car-front', acciones: [
+        { clave: 'solicitar', nombre: 'Registrar viajes para clientes', roles: ROLES_PERSONAL_TIENDA },
+    ] },
+    { seccion: 'pilotos', nombre: 'Pilotos', icono: 'bi-person-badge', acciones: [] },
+    { seccion: 'caja', nombre: 'Caja', icono: 'bi-safe', acciones: [
+        { clave: 'cerrar', nombre: 'Cerrar la caja de los pilotos', roles: ROLES_ADMIN_G1_G3 },
+    ] },
+    { seccion: 'distribucion', nombre: 'Distribución', icono: 'bi-boxes', acciones: [
+        { clave: 'bodega', nombre: 'Manejar la bodega del día (carga, devoluciones y cierre)', roles: ROLES_ADMIN_G1_G3 },
+        { clave: 'catalogo', nombre: 'Modificar productos y precios', roles: ['admin_g1'] },
+    ] },
+    { seccion: 'rutas', nombre: 'Rutas y asignaciones', icono: 'bi-signpost-split', acciones: [
+        { clave: 'gestionar', nombre: 'Crear rutas y asignar pilotos', roles: ROLES_ADMIN_G1_G2 },
+    ] },
+    { seccion: 'tiendas', nombre: 'Tiendas y clientes', icono: 'bi-shop', acciones: [
+        { clave: 'gestionar', nombre: 'Crear y modificar tiendas y regiones', roles: ['admin_g1'] },
+        { clave: 'clientes_crear', nombre: 'Registrar y modificar clientes', roles: ROLES_PERSONAL_TIENDA },
+        { clave: 'clientes_administrar', nombre: 'Aprobar y eliminar clientes', roles: ROLES_ADMIN_G1_G3 },
+    ] },
+    { seccion: 'reportes', nombre: 'Reportes', icono: 'bi-bar-chart', acciones: [
+        { clave: 'exportar', nombre: 'Exportar reportes', roles: ['admin_g1', 'admin_g2', 'piloto'] },
+    ] },
+    { seccion: 'cotizador', nombre: 'Cotizador', icono: 'bi-calculator', acciones: [] },
+    { seccion: 'usuarios', nombre: 'Usuarios', icono: 'bi-people', acciones: [
+        { clave: 'crear', nombre: 'Crear usuarios (G3 y Empleado: empleados de su tienda, con aprobación)', roles: ROLES_ADMIN_G1_G3 },
+        { clave: 'modificar', nombre: 'Modificar, eliminar y aprobar usuarios', roles: ROLES_ADMIN_G1_G2 },
+    ] },
+    { seccion: 'configuracion', nombre: 'Configuración', icono: 'bi-gear', acciones: [
+        { clave: 'general', nombre: 'Cambiar la configuración (tarifas, horarios, vehículos...)', roles: ['admin_g1'] },
+    ] },
+];
+
+// Secciones que van con el permiso de otro módulo (Clientes es una pestaña de Tiendas)
+const MODULO_DE_SECCION = { clientes: 'tiendas' };
+
+// Roles que nunca se limitan por la lista (no se pueden quedar sin acceso)
+const ROLES_SIN_LIMITE = ['desarrollador', 'administrador'];
 
 // Secciones que cualquier usuario con sesión puede abrir, sin importar sus permisos
 const SECCIONES_LIBRES = ['inicio', 'perfil'];
@@ -276,14 +347,72 @@ function seccionAplica(seccion) {
     return true;
 }
 
+// ¿Su ROL le permite esa sección? (SECCIONES_POR_ROL y SECCIONES_BLOQUEADAS_POR_ROL)
+function rolPermiteSeccion(rol, seccion) {
+    const delRol = SECCIONES_POR_ROL[rol];
+    if (delRol && !delRol.includes(seccion)) return false;
+    return !(SECCIONES_BLOQUEADAS_POR_ROL[rol] || []).includes(seccion);
+}
+
+// Roles a los que se les puede DAR módulos y funciones de otros roles (el personal).
+// Al piloto solo se le puede quitar.
+const ROLES_CON_EXTRAS = ['admin_g1', 'admin_g2', 'admin_g3', 'empleado'];
+
+// Módulos para el formulario de Usuarios ("Módulos y funciones") de un usuario de ese rol,
+// en la empresa activa: [{ seccion, nombre, icono, delRol, acciones: [{ clave, nombre, delRol }] }].
+// delRol = lo trae su rol (viene marcado al crearlo). Al personal se le ofrecen TODOS; al
+// piloto, solo los suyos. [] para Administrador y Desarrollador.
+function modulosDelRol(rol) {
+    if (ROLES_SIN_LIMITE.includes(rol)) return [];
+    const extras = ROLES_CON_EXTRAS.includes(rol);
+    return MODULOS_USUARIO
+        .filter((m) => seccionAplica(m.seccion) && (extras || rolPermiteSeccion(rol, m.seccion))
+            && !(m.seccion === 'reportes' && rol === 'piloto' && typeof empresaTienePedidos === 'function' && !empresaTienePedidos()))
+        .map((m) => ({
+            ...m,
+            delRol: rolPermiteSeccion(rol, m.seccion),
+            acciones: m.acciones.filter((a) => extras || a.roles.includes(rol))
+                .map((a) => ({ ...a, delRol: a.roles.includes(rol) })),
+        }));
+}
+
+// ¿La lista dice algo? ({} o {*} = no: manda el rol)
+const listaPermisosPropia = (permisos) => Array.isArray(permisos) && permisos.length > 0 && !permisos.includes('*');
+
+// ¿Le toca ese módulo ('pedidos') o esa función ('pedidos.alistar') según su lista "permisos"?
+// porRol = lo que le da su rol: es la respuesta si la lista no dice nada de eso (lista vacía
+// o {*}; o el módulo está pero sin ninguna "modulo.x" = las funciones de su rol).
+function permisoDeLista(permisos, clave, porRol) {
+    if (!listaPermisosPropia(permisos)) return porRol;
+    const [seccion, accion] = String(clave).split('.');
+    const modulo = MODULO_DE_SECCION[seccion] || seccion;
+    if (!permisos.includes(modulo)) return false;
+    if (!accion) return true;
+    const suyas = permisos.filter((p) => p.startsWith(`${modulo}.`));
+    return suyas.length ? suyas.includes(`${modulo}.${accion}`) : porRol;
+}
+
+// ¿El usuario conectado puede hacer esa función? ('pedidos.crear', 'caja.cerrar'...)
+//   porRol: lo que la sección le permite por su ROL (el valor de siempre).
+//   Personal (G1, G2, G3, Empleado): manda lo marcado en SU usuario; sin nada marcado, su rol.
+//   Piloto: su rol, y se le puede quitar. Administrador, Desarrollador y Cliente: su rol.
+// Lo que VE (su región, su tienda) lo sigue decidiendo cada sección según el rol.
+function puedeHacer(clave, porRol = true) {
+    const sesion = obtenerSesion();
+    if (!sesion) return false;
+    if (!USAR_PERMISOS || ROLES_SIN_LIMITE.includes(sesion.rol) || sesion.rol === 'cliente') return porRol;
+    if (!ROLES_CON_EXTRAS.includes(sesion.rol)) return porRol && permisoDeLista(sesion.permisos, clave, true);
+    return permisoDeLista(sesion.permisos, clave, porRol);
+}
+
 // true si el usuario actual puede abrir esa sección.
 // Orden de las reglas:
 //   1. Sin sesión -> nada.
 //   2. SECCIONES_LIBRES (inicio, perfil) -> siempre.
-//   3. Si su rol está en SECCIONES_POR_ROL -> solo esas secciones.
-//   4. Si la sección está en SECCIONES_BLOQUEADAS_POR_ROL de su rol -> no.
-//   5. Si USAR_PERMISOS es false -> todo lo demás.
-//   6. Si no, según la columna "permisos" del usuario.
+//   3. Lo de su ROL: SECCIONES_POR_ROL (solo esas) y SECCIONES_BLOQUEADAS_POR_ROL (menos esas).
+//   4. Personal (G1, G2, G3, Empleado): manda su lista "permisos" (puede darle módulos que
+//      su rol no tiene); sin lista, su rol. Piloto: su rol, y se le pueden quitar.
+//      Administrador, Desarrollador y Cliente: su rol.
 function tienePermiso(seccion) {
     const sesion = obtenerSesion();
     if (!sesion) return false;
@@ -297,14 +426,5 @@ function tienePermiso(seccion) {
     // Empresas internas y Visitas (pestañas de Tiendas): solo el Desarrollador
     if (seccion === 'empresas-internas' || seccion === 'visitas') return sesion.rol === 'desarrollador';
 
-    const delRol = SECCIONES_POR_ROL[sesion.rol];
-    if (delRol) return delRol.includes(seccion);
-
-    const bloqueadas = SECCIONES_BLOQUEADAS_POR_ROL[sesion.rol] || [];
-    if (bloqueadas.includes(seccion)) return false;
-
-    if (!USAR_PERMISOS) return true;
-
-    const permisos = sesion.permisos || [];
-    return permisos.includes('*') || permisos.includes(seccion);
+    return puedeHacer(seccion, rolPermiteSeccion(sesion.rol, seccion));
 }

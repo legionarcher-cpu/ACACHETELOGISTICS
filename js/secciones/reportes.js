@@ -385,12 +385,15 @@ registrarSeccion('reportes', (zona) => {
     // ---------- Permisos (js/sesion.js) ----------
     const esGeneral = esAdministrador() || esAdminG1();
     const regionG2 = esAdminG2() ? regionActual() : null;
-    const esG3 = esAdminG3();
+    // Solo su tienda: Admin G3, y el Empleado al que se le dio Reportes (Usuarios -> "Módulos y funciones")
+    const esG3 = esAdminG3() || rolActual() === 'empleado';
     // Piloto: SOLO sus pedidos y solo de los últimos 7 días (hoy y los 6 anteriores)
     const esPiloto = rolActual() === 'piloto';
     const REP_DIAS_PILOTO = 7;
-    // G3 solo ve; el piloto exporta lo suyo. Y solo si el plan de la empresa lo incluye (empresas/empresas.js)
-    const puedeExportar = (esGeneral || !!regionG2 || esPiloto) && (typeof funcionHabilitada !== 'function' || funcionHabilitada('exportar'));
+    // Por rol: G3 solo ve; el piloto exporta lo suyo. La función del usuario puede quitarlo o darlo
+    // (puedeHacer, js/sesion.js). Y solo si el plan de la empresa lo incluye (empresas/empresas.js)
+    const puedeExportar = puedeHacer('reportes.exportar', esGeneral || !!regionG2 || esPiloto)
+        && (typeof funcionHabilitada !== 'function' || funcionHabilitada('exportar'));
 
     // ---------- Elementos ----------
     const selRegion = $('#repRegion');

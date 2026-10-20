@@ -125,7 +125,9 @@
 
             <div class="campo">
                 <label for="tndTelefono" class="campo-etiqueta">Teléfono</label>
-                <input id="tndTelefono" type="tel" class="campo-input" autocomplete="off">
+                <!-- data-formato: formato de Costa Rica al escribir (js/componentes.js, FORMATOS_CR) -->
+                <input id="tndTelefono" type="tel" class="campo-input" autocomplete="off" maxlength="16"
+                       data-formato="telefono" placeholder="2222-3333">
             </div>
 
             <div class="campo">

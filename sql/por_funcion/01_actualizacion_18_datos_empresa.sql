@@ -1,4 +1,4 @@
--- 18 de 19 · sql/01_actualizacion_base_existente.sql · Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y giro (bloques 41 a 41).
+-- 18 de 22 · sql/01_actualizacion_base_existente.sql · Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y giro (bloques 41 a 41).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

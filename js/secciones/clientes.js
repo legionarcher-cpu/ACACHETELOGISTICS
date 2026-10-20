@@ -71,9 +71,15 @@ const CLI_COLUMNAS = 'id, nombre, apellido1, apellido2, apellidos, telefono, cor
     'cambios_pendientes, solicitado_por, solicitado_en, ' +
     'clientes_tiendas(tienda_id, ruta_id), solicitante:usuarios!solicitado_por(nombre)';
 const CLI_COLUMNAS_SIN_RUTA = CLI_COLUMNAS.replace('clientes_tiendas(tienda_id, ruta_id)', 'clientes_tiendas(tienda_id)');
+// Persona o empresa, cédula y razón social (sql/01 bloque 43). Sin el bloque no se piden.
+const CLI_COLUMNAS_TIPO = 'tipo, cedula, razon_social, ';
+const CLI_CAMPOS_TIPO = ['tipo', 'cedula', 'razon_social'];
 
 // Datos del cliente que se pueden modificar (y su nombre para mostrar)
 const CLI_CAMPOS = {
+    tipo: 'Persona o empresa',
+    razon_social: 'Razón social',
+    cedula: 'Cédula',
     nombre: 'Nombre',
     apellido1: 'Primer apellido',
     apellido2: 'Segundo apellido',
@@ -86,8 +92,13 @@ const CLI_CAMPOS = {
 // Número de columnas de la tabla (para las filas que ocupan todo el ancho)
 const CLI_COLUMNAS_TABLA = 9;
 
-// "Nombre Apellido1 Apellido2" de un cliente o de los datos del formulario
-const cliNombreCompleto = (c) => [c.nombre, c.apellido1, c.apellido2].filter(Boolean).join(' ');
+const cliEsEmpresa = (c) => !!c && c.tipo === 'empresa';
+// "Nombre Apellido1 Apellido2" (de una empresa, el de su contacto)
+const cliNombrePersona = (c) => [c.nombre, c.apellido1, c.apellido2].filter((x) => x && x !== '-').join(' ');
+// Cómo se nombra al cliente: la persona, o "Razón social (contacto)" si es empresa
+const cliNombreCompleto = (c) => (cliEsEmpresa(c) && c.razon_social
+    ? `${c.razon_social}${cliNombrePersona(c) ? ` (${cliNombrePersona(c)})` : ''}`
+    : cliNombrePersona(c));
 
 registrarSeccion('clientes', (zona) => {
 
@@ -111,6 +122,8 @@ registrarSeccion('clientes', (zona) => {
     const campoTiendas = $('#cliCampoTiendas');
     const cajaTiendas  = $('#cliTiendas');
     const campos = {
+        cedula:    $('#cliCedula'),
+        razon_social: $('#cliRazonSocial'),
         nombre:    $('#cliNombre'),
         apellido1: $('#cliApellido1'),
         apellido2: $('#cliApellido2'),
@@ -141,14 +154,18 @@ registrarSeccion('clientes', (zona) => {
     const esEmpleado = rolActual() === 'empleado';
     const miTienda   = tiendaActual(); // Admin G3 y Empleado
 
-    const administra = admin || g1 || g2 || g3;    // crea/modifica directo, elimina, aprueba
-    const puedeCrear = administra || esEmpleado;   // el Empleado crea con aprobación
+    // Por rol, salvo que a ESTE usuario se le quite o se le dé (Usuarios -> "Módulos y funciones", js/sesion.js):
+    //   tiendas.clientes_crear        -> registrar y modificar (el Empleado, con aprobación)
+    //   tiendas.clientes_administrar  -> aprobar y eliminar (por rol: G3 o superior)
+    // Siempre dentro de su alcance (enAlcance: Admin / G1 todos, G2 su región, G3 y Empleado su tienda).
+    const registraClientes = puedeHacer('tiendas.clientes_crear', admin || g1 || g2 || g3 || esEmpleado);
+    const administraClientes = puedeHacer('tiendas.clientes_administrar', admin || g1 || g2 || g3);
+    const puedeCrear = registraClientes;
+    const conAcciones = registraClientes || administraClientes;
 
-    if (!puedeCrear) {
-        botonNuevo.hidden = true;
-        zona.querySelector('th.tabla-col-acciones').remove();
-    }
-    const columnas = puedeCrear ? CLI_COLUMNAS_TABLA : CLI_COLUMNAS_TABLA - 1;
+    if (!puedeCrear) botonNuevo.hidden = true;
+    if (!conAcciones) zona.querySelector('th.tabla-col-acciones').remove();
+    const columnas = conAcciones ? CLI_COLUMNAS_TABLA : CLI_COLUMNAS_TABLA - 1;
 
     // ---------- Estado ----------
     let clientes = [];          // clientes dentro del alcance del usuario
@@ -157,6 +174,7 @@ registrarSeccion('clientes', (zona) => {
     let regiones = [];          // regiones de esas tiendas [{ codigo, nombre }]
     let rutas = [];             // rutas de entrega de esas tiendas (sección Rutas)
     let hayRutas = true;        // false si la base no tiene clientes_tiendas.ruta_id (bloque 16)
+    let hayTipo = true;         // false si la base no tiene tipo, cedula y razon_social (bloque 43)
     let editando = null;        // null = creando; objeto = cliente que se modifica
     let revisando = null;       // cliente cuya solicitud se revisa
     let eliminandoId = null;
@@ -182,10 +200,10 @@ registrarSeccion('clientes', (zona) => {
 
     // ¿Puede modificarlo directo, eliminarlo y aprobar sus solicitudes?
     //   Admin / G1 -> todos | G2 -> su región | G3 -> su tienda
-    const puedeAdministrar = (c) => (admin || g1) || ((g2 || g3) && enAlcance(c));
+    const puedeAdministrar = (c) => administraClientes && enAlcance(c);
 
     // ¿Puede abrir el formulario de modificar? (el Empleado, con aprobación)
-    const puedeModificar = (c) => puedeAdministrar(c) || (esEmpleado && enAlcance(c));
+    const puedeModificar = (c) => registraClientes && enAlcance(c);
 
     // Usuario de viajes que el cliente SOLICITÓ desde el login y aún no se aprueba
     // (sql/01 bloque 20): { id, id_usuario, aprobado: false } o null
@@ -285,8 +303,14 @@ registrarSeccion('clientes', (zona) => {
     }
 
     async function cargarClientes() {
-        const columnas = () => (hayRutas ? CLI_COLUMNAS : CLI_COLUMNAS_SIN_RUTA);
+        const columnas = () => (hayTipo ? CLI_COLUMNAS_TIPO : '') + (hayRutas ? CLI_COLUMNAS : CLI_COLUMNAS_SIN_RUTA);
         let { data, error } = await db.from('clientes').select(columnas()).order('apellidos');
+        if (error && error.code === '42703' && hayTipo) { // faltan tipo, cedula y razon_social (sql/01 bloque 43)
+            hayTipo = false;
+            $('#cliCampoTipo').hidden = true;
+            $('#cliCampoCedula').hidden = true;
+            ({ data, error } = await db.from('clientes').select(columnas()).order('apellidos'));
+        }
         if (error && error.code === '42703' && hayRutas) { // falta clientes_tiendas.ruta_id (sql/01 bloque 16)
             hayRutas = false;
             ({ data, error } = await db.from('clientes').select(columnas()).order('apellidos'));
@@ -346,8 +370,27 @@ registrarSeccion('clientes', (zona) => {
     }
 
     // Celda "Nombre Apellidos" + (si está pendiente) "Solicitado por ..."
+    // Empresa: "Razón social [Empresa]" y debajo "Contacto: ... · Céd. jurídica ..."
+    // Persona con cédula: debajo "Céd. ..." (sql/01 bloque 43)
     function celdaCliente(c) {
-        const td = crearCelda(cliNombreCompleto(c));
+        const empresa = cliEsEmpresa(c) && c.razon_social;
+        const td = crearCelda(empresa ? c.razon_social : cliNombrePersona(c));
+        if (empresa) {
+            const marca = document.createElement('span');
+            marca.className = 'etiqueta etiqueta-azul cli-etiqueta-empresa';
+            marca.textContent = 'Empresa';
+            td.appendChild(marca);
+        }
+        const datos = [
+            empresa && cliNombrePersona(c) ? `Contacto: ${cliNombrePersona(c)}` : null,
+            c.cedula ? `${empresa ? 'Céd. jurídica' : 'Céd.'} ${c.cedula}` : null,
+        ].filter(Boolean).join(' · ');
+        if (datos) {
+            const linea = document.createElement('span');
+            linea.className = 'celda-detalle';
+            linea.textContent = datos;
+            td.appendChild(linea);
+        }
         const acceso = accesoPendiente(c);
         if (esPendiente(c) && (c.solicitante || acceso)) {
             const detalle = document.createElement('span');
@@ -393,7 +436,7 @@ registrarSeccion('clientes', (zona) => {
         tr.appendChild(crearCeldaEtiqueta('Nuevo', 'etiqueta-gris'));
         tr.appendChild(celdaEstado(c));
 
-        if (puedeCrear) {
+        if (conAcciones) {
             const botones = [];
 
             // Revisar (aprobar/rechazar): solo quien administra y si hay algo pendiente
@@ -430,7 +473,8 @@ registrarSeccion('clientes', (zona) => {
         // Cada palabra debe aparecer en algún dato (ej. "ana mora" o "8888 1234"); sin tildes
         const palabras = palabrasDeBusqueda(buscador.value);
         const textoDe = (c) => textoParaBuscar(
-            `${cliNombreCompleto(c)} ${c.correo || ''} ${String(c.telefono || '').replace(/\D/g, '')} ${c.direccion || ''}`);
+            `${cliNombreCompleto(c)} ${c.cedula || ''} ${String(c.cedula || '').replace(/\D/g, '')} ${c.correo || ''} ` +
+            `${String(c.telefono || '').replace(/\D/g, '')} ${c.direccion || ''}`);
 
         const region = filtroRegion.value;
         const ruta = Number(filtroRuta.value) || null;
@@ -679,6 +723,36 @@ registrarSeccion('clientes', (zona) => {
     // CREAR / MODIFICAR
     // ==================================================
 
+    // Datos del formulario (sin el bloque 43: sin tipo, cédula ni razón social)
+    const camposDelFormulario = () => Object.keys(CLI_CAMPOS).filter((k) => hayTipo || !CLI_CAMPOS_TIPO.includes(k));
+    const tipoElegido = () => (form.querySelector('input[name="cliTipo"]:checked') || {}).value || 'persona';
+
+    // Persona: nombre y apellidos (el primero obligatorio) y su cédula (opcional).
+    // Empresa: razón social y cédula jurídica (obligatorias) y el nombre de la persona de contacto.
+    function ponerTipo(tipo) {
+        const empresa = tipo === 'empresa';
+        form.querySelectorAll('input[name="cliTipo"]').forEach((r) => { r.checked = r.value === tipo; });
+        $('#cliCampoRazonSocial').hidden = !empresa || !hayTipo;
+        $('#cliCedulaEtiqueta').textContent = empresa ? 'Cédula jurídica *' : 'Cédula';
+        // Formato de Costa Rica (js/componentes.js): jurídica 3-101-123456; física 1-0234-0567 o DIMEX
+        const formato = empresa ? 'cedula_juridica' : 'identificacion';
+        if (campos.cedula.dataset.formato !== formato) {
+            campos.cedula.dataset.formato = formato;
+            ponerDato(campos.cedula, campos.cedula.value);
+        }
+        campos.cedula.placeholder = FORMATOS_CR[formato].ejemplo;
+        $('#cliCedulaAyuda').textContent = empresa
+            ? '10 dígitos (ej. 3-101-123456).'
+            : 'Física: 9 dígitos (1-0234-0567). Extranjero: DIMEX de 11 o 12 dígitos.';
+        $('#cliNombreEtiqueta').textContent = empresa ? 'Nombre del contacto *' : 'Nombre *';
+        $('#cliApellido1Etiqueta').textContent = empresa ? 'Primer apellido del contacto' : 'Primer apellido *';
+    }
+
+    form.querySelectorAll('input[name="cliTipo"]').forEach((r) => r.addEventListener('change', () => {
+        ponerTipo(tipoElegido());
+        (tipoElegido() === 'empresa' ? campos.razon_social : campos.cedula).focus();
+    }));
+
     function abrirFormulario(cliente = null) {
         editando = cliente;
         form.reset();
@@ -693,7 +767,10 @@ registrarSeccion('clientes', (zona) => {
         const datos = cliente
             ? { ...cliente, ...(esEmpleado && cliente.cambios_pendientes ? cliente.cambios_pendientes : {}) }
             : {};
-        Object.keys(CLI_CAMPOS).forEach((campo) => { campos[campo].value = datos[campo] || ''; });
+        camposDelFormulario().forEach((campo) => { if (campo !== 'tipo') campos[campo].value = datos[campo] || ''; });
+        ponerTipo(hayTipo && datos.tipo === 'empresa' ? 'empresa' : 'persona');
+        ponerDato(campos.telefono, datos.telefono);
+        ponerDato(campos.cedula, datos.cedula);
 
         // Casillas: tiendas del cliente; al crear, la del filtro
         // (o la única que tiene, ej. el Admin G3)
@@ -714,7 +791,7 @@ registrarSeccion('clientes', (zona) => {
         });
 
         dialogo.showModal();
-        campos.nombre.focus();
+        (hayTipo && !cliente ? form.querySelector('input[name="cliTipo"]:checked') : campos.nombre).focus();
     }
 
     botonNuevo.addEventListener('click', () => {
@@ -730,17 +807,35 @@ registrarSeccion('clientes', (zona) => {
 
     // Lee y valida. Devuelve { datos, tiendas } o null.
     function leerFormulario() {
+        const tipo = hayTipo ? tipoElegido() : 'persona';
+        const empresa = tipo === 'empresa';
         const datos = {};
-        Object.keys(CLI_CAMPOS).forEach((campo) => {
-            datos[campo] = campos[campo].value.trim() || null;
+        camposDelFormulario().forEach((campo) => {
+            datos[campo] = campo === 'tipo' ? tipo : campos[campo].value.trim().replace(/\s+/g, ' ') || null;
         });
 
         if (datos.correo) datos.correo = datos.correo.toLowerCase();
 
-        if (!datos.nombre) return fallo('Escribe el nombre.', campos.nombre);
-        if (!datos.apellido1) return fallo('Escribe el primer apellido.', campos.apellido1);
-        if (!datos.telefono) return fallo('Escribe el teléfono.', campos.telefono);
-        if (datos.telefono.replace(/\D/g, '').length < 8) return fallo('El teléfono debe tener al menos 8 dígitos.', campos.telefono);
+        // Cédula y teléfono con el formato de Costa Rica (js/componentes.js)
+        const formatoCedula = empresa ? 'cedula_juridica' : 'identificacion';
+        if (empresa) {
+            if (!datos.razon_social) return fallo('Escribe la razón social de la empresa.', campos.razon_social);
+            if (!datos.cedula) return fallo('Escribe la cédula jurídica de la empresa.', campos.cedula);
+            if (!datos.nombre) return fallo('Escribe el nombre de la persona de contacto.', campos.nombre);
+            datos.apellido1 = datos.apellido1 || ''; // el apellido del contacto es opcional
+        } else {
+            if (hayTipo) datos.razon_social = null; // una persona no tiene razón social
+            if (!datos.nombre) return fallo('Escribe el nombre.', campos.nombre);
+            if (!datos.apellido1) return fallo('Escribe el primer apellido.', campos.apellido1);
+        }
+        if (hayTipo) {
+            const malaCedula = validarDato(formatoCedula, datos.cedula);
+            if (malaCedula) return fallo(malaCedula, campos.cedula);
+            datos.cedula = datoConFormato(formatoCedula, datos.cedula);
+        }
+        const malTelefono = validarDato('telefono', datos.telefono, true);
+        if (malTelefono) return fallo(malTelefono, campos.telefono);
+        datos.telefono = datoConFormato('telefono', datos.telefono);
         if (datos.correo && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(datos.correo)) {
             return fallo('Revisa el correo (ejemplo: nombre@correo.com).', campos.correo);
         }

@@ -7,17 +7,16 @@
        de Supabase), agrupados por tienda, con su foto, usuario,
        teléfono y vehículo asignado.
      - Filtro por región y buscador (nombre, usuario, tienda, placa).
-     - Columna "Funciones": por ahora "Por definir". Aquí se asignarán
-       las funciones de cada piloto cuando se definan.
 
    No hay que hacer nada para que un piloto aparezca: basta con que en
-   la sección Usuarios tenga el rol "Piloto". Sus datos se modifican
-   allá (esta sección solo los muestra).
+   la sección Usuarios tenga el rol "Piloto". Sus datos y lo que puede
+   hacer ("Módulos y funciones") se modifican allá (esta sección solo
+   los muestra).
 
    Quién ve qué:
      - Admin G2: solo los pilotos de las tiendas de SU región
        (el filtro de región queda fijo).
-     - Admin G3: solo los pilotos de SU tienda.
+     - Admin G3 (y el Empleado al que se le da Pilotos): solo los de SU tienda.
      - Los demás roles: todos los pilotos.
 
    HTML: secciones/pilotos.html
@@ -30,7 +29,7 @@ const PLT_COLUMNAS = 'id, nombre, id_usuario, telefono, foto_url, tienda_id, ' +
     'tiendas(codigo, nombre, region), vehiculos(placa, marca)';
 
 // Número de columnas de la tabla (para las filas que ocupan todo el ancho)
-const PLT_COLUMNAS_TABLA = 6;
+const PLT_COLUMNAS_TABLA = 5;
 
 registrarSeccion('pilotos', (zona) => {
 
@@ -47,7 +46,8 @@ registrarSeccion('pilotos', (zona) => {
 
     // ---------- Permisos (js/sesion.js) ----------
     const regionFija = esAdminG2() ? regionActual() : null; // Admin G2: solo su región
-    const tiendaFija = esAdminG3() ? tiendaActual() : null; // Admin G3: solo su tienda
+    // Admin G3, y el Empleado al que se le da Pilotos (Usuarios -> "Módulos y funciones"): solo su tienda
+    const tiendaFija = esAdminG3() || rolActual() === 'empleado' ? tiendaActual() : null;
     if (tiendaFija) filtroRegion.hidden = true;             // (el filtro de región no aplica)
 
     // ---------- Estado ----------
@@ -123,9 +123,6 @@ registrarSeccion('pilotos', (zona) => {
         tr.appendChild(crearCelda(p.id_usuario, 'texto-codigo'));
         tr.appendChild(crearCelda(p.telefono));
         tr.appendChild(crearCelda(p.vehiculos ? textoVehiculo(p) : null, 'solo-vehiculos'));
-
-        // Funciones: pendiente de definir (aquí se asignarán más adelante)
-        tr.appendChild(crearCeldaEtiqueta('Por definir', 'etiqueta-gris'));
         return tr;
     }
 

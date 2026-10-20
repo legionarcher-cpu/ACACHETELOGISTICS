@@ -279,7 +279,8 @@ registrarSeccion('envios', (zona) => {
         if (!inputB.value.trim()) return fallo('Escribe a dónde lo llevamos (B).', inputB);
         if (!puntos.a || !puntos.b) return fallo('Ubica A y B en el mapa: escribe la dirección, toca "Elegir A / B" o pega la ubicación.');
         if (otra && !recibeNombre) return fallo('Escribe el nombre de quien recibe.', $('#envRecibeNombre'));
-        if (otra && recibeTel.replace(/\D/g, '').length < 8) return fallo('Escribe el teléfono de quien recibe (al menos 8 dígitos).', $('#envRecibeTelefono'));
+        const malTelefono = otra ? validarDato('telefono', recibeTel, true) : ''; // formato de Costa Rica (js/componentes.js)
+        if (malTelefono) return fallo(malTelefono.replace('el teléfono', 'el teléfono de quien recibe'), $('#envRecibeTelefono'));
         if (!fecha || fecha < hoy()) return fallo('Elige la fecha de entrega (hoy o después).', $('#envFecha'));
 
         const redondo = (n) => Math.round(Number(n) * 1e6) / 1e6;
@@ -299,7 +300,7 @@ registrarSeccion('envios', (zona) => {
             km: ruta ? ruta.km : null,
             minutos: ruta ? ruta.minutos : null,
             recibe_nombre: otra ? recibeNombre : null,
-            recibe_telefono: otra ? recibeTel : null,
+            recibe_telefono: otra ? datoConFormato('telefono', recibeTel) : null,
             fecha,
             descripcion,
             bultos,

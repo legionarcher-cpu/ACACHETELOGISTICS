@@ -39,6 +39,9 @@
 --   33. Limpiar los datos de una empresa (botón del Desarrollador en Tiendas -> Empresas)
 --   34. Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y giro
 --   35. Usuarios: cédula y departamento
+--   36. Clientes: persona o empresa, cédula y razón social
+--   37. Teléfonos y cédulas: formato de Costa Rica y tope de largo
+--   38. Costos de operación: margen de utilidad y entregas al mes
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:
@@ -6218,5 +6221,139 @@ alter table public.usuarios add column if not exists departamento text;
 create index if not exists usuarios_cedula_idx on public.usuarios (cedula) where cedula is not null;
 
 select public.usuarios_ocultar_clave();
+
+notify pgrst, 'reload schema';
+
+-- ==================================================
+-- 36. CLIENTES: PERSONA O EMPRESA, CÉDULA Y RAZÓN SOCIAL (sql/01 bloque 43)
+--   Clientes -> Nuevo / Modificar (js/secciones/clientes.js): se elige si el cliente es
+--   una PERSONA o una EMPRESA.
+--   - tipo:          'persona' (los de antes) | 'empresa'
+--   - cedula:        cédula de la persona o cédula jurídica de la empresa
+--   - razon_social:  solo empresas (nombre legal). Su nombre y apellidos pasan a ser los
+--                    de la persona de contacto (el apellido puede quedar vacío: '')
+--   "busqueda" (el buscador de clientes) ahora también lleva la razón social y la cédula.
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.clientes add column if not exists tipo text not null default 'persona';
+alter table public.clientes add column if not exists cedula text;
+alter table public.clientes add column if not exists razon_social text;
+
+alter table public.clientes drop constraint if exists clientes_tipo_valido;
+alter table public.clientes add constraint clientes_tipo_valido check (tipo in ('persona', 'empresa'));
+alter table public.clientes drop constraint if exists clientes_empresa_razon_social;
+alter table public.clientes add constraint clientes_empresa_razon_social
+    check (tipo <> 'empresa' or nullif(btrim(razon_social), '') is not null);
+
+-- Búsqueda con la razón social y la cédula (se rehace solo si todavía no las tiene)
+do $$
+begin
+    if not exists (select 1 from information_schema.columns
+                    where table_schema = 'public' and table_name = 'clientes' and column_name = 'busqueda'
+                      and generation_expression like '%razon_social%') then
+        alter table public.clientes drop column if exists busqueda;
+        alter table public.clientes
+            add column busqueda text
+                generated always as (lower(translate(
+                    nombre || ' ' || apellido1 || ' ' || coalesce(apellido2, '') || ' ' ||
+                    coalesce(razon_social, '') || ' ' || coalesce(cedula, '') || ' ' ||
+                    coalesce(correo, '') || ' ' || regexp_replace(telefono, '\D', '', 'g'),
+                    'ÁÉÍÓÚÜÑáéíóúüñ', 'AEIOUUNaeiouun'))) stored;
+    end if;
+end;
+$$;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 37. TELÉFONOS Y CÉDULAS: FORMATO DE COSTA RICA Y TOPE DE LARGO (sql/01 bloque 44)
+-- Formato de Costa Rica en la pantalla (js/componentes.js, FORMATOS_CR): teléfono 8888-1234,
+-- cédula física 1-0234-0567 (o DIMEX de 11 a 12 dígitos) y cédula jurídica 3-101-123456.
+-- Aquí la base pone el TOPE, para que nadie guarde un dato desbordado aunque se salte la
+-- pantalla: largo máximo y solo números, espacios, guiones, "+", "(", ")" y punto.
+--   - clientes:  teléfono (20), cédula (20), razón social (150), nombre y apellidos (60), correo (120)
+--   - usuarios:  teléfono (20), cédula (20), departamento (60)
+--   - empresas:  teléfono (20), cédula jurídica (20), razón social (150), giro (200),
+--                dirección (250), ubicación (300)
+--   - tiendas:   teléfono (20)
+--   - pedidos, viajes y solicitudes de pedido: teléfonos hasta 30 (copian el del cliente)
+-- Cada regla se agrega SOLO si ningún dato que ya existe la incumple, así nada que ya
+-- funciona deja de guardarse. Si alguno la incumple, sale un aviso (NOTICE) con la tabla y
+-- cuántas filas: se corrigen y se vuelve a ejecutar. Para verlas, por ejemplo:
+--   select id, telefono from public.clientes where not (char_length(telefono) <= 20
+--       and telefono ~ '^[0-9 +().-]*$');
+-- Se puede repetir.
+-- ==================================================
+
+do $$
+declare
+    r record;
+    malos bigint;
+begin
+    for r in select * from (values
+        ('clientes', 'clientes_telefono_formato',   $c$char_length(telefono) <= 20 and telefono ~ '^[0-9 +().-]*$'$c$),
+        ('clientes', 'clientes_cedula_formato',     $c$char_length(cedula) <= 20 and cedula ~ '^[0-9-]*$'$c$),
+        ('clientes', 'clientes_razon_social_largo', $c$char_length(razon_social) <= 150$c$),
+        ('clientes', 'clientes_nombre_largo',       $c$char_length(nombre) <= 60 and char_length(apellido1) <= 60 and char_length(coalesce(apellido2, '')) <= 60$c$),
+        ('clientes', 'clientes_correo_largo',       $c$char_length(correo) <= 120$c$),
+        ('usuarios', 'usuarios_telefono_formato',   $c$char_length(telefono) <= 20 and telefono ~ '^[0-9 +().-]*$'$c$),
+        ('usuarios', 'usuarios_cedula_formato',     $c$char_length(cedula) <= 20 and cedula ~ '^[0-9-]*$'$c$),
+        ('usuarios', 'usuarios_departamento_largo', $c$char_length(departamento) <= 60$c$),
+        ('empresas', 'empresas_telefono_formato',   $c$char_length(telefono) <= 20 and telefono ~ '^[0-9 +().-]*$'$c$),
+        ('empresas', 'empresas_cedula_formato',     $c$char_length(cedula_juridica) <= 20 and cedula_juridica ~ '^[0-9-]*$'$c$),
+        ('empresas', 'empresas_datos_largo',        $c$char_length(coalesce(razon_social, '')) <= 150 and char_length(coalesce(giro, '')) <= 200 and char_length(coalesce(direccion, '')) <= 250 and char_length(coalesce(ubicacion, '')) <= 300$c$),
+        ('tiendas',  'tiendas_telefono_formato',    $c$char_length(telefono) <= 20 and telefono ~ '^[0-9 +().-]*$'$c$),
+        ('pedidos',  'pedidos_telefonos_largo',     $c$char_length(cliente_telefono) <= 30 and char_length(coalesce(recibe_telefono, '')) <= 30$c$),
+        ('viajes',   'viajes_telefono_largo',       $c$char_length(cliente_telefono) <= 30$c$),
+        ('pedido_solicitudes', 'pedido_solicitudes_telefonos_largo',
+                                                    $c$char_length(cliente_telefono) <= 30 and char_length(coalesce(recibe_telefono, '')) <= 30$c$)
+    ) as v(tabla, nombre, condicion)
+    loop
+        -- Ya está: no se vuelve a revisar
+        if exists (select 1 from pg_constraint
+                    where conname = r.nombre and conrelid = to_regclass('public.' || r.tabla)) then
+            continue;
+        end if;
+        begin
+            execute format('select count(*) from public.%I where not (%s)', r.tabla, r.condicion) into malos;
+        exception when undefined_table or undefined_column then
+            raise notice 'Se salta %: falta la tabla o una columna (ejecute antes los bloques anteriores).', r.nombre;
+            continue;
+        end;
+        if malos > 0 then
+            raise notice 'NO se agregó %: % fila(s) de % no lo cumplen. Corríjalas y vuelva a ejecutar este bloque.',
+                r.nombre, malos, r.tabla;
+        else
+            execute format('alter table public.%I add constraint %I check (%s)', r.tabla, r.nombre, r.condicion);
+        end if;
+    end loop;
+end;
+$$;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 38. COSTOS DE OPERACIÓN: MARGEN DE UTILIDAD Y ENTREGAS AL MES (sql/01 bloque 45)
+--   Configuración -> Costos de operación (js/secciones/configuracion/costos.js) NO depende
+--   de vehículos: suma los gastos del mes que se registran (combustible incluido, como un
+--   gasto más) y los reparte entre las entregas o viajes del mes. Con eso calcula el precio
+--   mínimo para cubrir gastos y el precio sugerido con el margen de utilidad deseado.
+--   Columnas nuevas de transporte_config:
+--   - margen_objetivo: % de utilidad deseado, de 0 a 90 (precio sugerido = costo ÷ (1 − margen))
+--   - trabajos_mes:    entregas o viajes estimados al mes (vacío = los reales de 30 días)
+--   Sin este bloque la pantalla calcula igual con lo escrito, pero no lo guarda.
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.transporte_config add column if not exists margen_objetivo numeric(5,2) not null default 20;
+alter table public.transporte_config add column if not exists trabajos_mes integer;
+
+alter table public.transporte_config drop constraint if exists transporte_config_margen_valido;
+alter table public.transporte_config add constraint transporte_config_margen_valido check (
+    margen_objetivo between 0 and 90
+    and (trabajos_mes is null or trabajos_mes >= 0));
 
 notify pgrst, 'reload schema';

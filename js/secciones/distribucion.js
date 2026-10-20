@@ -71,10 +71,12 @@ registrarSeccion('distribucion', (zona) => {
     // ---------- Permisos (js/sesion.js) ----------
     const esGeneral = esAdministrador() || esAdminG1();
     const regionFija = esAdminG2() ? regionActual() : null;
-    const tiendaFija = esAdminG3() ? tiendaActual() : null;
+    // Solo su tienda: Admin G3, y el Empleado al que se le dio Distribución (ej. encargado de inventario)
+    const tiendaFija = esAdminG3() || rolActual() === 'empleado' ? tiendaActual() : null;
     const esPiloto = rolActual() === 'piloto';
-    const puedeBodega = esGeneral || !!regionFija || !!tiendaFija;
-    const puedeCatalogo = esGeneral;
+    // Por rol, salvo que a ESTE usuario se le quite o se le dé (Usuarios -> "Módulos y funciones", js/sesion.js)
+    const puedeBodega = puedeHacer('distribucion.bodega', esGeneral || !!regionFija || esAdminG3());
+    const puedeCatalogo = puedeHacer('distribucion.catalogo', esGeneral);
     let activa = true;
 
     // ---------- Datos ----------
@@ -955,13 +957,15 @@ registrarSeccion('distribucion', (zona) => {
         if (!lineas.length) { error.textContent = 'Agrega al menos un producto.'; return; }
         const pasada = selectorVenta.revisar();
         if (pasada) { error.textContent = pasada; return; }
+        const malTelefono = validarDato('telefono', $('#disVentaTelefono').value); // formato de Costa Rica (js/componentes.js)
+        if (malTelefono) { error.textContent = malTelefono; $('#disVentaTelefono').focus(); return; }
         const forma = (zona.querySelector('input[name="disVentaCobro"]:checked') || {}).value;
         const boton = $('#disVentaGuardar');
         boton.disabled = true;
         const { data, error: err } = await db.rpc('dist_venta_ruta', {
             p: {
                 usuario_id: sesion.id || null, cliente_nombre: $('#disVentaCliente').value.trim() || null,
-                cliente_telefono: $('#disVentaTelefono').value.trim() || null, direccion: $('#disVentaDireccion').value.trim() || null,
+                cliente_telefono: datoConFormato('telefono', $('#disVentaTelefono').value), direccion: $('#disVentaDireccion').value.trim() || null,
                 lista_id: Number($('#disVentaLista').value) || null, cobro_forma: forma, nota: $('#disVentaNota').value.trim() || null,
                 lineas: lineas.map((l) => ({ presentacion_id: l.presentacion_id, cantidad: l.cantidad })),
             },
