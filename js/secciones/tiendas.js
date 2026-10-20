@@ -601,14 +601,34 @@ registrarSeccion('tiendas', (zona) => {
         dibujarTabla();
     }
 
-    botonRegiones.addEventListener('click', () => {
+    // Región que se está modificando (lápiz de la lista) o null = agregar una nueva.
+    // Se modifica en el mismo formulario de abajo (no con prompt(): la app instalada
+    // y algunos navegadores no lo muestran). El código no se cambia: lo usan sus tiendas.
+    let regionEditando = null;
+
+    function formRegion(region = null) {
+        regionEditando = region;
         errorReg.textContent = '';
         $('#tndRegForm').reset();
+        $('#tndRegCodigo').value = region ? region.codigo : '';
+        $('#tndRegNombre').value = region ? region.nombre : '';
+        $('#tndRegCodigo').disabled = !!region;
+        $('#tndRegCodigo').title = region ? 'El código no se cambia (lo usan sus tiendas)' : '';
+        $('#tndRegGuardar i').className = `bi ${region ? 'bi-check-lg' : 'bi-plus-lg'}`;
+        $('#tndRegGuardar span').textContent = region ? 'Guardar' : 'Agregar';
+        $('#tndRegCancelarEdicion').hidden = !region;
+        $('#tndRegLista').querySelectorAll('tr').forEach((tr) => tr.classList.toggle('tnd-reg-editando',
+            !!region && tr.querySelector(`button[data-id="${region.codigo}"]`) !== null));
+        (region ? $('#tndRegNombre') : $('#tndRegCodigo')).focus();
+    }
+
+    botonRegiones.addEventListener('click', () => {
         dibujarRegiones();
         dlgRegiones.showModal();
-        $('#tndRegCodigo').focus();
+        formRegion();
     });
     $('#tndRegCerrar').addEventListener('click', () => dlgRegiones.close());
+    $('#tndRegCancelarEdicion').addEventListener('click', () => formRegion());
     $('#tndRegCodigo').addEventListener('input', (e) => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z]/g, ''); });
 
     $('#tndRegForm').addEventListener('submit', async (evento) => {
@@ -616,6 +636,29 @@ registrarSeccion('tiendas', (zona) => {
         errorReg.textContent = '';
         const codigo = $('#tndRegCodigo').value.trim();
         const nombre = $('#tndRegNombre').value.trim();
+
+        // Modificar: solo el nombre
+        if (regionEditando) {
+            if (!nombre) {
+                errorReg.textContent = 'Escribe el nombre de la región.';
+                $('#tndRegNombre').focus();
+                return;
+            }
+            const region = regionEditando;
+            if (nombre !== region.nombre) {
+                const { error } = await db.from('regiones').update({ nombre }).eq('codigo', region.codigo);
+                if (error) {
+                    console.error('Error al modificar la región:', error);
+                    errorReg.textContent = 'No se pudo cambiar el nombre.';
+                    return;
+                }
+                aviso.mostrar(`Región ${region.codigo} ahora se llama "${nombre}".`);
+            }
+            formRegion();
+            recargarRegiones();
+            return;
+        }
+
         if (!/^[A-Z]{3}$/.test(codigo)) {
             errorReg.textContent = 'El código son 3 letras (ej. NOR).';
             $('#tndRegCodigo').focus();
@@ -646,18 +689,14 @@ registrarSeccion('tiendas', (zona) => {
         const region = regiones.find((r) => r.codigo === boton.dataset.id);
         if (!region) return;
         errorReg.textContent = '';
+        // Modificar: carga la región en el formulario de abajo
         if (boton.dataset.accion === 'editar') {
-            const nombre = (prompt(`Nombre de la región ${region.codigo}:`, region.nombre) || '').trim();
-            if (!nombre || nombre === region.nombre) return;
-            const { error } = await db.from('regiones').update({ nombre }).eq('codigo', region.codigo);
-            if (error) {
-                console.error('Error al modificar la región:', error);
-                errorReg.textContent = 'No se pudo cambiar el nombre.';
-                return;
-            }
+            formRegion(region);
+            return;
         }
         if (boton.dataset.accion === 'eliminar') {
             if (!confirm(`¿Eliminar la región ${region.nombre} (${region.codigo})?`)) return;
+            if (regionEditando && regionEditando.codigo === region.codigo) formRegion();
             const { error } = await db.from('regiones').delete().eq('codigo', region.codigo);
             if (error) {
                 console.error('Error al eliminar la región:', error);

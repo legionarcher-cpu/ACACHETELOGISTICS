@@ -68,7 +68,7 @@
 /* ---------- Ventana de regiones ---------- */
 .tnd-reg-form {
     display: grid;
-    grid-template-columns: 6rem 1fr auto;
+    grid-template-columns: 6rem 1fr auto auto;
     align-items: end;
     gap: 0.667rem;
     margin-top: 0.889rem;
@@ -76,6 +76,12 @@
 
 .tnd-reg-form .campo-input {
     width: 100%;
+}
+
+/* Región que se está modificando en el formulario de abajo */
+.tnd-reg-editando td {
+    background-color: var(--color-azul-claro);
+    font-weight: 600;
 }
 
 @media (max-width: 480px) {
