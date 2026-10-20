@@ -5,8 +5,13 @@
 -- ⚠ BORRA y no se puede deshacer. PRIMERO se elige QUÉ empresa se limpia
 -- (paso 1, abajo); si no se escribe, el script se detiene sin borrar nada.
 --
+-- MÁS FÁCIL: Tiendas -> Empresas -> botón "Limpiar datos" de la empresa (solo el
+-- Desarrollador, con su contraseña; sql/01 bloque 40). Hace lo mismo que este
+-- modo empresa sin abrir Supabase.
+--
 -- MODO EMPRESA (lo normal): se escribe el ID de la empresa ('01', '02'...,
--- Tiendas -> Empresas) y, para confirmar, su nombre EXACTO. Se borra SOLO lo de
+-- Tiendas -> Empresas) y, para confirmar, su nombre (no importan mayúsculas ni
+-- tildes). Se borra SOLO lo de
 -- esa empresa: pedidos (con historial, entregas y evidencias), viajes y
 -- cortesías, clientes, rutas, vehículos, usuarios (y sus notificaciones y
 -- marcas), tiendas, regiones, tarifas, descuentos, categorías de mercadería y
@@ -98,7 +103,9 @@ begin
     if v_id is null then
         raise exception 'No se borró nada: no existe la empresa con ID "%". Revise Tiendas -> Empresas.', empresa;
     end if;
-    if confirmar <> v_nombre then
+    -- El nombre sin distinguir mayúsculas, tildes ni espacios de más
+    if translate(lower(regexp_replace(confirmar, '\s+', ' ', 'g')), 'áéíóúüñ', 'aeiouun')
+       <> translate(lower(regexp_replace(btrim(v_nombre), '\s+', ' ', 'g')), 'áéíóúüñ', 'aeiouun') then
         raise exception 'No se borró nada: para limpiar la empresa % escriba en "confirmar" su nombre exacto: "%".', empresa, v_nombre;
     end if;
 

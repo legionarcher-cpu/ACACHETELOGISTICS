@@ -155,3 +155,45 @@
         </div>
     </form>
 </dialog>
+
+<!-- ==================================================
+     VENTANA: LIMPIAR LOS DATOS DE UNA EMPRESA (sql/01 bloque 40: limpiar_empresa)
+     Lo mismo que herramientas/vaciar_base_datos.sql (modo empresa), con la
+     contraseña del Desarrollador y el ID de la empresa para confirmar.
+     ================================================== -->
+<dialog id="empLimpiarDialogo" class="dialogo" aria-labelledby="empLimpiarTitulo">
+    <form id="empLimpiarForm" class="dialogo-form" novalidate>
+        <h3 id="empLimpiarTitulo" class="dialogo-titulo">Limpiar datos</h3>
+        <p class="emp-nota emp-nota-alerta">
+            <i class="bi bi-exclamation-triangle"></i>
+            <span>Se borran <strong>para siempre</strong> sus pedidos, viajes, clientes, rutas, vehículos, usuarios,
+            tiendas, regiones, tarifas, descuentos, mercadería, caja, productos y la configuración de transporte.
+            Las demás empresas no se tocan. "admin" y "desar" nunca se borran.</span>
+        </p>
+        <div class="campos">
+            <label class="campo-ancho emp-copiar">
+                <input id="empLimpiarAdmins" type="checkbox" checked>
+                <span>Conservar sus usuarios <strong>Administrador</strong> (para volver a entrar y cargar datos nuevos)</span>
+            </label>
+            <label class="campo-ancho emp-copiar">
+                <input id="empLimpiarBorrar" type="checkbox">
+                <span>Borrar también la empresa (solo si no le quedan usuarios; nunca la principal)</span>
+            </label>
+            <div class="campo">
+                <label for="empLimpiarConfirmar" class="campo-etiqueta">Escribe el ID de la empresa: <strong id="empLimpiarId"></strong></label>
+                <input id="empLimpiarConfirmar" type="text" class="campo-input emp-codigo" maxlength="2" inputmode="numeric" autocomplete="off">
+            </div>
+            <div class="campo">
+                <label for="empLimpiarClave" class="campo-etiqueta">Tu contraseña de Desarrollador</label>
+                <input id="empLimpiarClave" type="password" class="campo-input" autocomplete="current-password">
+            </div>
+        </div>
+
+        <p id="empLimpiarError" class="form-error" role="alert"></p>
+
+        <div class="dialogo-botones">
+            <button type="button" id="empLimpiarCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" id="empLimpiarAceptar" class="boton boton-peligro">Limpiar</button>
+        </div>
+    </form>
+</dialog>

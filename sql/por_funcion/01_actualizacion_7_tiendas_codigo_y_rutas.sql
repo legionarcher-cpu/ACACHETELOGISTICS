@@ -1,4 +1,4 @@
--- 7 de 16 · sql/01_actualizacion_base_existente.sql · Código de tienda libre (sin región) y tiendas con o sin rutas (bloques 28 a 28).
+-- 7 de 17 · sql/01_actualizacion_base_existente.sql · Código de tienda libre (sin región) y tiendas con o sin rutas (bloques 28 a 28).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

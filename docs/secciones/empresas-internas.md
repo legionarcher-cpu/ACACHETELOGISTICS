@@ -56,8 +56,13 @@ slots, tamaños de bulto, motivos de retraso, número de pedido y código de res
   (`empresas/empresas.js`) usa las de la empresa de la sesión: Pedidos, Reportes, Rutas, Configuración y el
   botón del Cotizador solo muestran lo de sus actividades.
 - **Inactiva**: sus usuarios no pueden iniciar sesión ("Tu empresa está inactiva").
+- **Limpiar datos** (goma de borrar): borra todo lo de la empresa (pedidos, viajes, clientes, rutas, vehículos,
+  usuarios, tiendas, regiones, tarifas, descuentos, mercadería, caja, productos y transporte). Pide escribir su
+  ID y la **contraseña del Desarrollador** (la comprueba la base: `limpiar_empresa`, sql/01 bloque 40). Puede
+  conservar sus Administradores y borrar la empresa al final (nunca la principal ni la activa). "admin" y
+  "desar" nunca se borran. Es lo mismo que `herramientas/vaciar_base_datos.sql` en modo empresa.
 - **Eliminar**: solo una empresa sin regiones, tiendas ni usuarios (si tiene otros datos la base no deja:
-  marcarla Inactiva).
+  marcarla Inactiva o usar "Limpiar datos").
 
 ## Nueva empresa
 

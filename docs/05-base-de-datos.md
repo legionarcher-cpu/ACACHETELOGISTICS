@@ -41,9 +41,13 @@ la página y ruta de entrega del cliente por tienda.
 
 Nunca crear columnas a mano en el Table Editor.
 
+**Limpiar una empresa (lo más fácil):** Tiendas → Empresas → botón **Limpiar datos** (goma de borrar), solo el
+Desarrollador: pide el ID de la empresa y su contraseña (la base la comprueba: función `limpiar_empresa`, sql/01
+bloque 40). Borra lo mismo que el modo empresa del script de abajo.
+
 **Vaciar (empezar de cero):** `herramientas/vaciar_base_datos.sql` primero pide **qué empresa** se limpia (PASO 1
 del archivo); sin escribirla se detiene sin borrar nada.
-- **Una empresa:** su ID (`'02'`) y, para confirmar, su nombre exacto. Borra solo sus datos (pedidos, viajes,
+- **Una empresa:** su ID (`'02'`) y, para confirmar, su nombre (sin importar mayúsculas ni tildes). Borra solo sus datos (pedidos, viajes,
   clientes, rutas, vehículos, usuarios, tiendas, regiones, tarifas, descuentos, categorías y su configuración de
   transporte); las demás empresas y lo que es de todo el sistema (actividades, horarios, slots) no se tocan. Puede
   conservar sus Administradores (`conservar_administradores`) y borrar la empresa al final (`borrar_empresa`).

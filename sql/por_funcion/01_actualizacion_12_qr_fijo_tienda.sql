@@ -1,4 +1,4 @@
--- 12 de 16 · sql/01_actualizacion_base_existente.sql · QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS) (bloques 34 a 35).
+-- 12 de 17 · sql/01_actualizacion_base_existente.sql · QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS) (bloques 34 a 35).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

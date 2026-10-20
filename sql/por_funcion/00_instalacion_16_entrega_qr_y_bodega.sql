@@ -1,4 +1,4 @@
--- 16 de 17 · sql/00_instalacion_completa.sql · Entrega con QR obligatorio y pedidos con productos solo si hay en la bodega del día (secciones 31 a 31).
+-- 16 de 18 · sql/00_instalacion_completa.sql · Entrega con QR obligatorio y pedidos con productos solo si hay en la bodega del día (secciones 31 a 31).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

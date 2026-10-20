@@ -1,4 +1,4 @@
--- 1 de 17 · sql/00_instalacion_completa.sql · Regiones, tiendas, vehículos, usuarios, clientes, configuración, horarios, actividades, rutas, pedidos (secciones 1 a 9).
+-- 1 de 18 · sql/00_instalacion_completa.sql · Regiones, tiendas, vehículos, usuarios, clientes, configuración, horarios, actividades, rutas, pedidos (secciones 1 a 9).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -40,6 +40,7 @@
 --   30. Entrega: foto del comprobante de pago (efectivo, voucher o SINPE)
 --   31. Entrega con QR obligatorio y pedidos con productos solo si hay en la bodega del día
 --   32. Ubicación compartida por el cliente (enlace antes de registrar el pedido)
+--   33. Limpiar los datos de una empresa (botón del Desarrollador en Tiendas -> Empresas)
 --
 -- Queda EN BLANCO: sin tiendas, pilotos, empleados, clientes, vehículos,
 -- rutas ni pedidos. Solo trae:

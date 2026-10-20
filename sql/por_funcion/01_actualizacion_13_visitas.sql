@@ -1,4 +1,4 @@
--- 13 de 16 · sql/01_actualizacion_base_existente.sql · Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (3 días) (bloques 36 a 36).
+-- 13 de 17 · sql/01_actualizacion_base_existente.sql · Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (3 días) (bloques 36 a 36).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

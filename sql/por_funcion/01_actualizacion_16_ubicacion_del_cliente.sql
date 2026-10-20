@@ -1,4 +1,4 @@
--- 16 de 16 · sql/01_actualizacion_base_existente.sql · Ubicación compartida por el cliente (enlace antes de registrar el pedido) (bloques 39 a 39).
+-- 16 de 17 · sql/01_actualizacion_base_existente.sql · Ubicación compartida por el cliente (enlace antes de registrar el pedido) (bloques 39 a 39).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
@@ -246,4 +246,5 @@ grant execute on function public.ubicacion_ver(text) to anon;
 grant execute on function public.ubicacion_guardar(text, numeric, numeric, integer) to anon;
 
 notify pgrst, 'reload schema';
+
 

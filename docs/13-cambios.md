@@ -2,6 +2,19 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-19 · Limpiar una empresa con un botón (solo Desarrollador)
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 40** (=
+`sql/por_funcion/01_actualizacion_17_limpiar_empresa.sql`; instalación nueva: `sql/00`, sección 33).
+
+- **Tiendas → Empresas → Limpiar datos** (goma de borrar en cada empresa): hace lo mismo que
+  `herramientas/vaciar_base_datos.sql` en modo empresa sin abrir Supabase. Se escribe el ID de la empresa y la
+  contraseña del Desarrollador; la base la comprueba (`limpiar_empresa`), así que la clave pública sola no
+  alcanza. Opciones: conservar Administradores y borrar la empresa al final (nunca la principal ni la activa).
+  Al terminar dice cuánto se borró.
+- `herramientas/vaciar_base_datos.sql`: el nombre para confirmar ya no tiene que ser exacto (no importan
+  mayúsculas, tildes ni espacios de más).
+
 ## 2026-10-13 · Punto B más fácil: mapa a pantalla completa y ubicación compartida por el cliente
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloque 39** (=

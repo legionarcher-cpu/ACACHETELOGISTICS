@@ -18,7 +18,9 @@
      arma las 7 de la marca. Se guarda en empresas.colores (sql/01 bloque 21) y se pinta
      al iniciar sesión con un usuario de esa empresa.
    - Trabajar con esta: cambia la empresa activa del Desarrollador (js/sesion.js).
-   - Eliminar: solo si no tiene nada (si no, marcarla Inactiva).
+   - Limpiar datos: borra todo lo de la empresa (función limpiar_empresa, sql/01
+     bloque 40), con la contraseña del Desarrollador y su ID para confirmar.
+   - Eliminar: solo si no tiene nada (si no, marcarla Inactiva o limpiarla).
    ================================================== */
 
 const EMP_COLUMNAS_TABLA = 8;
@@ -165,6 +167,7 @@ registrarSeccion('empresas-internas', (zona) => {
             tr.appendChild(crearCeldaAcciones(
                 crearBotonIcono('usar', e.id, 'bi-box-arrow-in-right', e.id === actual ? 'Ya trabajas con esta' : `Trabajar con ${e.nombre}`, e.id === actual),
                 crearBotonIcono('editar', e.id, 'bi-pencil', `Modificar ${e.nombre}`),
+                crearBotonIcono('limpiar', e.id, 'bi-eraser', `Limpiar datos de ${e.nombre}`),
                 crearBotonIcono('eliminar', e.id, 'bi-trash3', motivoNoEliminar || `Eliminar ${e.nombre}`, !!motivoNoEliminar)));
             cuerpo.appendChild(tr);
         });
@@ -422,6 +425,7 @@ registrarSeccion('empresas-internas', (zona) => {
         if (!empresa) return;
 
         if (boton.dataset.accion === 'editar') abrirFormulario(empresa);
+        if (boton.dataset.accion === 'limpiar') abrirLimpiar(empresa);
 
         if (boton.dataset.accion === 'usar') {
             cambiarEmpresaActiva(empresa); // js/sesion.js
@@ -438,7 +442,7 @@ registrarSeccion('empresas-internas', (zona) => {
                 if (!r.error && r.data.length) conDatos.push(texto);
             }
             if (conDatos.length) {
-                aviso.mostrar(`No se puede eliminar: tiene ${conDatos.join(', ')}. Márcala Inactiva o límpiala con herramientas/vaciar_base_datos.sql.`, 'error');
+                aviso.mostrar(`No se puede eliminar: tiene ${conDatos.join(', ')}. Márcala Inactiva o límpiala con "Limpiar datos".`, 'error');
                 return;
             }
             // Solo le queda la configuración que se copió al crearla: se borra primero
@@ -463,6 +467,75 @@ registrarSeccion('empresas-internas', (zona) => {
     });
 
     // ==================================================
+    // LIMPIAR DATOS (sql/01 bloque 40: limpiar_empresa)
+    // Lo mismo que herramientas/vaciar_base_datos.sql, modo empresa. La base pide
+    // la contraseña del Desarrollador y el ID de la empresa: si no, no borra nada.
+    // ==================================================
+
+    const dialogoLimpiar = $('#empLimpiarDialogo');
+    const errorLimpiar = $('#empLimpiarError');
+    let limpiando = null;
+
+    function abrirLimpiar(empresa) {
+        limpiando = empresa;
+        $('#empLimpiarForm').reset();
+        errorLimpiar.textContent = '';
+        $('#empLimpiarTitulo').textContent = `Limpiar datos de ${empresa.codigo} · ${empresa.nombre}`;
+        $('#empLimpiarId').textContent = empresa.codigo;
+        // La empresa con la que trabaja no se borra (sí se limpia)
+        const borrar = $('#empLimpiarBorrar');
+        borrar.disabled = empresa.id === empresaActivaId() || empresa.codigo === EMPRESA_PRINCIPAL;
+        borrar.closest('label').title = borrar.disabled ? 'La empresa principal o la empresa con la que trabajas no se borra.' : '';
+        dialogoLimpiar.showModal();
+        $('#empLimpiarConfirmar').focus();
+    }
+
+    $('#empLimpiarConfirmar').addEventListener('input', (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 2); });
+    $('#empLimpiarCancelar').addEventListener('click', () => dialogoLimpiar.close());
+
+    $('#empLimpiarForm').addEventListener('submit', async (evento) => {
+        evento.preventDefault();
+        errorLimpiar.textContent = '';
+        const confirmar = $('#empLimpiarConfirmar').value.trim();
+        const clave = $('#empLimpiarClave').value;
+        if (confirmar !== limpiando.codigo) {
+            errorLimpiar.textContent = `Escribe el ID de la empresa (${limpiando.codigo}) para confirmar.`;
+            $('#empLimpiarConfirmar').focus();
+            return;
+        }
+        if (!clave) { errorLimpiar.textContent = 'Escribe tu contraseña.'; $('#empLimpiarClave').focus(); return; }
+
+        const boton = $('#empLimpiarAceptar');
+        boton.disabled = true;
+        boton.textContent = 'Limpiando...';
+        const { data, error } = await db.rpc('limpiar_empresa', { p: {
+            usuario_id: obtenerSesion().id,
+            clave,
+            empresa_id: limpiando.id,
+            confirmar,
+            conservar_administradores: $('#empLimpiarAdmins').checked,
+            borrar_empresa: $('#empLimpiarBorrar').checked && !$('#empLimpiarBorrar').disabled,
+        } });
+        boton.disabled = false;
+        boton.textContent = 'Limpiar';
+        if (error) {
+            console.error('Error al limpiar la empresa:', error);
+            errorLimpiar.textContent = error.code === 'PGRST202' ? 'Falta ejecutar sql/01 (bloque 40: limpiar empresa).'
+                : error.code === 'P0001' ? error.message
+                : 'No se pudo limpiar. Intenta de nuevo.';
+            return;
+        }
+        dialogoLimpiar.close();
+        const f = data.filas || {};
+        const resumen = [['pedidos', 'pedidos'], ['viajes', 'viajes'], ['clientes', 'clientes'], ['usuarios', 'usuarios'],
+            ['tiendas', 'tiendas'], ['rutas', 'rutas'], ['vehiculos', 'vehículos'], ['productos', 'productos']]
+            .filter(([k]) => f[k]).map(([k, texto]) => `${f[k]} ${texto}`).join(', ');
+        aviso.mostrar(`Empresa ${data.empresa} · "${data.nombre}" ${data.borrada ? 'limpiada y borrada' : 'limpia'}. ` +
+            (resumen ? `Se borró: ${resumen}.` : 'No tenía datos.'));
+        cargar();
+    });
+
+    // ==================================================
     // ARRANQUE Y LIMPIEZA
     // ==================================================
 
@@ -473,5 +546,6 @@ registrarSeccion('empresas-internas', (zona) => {
     return () => {
         aviso.limpiar();
         if (dialogo.open) dialogo.close();
+        if (dialogoLimpiar.open) dialogoLimpiar.close();
     };
 });

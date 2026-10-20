@@ -1,4 +1,4 @@
--- 13 de 17 · sql/00_instalacion_completa.sql · QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS) (secciones 27 a 28).
+-- 13 de 18 · sql/00_instalacion_completa.sql · QR fijo de la tienda: el piloto lo escanea y se marca solo, estando en la tienda (GPS) (secciones 27 a 28).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 

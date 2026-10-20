@@ -1,4 +1,4 @@
--- 9 de 17 · sql/00_instalacion_completa.sql · Carga con evidencia por pedido, salida a ruta por slot y caja por actividad (secciones 22 a 23).
+-- 9 de 18 · sql/00_instalacion_completa.sql · Carga con evidencia por pedido, salida a ruta por slot y caja por actividad (secciones 22 a 23).
 -- Generado por herramientas\dividir_sql.ps1: NO editar aquí (se edita el original).
 -- Ejecutar los archivos EN ORDEN (1, 2, 3...), cada uno con Run en el SQL Editor de Supabase.
 
