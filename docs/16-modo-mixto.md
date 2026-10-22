@@ -77,6 +77,30 @@ La licencia se revisa sin internet (con la clave pública) y se renueva sola cua
   `versiones_aplicadas`) → si algo falla, vuelve a la versión anterior y avisa al Desarrollador.
 - Sin internet: el mismo paquete firmado se puede instalar desde USB o correo.
 
+## Empresa grande con servidor propio (conversado 2026-10-21, sin código)
+
+Caso: una empresa quiere la base en **su servidor** y que se sincronice con Supabase (ej. una vez al día).
+
+**Acordado — acceso en cada PC:** un **instalador pequeño** que solo crea en la PC el acceso directo a la app, servida
+desde el servidor de la empresa en su red, y la abre con el navegador adecuado. La app no se instala en cada PC: se
+actualiza una sola vez, en el servidor.
+- Funciona en sistemas viejos porque el límite es el navegador: Windows 10/11 sin problema. Windows 7 y 8.1 solo con
+  Firefox ESR (sin parches de seguridad pronto). XP y Vista no.
+- Tauri (necesita WebView2) y Electron (desde la versión 23) ya no corren en Windows 7: para este caso no sirven.
+
+**Para abordar más adelante — base de datos (no decidido):**
+- **Supabase instalado (self-hosted, Docker)** en el servidor, de preferencia Linux (Ubuntu Server LTS). Trae Auth,
+  Storage y la API: el mismo código y los mismos `sql/instalacion`.
+  - ⚠ Desde la Etapa 2A la app usa **Supabase Auth**. Por eso la idea de "PostgreSQL + PostgREST" de arriba
+    (y la regla 3, "el login es nuestro") quedó desactualizada para este caso.
+- **Sincronización de una sola vía, del servidor local a la nube**, a un **proyecto de Supabase propio de esa
+  empresa**: no a la base compartida, porque los `id` chocarían.
+  - Al inicio, una copia completa cada noche.
+  - Después, si hace falta, replicación lógica de PostgreSQL (casi al instante).
+  - Ida y vuelta diaria no: conflictos e `id` repetidos.
+- Depende de la decisión 1 (pilotos en la calle): si ellos usan la nube y la oficina el servidor, una sola vía no
+  alcanza.
+
 ## Decisiones pendientes (antes de empezar)
 
 | # | Decisión | Opciones | Estado |

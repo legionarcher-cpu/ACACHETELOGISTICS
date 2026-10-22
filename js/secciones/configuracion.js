@@ -34,20 +34,21 @@
    MÓDULO VEHÍCULOS (tabla "vehiculos", sql/00, sección 2):
      - Resumen por estado (disponible / en uso / mantenimiento); al
        presionar un cuadro se filtra la lista.
-     - Lista con búsqueda (placa, marca o piloto) y filtro por estado.
+     - Lista con búsqueda (placa, marca o persona) y filtro por estado.
      - Agregar, modificar (placa, marca, estado) y eliminar. Al eliminar,
-       los pilotos que lo tenían quedan sin vehículo (on delete set null).
-     - Muestra los pilotos asignados; la asignación se hace en Usuarios.
+       quienes lo tenían quedan sin vehículo (on delete set null).
+     - Muestra a quién está asignado (pilotos, empleados o administración, con
+       su rol); la asignación se hace en Usuarios.
 
    Quién lo usa (ambos módulos, js/sesion.js):
      - Administrador y Admin G1: todo.
      - Admin G2 (solo SU región):
          Horarios  -> ve la base (solo lectura) y administra los pedidos por
                       marca de su región y de las tiendas de su región.
-         Vehículos -> ve y modifica los vehículos asignados a pilotos de
-                      tiendas de su región. Elimina solo si todos sus pilotos
-                      son de su región. No agrega (un vehículo sin piloto no
-                      es de ninguna región): los registra desde Usuarios.
+         Vehículos -> ve y modifica los vehículos asignados a personas de
+                      su región (de sus tiendas o G2 de la región). Elimina solo
+                      si todas son de su región. No agrega (un vehículo sin
+                      asignar no es de ninguna región): los registra desde Usuarios.
      - Los demás roles no ven las tarjetas y, si escriben la dirección a
        mano, vuelven al inicio.
    Los elementos del HTML con data-solo-general se ocultan a Admin G2 y
@@ -988,7 +989,7 @@ registrarSeccion('configuracion', (zona) => {
     const vehError        = $('#cfgVehError');
     const vehCampos       = { placa: $('#cfgVehPlaca'), tipo: $('#cfgVehTipo'), marca: $('#cfgVehMarca'), estado: $('#cfgVehEstado') };
 
-    let vehiculos = [];          // [{ id, placa, tipo, marca, estado, pilotos: [{ nombre, id_usuario }] }]
+    let vehiculos = [];          // [{ id, placa, tipo, marca, estado, asignados: [{ nombre, id_usuario, rol }] }]
     let editandoVehiculo = null;
 
     // "p 123 abc" -> "P123ABC" (igual que en Usuarios)
@@ -1004,9 +1005,10 @@ registrarSeccion('configuracion', (zona) => {
         const columnas = `id, placa, tipo, marca, estado${conTransporte() ? `, ${CFG_VEH_TRANSPORTE.join(', ')}` : ''}`;
         const [veh, pil] = await Promise.all([
             db.from('vehiculos').select(columnas).order('placa'),
-            // tiendas(region): la región del piloto (para Admin G2)
-            db.from('usuarios').select('nombre, id_usuario, vehiculo_id, tiendas(region)')
-                .eq('rol', 'piloto').not('vehiculo_id', 'is', null).order('nombre'),
+            // Quienes tienen vehículo (piloto, empleado o administración).
+            // tiendas(region) o region (G2): su región, para el Admin G2
+            db.from('usuarios').select('nombre, id_usuario, rol, region, vehiculo_id, tiendas(region)')
+                .not('vehiculo_id', 'is', null).order('nombre'),
         ]);
 
         const error = veh.error || pil.error;
@@ -1018,20 +1020,26 @@ registrarSeccion('configuracion', (zona) => {
             return;
         }
 
-        // A cada vehículo se le agregan los pilotos que lo tienen asignado
-        vehiculos = veh.data.map((v) => ({ ...v, pilotos: pil.data.filter((p) => p.vehiculo_id === v.id) }));
+        // A cada vehículo se le agregan las personas que lo tienen asignado
+        vehiculos = veh.data.map((v) => ({ ...v, asignados: pil.data.filter((p) => p.vehiculo_id === v.id) }));
 
-        // Admin G2: solo los vehículos con algún piloto de su región
-        if (regionG2) vehiculos = vehiculos.filter((v) => v.pilotos.some(esDeMiRegion));
+        // Admin G2: solo los vehículos con alguien de su región
+        if (regionG2) vehiculos = vehiculos.filter((v) => v.asignados.some(esDeMiRegion));
         dibujarVehiculos();
     }
 
-    // ¿El piloto es de una tienda de la región del Admin G2?
-    const esDeMiRegion = (piloto) => !!piloto.tiendas && piloto.tiendas.region === regionG2;
+    // ¿La persona es de la región del Admin G2? (por su tienda, o un G2 de esa región)
+    // Administrador y G1 no son de ninguna región.
+    const esDeMiRegion = (u) => (u.tiendas ? u.tiendas.region : u.region) === regionG2;
 
-    // Admin G2 elimina solo si TODOS los pilotos del vehículo son de su región
-    // (si lo comparte con otra región, eliminarlo les quitaría el vehículo a ellos)
-    const puedeEliminarVehiculo = (v) => esGeneral || (!!regionG2 && v.pilotos.every(esDeMiRegion));
+    // Admin G2 elimina solo si TODAS las personas del vehículo son de su región
+    // (si lo comparte con otra región o con la administración, eliminarlo les quitaría el vehículo)
+    const puedeEliminarVehiculo = (v) => esGeneral || (!!regionG2 && v.asignados.every(esDeMiRegion));
+
+    // Rol de quien tiene el vehículo, junto a su nombre (el piloto no lo lleva: es lo normal)
+    const CFG_ROL_ASIGNADO = {
+        administrador: 'Administrador', admin_g1: 'Admin G1', admin_g2: 'Admin G2', admin_g3: 'Admin G3', empleado: 'Empleado',
+    };
 
     function dibujarVehiculos() {
         // Resumen por estado
@@ -1047,7 +1055,7 @@ registrarSeccion('configuracion', (zona) => {
         const texto = vehBuscar.value.trim();
         const estado = vehFiltroEstado.value;
         const visibles = vehiculos.filter((v) => (!estado || v.estado === estado) &&
-            coincideBusqueda([v.placa, textoTipo(v.tipo), v.marca, ...v.pilotos.flatMap((p) => [p.nombre, p.id_usuario])], texto));
+            coincideBusqueda([v.placa, textoTipo(v.tipo), v.marca, ...v.asignados.flatMap((p) => [p.nombre, p.id_usuario])], texto));
 
         $('#cfgVehContador').textContent = visibles.length === vehiculos.length
             ? plural(vehiculos.length, 'vehículo registrado', 'vehículos registrados')
@@ -1059,7 +1067,7 @@ registrarSeccion('configuracion', (zona) => {
             let vacio = 'Ningún vehículo coincide con la búsqueda.';
             if (!vehiculos.length) {
                 vacio = regionG2
-                    ? 'No hay vehículos asignados a pilotos de tu región.'
+                    ? 'No hay vehículos asignados a personas de tu región.'
                     : 'No hay vehículos registrados. Usa "Agregar vehículo".';
             }
             cuerpoVehiculos.appendChild(crearFilaVacia(vacio, columnas));
@@ -1092,15 +1100,15 @@ registrarSeccion('configuracion', (zona) => {
             const info = CFG_ESTADOS_VEHICULO[v.estado] || { texto: v.estado, color: 'etiqueta-gris' };
             tr.appendChild(crearCeldaEtiqueta(info.texto, info.color));
 
-            // Pilotos asignados (nombre + usuario), o "Sin asignar"
-            if (v.pilotos.length) {
+            // Asignado a (nombre + usuario, y el rol si no es piloto), o "Sin asignar"
+            if (v.asignados.length) {
                 const tdPilotos = document.createElement('td');
                 const lista = document.createElement('div');
                 lista.className = 'cfg-pilotos';
-                v.pilotos.forEach((p) => {
+                v.asignados.forEach((p) => {
                     const linea = document.createElement('span');
                     const usuario = document.createElement('small');
-                    usuario.textContent = ` · ${p.id_usuario}`;
+                    usuario.textContent = [` · ${p.id_usuario}`, CFG_ROL_ASIGNADO[p.rol]].filter(Boolean).join(' · ');
                     linea.append(p.nombre, usuario);
                     lista.appendChild(linea);
                 });
@@ -1116,7 +1124,7 @@ registrarSeccion('configuracion', (zona) => {
                     crearBotonIcono('editar', v.id, 'bi-pencil', `Modificar ${v.placa}`),
                     crearBotonIcono('eliminar', v.id, 'bi-trash3', eliminable
                         ? `Eliminar ${v.placa}`
-                        : 'No se puede eliminar: también lo usan pilotos de otra región', !eliminable)
+                        : 'No se puede eliminar: también lo usan personas de otra región o de la administración', !eliminable)
                 ));
             }
             cuerpoVehiculos.appendChild(tr);
@@ -1168,8 +1176,8 @@ registrarSeccion('configuracion', (zona) => {
 
         if (boton.dataset.accion === 'editar') abrirVehiculo(vehiculo);
         if (boton.dataset.accion === 'eliminar') {
-            const textoPilotos = vehiculo.pilotos.length
-                ? ` Lo tiene asignado: ${vehiculo.pilotos.map((p) => p.nombre).join(', ')}; quedará sin vehículo.`
+            const textoPilotos = vehiculo.asignados.length
+                ? ` Lo tiene asignado: ${vehiculo.asignados.map((p) => p.nombre).join(', ')}; quedará sin vehículo.`
                 : '';
             pedirConfirmacion(`¿Eliminar el vehículo ${vehiculo.placa} (${vehiculo.marca})?${textoPilotos}`, async () => {
                 const { error } = await db.from('vehiculos').delete().eq('id', vehiculo.id);

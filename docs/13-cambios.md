@@ -2,6 +2,40 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-22 · Costos: costo por día en vez de costo por km
+
+SQL: ninguno. Ctrl+F5 (versión `20261022b`).
+
+- Configuración → Costos de operación: el cuadro "Costo por km" pasa a **"Costo por día"** = gasto del mes ÷ días de
+  trabajo del mes actual, dejando **1 día libre por semana** (los días del mes menos sus domingos: un mes de 31 días
+  con 4 domingos da 27 días). El día libre se cambia en `COS_DIA_LIBRE` (`js/secciones/configuracion/costos.js`).
+- Ya no se leen los km de los últimos 30 días (solo servían para ese cuadro).
+
+## 2026-10-22 · Mensaje claro cuando la base no da permiso
+
+SQL: ninguno. Ctrl+F5 (versión `20261022a`).
+
+- Guardar un gasto (Configuración → Costos de operación) y otras acciones decían "Revisa la conexión" cuando en realidad
+  las reglas de acceso no lo permitían. Ahora `viaErrorTexto` (`js/viajes-comun.js`) lo dice: al Desarrollador, que son
+  datos de la empresa y necesita la llave "Ver y corregir"; a los demás, que les falta la función.
+- Recordatorio (Etapa 2C): los gastos (`costos_operacion`) son datos de la empresa; el Desarrollador los cambia solo con
+  la llave "Ver y corregir", aun en la puesta en marcha. El margen y las entregas al mes (`costos_config`) son
+  configuración: esos sí los cambia en la puesta en marcha.
+
+## 2026-10-21 · Vehículo asignable a cualquier persona de la empresa
+
+SQL: ejecutar solo `sql/instalacion/01_base.sql` (cambia la regla también en una base ya instalada). Ctrl+F5
+(versión `20261021f`).
+
+- Un vehículo ya no es solo de pilotos: se puede asignar también a un Empleado, Admin G3, G2, G1 o al Administrador
+  (regla `usuarios_vehiculo_personal` en `01_base.sql`, antes `usuarios_vehiculo_solo_piloto`). Clientes y el
+  Desarrollador, no.
+- Usuarios: el campo "Vehículo asignado" sale para todo el personal. Mi perfil lo muestra a quien tenga uno.
+- Configuración → Vehículos: la columna pasa a "Asignado a" y muestra el rol de quien no es piloto. El Admin G2 ve los
+  vehículos de las personas de su región (sus tiendas y los G2 de la región).
+- Sin cambio en la operación: el estado "en uso" (pedidos) y la asignación automática de viajes siguen tomando solo el
+  vehículo de los **pilotos**. Un vehículo asignado solo a un Empleado o a la administración no recibe viajes.
+
 ## 2026-10-21 · El aviso de soporte pasa a la campana
 
 SQL: ninguno. Ctrl+F5 (versión `20261021e`).

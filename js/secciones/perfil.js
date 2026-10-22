@@ -62,8 +62,8 @@ registrarSeccion('perfil', (zona) => {
             : usuario.region ? `Región ${usuario.regiones ? usuario.regiones.nombre : usuario.region}` : '—';
         $('#prfTelefono').textContent = usuario.telefono || '—';
 
-        // Vehículo asignado: solo para pilotos
-        $('#prfDatoVehiculo').hidden = usuario.rol !== 'piloto';
+        // Vehículo asignado: el piloto siempre lo ve (aunque no tenga); los demás, solo si tienen uno
+        $('#prfDatoVehiculo').hidden = usuario.rol !== 'piloto' && !usuario.vehiculos;
         $('#prfVehiculo').textContent = usuario.vehiculos
             ? `${usuario.vehiculos.placa} · ${usuario.vehiculos.marca}`
             : 'Sin vehículo asignado';

@@ -85,6 +85,13 @@ function viaErrorTexto(error, accion = 'completar la acción') {
     if (['PGRST202', '42883', '42P01', 'PGRST205', '42703', 'PGRST200'].includes(error.code)) {
         return 'Falta instalar la base de datos (sql/instalacion).';
     }
+    // Sin permiso: las reglas de acceso (RLS) no lo dejaron, o una revisión de la base que ya explica el motivo
+    if (error.code === '42501') {
+        if (!/row-level security|permission denied/i.test(error.message || '')) return error.message;
+        return typeof esDesarrollador === 'function' && esDesarrollador()
+            ? `No se pudo ${accion}: son datos de la empresa. Necesitas la llave de soporte "Ver y corregir" (campana → Usar llave).`
+            : `No se pudo ${accion}: tu usuario no tiene permiso. Pide al Administrador la función que hace falta (Usuarios → Módulos y funciones).`;
+    }
     return `No se pudo ${accion}. Revisa la conexión e intenta de nuevo.`;
 }
 

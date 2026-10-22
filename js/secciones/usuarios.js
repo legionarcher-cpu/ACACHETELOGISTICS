@@ -12,7 +12,9 @@
                   en la ventana el navegador la dibuja fuera de lugar). Sin el bloque, no aparecen.
      - Foto:      en el formulario, "Elegir foto" / "Quitar". Se aplica al
                   presionar Guardar. Funciones en js/avatar.js (bucket "avatares").
-     - Vehículo:  solo para Pilotos. Se elige uno de la tabla "vehiculos" (agrupados
+     - Vehículo:  para todo el personal (piloto, empleado y administración; no el
+                  cliente). Solo el del piloto cuenta en pedidos y viajes. Se elige uno
+                  de la tabla "vehiculos" (agrupados
                   por tipo: camión, pick-up, panel, moto) o se registra uno nuevo
                   (tipo + marca + placa) desde el mismo formulario
                   (sql/00, sección 2).
@@ -81,7 +83,7 @@
 // Columnas que se traen (la clave NO). "tiendas(codigo, nombre)" trae
 // también los datos de la tienda enlazada por tienda_id.
 // "regiones(nombre)" trae el nombre de la región del Admin G2.
-// "vehiculos(placa, marca)" trae el vehículo asignado al piloto.
+// "vehiculos(placa, marca)" trae el vehículo asignado (piloto, empleado o administración).
 // "solicitante:usuarios!solicitado_por(nombre)" = quién creó un usuario pendiente.
 const USR_COLUMNAS = 'id, nombre, id_usuario, telefono, rol, tienda_id, region, vehiculo_id, foto_url, ' +
     'aprobado, admin_ti, solicitado_por, solicitado_en, ' +
@@ -126,6 +128,9 @@ const USR_ROLES_PERSONAL = ['empleado', 'piloto'];
 
 // Roles que pueden ser Admin TI (dan la llave de soporte; regla usuarios_admin_ti_personal de la base)
 const USR_ROLES_ADMIN_TI = ['administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado'];
+
+// Roles que pueden tener vehículo asignado (regla usuarios_vehiculo_personal de la base)
+const USR_ROLES_CON_VEHICULO = ['administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado', 'piloto'];
 
 // Tiempo que se muestra el aviso verde de "Usuario creado", etc. (ms)
 const USR_DURACION_AVISO = 4000;
@@ -500,7 +505,7 @@ registrarSeccion('usuarios', (zona) => {
         return partes.length ? partes.join(', ') : 'Ninguno';
     }
 
-    // Texto de la columna Vehículo (solo pilotos): "P123ABC · Toyota"
+    // Texto de la columna Vehículo: "P123ABC · Toyota"
     function textoVehiculo(u) {
         return u.vehiculos ? textoUnVehiculo(u.vehiculos) : '—';
     }
@@ -801,11 +806,12 @@ registrarSeccion('usuarios', (zona) => {
         campoRegion.hidden = !esRolG2;
         if (!esRolG2) campos.region.value = '';
 
-        // Vehículo y multitienda: solo para Pilotos
-        const esPiloto = campos.rol.value === 'piloto';
-        campoVehiculo.hidden = !esPiloto;
-        if (!esPiloto) campos.vehiculo.value = '';
+        // Vehículo: todo el personal. Multitienda: solo Pilotos
+        const conVehiculo = USR_ROLES_CON_VEHICULO.includes(campos.rol.value);
+        campoVehiculo.hidden = !conVehiculo;
+        if (!conVehiculo) campos.vehiculo.value = '';
         mostrarVehiculoNuevo();
+        const esPiloto = campos.rol.value === 'piloto';
         campoMultitienda.hidden = !esPiloto || !hayMultitienda;
         if (!esPiloto) casillaMultitienda.checked = false;
 
@@ -1199,10 +1205,10 @@ registrarSeccion('usuarios', (zona) => {
             return fallo('Elige la región que administrará.', campos.region);
         }
 
-        // Vehículo (solo pilotos): ninguno, uno existente o uno nuevo por registrar
+        // Vehículo (todo el personal): ninguno, uno existente o uno nuevo por registrar
         vehiculoPorRegistrar = null;
         let vehiculoId = null;
-        if (rol === 'piloto') {
+        if (USR_ROLES_CON_VEHICULO.includes(rol)) {
             if (campos.vehiculo.value === USR_VEHICULO_NUEVO) {
                 const tipo = campos.vehTipo.value;
                 const marca = campos.vehMarca.value.trim();
@@ -1544,7 +1550,7 @@ registrarSeccion('usuarios', (zona) => {
     // ARRANQUE Y LIMPIEZA
     // ==================================================
 
-    // (los vehículos solo hacen falta para asignarlos a pilotos)
+    // (los vehículos solo hacen falta para asignarlos en el formulario)
     if (conAcciones) cargarVehiculos();
 
     // Primero regiones y tiendas (las usan los filtros y el formulario),

@@ -263,7 +263,8 @@ create table if not exists public.usuarios (
         or (rol = 'cliente' and tienda_id is null and region is null and cliente_id is not null)),
     constraint usuarios_empresa_segun_rol       check (rol = 'desarrollador' or empresa_id is not null),
     constraint usuarios_clave_vacia             check (clave is null),
-    constraint usuarios_vehiculo_solo_piloto    check (vehiculo_id is null or rol = 'piloto'),
+    -- Vehículo asignado: cualquier persona de la empresa (piloto, empleado o administración); no el cliente ni el Desarrollador
+    constraint usuarios_vehiculo_personal       check (vehiculo_id is null or rol in ('administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado', 'piloto')),
     constraint usuarios_multitienda_solo_piloto check (not multitienda or rol = 'piloto'),
     constraint usuarios_cliente_solo_cliente    check (cliente_id is null or rol = 'cliente'),
     constraint usuarios_admin_ti_personal       check (not admin_ti or rol in ('administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado')),
@@ -275,6 +276,12 @@ create table if not exists public.usuarios (
 create index if not exists usuarios_empresa_idx on public.usuarios (empresa_id);
 create index if not exists usuarios_cedula_idx on public.usuarios (cedula) where cedula is not null;
 create unique index if not exists usuarios_un_acceso_por_cliente on public.usuarios (cliente_id) where cliente_id is not null;
+
+-- Base ya instalada: la regla vieja (vehículo solo para pilotos) pasa a la de todo el personal
+alter table public.usuarios drop constraint if exists usuarios_vehiculo_solo_piloto;
+alter table public.usuarios drop constraint if exists usuarios_vehiculo_personal;
+alter table public.usuarios add constraint usuarios_vehiculo_personal
+    check (vehiculo_id is null or rol in ('administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado', 'piloto'));
 
 
 -- ==================================================

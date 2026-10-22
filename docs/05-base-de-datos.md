@@ -105,11 +105,11 @@ de sus entregas; la guardan Administrador y G1 desde el formulario de Pedidos; s
 | `foto_url` | Enlace de su foto (Storage `avatares`) |
 | `aprobado`, `solicitado_por`, `solicitado_en` | Aprobación de usuarios creados por un G3 |
 | `admin_ti` | Admin TI: da la llave de soporte al Desarrollador (Configuración → Soporte). Solo personal (no Piloto ni cliente); lo pone o quita el Administrador; el Desarrollador solo lo pone (Etapa 2C) |
-| `vehiculo_id` | Vehículo asignado (solo pilotos) |
+| `vehiculo_id` | Vehículo asignado: cualquier persona de la empresa (piloto, empleado o administración), no clientes. Solo el del piloto cuenta en pedidos ("en uso") y en la agenda de viajes |
 | `multitienda` | Piloto que puede trabajar en otras tiendas de su región |
 | (módulos y funciones) | Ya no es una columna: tablas `funciones` (catálogo y roles que traen cada una) y `usuario_funciones` (lo que a un usuario se le dio o se le quitó). Ver "Acceso" |
 
-Reglas: tienda/región según el rol; vehículo y multitienda solo pilotos; el usuario `admin` no se
+Reglas: tienda/región según el rol; vehículo para el personal (`usuarios_vehiculo_personal`); multitienda solo pilotos; el usuario `admin` no se
 elimina ni cambia de usuario o rol (trigger `proteger_admin`).
 
 **`vehiculos`** — `placa` (única, MAYÚSCULAS), `tipo` (`camion`, `pickup`, `panel`, `moto`, `auto`, `microbus`), `marca`,

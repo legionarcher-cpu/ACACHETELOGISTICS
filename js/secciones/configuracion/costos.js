@@ -11,15 +11,15 @@
    mantenimiento…) se escribe como un gasto del mes.
      1. Cuánto cuesta operar: suma de los gastos del mes ÷ entregas o viajes del mes
         (los reales de 30 días o el estimado que se escriba) = costo de cada uno.
-        Con los km de los últimos 30 días: costo por km.
+        Costo por día: gasto del mes ÷ días que se trabajan este mes (1 día libre por
+        semana: los días del mes menos sus domingos, COS_DIA_LIBRE).
      2. Margen y precio: precio mínimo para cubrir gastos (= costo), precio sugerido con
         el margen de utilidad deseado (costo ÷ (1 − margen)), ingreso del mes necesario y
         margen real de 30 días (cobrado − gastado). Se recalcula mientras se escribe.
      3. Gastos del mes (fijos y variables).
    "Real" (30 días) junta:
-     - viajes terminados (km y lo cobrado: total), si la empresa hace viajes;
-     - pedidos entregados (km: distancia_km o los del mapa; cobrado: costo_envio, ya con
-       descuento).
+     - viajes terminados (cobrado: total), si la empresa hace viajes;
+     - pedidos entregados (cobrado: costo_envio, ya con descuento).
    El reporte de Viajes usa el mismo costo por viaje (costoPorTrabajo, js/viajes-comun.js).
    ================================================== */
 
@@ -29,6 +29,7 @@ registrarModuloConfig('costos', (seccion, ctx) => {
     const enSeccion = (selector) => seccion.querySelector(selector);
 
     const COS_MARGEN_BASE = 20; // % de utilidad si la empresa no guardó el suyo
+    const COS_DIA_LIBRE = 0;    // día libre de cada semana para el costo por día (0 = domingo)
     // Conceptos sugeridos al crear un gasto (más los que ya usa la empresa)
     const COS_CONCEPTOS = ['Combustible', 'Salario del conductor', 'Cuota del vehículo', 'Seguro', 'Marchamo',
         'Plan de teléfono', 'Parqueo', 'Mantenimiento', 'Llantas', 'Lavado'];
@@ -36,7 +37,7 @@ registrarModuloConfig('costos', (seccion, ctx) => {
     // ---------- Estado ----------
     let config = {};
     let costos = [];
-    let trabajos30 = [];  // [{ km, ingreso }] entregas y viajes terminados de los últimos 30 días
+    let trabajos30 = [];  // [{ ingreso }] entregas y viajes terminados de los últimos 30 días
     let editandoGasto = null;
     let activo = true;
 
@@ -59,22 +60,19 @@ registrarModuloConfig('costos', (seccion, ctx) => {
     // CARGAR
     // ==================================================
 
-    // Entregas y viajes de los últimos 30 días: km y lo cobrado de cada uno
+    // Entregas y viajes de los últimos 30 días: lo cobrado de cada uno
     async function cargarTrabajos30() {
         const hace30 = new Date(Date.now() - 30 * 86400000);
         const consultas = [];
         if (tieneViajes) {
-            consultas.push(db.from('viajes').select('km, total')
+            consultas.push(db.from('viajes').select('total')
                 .eq('estado', 'terminado').gte('inicio', hace30.toISOString())
-                .then(({ data, error }) => (error ? [] : data.map((v) => ({ km: Number(v.km || 0), ingreso: Number(v.total || 0) })))));
+                .then(({ data, error }) => (error ? [] : data.map((v) => ({ ingreso: Number(v.total || 0) })))));
         }
         if (tienePedidos) {
-            consultas.push(db.from('pedidos').select('distancia_km, costo_envio, ruta:detalle->ruta')
+            consultas.push(db.from('pedidos').select('costo_envio')
                 .in('estado', ['entregado', 'entregado_incidencia']).gte('fecha_entrega', viaFechaISO(hace30))
-                .then(({ data, error }) => (error ? [] : data.map((p) => ({
-                    km: Number(p.distancia_km ?? (p.ruta || {}).km ?? 0),
-                    ingreso: Number(p.costo_envio || 0),
-                })))));
+                .then(({ data, error }) => (error ? [] : data.map((p) => ({ ingreso: Number(p.costo_envio || 0) })))));
         }
         return (await Promise.all(consultas)).flat();
     }
@@ -113,28 +111,37 @@ registrarModuloConfig('costos', (seccion, ctx) => {
         return texto === '' || !Number.isFinite(n) ? null : n;
     };
 
+    // Días que se trabajan este mes: todos menos el día libre de cada semana
+    function diasTrabajoMes() {
+        const hoy = new Date();
+        const total = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0).getDate();
+        let libres = 0;
+        for (let d = 1; d <= total; d++) {
+            if (new Date(hoy.getFullYear(), hoy.getMonth(), d).getDay() === COS_DIA_LIBRE) libres++;
+        }
+        return { total, dias: total - libres };
+    }
+
     function calcular() {
         const sumaTipo = (tipo) => costos.filter((c) => c.tipo === tipo).reduce((s, c) => s + Number(c.monto_mes || 0), 0);
         const fijos = sumaTipo('fijo');
         const variables = sumaTipo('variable');
         const gastoMes = fijos + variables;
 
-        // Entregas del mes: el estimado escrito o las reales de 30 días.
-        // Los km del mes salen del promedio real por entrega.
+        // Entregas del mes: el estimado escrito o las reales de 30 días
         const reales = trabajos30.length;
         const estimado = leerNumero('#cfgCosTrabajosMes');
         const trabajos = estimado > 0 ? Math.round(estimado) : reales;
-        const kmReal = trabajos30.reduce((s, t) => s + t.km, 0);
-        const kmMes = reales ? (kmReal / reales) * trabajos : 0;
         const costoTrabajo = trabajos > 0 ? gastoMes / trabajos : null;
+        const mes = diasTrabajoMes();
 
         const margenPct = Math.min(90, Math.max(0, leerNumero('#cfgCosMargen') ?? COS_MARGEN_BASE));
         const m = margenPct / 100;
         const ingreso30 = trabajos30.reduce((s, t) => s + t.ingreso, 0);
 
         return {
-            fijos, variables, gastoMes, reales, trabajos, estimado: estimado > 0, kmMes, costoTrabajo,
-            costoKm: kmMes > 0 ? gastoMes / kmMes : null,
+            fijos, variables, gastoMes, reales, trabajos, estimado: estimado > 0, costoTrabajo,
+            diasMes: mes.dias, diasCalendario: mes.total, costoDia: gastoMes / mes.dias,
             margenPct, recargoPct: (m / (1 - m)) * 100,
             precioSugerido: costoTrabajo != null ? costoTrabajo / (1 - m) : null,
             ingresoNecesario: gastoMes / (1 - m),
@@ -158,8 +165,8 @@ registrarModuloConfig('costos', (seccion, ctx) => {
                 c.trabajos ? deDonde : `Sin ${unidades} en 30 días: escribe cuántas haces al mes`),
             cuadro(`Costo por ${unidad}`, c.costoTrabajo != null ? dinero(c.costoTrabajo) : '—',
                 c.costoTrabajo != null ? `${dinero(c.gastoMes)} ÷ ${plural(c.trabajos, unidadCorta, unidades)}` : 'Falta saber cuántas haces al mes'),
-            cuadro('Costo por km', c.costoKm != null ? dinero(c.costoKm) : '—',
-                c.kmMes ? `${Math.round(c.kmMes).toLocaleString('es-CR')} km al mes` : 'Sin km registrados en 30 días'),
+            cuadro('Costo por día', costos.length ? dinero(c.costoDia) : '—',
+                `${dinero(c.gastoMes)} ÷ ${c.diasMes} días de trabajo (mes de ${c.diasCalendario}, 1 libre por semana)`),
         );
     }
 

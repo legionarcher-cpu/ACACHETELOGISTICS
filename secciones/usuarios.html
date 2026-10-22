@@ -165,7 +165,7 @@
                 <select id="usrRegion" class="campo-input"></select>
             </div>
 
-            <!-- Vehículo: solo aparece con el rol Piloto.
+            <!-- Vehículo: para todo el personal (piloto, empleado y administración); no para clientes.
                  Se elige uno existente (agrupados por tipo) o se registra uno nuevo (tipo + marca + placa). -->
             <div id="usrCampoVehiculo" class="campo campo-ancho solo-vehiculos" hidden>
                 <label for="usrVehiculo" class="campo-etiqueta">Vehículo asignado</label>
@@ -185,7 +185,7 @@
                     <input id="usrVehMarca" type="text" class="campo-input" placeholder="Marca (ej. Toyota)" autocomplete="off" aria-label="Marca del vehículo">
                     <input id="usrVehPlaca" type="text" class="campo-input texto-codigo usr-placa" placeholder="Placa (ej. P123ABC)" autocomplete="off" aria-label="Placa del vehículo">
                 </div>
-                <small class="campo-ayuda">Opcional. Un vehículo puede estar asignado a varios pilotos.</small>
+                <small class="campo-ayuda">Opcional. Un vehículo puede estar asignado a varias personas. Solo los pilotos lo usan en pedidos y viajes.</small>
             </div>
 
             <!-- Piloto multitienda (columna usuarios.multitienda): el G2 lo puede asignar a rutas de otras
