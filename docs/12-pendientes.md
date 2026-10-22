@@ -51,16 +51,33 @@
 
 ## B. Efecto en los scripts SQL
 
-Desde el 2026-09-30 hay **solo dos** scripts (los 21 anteriores se eliminaron):
+Desde el 2026-10-20 la base se instala por módulos con `sql/instalacion/` (01 a 12) y cada cambio nuevo es un
+archivo con fecha en `sql/actualizaciones/` (ver `sql/LEEME.md`). Los scripts `00` y `01` anteriores quedaron en
+`sql/historial/`. **Copia de seguridad antes** de ejecutar una actualización que cambie datos.
 
-| Script | Estado | Qué hacer |
-|---|---|---|
-| `00_instalacion_completa.sql` | Listo | Base nueva en blanco. Se irá actualizando con cada cambio de la tabla A |
-| `01_actualizacion_base_existente.sql` | Listo | **Ejecutarlo ya en la base actual.** Asegura todas las funciones (admin protegido, cambiar código de tienda, horarios del día, número y código de respaldo, validar código, vehículo en uso), rutas y multitienda, tipo de vehículo, qué usa cada actividad y categorías de encomiendas. Se puede repetir sin error |
+**Etapa 2A hecha (2026-10-21, sin probar):**
+- Supabase Auth.
+- RLS por empresa y para el cliente, sin las reglas TEMPORAL.
+- Las funciones confirman al usuario de la sesión.
+- La base revisa quién cambia a quién en usuarios.
+- Ajustes por empresa.
 
-Los cambios 4 a 7 de la tabla A **no crean archivos nuevos**: cada uno se agrega en su sección de `00`
-y como un bloque al final de `01` (con su migración de datos). **Copia de seguridad antes** de
-ejecutar `01` cuando incluya cambios de datos (usuarios opción C, catálogo único).
+Ver [13-cambios.md](13-cambios.md).
+
+**Etapa 2B hecha (2026-10-21, sin probar):**
+- alcance por región o tienda en pedidos, cajas y viajes del conductor;
+- funciones de cada usuario en tablas;
+- permisos por función al escribir.
+
+**Etapa 2C hecha (2026-10-21, sin probar):**
+- llave de soporte del Admin TI (Configuración → Soporte), con su bitácora;
+- el Desarrollador, sin llave, solo ve la configuración y los usuarios; configura la empresa mientras no tenga Admin TI;
+- acciones de emergencia sin llave (bloquear, desbloquear, cerrar sesiones).
+- Quedó fuera del diseño original: **forzar el cambio de contraseña** y **ver errores**.
+
+**Etapa 2D hecha (2026-10-21, sin probar):** los cambios de estado del pedido solo por funciones de la base
+(`pedido_estado`, `pedido_asignar`...), que escriben el historial; las horas de cada paso salen del historial
+(vista `pedidos_pasos`). Con esto termina la Etapa 2.
 
 Copia de seguridad en Supabase: Database → Backups (plan de pago) o, en el gratuito, exportar las
 tablas (Table Editor → Export) antes de cada script que cambie datos.
@@ -69,10 +86,14 @@ tablas (Table Editor → Export) antes de cada script que cambie datos.
 
 - Hecho (2026-10-04, bloque 20): claves **cifradas** y no legibles desde la página; login dentro de la base;
   `update`/`delete` de la página siempre dentro de la empresa activa; vaciar la base pide la empresa.
-- Hoy todavía: la base acepta leer y escribir las demás tablas con la clave pública (ej. cambiar `aprobado` o la
-  clave de un usuario); las reglas por rol las aplica la página.
-- Fase 7: login con **Supabase Auth** y reglas **RLS** en cada tabla con la jerarquía de permisos y la empresa, para
-  que ninguna consulta o reporte devuelva lo que el rol no puede ver.
+- Hecho (2026-10-21, Etapa 2A): login con **Supabase Auth** y reglas **RLS** por empresa y para el cliente; sin sesión
+  no se lee ni se escribe nada; nadie cambia su propio rol ni actúa en nombre de otro.
+- Hecho (2026-10-21, Etapa 2B): la jerarquía dentro de la empresa (G2 su región, G3 y Empleado su tienda, Piloto sus
+  pedidos) en pedidos, cajas y viajes, y permisos por función al escribir. Clientes y usuarios siguen viéndose en
+  toda la empresa (a propósito, ver [05-base-de-datos.md](05-base-de-datos.md)).
+- Hecho (2026-10-21, Etapa 2C): el Desarrollador ve los datos de una empresa solo con la llave de su Admin TI, y queda
+  en la bitácora. Límite que sigue: el dueño del proyecto de Supabase ve todo desde su panel (opciones: acuerdo de
+  confidencialidad, cifrar campos o un proyecto por empresa, [16-modo-mixto.md](16-modo-mixto.md)).
 - Cambiar la clave de `admin`. (La protección del usuario `admin` queda asegurada con `sql/01`.)
 
 ## D. Pendientes de funcionalidad
@@ -93,8 +114,7 @@ tablas (Table Editor → Export) antes de cada script que cambie datos.
   un proveedor de pago, cambiando `MAPA_SERVICIOS`); cargar la ubicación de cada tienda. (Hecho: Clientes
   guarda las coordenadas de la entrega y Nuevo pedido las usa.)
 - Reemplazar las regiones de ejemplo por las reales (ahora desde Tiendas → Regiones).
-- Empresas internas: reglas reales en la base (Fase 7) para que una empresa no pueda leer otra aunque
-  alguien cambie la página.
+- ~~Empresas internas: reglas reales en la base para que una empresa no pueda leer otra~~ Hecho (Etapa 2A).
 
 ## E. Actividad Transporte (hecha el 2026-10-04; seguridad parcial)
 
@@ -102,9 +122,8 @@ tablas (Table Editor → Export) antes de cada script que cambie datos.
 bloques 18 y 19): sección Viajes, rol cliente, franjas, recargos, costos del mes, días cerrados, cortesía, reporte de
 viajes y exportaciones con el nombre y la paleta de la empresa.
 
-- **Pendiente (seguridad):** las reservas ya pasan por funciones de la base, pero las lecturas siguen abiertas con la
-  clave pública hasta la **Fase 7** (Supabase Auth + RLS, parte C). Hacerla antes de dar usuarios a clientes externos
-  con datos reales.
+- **Seguridad:** hecho en la Etapa 2A (2026-10-21). El cliente solo ve sus viajes y las lecturas ya no están abiertas
+  con la clave pública. Probarlo antes de dar usuarios a clientes externos con datos reales.
 - **Hecho (bloque 20):** el cliente solicita su usuario desde el login (`#registro?empresa=02`) y se aprueba en
   Clientes → Revisar. Posible mejora: confirmar el teléfono con un código por WhatsApp/SMS y "Olvidé mi contraseña".
 - **Pendiente de decidir:** "Repetir viaje" / "Agregar regreso" y viajes recurrentes.

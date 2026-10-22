@@ -221,11 +221,12 @@ registrarSeccion('caja', (zona) => {
     async function cargarCobros() {
         const id = ++cargaId;
         if (!hayTabla) {
-            cuerpoCobros.replaceChildren(crearFilaVacia('Falta ejecutar sql/01 (bloque 24).', 6));
+            cuerpoCobros.replaceChildren(crearFilaVacia('Falta instalar la base de datos (sql/instalacion).', 6));
             return;
         }
         const [ped, via] = await Promise.all([
-            db.from('pedidos').select('id, codigo, cliente_nombre, total_cobrar, forma_pago, cobro_forma, fecha_entrega, finalizado_en')
+            // Fecha del cobro: cuándo se entregó (pedido_entregas; la hora de cada paso ya no va en pedidos)
+            db.from('pedidos').select('id, codigo, cliente_nombre, total_cobrar, forma_pago, cobro_forma, fecha_entrega, pedido_entregas(entregado_en)')
                 .eq('piloto_id', piloto.id).is('cierre_id', null).eq('anulado', false)
                 .in('estado', CAJ_ENTREGADOS).gt('total_cobrar', 0).order('fecha_entrega'),
             conViajes
@@ -242,7 +243,7 @@ registrarSeccion('caja', (zona) => {
         cobros = [
             ...ped.data.map((p) => ({
                 tipo: 'pedido', id: p.id, codigo: p.codigo, cliente: p.cliente_nombre,
-                fecha: p.finalizado_en || p.fecha_entrega, monto: Number(p.total_cobrar),
+                fecha: ([].concat(p.pedido_entregas || [])[0] || {}).entregado_en || p.fecha_entrega, monto: Number(p.total_cobrar),
                 forma: p.cobro_forma || (p.forma_pago === 'tarjeta' ? 'tarjeta' : 'efectivo'), verificado: false,
             })),
             ...(via.data || []).map((v) => ({
@@ -273,7 +274,7 @@ registrarSeccion('caja', (zona) => {
 
     async function cargarCierres() {
         if (!hayTabla) {
-            cuerpoCierres.replaceChildren(crearFilaVacia('Falta ejecutar sql/01 (bloque 24).', 9));
+            cuerpoCierres.replaceChildren(crearFilaVacia('Falta instalar la base de datos (sql/instalacion).', 9));
             return;
         }
         const { data, error } = await db.from('cierres_caja')
@@ -459,7 +460,7 @@ registrarSeccion('caja', (zona) => {
         if (error) {
             console.error('Error al cerrar la caja:', error);
             aviso.mostrar(error.code === 'P0001' ? error.message
-                : ['PGRST202', '42883'].includes(error.code) ? 'Falta ejecutar sql/01 (bloque 24) para cerrar cajas.'
+                : ['PGRST202', '42883'].includes(error.code) ? 'Falta instalar la base de datos (sql/instalacion).'
                     : 'No se pudo cerrar la caja. Revisa la conexión.', 'error');
             return;
         }

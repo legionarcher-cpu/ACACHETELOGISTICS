@@ -99,7 +99,7 @@ registrarSeccion('distribucion', (zona) => {
     const nombreLista = (id) => (cat && cat.listas.find((l) => l.id === id) || {}).nombre || 'Sin lista';
     const enAlcance = (tiendaId) => tiendas.some((t) => t.id === tiendaId);
     const textoError = (e, accion) => (e.code === 'P0001' ? e.message
-        : distFaltaSql(e) ? 'Falta ejecutar sql/01 (bloques 26 y 27: distribuidora).' : `No se pudo ${accion}. Revisa la conexión.`);
+        : distFaltaSql(e) ? 'Falta instalar la base de datos (sql/instalacion).' : `No se pudo ${accion}. Revisa la conexión.`);
     // Precio con IVA de una presentación en la lista de la bodega
     const valorBodega = (presId) => { const pr = distPrecio(cat, bodega ? bodega.lista_id : null, presId); return distConIva(pr.precio, pr.iva_pct); };
     const celdaNum = (n, clase = '') => crearCelda(distCantidad(n), `dist-num ${clase}`.trim());

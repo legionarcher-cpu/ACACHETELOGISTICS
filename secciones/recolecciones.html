@@ -1,0 +1,457 @@
+<!-- ==================================================
+     SECCIÓN: RECOLECCIONES (actividad "recoleccion", sql/instalacion/09_recolecciones.sql)
+     Solo aparece si la empresa tiene la actividad Recolección (js/sesion.js: seccionAplica).
+     Guía: docs/secciones/recolecciones.md
+
+     Una sola agenda por empresa: cada espacio lo toma un solo cliente.
+     Cambia según quién entra (lo arma js/secciones/recolecciones.js):
+       Cliente      -> sus próximas recolecciones y las anteriores, lo que lleva la semana
+                       y "Solicitar recolección"; cambia la hora o cancela.
+       Quien atiende (Administrador, Admin G1, piloto o la función "recolecciones.atender")
+                    -> agenda del día con el proceso del conductor (En camino -> Recogida ->
+                       Entregada, o "No estaba"), pestaña Bloqueos (almuerzo, entrada,
+                       salida) y, con la función "recolecciones.cobrar", pestaña Cobros
+                       (tarifa diaria por cliente con sus días marcados, como las rutas,
+                       y cobro de la semana).
+       Personal     -> agenda del día; solicita para un cliente, cambia la hora y cancela.
+
+     Solicitud en 4 pasos: 0 cliente (personal) · 1 qué se recoge (depósitos: cuántos y de
+     quién es cada uno, u otro) · 2 dónde se recoge y dónde se entrega (oficina de la empresa
+     u otro lugar) · 3 día y hora · 4 confirmar.
+
+     Parámetros: #recolecciones?nuevo=1 (abre la solicitud) · #recolecciones?id=15 (la muestra).
+
+     Recicla los estilos de Viajes (via-*): css/secciones/recolecciones.css los importa.
+     Los ids empiezan con "rec".
+     ================================================== -->
+
+<!-- Si se abre este archivo directamente, redirige a app.html
+     (cuando index lo carga, esta línea no se ejecuta). -->
+<script>if (!document.querySelector('.cuerpo-principal')) location.replace('../index.html');</script>
+
+<div class="pagina via rec">
+
+    <div class="pagina-cabecera">
+        <div>
+            <h2 class="pagina-titulo">Recolecciones</h2>
+            <p id="recSubtitulo" class="pagina-subtitulo"></p>
+        </div>
+        <div class="pagina-acciones">
+            <button type="button" id="recNuevo" class="boton boton-principal" hidden>
+                <i class="bi bi-plus-circle"></i>
+                <span>Solicitar recolección</span>
+            </button>
+        </div>
+    </div>
+
+    <p id="recAviso" class="aviso" role="status"></p>
+
+    <p id="recFaltaSql" class="rec-nota" hidden>
+        <i class="bi bi-exclamation-triangle"></i>
+        Falta instalar la base de datos (<strong>sql/instalacion</strong>) en Supabase.
+    </p>
+
+    <!-- Pestañas: Agenda | Bloqueos | Cobros (crearPestanas, js/componentes.js; según quién entra) -->
+    <div id="recPestanas" class="pestanas" hidden></div>
+
+    <!-- ==================================================
+         AGENDA
+         ================================================== -->
+    <div id="recVistaAgenda" class="rec-vista">
+
+        <!-- Solo el cliente: lo que lleva esta semana -->
+        <section id="recSemanaCliente" class="tarjeta via-tarjeta" hidden></section>
+
+        <!-- Personal y quien atiende: el día que se ve -->
+        <div id="recFiltros" class="tarjeta via-filtros" hidden>
+            <div class="via-dia">
+                <button type="button" class="boton-icono" data-dia="-1" aria-label="Día anterior"><i class="bi bi-chevron-left"></i></button>
+                <input id="recFecha" type="date" class="campo-input" aria-label="Día de la agenda">
+                <button type="button" class="boton-icono" data-dia="1" aria-label="Día siguiente"><i class="bi bi-chevron-right"></i></button>
+                <button type="button" id="recHoy" class="boton boton-secundario boton-chico">Hoy</button>
+            </div>
+            <select id="recFiltroEstado" class="campo-input filtro" aria-label="Filtrar por estado">
+                <option value="">Todos los estados</option>
+            </select>
+            <div class="buscador">
+                <i class="bi bi-search"></i>
+                <input id="recBuscar" type="search" class="buscador-input" placeholder="Código, cliente o dirección" aria-label="Buscar recolecciones">
+            </div>
+        </div>
+
+        <div id="recResumen" class="via-kpis" hidden></div>
+
+        <section class="via-bloque">
+            <h3 id="recListaTitulo" class="via-bloque-titulo">Próximas recolecciones</h3>
+            <div id="recLista" class="via-lista"></div>
+        </section>
+
+        <section id="recHistorialCaja" class="via-bloque" hidden>
+            <h3 class="via-bloque-titulo">Recolecciones anteriores</h3>
+            <div id="recHistorial" class="via-lista"></div>
+        </section>
+    </div>
+
+    <!-- ==================================================
+         BLOQUEOS (quien atiende): horas que nadie puede tomar
+         ================================================== -->
+    <div id="recVistaBloqueos" class="rec-vista" hidden>
+        <section class="tarjeta via-tarjeta">
+            <div class="via-tarjeta-cabecera">
+                <h3 class="via-tarjeta-titulo"><i class="bi bi-slash-circle"></i> Horas bloqueadas</h3>
+                <button type="button" id="recBloqueoNuevo" class="boton boton-principal boton-chico">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Bloquear horas</span>
+                </button>
+            </div>
+            <p class="via-nota-chica">
+                Almuerzo, entrada, salida o una cita: esas horas no se pueden solicitar. "Todas las semanas" se repite
+                los días marcados; "Un día" solo esa fecha. Las recolecciones que ya estaban no se borran.
+            </p>
+            <div class="tabla-caja">
+                <table class="tabla">
+                    <thead>
+                        <tr>
+                            <th>Cuándo</th>
+                            <th>Horas</th>
+                            <th>Motivo</th>
+                            <th class="tabla-col-acciones">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recBloqueosTabla"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Horario de servicio y reglas de la agenda (recoleccion_config) -->
+        <section class="tarjeta via-tarjeta">
+            <h3 class="via-tarjeta-titulo"><i class="bi bi-clock"></i> Horario de servicio</h3>
+            <form id="recHorarioForm" class="rec-horario" novalidate>
+                <fieldset class="campo campo-ancho rec-dias-semana">
+                    <legend class="campo-etiqueta">Días de servicio</legend>
+                    <div id="recHorarioDias" class="rec-dias-opciones"></div>
+                </fieldset>
+                <div class="campo">
+                    <label for="recHoraInicio" class="campo-etiqueta">Desde</label>
+                    <input id="recHoraInicio" type="time" class="campo-input" step="300">
+                </div>
+                <div class="campo">
+                    <label for="recHoraFin" class="campo-etiqueta">Hasta</label>
+                    <input id="recHoraFin" type="time" class="campo-input" step="300">
+                </div>
+                <div class="campo">
+                    <label for="recEspacio" class="campo-etiqueta">Cada espacio (min)</label>
+                    <input id="recEspacio" type="number" min="5" max="240" step="5" class="campo-input" inputmode="numeric">
+                </div>
+                <div class="campo">
+                    <label for="recAnticipacion" class="campo-etiqueta">Solicitar con (min) de anticipación</label>
+                    <input id="recAnticipacion" type="number" min="0" max="10080" step="5" class="campo-input" inputmode="numeric">
+                </div>
+                <div class="campo">
+                    <label for="recDiasAdelante" class="campo-etiqueta">Hasta cuántos días adelante</label>
+                    <input id="recDiasAdelante" type="number" min="0" max="90" step="1" class="campo-input" inputmode="numeric">
+                </div>
+                <div class="campo">
+                    <label for="recCancelarHoras" class="campo-etiqueta">El cliente cambia o cancela hasta (horas antes)</label>
+                    <input id="recCancelarHoras" type="number" min="0" max="72" step="0.5" class="campo-input" inputmode="decimal">
+                </div>
+                <div class="campo campo-ancho">
+                    <button type="submit" class="boton boton-secundario boton-chico">
+                        <i class="bi bi-check2"></i>
+                        <span>Guardar horario</span>
+                    </button>
+                </div>
+            </form>
+        </section>
+    </div>
+
+    <!-- ==================================================
+         COBROS (tarifa diaria por cliente y cobro semanal)
+         ================================================== -->
+    <div id="recVistaCobros" class="rec-vista" hidden>
+        <section class="tarjeta via-tarjeta">
+            <div class="via-tarjeta-cabecera">
+                <h3 class="via-tarjeta-titulo"><i class="bi bi-cash-coin"></i> Cobro de la semana</h3>
+                <div class="via-dia">
+                    <button type="button" class="boton-icono" data-semana="-1" aria-label="Semana anterior"><i class="bi bi-chevron-left"></i></button>
+                    <strong id="recSemanaTexto" class="rec-semana-texto"></strong>
+                    <button type="button" class="boton-icono" data-semana="1" aria-label="Semana siguiente"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+            <p class="via-nota-chica">
+                Como en las rutas: cada <strong>día marcado</strong> en la tarifa del cliente se cobra su monto fijo,
+                <strong>haya o no recolecciones</strong>. Al cobrarle, marca "Cobrado". El monto de un día se puede
+                corregir con el lápiz (ej. un feriado en ₡0).
+            </p>
+            <div id="recCobrosResumen" class="via-kpis"></div>
+            <div class="tabla-caja">
+                <table class="tabla">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Días</th>
+                            <th class="via-num">Por cobrar</th>
+                            <th class="via-num">Cobrado</th>
+                            <th class="tabla-col-acciones">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recCobrosTabla"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="tarjeta via-tarjeta">
+            <div class="via-tarjeta-cabecera">
+                <h3 class="via-tarjeta-titulo"><i class="bi bi-tag"></i> Tarifa diaria de cada cliente</h3>
+                <button type="button" id="recTarifaNueva" class="boton boton-secundario boton-chico">
+                    <i class="bi bi-plus-lg"></i>
+                    <span>Poner tarifa</span>
+                </button>
+            </div>
+            <p class="via-nota-chica">Un cliente sin tarifa no se cobra.</p>
+            <div class="tabla-caja">
+                <table class="tabla">
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Días que se trabajan</th>
+                            <th>Desde</th>
+                            <th class="via-num">Monto por día</th>
+                            <th class="tabla-col-acciones">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recTarifasTabla"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <!-- ==================================================
+         SOLICITAR UNA RECOLECCIÓN (el personal elige antes al cliente)
+         ================================================== -->
+    <form id="recForm" class="via-solicitud" hidden novalidate>
+
+        <!-- 0 · Cliente (solo el personal) -->
+        <section id="recPasoCliente" class="tarjeta via-paso" hidden>
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">0</span> Cliente</h3>
+            <div class="buscador via-buscador-ancho">
+                <i class="bi bi-search"></i>
+                <input id="recCliBuscar" type="search" class="buscador-input" autocomplete="off"
+                       placeholder="Nombre, teléfono o correo del cliente" aria-label="Buscar cliente">
+            </div>
+            <ul id="recCliResultados" class="via-cli-resultados" hidden></ul>
+            <div id="recCliElegido" class="via-cli-elegido" hidden></div>
+            <p class="via-nota-chica">¿No aparece? Agrégalo en <a href="#clientes?nuevo=1">Clientes</a>.</p>
+        </section>
+
+        <!-- 1 · Qué se recoge -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">1</span> ¿Qué hay que recoger?</h3>
+            <fieldset class="campo via-si-no">
+                <legend class="campo-etiqueta">Tipo *</legend>
+                <div class="via-si-no-opciones">
+                    <label><input type="radio" name="recQue" value="depositos" checked> Depósitos</label>
+                    <label><input type="radio" name="recQue" value="otro"> Otra cosa</label>
+                </div>
+            </fieldset>
+            <div data-si="depositos" class="rec-depositos">
+                <div class="campo rec-cantidad">
+                    <label for="recCantidad" class="campo-etiqueta">¿Cuántos depósitos? *</label>
+                    <input id="recCantidad" type="number" min="1" max="50" step="1" value="1" inputmode="numeric" class="campo-input">
+                </div>
+                <div id="recDepositos" class="rec-depositos-lista"></div>
+            </div>
+            <div class="campo campo-ancho" data-si="otro" hidden>
+                <label for="recDescripcion" class="campo-etiqueta">¿Qué se recoge? *</label>
+                <input id="recDescripcion" type="text" maxlength="200" class="campo-input" placeholder="Ej. un sobre con documentos firmados">
+            </div>
+        </section>
+
+        <!-- 2 · Dónde se recoge y dónde se entrega -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">2</span> ¿Dónde?</h3>
+            <div class="via-puntos">
+                <div class="campo">
+                    <label for="recRecoger" class="campo-etiqueta"><b class="via-punto via-punto-a">A</b> Recoger en *</label>
+                    <input id="recRecoger" type="text" maxlength="200" class="campo-input"
+                           placeholder="Escribe la dirección o marca el punto en el mapa">
+                    <div id="recLugares" class="via-lugares-botones"></div>
+                </div>
+                <div class="campo">
+                    <span class="campo-etiqueta"><b class="via-punto via-punto-b">B</b> Entregar en *</span>
+                    <div class="via-si-no-opciones">
+                        <label><input type="radio" name="recEntrega" value="oficina" checked> En la oficina</label>
+                        <label><input type="radio" name="recEntrega" value="otro"> Otro lugar</label>
+                    </div>
+                    <input id="recEntregar" type="text" maxlength="200" class="campo-input"
+                           placeholder="Escribe la dirección o marca el punto en el mapa" aria-label="Entregar en">
+                    <small id="recOficinaAyuda" class="campo-ayuda"></small>
+                </div>
+            </div>
+            <div id="recMapa"></div>
+        </section>
+
+        <!-- 3 · Día y hora -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">3</span> Día y hora</h3>
+            <p class="via-nota-chica">Elige el día y una hora libre. Las grises ya están ocupadas o no disponibles.</p>
+            <div id="recDias" class="via-dias" aria-label="Día de la recolección"></div>
+            <div id="recHoras" class="via-horas" aria-live="polite"></div>
+        </section>
+
+        <!-- 4 · Confirmar -->
+        <section class="tarjeta via-paso">
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">4</span> Confirmar</h3>
+            <div id="recConfirmar" class="via-confirmar"></div>
+            <div class="campo">
+                <label for="recNotas" class="campo-etiqueta">Nota para el conductor</label>
+                <input id="recNotas" type="text" maxlength="200" class="campo-input" placeholder="Ej. preguntar por Ana en recepción">
+            </div>
+            <p id="recFormError" class="form-error" role="alert"></p>
+            <div class="dialogo-botones">
+                <button type="button" id="recVolver" class="boton boton-secundario">Volver</button>
+                <button type="submit" id="recSolicitar" class="boton boton-principal" disabled>
+                    <i class="bi bi-check2-circle"></i>
+                    <span>Solicitar recolección</span>
+                </button>
+            </div>
+        </section>
+    </form>
+</div>
+
+<!-- ==================================================
+     VENTANA: CAMBIAR LA HORA (todo o nada: si la nueva no está libre, sigue la anterior)
+     ================================================== -->
+<dialog id="recCambiarDialogo" class="dialogo" aria-labelledby="recCambiarTitulo">
+    <div class="dialogo-form">
+        <h3 id="recCambiarTitulo" class="dialogo-titulo">Cambiar la hora</h3>
+        <p id="recCambiarTexto" class="dialogo-texto"></p>
+        <div id="recCambiarDias" class="via-dias" aria-label="Día nuevo"></div>
+        <div id="recCambiarHoras" class="via-horas" aria-live="polite"></div>
+        <p id="recCambiarError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="recCambiarNo" class="boton boton-secundario">Cerrar</button>
+            <button type="button" id="recCambiarSi" class="boton boton-principal" disabled>Cambiar la hora</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: CANCELAR
+     ================================================== -->
+<dialog id="recCancelarDialogo" class="dialogo dialogo-chico" aria-labelledby="recCancelarTitulo">
+    <h3 id="recCancelarTitulo" class="dialogo-titulo">Cancelar la recolección</h3>
+    <p id="recCancelarTexto" class="dialogo-texto"></p>
+    <div class="campo">
+        <label for="recCancelarMotivo" class="campo-etiqueta">Motivo (opcional)</label>
+        <input id="recCancelarMotivo" type="text" maxlength="150" class="campo-input">
+    </div>
+    <p id="recCancelarError" class="form-error" role="alert"></p>
+    <div class="dialogo-botones">
+        <button type="button" id="recCancelarNo" class="boton boton-secundario">No, volver</button>
+        <button type="button" id="recCancelarSi" class="boton boton-peligro">Cancelar la recolección</button>
+    </div>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: BLOQUEAR HORAS
+     ================================================== -->
+<dialog id="recBloqueoDialogo" class="dialogo dialogo-chico" aria-labelledby="recBloqueoTitulo">
+    <form id="recBloqueoForm" class="dialogo-form" novalidate>
+        <h3 id="recBloqueoTitulo" class="dialogo-titulo">Bloquear horas</h3>
+        <div class="campos">
+            <fieldset class="campo campo-ancho via-si-no">
+                <legend class="campo-etiqueta">Cuándo *</legend>
+                <div class="via-si-no-opciones">
+                    <label><input type="radio" name="recBloqueoCuando" value="semana" checked> Todas las semanas</label>
+                    <label><input type="radio" name="recBloqueoCuando" value="dia"> Un día</label>
+                </div>
+            </fieldset>
+            <fieldset class="campo campo-ancho rec-dias-semana" data-bloqueo="semana">
+                <legend class="campo-etiqueta">Días *</legend>
+                <div id="recBloqueoDias" class="rec-dias-opciones"></div>
+            </fieldset>
+            <div class="campo campo-ancho" data-bloqueo="dia" hidden>
+                <label for="recBloqueoFecha" class="campo-etiqueta">Fecha *</label>
+                <input id="recBloqueoFecha" type="date" class="campo-input">
+            </div>
+            <div class="campo">
+                <label for="recBloqueoDesde" class="campo-etiqueta">Desde *</label>
+                <input id="recBloqueoDesde" type="time" class="campo-input" step="300">
+            </div>
+            <div class="campo">
+                <label for="recBloqueoHasta" class="campo-etiqueta">Hasta *</label>
+                <input id="recBloqueoHasta" type="time" class="campo-input" step="300">
+            </div>
+            <div class="campo campo-ancho">
+                <label for="recBloqueoMotivo" class="campo-etiqueta">Motivo</label>
+                <input id="recBloqueoMotivo" type="text" maxlength="60" class="campo-input" placeholder="Ej. Almuerzo, Entrada, Salida">
+            </div>
+        </div>
+        <p id="recBloqueoError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="recBloqueoCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" class="boton boton-principal">Bloquear</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: TARIFA DIARIA DE UN CLIENTE
+     ================================================== -->
+<dialog id="recTarifaDialogo" class="dialogo dialogo-chico" aria-labelledby="recTarifaTitulo">
+    <form id="recTarifaForm" class="dialogo-form" novalidate>
+        <h3 id="recTarifaTitulo" class="dialogo-titulo">Tarifa diaria</h3>
+        <div class="campos">
+            <div class="campo campo-ancho">
+                <label for="recTarifaCliente" class="campo-etiqueta">Cliente *</label>
+                <select id="recTarifaCliente" class="campo-input"></select>
+            </div>
+            <fieldset class="campo campo-ancho rec-dias-semana">
+                <legend class="campo-etiqueta">Días que se trabajan *</legend>
+                <div id="recTarifaDias" class="rec-dias-opciones"></div>
+            </fieldset>
+            <div class="campo">
+                <label for="recTarifaMonto" class="campo-etiqueta">Monto por día (₡) *</label>
+                <input id="recTarifaMonto" type="number" min="0" step="100" class="campo-input" inputmode="decimal">
+            </div>
+            <div class="campo">
+                <label for="recTarifaDesde" class="campo-etiqueta">Se cobra desde *</label>
+                <input id="recTarifaDesde" type="date" class="campo-input">
+            </div>
+            <p class="campo-ayuda campo-ancho">Cada día marcado se cobra el monto, haya o no recolecciones (como en las rutas).
+                Al cambiarla, los días por cobrar de esta semana se vuelven a calcular.</p>
+        </div>
+        <p id="recTarifaError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="recTarifaCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- ==================================================
+     VENTANA: DÍAS DE UN CLIENTE EN LA SEMANA (corregir el monto de un día)
+     ================================================== -->
+<dialog id="recDiasDialogo" class="dialogo" aria-labelledby="recDiasTitulo">
+    <div class="dialogo-form">
+        <h3 id="recDiasTitulo" class="dialogo-titulo">Días de la semana</h3>
+        <div class="tabla-caja">
+            <table class="tabla">
+                <thead>
+                    <tr>
+                        <th>Día</th>
+                        <th class="via-num">Monto (₡)</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody id="recDiasTabla"></tbody>
+            </table>
+        </div>
+        <p id="recDiasError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="recDiasCerrar" class="boton boton-secundario">Cerrar</button>
+            <button type="button" id="recDiasGuardar" class="boton boton-principal">Guardar montos</button>
+        </div>
+    </div>
+</dialog>

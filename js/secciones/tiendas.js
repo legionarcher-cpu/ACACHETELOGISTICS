@@ -219,8 +219,8 @@ registrarSeccion('tiendas', (zona) => {
         //   eliminar              -> solo Administrador
         const botones = [];
         if (puedeVerClientesDe(t)) {
-            // QR de marcas del mes (js/qr.js): se imprime y los pilotos lo escanean al llegar
-            botones.push(crearBotonIcono('qr', t.id, 'bi-qr-code', `QR de marcas del mes de ${t.codigo}`));
+            // QR fijo de marcas (js/qr.js): se imprime y los pilotos lo escanean al llegar
+            botones.push(crearBotonIcono('qr', t.id, 'bi-qr-code', `QR de marcas de ${t.codigo}`));
             botones.push(crearBotonIcono('ver', t.id, 'bi-people', `Clientes de ${t.codigo}`));
             // Nuevo cliente ya marcado en esta tienda (#clientes?tienda=ID&nuevo=1)
             botones.push(crearBotonIcono('cliente', t.id, 'bi-person-plus', `Nuevo cliente en ${t.codigo}`));
@@ -300,39 +300,24 @@ registrarSeccion('tiendas', (zona) => {
         if (boton.dataset.accion === 'eliminar' && admin) pedirConfirmacion(tienda);
     });
 
-    // QR de marcas de una tienda: el FIJO (qr_tienda_fija, sql/01 bloque 34; el mismo del Inicio
-    // de la tienda): no cambia y el piloto se marca solo al escanearlo. Sin el bloque 34, el del
-    // mes (qr_marca_mes): cambia el día 1 y el piloto debe estar validado.
+    // QR de marcas de una tienda: el FIJO (qr_tienda_fija; el mismo del Inicio de la tienda).
+    // No cambia y el piloto se marca solo al escanearlo estando en la tienda.
     async function mostrarQrMarcas(t) {
-        const fijo = await db.rpc('qr_tienda_fija', { p_tienda: t.id, p_nuevo: false });
-        if (!fijo.error) {
-            mostrarQrEnVentana({ // js/qr.js
-                titulo: `QR de marcas · ${t.codigo}`,
-                subtitulo: t.nombre,
-                texto: fijo.data,
-                nota: 'Imprímelo y déjalo visible en la tienda. No cambia: el piloto lo escanea al llegar y su horario ' +
-                    'se marca solo con la fecha y la hora del sistema. (Para cambiarlo: Inicio de la tienda → "Generar uno nuevo".)',
-                archivo: `qr-tienda-${t.codigo}`,
-            });
-            return;
-        }
-        if (!['PGRST202', '42883'].includes(fijo.error.code)) console.error('Error al obtener el QR fijo:', fijo.error);
-        const { data, error } = await db.rpc('qr_marca_mes', { p_tienda: t.id });
+        const { data, error } = await db.rpc('qr_tienda_fija', { p_tienda: t.id, p_nuevo: false });
         if (error) {
-            console.error('Error al obtener el QR de marcas:', error);
+            console.error('Error al obtener el QR de la tienda:', error);
             aviso.mostrar(error.code === 'PGRST202' || error.code === '42883'
-                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 14: QR).'
-                : 'No se pudo obtener el QR de marcas.', 'error');
+                ? 'Falta instalar la base de datos (sql/instalacion).'
+                : 'No se pudo obtener el QR de la tienda.', 'error');
             return;
         }
-        const mes = new Date().toLocaleDateString('es-CR', { month: 'long', year: 'numeric' });
         mostrarQrEnVentana({ // js/qr.js
             titulo: `QR de marcas · ${t.codigo}`,
-            subtitulo: `${t.nombre} · válido en ${mes}`,
+            subtitulo: t.nombre,
             texto: data,
-            nota: 'Imprímelo y déjalo visible en la tienda: el piloto lo escanea al llegar para marcar su horario. ' +
-                'Cambia cada mes; el día 1 imprime el nuevo.',
-            archivo: `qr-marcas-${t.codigo}-${new Date().toISOString().slice(0, 7)}`,
+            nota: 'Imprímelo y déjalo visible en la tienda. No cambia: el piloto lo escanea al llegar y su horario ' +
+                'se marca solo con la fecha y la hora del sistema. (Para cambiarlo: Inicio de la tienda → "Generar uno nuevo".)',
+            archivo: `qr-tienda-${t.codigo}`,
         });
     }
 
@@ -455,7 +440,7 @@ registrarSeccion('tiendas', (zona) => {
         if (error.code === '23502') return 'Para guardar una tienda sin región falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 31).';
         if (error.code === 'P0002') return 'La tienda ya no existe. Recarga la página.';
         if (error.code === 'P0001') return error.message;
-        if (error.code === 'PGRST202' || error.code === '42883') return 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 28: código y región de la tienda).';
+        if (error.code === 'PGRST202' || error.code === '42883') return 'Falta instalar la base de datos (sql/instalacion).';
         return 'No se pudo guardar. Revisa la conexión e intenta de nuevo.';
     }
 
@@ -677,7 +662,7 @@ registrarSeccion('tiendas', (zona) => {
             console.error('Error al crear la región:', error);
             errorReg.textContent = error.code === '23505'
                 ? 'Ese código ya existe (en esta u otra empresa). Usa otro.'
-                : error.code === '42501' ? 'Falta ejecutar sql/01 (bloque 16) para crear regiones desde aquí.'
+                : error.code === '42501' ? 'Falta instalar la base de datos (sql/instalacion) para crear regiones desde aquí.'
                 : 'No se pudo guardar la región.';
             return;
         }

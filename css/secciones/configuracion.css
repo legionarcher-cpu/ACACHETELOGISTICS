@@ -930,3 +930,52 @@
     gap: 0.444rem;
     align-items: center;
 }
+
+/* ---------- Módulo Soporte (js/secciones/configuracion/soporte.js) ---------- */
+
+/* Dura + Puede + botón en una fila (bajan de línea en pantallas angostas) */
+.cfg-sop-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.889rem;
+}
+
+.cfg-sop-form .campo {
+    min-width: 10rem;
+}
+
+/* Código recién creado: grande, para dictarlo */
+.cfg-sop-codigo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.444rem 0.889rem;
+    margin-top: 0.889rem;
+    padding: 0.889rem;
+    border: 1px dashed var(--color-naranja);
+    border-radius: var(--radio);
+    background: var(--color-naranja-claro);
+}
+
+.cfg-sop-codigo[hidden] {
+    display: none;
+}
+
+.cfg-sop-codigo-etiqueta {
+    width: 100%;
+    color: var(--color-gris);
+    font-size: 0.833rem;
+}
+
+.cfg-sop-codigo strong {
+    font-size: 1.667rem;
+    letter-spacing: 0.111rem;
+    color: var(--color-texto);
+}
+
+.cfg-sop-codigo small {
+    flex: 1;
+    min-width: 12rem;
+    color: var(--color-gris);
+}

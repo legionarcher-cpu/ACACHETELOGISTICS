@@ -55,7 +55,7 @@ registrarModuloConfig('articulos', (seccion, ctx) => {
 
     // ¿Es de una actividad de pedidos que realiza la empresa? (empresas/empresas.js)
     // Las de viajes (Transporte) no usan categorías.
-    const deLaEmpresa = (codigo) => !codigo || (empresaTieneActividad(codigo) && !esActividadDeViajes(codigo));
+    const deLaEmpresa = (codigo) => !codigo || (empresaTieneActividad(codigo) && !esActividadSinPedidos(codigo));
 
     const listaElegida = () => Number(enSeccion('#cfgArtLista').value) || null;
     const productoDe = (x) => productos.find((p) => p.id === x.producto_id) || { nombre: '?' };

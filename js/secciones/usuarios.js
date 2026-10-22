@@ -50,7 +50,14 @@
      Aprobar -> puede iniciar sesión | Rechazar -> el usuario se elimina.
      Notificaciones (js/notificaciones.js): al crearlo se avisa a quienes lo
      aprueban; al aprobar/rechazar se avisa al Admin G3 que lo creó.
-     ⚠ Lo controla la página; la regla real llega en la Fase 7.
+     La base revisa lo mismo (sql/instalacion/01_base.sql: usuarios_revisar_cambio).
+
+   Admin TI (columna admin_ti, casilla del formulario): da la llave de soporte al
+   Desarrollador (Configuración -> Soporte). Lo marca o lo quita el Administrador; el
+   Desarrollador solo lo marca. Mientras la empresa no tenga Admin TI, el Desarrollador
+   puede configurarla; después, sus usuarios los cambia solo con la llave "Ver y corregir".
+   Emergencia (solo el Desarrollador, sin llave): bloquear, desbloquear y cerrar las
+   sesiones de un usuario (soporte_emergencia; queda en la bitácora de la empresa).
 
    Usuario compuesto: en el formulario se escribe solo "jperez"; el ID de la
    empresa ("01") lo agrega este archivo al guardar (usuarioCompuesto, js/componentes.js).
@@ -67,9 +74,6 @@
      - El usuario "admin" está protegido: no se puede eliminar ni
        cambiarle el usuario o el rol (ver USR_PROTEGIDO).
 
-   ⚠ VERSIÓN RÁPIDA: cualquiera con la página puede hacer estos
-   cambios (reglas temporales, sql/00 sección 10).
-
    HTML: secciones/usuarios.html
    Estilos: css/secciones/usuarios.css (propios) + css/componentes.css (comunes)
    ================================================== */
@@ -79,8 +83,8 @@
 // "regiones(nombre)" trae el nombre de la región del Admin G2.
 // "vehiculos(placa, marca)" trae el vehículo asignado al piloto.
 // "solicitante:usuarios!solicitado_por(nombre)" = quién creó un usuario pendiente.
-const USR_COLUMNAS = 'id, nombre, id_usuario, telefono, rol, tienda_id, region, vehiculo_id, permisos, foto_url, ' +
-    'aprobado, solicitado_por, solicitado_en, ' +
+const USR_COLUMNAS = 'id, nombre, id_usuario, telefono, rol, tienda_id, region, vehiculo_id, foto_url, ' +
+    'aprobado, admin_ti, solicitado_por, solicitado_en, ' +
     'tiendas(codigo, nombre, region), regiones(nombre), vehiculos(placa, marca, tipo), ' +
     'solicitante:usuarios!solicitado_por(nombre)';
 
@@ -119,6 +123,9 @@ const USR_ROLES_CON_EMPRESA = ['administrador', 'admin_g1'];
 // Roles de "personal" que Admin G1 y Admin G2 pueden crear, modificar y eliminar.
 // Los roles de administración solo los asigna el Administrador.
 const USR_ROLES_PERSONAL = ['empleado', 'piloto'];
+
+// Roles que pueden ser Admin TI (dan la llave de soporte; regla usuarios_admin_ti_personal de la base)
+const USR_ROLES_ADMIN_TI = ['administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado'];
 
 // Tiempo que se muestra el aviso verde de "Usuario creado", etc. (ms)
 const USR_DURACION_AVISO = 4000;
@@ -174,6 +181,8 @@ registrarSeccion('usuarios', (zona) => {
     const campoVehiculo     = $('#usrCampoVehiculo');
     const campoMultitienda  = $('#usrCampoMultitienda');
     const casillaMultitienda = $('#usrMultitienda');
+    const campoAdminTI      = $('#usrCampoAdminTI');
+    const casillaAdminTI    = $('#usrAdminTI');
     const avisoCambioTienda = $('#usrAvisoCambioTienda');
     const vehiculoNuevo     = $('#usrVehiculoNuevo');
     const claveObligatoria  = $('#usrClaveObligatoria');
@@ -201,7 +210,8 @@ registrarSeccion('usuarios', (zona) => {
     let hayMultitienda = false;      // true si existe la columna multitienda
     let hayCedula = false;           // true si existen cedula y departamento (sql/01 bloque 42)
     let departamentos = [];          // los que ya usa la empresa, para la lista del formulario
-    let modulosMarcados = ['*'];     // permisos que muestran las casillas del formulario (['*'] = todo lo de su rol)
+    let modulosMarcados = null;      // casillas del formulario: null = lo de su rol; Set = las marcadas
+    let funcionesPropias = new Map(); // id del usuario -> { 'pedidos.cancelar': true, ... } (tabla usuario_funciones)
     let empresas = [];               // solo el Desarrollador: [{ id, codigo, nombre, activa }]
 
     // Foto en el formulario (se aplica al guardar)
@@ -276,6 +286,11 @@ registrarSeccion('usuarios', (zona) => {
     // ==================================================
 
     async function cargarUsuarios() {
+        // Catálogo de módulos y funciones (tabla funciones; js/sesion.js), una vez
+        if (!MODULOS_USUARIO.length) {
+            const errorCatalogo = await cargarCatalogoFunciones();
+            if (errorCatalogo) console.error('Error al cargar los módulos y funciones:', errorCatalogo);
+        }
         // Con la columna "multitienda". Si la base todavía no la tiene, se
         // carga sin ella y la casilla "Piloto multitienda" no aparece.
         let { data, error } = await db
@@ -305,6 +320,14 @@ registrarSeccion('usuarios', (zona) => {
             data.forEach((u) => Object.assign(u, porId.get(u.id) || {}));
         }
         $('#usrCampoCedula').hidden = $('#usrCampoDepartamento').hidden = !hayCedula;
+        // Lo que a cada uno se le dio o se le quitó respecto de su rol
+        const propias = await db.from('usuario_funciones').select('usuario_id, funcion, permitido');
+        if (propias.error) console.error('Error al cargar los módulos de los usuarios:', propias.error);
+        funcionesPropias = new Map();
+        (propias.data || []).forEach((f) => {
+            if (!funcionesPropias.has(f.usuario_id)) funcionesPropias.set(f.usuario_id, {});
+            funcionesPropias.get(f.usuario_id)[f.funcion] = f.permitido;
+        });
         // Departamentos que ya usa la empresa (así se escriben igual)
         departamentos = [...new Set(data.map((u) => u.departamento).filter(Boolean))]
             .sort((a, b) => a.localeCompare(b, 'es'));
@@ -462,15 +485,16 @@ registrarSeccion('usuarios', (zona) => {
     // ==================================================
 
     // Texto de la columna Módulos: "Los de su rol", "Ninguno" o sus módulos con cuántas
-    // funciones tiene: "Pedidos (3 funciones), Caja (1 función)" (js/sesion.js: MODULOS_USUARIO)
+    // funciones tiene: "Pedidos (3 funciones), Caja (1 función)" (js/sesion.js: funcionesEfectivas)
     function textoPermisos(u) {
         const modulos = modulosDelRol(u.rol);
-        const lista = Array.isArray(u.permisos) ? u.permisos : [];
         if (!modulos.length) return 'Todo';
-        if (!listaPermisosPropia(lista)) return 'Los de su rol';
-        const partes = modulos.filter((m) => permisoDeLista(lista, m.seccion, m.delRol)).map((m) => {
+        const propias = funcionesPropias.get(u.id);
+        if (!propias) return 'Los de su rol';
+        const suyas = funcionesEfectivas(u.rol, propias);
+        const partes = modulos.filter((m) => suyas.has(m.seccion)).map((m) => {
             if (!m.acciones.length) return m.nombre;
-            const n = m.acciones.filter((a) => permisoDeLista(lista, `${m.seccion}.${a.clave}`, a.delRol)).length;
+            const n = m.acciones.filter((a) => suyas.has(`${m.seccion}.${a.clave}`)).length;
             return `${m.nombre} (${n ? plural(n, 'función', 'funciones') : 'solo ver'})`;
         });
         return partes.length ? partes.join(', ') : 'Ninguno';
@@ -558,6 +582,15 @@ registrarSeccion('usuarios', (zona) => {
                 detalle.textContent = datosPersona;
                 tdNombre.appendChild(detalle);
             }
+            // Admin TI: da la llave de soporte (Configuración -> Soporte)
+            if (u.admin_ti) {
+                const detalle = document.createElement('span');
+                detalle.className = 'celda-detalle';
+                const icono = document.createElement('i');
+                icono.className = 'bi bi-shield-lock';
+                detalle.append(icono, ' Admin TI');
+                tdNombre.appendChild(detalle);
+            }
             tr.appendChild(tdNombre);
             tr.appendChild(crearCelda(u.id_usuario, 'texto-codigo'));
             tr.appendChild(crearCeldaEtiqueta(USR_ROLES[u.rol] || u.rol, USR_COLOR_ROL[u.rol] || 'etiqueta-azul'));
@@ -574,6 +607,13 @@ registrarSeccion('usuarios', (zona) => {
                 }
                 botones.push(crearBotonIcono('editar', u.id, 'bi-pencil', sinPermiso || `Modificar a ${u.nombre}`, !!sinPermiso));
                 botones.push(crearBotonIcono('eliminar', u.id, 'bi-trash3', noEliminable || `Eliminar a ${u.nombre}`, !!noEliminable));
+                // Emergencia (solo el Desarrollador, sin llave de soporte)
+                if (esDesarrollador()) {
+                    botones.push(u.aprobado === false
+                        ? crearBotonIcono('desbloquear', u.id, 'bi-unlock', `Emergencia: desbloquear a ${u.nombre}`)
+                        : crearBotonIcono('bloquear', u.id, 'bi-lock', `Emergencia: bloquear a ${u.nombre} (no entra y se cierran sus sesiones)`));
+                    botones.push(crearBotonIcono('sesiones', u.id, 'bi-box-arrow-right', `Emergencia: cerrar las sesiones de ${u.nombre}`));
+                }
                 tr.appendChild(crearCeldaAcciones(...botones));
             }
 
@@ -603,10 +643,46 @@ registrarSeccion('usuarios', (zona) => {
         if (!usuario) return;
 
         if (boton.dataset.accion === 'revisar' && puedeAprobar(usuario)) abrirRevision(usuario);
+        if (['bloquear', 'desbloquear', 'sesiones'].includes(boton.dataset.accion) && esDesarrollador()) {
+            emergencia(usuario, boton.dataset.accion);
+            return;
+        }
         if (!puedeGestionar(usuario)) return;
         if (boton.dataset.accion === 'editar') abrirFormulario(usuario);
         if (boton.dataset.accion === 'eliminar') pedirConfirmacion(usuario);
     });
+
+    // ==================================================
+    // ACCIONES DE EMERGENCIA (solo el Desarrollador, sin llave de soporte)
+    // Bloquear (no entra y se cierran sus sesiones), desbloquear y cerrar sesiones
+    // (sql/instalacion/01_base.sql: soporte_emergencia). Quedan en la bitácora de la
+    // empresa y se avisa a su Administrador y Admin TI.
+    // ==================================================
+
+    async function emergencia(u, accion) {
+        const quien = `${u.nombre} (${u.id_usuario})`;
+        const pregunta = {
+            bloquear: `¿Bloquear a ${quien}? No podrá entrar y se cierran sus sesiones.`,
+            desbloquear: `¿Desbloquear a ${quien}? Podrá entrar de nuevo.`,
+            sesiones: `¿Cerrar las sesiones de ${quien}? Tendrá que volver a iniciar sesión.`,
+        }[accion];
+        if (!confirm(`${pregunta} Se avisa al Administrador y al Admin TI de la empresa.`)) return;
+        const { error } = await db.rpc('soporte_emergencia', {
+            p_usuario: u.id, p_accion: accion === 'sesiones' ? 'cerrar_sesiones' : accion,
+        });
+        if (error) {
+            console.error('Error en la acción de emergencia:', error);
+            mostrarAviso(error.code === 'PGRST202' ? 'Falta instalar la base de datos (sql/instalacion).'
+                : ['P0001', '42501'].includes(error.code) ? error.message : 'No se pudo. Revisa la conexión.', 'error');
+            return;
+        }
+        mostrarAviso({
+            bloquear: `${quien} bloqueado: ya no puede entrar.`,
+            desbloquear: `${quien} desbloqueado: ya puede entrar.`,
+            sesiones: `Se cerraron las sesiones de ${quien}.`,
+        }[accion]);
+        cargarUsuarios();
+    }
 
     // ==================================================
     // REVISAR USUARIO PENDIENTE (creado por un Admin G3)
@@ -733,6 +809,13 @@ registrarSeccion('usuarios', (zona) => {
         campoMultitienda.hidden = !esPiloto || !hayMultitienda;
         if (!esPiloto) casillaMultitienda.checked = false;
 
+        // Admin TI: lo marca o lo quita el Administrador; el Desarrollador solo lo marca (no lo quita)
+        const rolConAdminTI = USR_ROLES_ADMIN_TI.includes(campos.rol.value);
+        campoAdminTI.hidden = !rolConAdminTI || !(rolActual() === 'administrador' || esDesarrollador());
+        if (!rolConAdminTI) casillaAdminTI.checked = false;
+        casillaAdminTI.disabled = esDesarrollador() && !!(usuarioEditando && usuarioEditando.admin_ti);
+        campoAdminTI.title = casillaAdminTI.disabled ? 'Al Admin TI solo lo quita un Administrador de su empresa' : '';
+
         actualizarVistaPrevia();
         actualizarAvisoTienda();
     }
@@ -795,15 +878,13 @@ registrarSeccion('usuarios', (zona) => {
     campos.rol.addEventListener('change', ajustarSegunRol);
 
     // ==================================================
-    // MÓDULOS Y FUNCIONES (columna permisos; catálogo y reglas en js/sesion.js:
-    // MODULOS_USUARIO, modulosDelRol, permisoDeLista). Al personal se le ofrecen TODOS los
-    // módulos que usa la empresa, cada uno con sus funciones debajo; vienen marcados los de
-    // su ROL y los de otros roles dicen "otro rol" (se pueden dar igual, ej. un Empleado de
-    // bodega que cierra caja). Al piloto, solo los suyos (solo se le quitan).
-    // Sin marcar el módulo, sus funciones quedan apagadas.
-    // Se guarda: igual que su rol = {*}; nada = {inicio}; un módulo con las funciones de su
-    // rol = solo su nombre; con otras = nombre + "modulo.ver" + las marcadas.
-    // El Administrador no se limita (no se muestran).
+    // MÓDULOS Y FUNCIONES (catálogo en la base, tabla funciones; js/sesion.js: modulosDelRol,
+    // funcionesEfectivas). Al personal se le ofrecen TODOS los módulos que usa la empresa,
+    // cada uno con sus funciones debajo; vienen marcados los de su ROL y los de otros roles
+    // dicen "otro rol" (se pueden dar igual, ej. un Empleado de bodega que cierra caja). Al
+    // piloto, solo los suyos (solo se le quitan). Sin marcar el módulo, sus funciones quedan
+    // apagadas. Se guarda con usuario_guardar_funciones: la base anota solo lo distinto a su
+    // rol (tabla usuario_funciones). El Administrador no se limita (no se muestran).
     // ==================================================
 
     const cajaModulos = $('#usrModulos');
@@ -828,11 +909,12 @@ registrarSeccion('usuarios', (zona) => {
 
     function pintarModulos() {
         const modulos = modulosDelRol(campos.rol.value); // js/sesion.js
+        const marcadas = modulosMarcados || funcionesEfectivas(campos.rol.value); // sin cambios: los de su rol
         $('#usrCampoModulos').hidden = !modulos.length;
         cajaModulos.replaceChildren(...modulos.map((m) => {
             const bloque = document.createElement('div');
             bloque.className = 'usr-modulo-bloque';
-            const entra = permisoDeLista(modulosMarcados, m.seccion, m.delRol);
+            const entra = marcadas.has(m.seccion);
             const label = document.createElement('label');
             label.className = 'usr-modulo';
             const icono = document.createElement('i');
@@ -847,7 +929,7 @@ registrarSeccion('usuarios', (zona) => {
                     const clave = `${m.seccion}.${a.clave}`;
                     const fila = document.createElement('label');
                     fila.className = 'usr-accion';
-                    const c = casilla(clave, entra && permisoDeLista(modulosMarcados, clave, a.delRol), { modulo: m.seccion });
+                    const c = casilla(clave, entra && marcadas.has(clave), { modulo: m.seccion });
                     c.disabled = !entra;
                     const texto = document.createElement('span');
                     texto.textContent = a.nombre;
@@ -861,27 +943,20 @@ registrarSeccion('usuarios', (zona) => {
         }));
     }
 
-    // Lista "permisos" según las casillas (ver arriba cómo se guarda)
-    function permisosDeCasillas() {
-        const modulos = modulosDelRol(campos.rol.value);
-        if (!modulos.length) return ['*'];
-        const marcada = (valor) => !!cajaModulos.querySelector(`input[value="${valor}"]:checked`);
-        const lista = [];
-        let comoSuRol = true;
-        modulos.forEach((m) => {
-            const entra = marcada(m.seccion);
-            if (entra !== m.delRol) comoSuRol = false;
-            if (!entra) return;
-            lista.push(m.seccion);
-            const suyas = m.acciones.filter((a) => marcada(`${m.seccion}.${a.clave}`));
-            const delRol = m.acciones.filter((a) => a.delRol);
-            if (suyas.length !== delRol.length || suyas.some((a) => !a.delRol)) {
-                comoSuRol = false;
-                lista.push(`${m.seccion}.ver`, ...suyas.map((a) => `${m.seccion}.${a.clave}`));
-            }
-        });
-        if (comoSuRol) return ['*'];
-        return lista.length ? lista : ['inicio']; // nada: solo Inicio y Mi perfil
+    // Lo que dicen las casillas: null = igual que su rol; si no, un Set con TODAS las claves
+    // que tendrá (las marcadas y, de lo que no se ofrece aquí porque la empresa no lo usa, lo
+    // de su rol: así no se le quita sin querer)
+    function marcadasDeCasillas() {
+        const rol = campos.rol.value;
+        const modulos = modulosDelRol(rol);
+        if (!modulos.length) return null;
+        const ofrecidas = new Set(modulos.flatMap((m) => [m.seccion, ...m.acciones.map((a) => `${m.seccion}.${a.clave}`)]));
+        const delRol = funcionesEfectivas(rol);
+        const marcadas = new Set([...cajaModulos.querySelectorAll('input:checked')]
+            .filter((c) => !c.disabled).map((c) => c.value));
+        delRol.forEach((clave) => { if (!ofrecidas.has(clave)) marcadas.add(clave); });
+        const igual = marcadas.size === delRol.size && [...marcadas].every((clave) => delRol.has(clave));
+        return igual ? null : marcadas;
     }
 
     cajaModulos.addEventListener('change', (evento) => {
@@ -894,13 +969,10 @@ registrarSeccion('usuarios', (zona) => {
                 x.disabled = !c.checked;
             });
         }
-        modulosMarcados = permisosDeCasillas();
+        modulosMarcados = marcadasDeCasillas();
     });
-    $('#usrModulosTodos').addEventListener('click', () => { modulosMarcados = ['*']; pintarModulos(); });
-    $('#usrModulosNinguno').addEventListener('click', () => { modulosMarcados = ['inicio']; pintarModulos(); });
-
-    // Lo que se guarda en la columna permisos
-    const permisosDelFormulario = () => permisosDeCasillas();
+    $('#usrModulosTodos').addEventListener('click', () => { modulosMarcados = null; pintarModulos(); });       // los de su rol
+    $('#usrModulosNinguno').addEventListener('click', () => { modulosMarcados = new Set(); pintarModulos(); }); // solo Inicio y Mi perfil
     selEmpresa.addEventListener('change', actualizarVistaPrevia);
     campos.tienda.addEventListener('change', () => { actualizarVistaPrevia(); actualizarAvisoTienda(); });
     campos.id_usuario.addEventListener('input', actualizarVistaPrevia);
@@ -1003,15 +1075,16 @@ registrarSeccion('usuarios', (zona) => {
             campos.region.value     = usuario.region || '';
             campos.vehiculo.value   = usuario.vehiculo_id || '';
             casillaMultitienda.checked = !!usuario.multitienda;
+            casillaAdminTI.checked = !!usuario.admin_ti;
             campos.id_usuario.value = quitarPrefijo(usuario);
             ponerDato(campos.telefono, usuario.telefono);
             ponerDato(campos.cedula, usuario.cedula);
         }
 
         ponerDepartamento(usuario ? usuario.departamento : '');
-        // Módulos y funciones: su lista (vacía o {*} = todo). Se pintan en ajustarSegunRol.
-        const lista = usuario && Array.isArray(usuario.permisos) ? usuario.permisos : [];
-        modulosMarcados = !lista.length || lista.includes('*') ? ['*'] : [...lista];
+        // Módulos y funciones: los de su rol más lo que se le dio o quitó. Se pintan en ajustarSegunRol.
+        const propias = usuario ? funcionesPropias.get(usuario.id) : null;
+        modulosMarcados = propias ? funcionesEfectivas(usuario.rol, propias) : null;
 
         // No se puede cambiar el rol propio (evita quitarse el acceso de administrador)
         // ni el rol o el usuario de "admin" (usuario protegido)
@@ -1092,7 +1165,6 @@ registrarSeccion('usuarios', (zona) => {
         const base     = campos.id_usuario.value.trim().toLowerCase();
         const clave    = campos.clave.value;
         const telefono = campos.telefono.value.trim();
-        const permisos = permisosDelFormulario(rol);
 
         if (!nombre) return fallo('Escribe el nombre.', campos.nombre);
         // Teléfono y cédula (opcionales) con el formato de Costa Rica (js/componentes.js)
@@ -1164,7 +1236,6 @@ registrarSeccion('usuarios', (zona) => {
             vehiculo_id: vehiculoId, // si es nuevo, se completa al guardar
             id_usuario: usuarioDelFormulario(),
             telefono: datoConFormato('telefono', telefono),
-            permisos,
         };
         // Empresa elegida por el Desarrollador (Administrador / Admin G1). Los demás:
         // la empresa activa (js/supabase.js) o la de su tienda o región (la base la corrige).
@@ -1179,6 +1250,12 @@ registrarSeccion('usuarios', (zona) => {
         }
         if (clave) datos.clave = clave; // si está vacía (al modificar), no se cambia
         if (hayMultitienda) datos.multitienda = rol === 'piloto' && casillaMultitienda.checked;
+        // Admin TI: el Administrador lo pone o lo quita; el Desarrollador solo lo pone (la base lo revisa)
+        if (rolActual() === 'administrador') {
+            datos.admin_ti = USR_ROLES_ADMIN_TI.includes(rol) && casillaAdminTI.checked;
+        } else if (esDesarrollador() && casillaAdminTI.checked && !(usuarioEditando && usuarioEditando.admin_ti)) {
+            datos.admin_ti = true;
+        }
         return datos;
     }
 
@@ -1195,6 +1272,13 @@ registrarSeccion('usuarios', (zona) => {
         if (error.code === '23514') return 'Los datos no cumplen las reglas de rol y tienda.';     // check
         if (error.code === '23503') return 'La tienda elegida ya no existe. Recarga la página.';   // foreign key
         if (error.code === 'P0001') return error.message;  // trigger proteger_admin (usuario admin protegido)
+        // Reglas de la base (usuarios_revisar_cambio o RLS). El Desarrollador: la empresa ya tiene
+        // Admin TI y no tiene la llave de soporte "Ver y corregir" (js/soporte.js)
+        if (error.code === '42501' || error.code === 'SIN_CAMBIO') {
+            return esDesarrollador()
+                ? 'Esta empresa ya tiene Admin TI: para cambiar sus usuarios pide una llave de soporte "Ver y corregir".'
+                : (error.code === '42501' && !/row-level security/i.test(error.message) ? error.message : 'No tienes permiso para guardar este usuario.');
+        }
         return 'No se pudo guardar. Revisa la conexión e intenta de nuevo.';
     }
 
@@ -1206,6 +1290,7 @@ registrarSeccion('usuarios', (zona) => {
 
         const datos = leerFormulario();
         if (!datos) return;
+        const marcadas = marcadasDeCasillas(); // módulos y funciones (null = los de su rol)
 
         botonGuardar.disabled = true;
         botonGuardar.textContent = 'Guardando...';
@@ -1239,11 +1324,15 @@ registrarSeccion('usuarios', (zona) => {
             datos.solicitado_en = new Date().toISOString();
         }
 
-        // Al crear se pide que devuelva el id nuevo (se necesita para la foto)
+        // Al crear se pide que devuelva el id nuevo (se necesita para la foto). Al modificar también:
+        // si la base no dejó cambiar la fila (sus reglas), no devuelve nada y se avisa.
         const consulta = editandoId
-            ? db.from('usuarios').update(datos).eq('id', editandoId)
+            ? db.from('usuarios').update(datos).eq('id', editandoId).select('id')
             : db.from('usuarios').insert(datos).select('id').single();
-        const { data, error } = await consulta;
+        const resultado = await consulta;
+        const data = resultado.data;
+        const error = resultado.error || (editandoId && !(data && data.length)
+            ? { code: 'SIN_CAMBIO', message: 'La base no dejó cambiar el usuario.' } : null);
 
         if (error) {
             botonGuardar.disabled = false;
@@ -1254,6 +1343,18 @@ registrarSeccion('usuarios', (zona) => {
         }
 
         const usuarioId = editandoId || data.id;
+
+        // Módulos y funciones: la base guarda solo lo distinto a su rol (usuario_guardar_funciones).
+        // Solo si cambió algo (al crear, si no son los de su rol); nadie cambia los suyos.
+        const antesPropias = editandoId ? funcionesPropias.get(editandoId) : null;
+        if ((marcadas || antesPropias) && usuarioId !== sesion.id) {
+            const { error: errorFunciones } = await db.rpc('usuario_guardar_funciones',
+                { p_usuario: usuarioId, p_marcadas: marcadas ? [...marcadas] : null });
+            if (errorFunciones) {
+                console.error('Error al guardar los módulos y funciones:', errorFunciones);
+                mostrarAviso(`Se guardó el usuario, pero no sus módulos y funciones: ${errorFunciones.message}`, 'error');
+            }
+        }
 
         // Piloto que cambió de tienda, dejó de ser multitienda o dejó de ser
         // piloto: se libera de las rutas y pedidos de las otras tiendas
@@ -1294,7 +1395,6 @@ registrarSeccion('usuarios', (zona) => {
                 ...sesionActual,
                 usuario: datos.id_usuario,
                 nombre: datos.nombre,
-                permisos: datos.permisos,
                 tienda: tienda ? { id: tienda.id, codigo: tienda.codigo, nombre: tienda.nombre } : null,
             });
             aplicarPermisos(); // js/permisos.js
@@ -1371,33 +1471,17 @@ registrarSeccion('usuarios', (zona) => {
             }
         }
 
-        // 2. Pedidos pendientes de otras tiendas
-        const [ped, act] = await Promise.all([
-            db.from('pedidos').select('id, codigo, tienda_id, actividad, estado')
-                .eq('piloto_id', pilotoId).eq('anulado', false)
-                .in('estado', ['registrado', 'recibido_bodega', 'asignado', 'reprogramado', 'alistando', 'listo_despacho']),
-            db.from('actividades').select('codigo, usa_bodega'),
-        ]);
-        if (ped.error) return resultado; // sin tabla de pedidos: nada más que hacer
-        const conBodega = new Set((act.data || []).filter((a) => a.usa_bodega).map((a) => a.codigo));
-        const afectados = ped.data.filter((p) => p.tienda_id !== tiendaQueConserva);
-        const porTienda = {};
-        for (const p of afectados) {
-            const nuevo = p.estado === 'asignado' ? (conBodega.has(p.actividad) ? 'recibido_bodega' : 'registrado') : p.estado;
-            const upd = await db.from('pedidos')
-                .update({ piloto_id: null, estado: nuevo, actualizado_en: new Date().toISOString() }).eq('id', p.id);
-            if (upd.error) {
-                console.error(`Error al liberar el pedido ${p.codigo}:`, upd.error);
-                continue;
-            }
-            await db.from('pedido_historial').insert({
-                pedido_id: p.id, evento: 'asignado', estado_anterior: p.estado, estado_nuevo: nuevo,
-                detalle: { piloto: 'Sin piloto', motivo: `${nombre} ya no trabaja en esta tienda` },
-                usuario_id: sesion.id || null, usuario_nombre: sesion.nombre || null,
-            });
-            resultado.pedidos++;
-            porTienda[p.tienda_id] = (porTienda[p.tienda_id] || 0) + 1;
+        // 2. Pedidos pendientes de otras tiendas: los deja sin piloto la base (pedidos_liberar_piloto,
+        //    sql/instalacion/04_rutas_y_pedidos.sql), con su historial
+        const lib = await db.rpc('pedidos_liberar_piloto', {
+            p_usuario: sesion.id, p_piloto: pilotoId, p_tienda_conserva: tiendaQueConserva || null,
+        });
+        if (lib.error) {
+            console.error('Error al liberar los pedidos del piloto:', lib.error);
+            return resultado;
         }
+        resultado.pedidos = lib.data.pedidos || 0;
+        const porTienda = lib.data.por_tienda || {};
 
         // 3. Aviso al Admin G2 de cada tienda (js/notificaciones.js)
         for (const [tiendaId, cuantos] of Object.entries(porTienda)) {

@@ -127,7 +127,7 @@ registrarModuloConfig('planes', (seccion, ctx) => {
             if (error) {
                 console.error('Error al guardar el plan:', error);
                 aviso.mostrar(['42703', 'PGRST204', '23514'].includes(error.code)
-                    ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 22) en Supabase.'
+                    ? 'Falta instalar la base de datos (sql/instalacion).'
                     : 'No se pudo guardar el plan. Revisa la conexión e intenta de nuevo.', 'error');
                 return;
             }

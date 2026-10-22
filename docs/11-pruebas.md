@@ -4,6 +4,121 @@ Usar después de cada cambio, en la sección afectada (y en **General** siempre)
 Probar con al menos 3 usuarios: **Administrador**, un **Admin G2** y un **Empleado** (y el **Piloto**
 si se tocó Pedidos o Inicio). Tener la consola abierta (F12): no debe aparecer ningún error rojo.
 
+## Etapa 2D: estados del pedido por la base (2026-10-21)
+
+Con un pedido de prueba, de punta a punta (G3 o Empleado de la tienda, G2 y el Piloto):
+
+- [ ] Registrar → En bodega (si la actividad la usa) → Alistando → Listo para despachar (con slot) → el Piloto lo
+      carga con foto → sale a ruta en Inicio → escanea el QR → Entregado (con cobro). Cada paso sale en la línea
+      de tiempo del pedido, una sola vez y a nombre de quien lo hizo.
+- [ ] Asignar piloto y horario (G2): el pedido pasa a Asignado. Quitarle el piloto: vuelve a Registrado o En bodega.
+- [ ] No entregado (piloto, con motivo) → el G2 lo reprograma (con motivo) → Reprogramado.
+- [ ] Cancelar (G3) y Devuelto piden motivo; el Empleado no ve Cancelar.
+- [ ] Dos ventanas con el mismo pedido: alistar en una y luego en la otra → "Otra persona cambió este pedido".
+- [ ] Pedido con alcohol: "Entregado" sin marcar la mayoría de edad da error.
+- [ ] Aprobar salida escaneando el QR (pedido "Recibido para ruta"): queda Cargado.
+- [ ] Usuarios: cambiar un piloto a otra tienda: sus pedidos de la tienda anterior quedan sin piloto y el G2 recibe el
+      aviso.
+- [ ] Caja: los cobros salen con la fecha y hora de la entrega.
+- [ ] En la consola, `await db.from('pedidos').update({ estado: 'entregado' }).eq('id', <id>)` da error (no se puede
+      cambiar directo).
+- [ ] En Supabase: `select * from pedidos_pasos` muestra la hora de cada paso; `pedidos_tiempos` y `slots_carga`, los
+      minutos.
+
+## Etapa 2C: llave de soporte del Admin TI (2026-10-21)
+
+Usar dos navegadores (o una ventana privada): en uno el Desarrollador (`desar`) y en el otro el Administrador
+(`admin`). La empresa 01 empieza **sin Admin TI** (puesta en marcha).
+
+- [ ] Desarrollador: al abrir la campana, arriba de la lista aparece "Puesta en marcha · … no tiene Admin TI". Nada
+      flota sobre la página, en ninguna resolución.
+- [ ] Desarrollador, sin llave: Configuración y Usuarios se ven y se pueden cambiar (ej. un horario). Pedidos,
+      Clientes, Viajes, Caja y Distribución salen **vacíos**.
+- [ ] Desarrollador → Usuarios: crear un Empleado (si no hay), marcarlo como **Admin TI** y guardar. El aviso de la campana cambia a "… tiene
+      Admin TI". Ahora un cambio en Configuración o en Usuarios da error (pide la llave), y no puede quitarle la
+      casilla Admin TI a ese Empleado.
+- [ ] Desarrollador → Tiendas → Empresas: puede marcar la empresa Inactiva/Activa y cambiar el plan, pero no el
+      nombre ni los colores.
+- [ ] Administrador → Configuración → Soporte: crear una llave "Solo ver" de 1 hora. Se ve el código una vez.
+- [ ] Desarrollador → "Usar llave": un código equivocado da error; el bueno abre el "Modo soporte … vence a las …" (en la campana, que
+      queda con un punto naranja, y un aviso emergente de unos segundos).
+      Ahora ve Pedidos y Clientes, pero no puede guardar cambios en ellos.
+- [ ] Al Administrador (y al Admin TI) le llega el aviso "El Desarrollador entró con la llave de soporte".
+- [ ] Administrador → Soporte: anular la llave. El Desarrollador, al recargar, ya no ve los datos.
+- [ ] Llave "Ver y corregir": el Desarrollador puede cambiar un cliente y la configuración.
+- [ ] Bitácora (Soporte): aparecen la llave creada, la entrada, las pantallas que abrió y lo que cambió.
+- [ ] 5 códigos equivocados seguidos: la llave sin usar se anula y llega el aviso "Llave de soporte bloqueada".
+- [ ] Desarrollador → Usuarios, botones de emergencia **sin llave**: Bloquear (ese usuario ya no entra),
+      Desbloquear y Cerrar sesiones (su otra pestaña vuelve al login). Cada uno queda en la bitácora y avisa.
+- [ ] El Admin TI (Empleado) ve la tarjeta Soporte en Configuración; un Empleado sin la casilla no la ve.
+
+## Etapa 2B: alcance por región y tienda, y funciones de cada usuario (2026-10-21)
+
+Crear en la empresa 01:
+- dos tiendas en regiones distintas;
+- un G2 de una de las regiones;
+- un G3 y un Empleado de una tienda;
+- un Piloto.
+
+- [ ] Usuarios → Nuevo: las casillas de "Módulos y funciones" vienen marcadas según el rol. La columna Módulos dice
+      "Los de su rol".
+- [ ] A un Empleado quitarle Pedidos → "Alistar" y darle Caja → "Cerrar la caja". Guardar, volver a abrir: queda
+      igual y la columna lo resume. Entrar con él: no ve "Alistando" y sí entra a Caja. "Los de su rol" lo devuelve.
+- [ ] Pedidos: el G2 ve solo los de su región; el G3 y el Empleado, los de su tienda (y los de sus pilotos
+      multitienda); el Piloto, solo los suyos. Inicio y Reportes muestran lo mismo.
+- [ ] Caja: el G3 cierra la caja de un piloto de su tienda y ve todos sus cobros.
+- [ ] Configuración: el G1 cambia tarifas y horarios. El G2 cambia una tarifa de su región y no una general.
+- [ ] Empleado: abre Configuración pero no puede guardar cambios. En la consola,
+      `await db.from('tarifas').update({ minimo: 1 }).neq('id', 0)` no cambia nada.
+- [ ] Recolecciones: el Piloto bloquea horas; solo el G1 (o a quien se le dé "Cobrar") marca cobros.
+- [ ] Viajes: el conductor ve solo los suyos.
+
+## Etapa 2A: inicio de sesión real y candado por empresa (2026-10-21)
+
+Antes: en Supabase, Authentication → Sign In / Providers → desactivar **"Allow new users to sign up"**.
+
+- [ ] Los archivos 00 a 12 corren sin error. En Authentication → Users aparecen `desar@acachete.interno` y
+      `admin@acachete.interno`.
+- [ ] Login con `desar` / `ak7desa` y con `admin` / `admin123`. Una contraseña mala dice "Usuario o contraseña
+      incorrectos". Si al entrar sale "No se pudo conectar", mirar la consola (F12): si Supabase rechaza el correo
+      `@acachete.interno`, avisar (se cambia el dominio en `js/supabase.js` y en `correo_interno`, 01_base.sql).
+- [ ] Cerrar sesión y volver a entrar. Recargar la página (F5) con la sesión abierta: sigue adentro.
+- [ ] Usuarios: crear un Empleado con contraseña; entra con ella. Cambiarle la contraseña; entra con la nueva y no
+      con la vieja. Borrarlo: desaparece también de Authentication → Users.
+- [ ] Usuario creado por un G3: queda por aprobar y no entra hasta que lo aprueben.
+- [ ] Tiendas → Empresas: crear la empresa 02 con su admin. Con él no se ve nada de la 01 (pedidos, clientes, tiendas).
+- [ ] Cambiar el ID de la empresa 02 a 03: su admin entra con el usuario nuevo (`...03`).
+- [ ] Cliente (solicitud desde el login y aprobación en Clientes): entra y ve solo lo suyo en Viajes, Mis envíos y
+      Recolecciones. En Viajes ve el nombre y el teléfono de su conductor.
+- [ ] Mis envíos: el cliente envía una solicitud → al G3 de la tienda (o G2, o Administrador) le llega el aviso. El
+      cliente la cancela → el aviso queda leído.
+- [ ] Configuración → Pedidos (número y código de respaldo) e Inicio → distancia para marcar: se guardan por empresa.
+- [ ] Limpiar datos de una empresa con la contraseña del Desarrollador.
+- [ ] **Candado** (consola F12, con la sesión de cada uno):
+  - Sin sesión: `await db.from('pedidos').select('id')` → lista vacía o error de permiso.
+  - Empleado: `await db.from('usuarios').update({ rol: 'administrador' }).eq('id', obtenerSesion().id)` → error "En tu
+    usuario solo puedes cambiar tus datos...".
+  - Cliente: `await db.from('clientes').select('id')` → solo su fila.
+
+## Base reconstruida (sql/instalacion, 2026-10-20)
+
+- [ ] Los 13 archivos (00 a 12) corren sin error, en orden. Entrar con `desar` / `ak7desa` y con `admin` / `admin123`.
+- [ ] Configuración → Horarios: cambiar la cantidad (sube y baja), las horas de un horario, un día propio y "Usar base";
+      pedidos por horario de la base y un ajuste por región o tienda.
+- [ ] Configuración → Slots: lo mismo con los slots. Nuevo pedido muestra horarios y slots de la fecha.
+- [ ] Inicio del piloto: "Mis marcas de hoy"; marcar con el QR fijo de la tienda (GPS) y con "Validar y marcar".
+- [ ] Tiendas → botón QR: abre el QR fijo (ya no hay QR del mes).
+- [ ] Configuración → Costos: agregar, cambiar y borrar gastos; guardar margen y entregas al mes.
+- [ ] Reportes → Viajes: "Costo estimado" = gastos ÷ viajes del mes. Configuración → Transporte: margen de las franjas.
+- [ ] Configuración → Pedidos → Motivos de retraso: con actividad o "Todas".
+- [ ] Configuración → Vehículos (empresa con viajes): solo asientos, carga y mascotas.
+- [ ] Configuración → Actividades: casillas "Punto de partida" y "Recolecciones con agenda" se guardan.
+- [ ] Clientes: lista ordenada por apellidos; "Acceso del cliente" sin Casa / Trabajo.
+- [ ] Viajes y Recolecciones: botón "Ubicación del cliente" (usa la de su ficha) y "Guardar como ubicación del cliente".
+- [ ] Encomiendas: punto de partida en el pedido; "Mis envíos" del cliente y "Revisar y registrar".
+- [ ] Tiendas → Empresas → Nueva empresa: se le copian categorías, tarifas, descuentos, motivos, horarios y slots.
+- [ ] Limpiar datos de una empresa: borra sin error.
+
 ## General
 
 - [ ] El login entra con usuario correcto y rechaza uno incorrecto (mensaje + sacudida).
@@ -360,9 +475,9 @@ Antes: abrir `herramientas/prueba_logica_viajes.html` (doble clic): todo debe de
 - [ ] Clave equivocada: "Usuario o contraseña incorrectos".
 - [ ] Consola sin sesión: `await db.from('clientes').delete().gt('id', 0)` → error `SIN_EMPRESA`, no borra nada.
 - [ ] Con sesión en la empresa 01, un `update` / `delete` por id de una fila de la empresa 02 no la cambia.
-- [ ] `herramientas/vaciar_base_datos.sql` sin escribir la empresa: se detiene sin borrar. Con un ID que no existe o un
-      nombre que no coincide: se detiene. Con ID + nombre correctos (en una base de PRUEBA): solo esa empresa queda en
-      0 en la comprobación; las demás conservan sus datos y los Administradores de la limpiada siguen entrando.
+- [ ] "Limpiar datos" (Tiendas → Empresas) con la contraseña equivocada o sin el ID de la empresa: no borra nada. Con
+      los dos correctos (en una base de PRUEBA): solo esa empresa queda en 0; las demás conservan sus datos y los
+      Administradores de la limpiada siguen entrando.
 - [ ] `app.html#registro?empresa=02` (sin sesión): abre "Solicitar usuario · Clientes de ...". Con una empresa sin
       Transporte o inexistente: "Este enlace de registro no es válido".
 - [ ] El login de cualquier marca muestra "¿Eres cliente? Solicita tu usuario" (con `registroClientes: false`, no).

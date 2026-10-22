@@ -1,0 +1,130 @@
+/* ==================================================
+   SECCIÓN: RECOLECCIONES (actividad "recoleccion", sql/01 bloque 46)
+   ACACHETE LOGISTICS
+
+   Recicla TODO lo de Viajes: los pasos de la solicitud, los días y las horas
+   (css/secciones/viajes.css, importado aquí) y la tarjeta, filtros y cuadros
+   (css/viajes.css, que se carga siempre). Aquí solo va lo propio. Clases "rec-".
+   ================================================== */
+
+@import url('viajes.css');
+
+.rec-vista {
+    display: flex;
+    flex-direction: column;
+    gap: 0.889rem;
+}
+
+.rec-vista[hidden] {
+    display: none;
+}
+
+/* "Falta ejecutar el SQL" */
+.rec-nota {
+    margin: 0;
+    padding: 0.556rem 0.778rem;
+    font-size: 0.85rem;
+    color: var(--color-azul-marino);
+    background-color: var(--color-azul-claro);
+    border-left: 0.222rem solid var(--color-azul);
+    border-radius: var(--radio);
+}
+
+.rec-nota[hidden] {
+    display: none;
+}
+
+/* Tarjeta de una recolección: estados (el resto es .via-viaje) */
+.rec-estado-en_camino { border-left-color: #0E6B63; }
+.rec-estado-recogida  { border-left-color: #6D28D9; }
+.rec-estado-entregada { border-left-color: var(--color-verde); }
+.rec-estado-cancelada,
+.rec-estado-no_estaba { border-left-color: var(--color-gris); opacity: 0.8; }
+
+/* Depósitos: cuántos y de quién es cada uno */
+.rec-depositos {
+    display: flex;
+    flex-direction: column;
+    gap: 0.556rem;
+}
+
+.rec-depositos[hidden] {
+    display: none;
+}
+
+.rec-cantidad {
+    max-width: 12rem;
+}
+
+.rec-depositos-lista {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(16rem, 100%), 1fr));
+    gap: 0.556rem;
+}
+
+/* Días de la semana (bloqueos y horario) */
+.rec-dias-semana {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.rec-dias-opciones {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.333rem;
+}
+
+.rec-dias-opciones label {
+    display: flex;
+    align-items: center;
+    gap: 0.222rem;
+    padding: 0.333rem 0.667rem;
+    background-color: var(--color-fondo);
+    border: 1px solid var(--color-borde);
+    border-radius: var(--radio);
+    cursor: pointer;
+}
+
+.rec-dias-opciones label:has(input:checked) {
+    color: var(--color-azul-marino);
+    background-color: var(--color-azul-claro);
+    border-color: var(--color-azul);
+}
+
+/* Horario de servicio y tarifa base */
+.rec-horario {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(13rem, 100%), 1fr));
+    gap: 0.667rem;
+    align-items: end;
+}
+
+.rec-horario .campo-ancho {
+    grid-column: 1 / -1;
+}
+
+.rec-tarifa-base {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.556rem;
+}
+
+.rec-semana-texto {
+    min-width: 11rem;
+    text-align: center;
+}
+
+/* Montos de cada día (ventana) */
+.rec-monto-dia {
+    width: 7rem;
+    text-align: right;
+}
+
+@media (max-width: 600px) {
+    .rec-semana-texto {
+        min-width: 0;
+        font-size: 0.9rem;
+    }
+}

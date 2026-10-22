@@ -198,35 +198,30 @@ function refrescarPalabras() {
 // PALABRAS DE CADA ACTIVIDAD (desde la base)
 // ==================================================
 
-// También guarda si cada actividad trabaja con viajes (usa_viajes, sql/01 bloque 19), si
-// recoge en un punto de partida (usa_recoleccion) y qué partes usa (vehículos, km, peso y
-// productos, bloque 26): lo usan esActividadDeViajes(), empresaTieneViajes(),
-// empresaTieneRecoleccion() y empresaUsa() de empresas/empresas.js.
+// También guarda si cada actividad trabaja con viajes (usa_viajes), si recoge en un punto
+// de partida (usa_punto_partida), qué partes usa (vehículos, km, peso, productos y caja) y
+// si es de recolecciones con agenda (usa_recolecciones): lo usan esActividadDeViajes(),
+// empresaTieneViajes(), empresaTieneEnvios(), esActividadDeRecolecciones() y empresaUsa()
+// de empresas/empresas.js.
 async function cargarPalabras() {
-    const columnas = 'codigo, palabra_registro, palabra_registros, palabra_conductor, palabra_conductores';
-    const partes = 'usa_vehiculos, usa_km, usa_peso, usa_productos';
-    let { data, error } = await db.from('actividades').select(`${columnas}, usa_viajes, usa_recoleccion, ${partes}, usa_caja`);
-    if (error && error.code === '42703') ({ data, error } = await db.from('actividades').select(`${columnas}, usa_viajes, usa_recoleccion, ${partes}`)); // sin el bloque 30
-    if (error && error.code === '42703') ({ data, error } = await db.from('actividades').select(`${columnas}, usa_viajes, usa_recoleccion`)); // sin el bloque 26
-    if (error && error.code === '42703') ({ data, error } = await db.from('actividades').select(columnas)); // sin el bloque 19
-    if (error) {
-        // Falta el bloque 18 de sql/01: todas con las palabras de siempre
-        if (error.code === '42703') palabrasActividades = {};
-        else return;
-    } else {
-        palabrasActividades = Object.fromEntries(data.map((a) => [a.codigo, {
-            registro: a.palabra_registro, registros: a.palabra_registros,
-            conductor: a.palabra_conductor, conductores: a.palabra_conductores,
-            viajes: a.usa_viajes === undefined ? null : !!a.usa_viajes,
-            recoleccion: a.usa_recoleccion === undefined ? null : !!a.usa_recoleccion, // "Mis envíos" del cliente
-            // Partes que usa (bloque 26); null = sin la columna (empresas.js: PARTES_ACTIVIDAD)
-            vehiculos: a.usa_vehiculos === undefined ? null : !!a.usa_vehiculos,
-            km: a.usa_km === undefined ? null : !!a.usa_km,
-            peso: a.usa_peso === undefined ? null : !!a.usa_peso,
-            productos: a.usa_productos === undefined ? null : !!a.usa_productos,
-            caja: a.usa_caja === undefined ? null : !!a.usa_caja, // bloque 30: sección Caja
-        }]));
-    }
+    const { data, error } = await db.from('actividades').select(
+        'codigo, palabra_registro, palabra_registros, palabra_conductor, palabra_conductores, usa_viajes, usa_punto_partida, ' +
+        'usa_vehiculos, usa_km, usa_peso, usa_productos, usa_caja, usa_recolecciones');
+    if (error) return;
+    palabrasActividades = Object.fromEntries(data.map((a) => [a.codigo, {
+        registro: a.palabra_registro, registros: a.palabra_registros,
+        conductor: a.palabra_conductor, conductores: a.palabra_conductores,
+        viajes: !!a.usa_viajes,
+        puntoPartida: !!a.usa_punto_partida, // "Mis envíos" del cliente
+        // Partes que usa (empresas.js: PARTES_ACTIVIDAD)
+        vehiculos: !!a.usa_vehiculos,
+        km: !!a.usa_km,
+        peso: !!a.usa_peso,
+        productos: !!a.usa_productos,
+        caja: !!a.usa_caja,
+        // Recolecciones con agenda: sección Recolecciones (empresas.js: esActividadDeRecolecciones)
+        recolecciones: !!a.usa_recolecciones,
+    }]));
     try {
         localStorage.setItem(CLAVE_PALABRAS, JSON.stringify(palabrasActividades));
     } catch {

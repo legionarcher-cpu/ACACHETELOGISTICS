@@ -108,7 +108,7 @@ registrarSeccion('cotizador', (zona) => {
         if (error) {
             console.error('Error al cargar el cotizador:', error);
             aviso.mostrar(error.code === 'PGRST205' || error.code === '42P01'
-                ? 'Falta ejecutar el SQL de pedidos (sql/00 o sql/01).'
+                ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudo cargar la configuración. Revisa la conexión.', 'error');
             return false;
         }

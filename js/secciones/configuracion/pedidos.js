@@ -76,7 +76,7 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
     const regionDeTienda = (id) => (tiendas.find((t) => t.id === id) || {}).region;
     // ¿La fila es de una actividad de pedidos que realiza la empresa? (empresas/empresas.js)
     // Las de viajes (Transporte) se configuran en Configuración -> Transporte.
-    const deLaEmpresa = (f) => !f.actividad || (empresaTieneActividad(f.actividad) && !esActividadDeViajes(f.actividad));
+    const deLaEmpresa = (f) => !f.actividad || (empresaTieneActividad(f.actividad) && !esActividadSinPedidos(f.actividad));
 
     // Regiones y tiendas que puede elegir el usuario (G2: solo las suyas)
     const regionesMias = () => (regionG2 ? regiones.filter((r) => r.codigo === regionG2) : regiones);
@@ -318,28 +318,34 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
             ],
             duplicado: 'Ya existe un tamaño con ese código.',
             textoEliminar: (f) => `¿Eliminar el tamaño ${f.codigo} (${f.nombre})?`,
-            puedeCrear: soloGeneral,
-            puedeEditar: soloGeneral,
-            puedeEliminar: soloGeneral,
+            // Son de todo el sistema (todas las empresas): solo el Desarrollador los cambia (la base también lo revisa)
+            puedeCrear: esDesarrollador,
+            puedeEditar: esDesarrollador,
+            puedeEliminar: esDesarrollador,
         },
 
-        // ---------- Motivos de retraso ----------
+        // ---------- Motivos de retraso (de la empresa; por actividad o para todas) ----------
         motivos: {
             titulo: 'Motivos de retraso',
-            texto: 'Lista que elige el piloto al cerrar una entrega con retraso.',
+            texto: 'Lista que elige el piloto al cerrar una entrega con retraso. Puede ser de una actividad o de todas.',
             icono: 'bi-hourglass-split',
-            tabla: 'motivos_retraso', clave: 'id', select: 'id, nombre, activo, orden', orden: 'orden',
+            tabla: 'motivos_retraso', clave: 'id', select: 'id, nombre, actividad, activo, orden', orden: 'orden',
             singular: 'motivo',
             columnas: [
                 ['Motivo', (f) => f.nombre],
+                ['Actividad', (f) => (f.actividad ? nombreActividad(f.actividad) : 'Todas')],
                 ['Estado', (f) => etiquetaEstado(f.activo)],
             ],
             campos: [
                 { nombre: 'nombre', etiqueta: 'Motivo', tipo: 'texto', requerido: true, max: 60 },
+                { nombre: 'actividad', etiqueta: 'Actividad', tipo: 'opciones',
+                  opciones: () => [['', 'Todas'], ...actividades.map((a) => [a.codigo, a.nombre])] },
                 { nombre: 'orden', etiqueta: 'Orden', tipo: 'numero', min: 0, porDefecto: 0, entero: true },
                 { nombre: 'activo', etiqueta: 'Activo', tipo: 'si_no', porDefecto: true },
             ],
-            duplicado: 'Ese motivo ya existe.',
+            preparar: (v) => ({ nombre: v.nombre, actividad: v.actividad || null, orden: v.orden || 0, activo: v.activo }),
+            visible: deLaEmpresa,
+            duplicado: 'Ese motivo ya existe para esa actividad.',
             textoEliminar: (f) => `¿Eliminar el motivo "${f.nombre}"? (Para ocultarlo sin borrarlo, desactívalo.)`,
             puedeCrear: soloGeneral,
             puedeEditar: soloGeneral,
@@ -430,7 +436,7 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
 
         const columnas = cat.columnas.length + (tieneAcciones(cat) ? 1 : 0);
         if (faltaSqlDe[nombre]) {
-            tbody.appendChild(crearFilaVacia(`Falta ejecutar sql/${cat.sql} en Supabase.`, columnas));
+            tbody.appendChild(crearFilaVacia('Falta instalar la base de datos (sql/instalacion).', columnas));
             return;
         }
         if (!lista.length) {
@@ -805,9 +811,9 @@ registrarModuloConfig('pedidos', (seccion, ctx) => {
         opcionesCodigo.forEach((o) => { o.checked = codigos.includes(o.value); o.disabled = !esGeneral; });
     }
 
-    // Guarda una clave de "configuracion"
+    // Guarda una clave de "configuracion" de la empresa activa (js/supabase.js le pone empresa_id)
     const guardarOpcion = (clave, valor) => db.from('configuracion')
-        .upsert({ clave, valor, actualizado_en: new Date().toISOString() });
+        .upsert({ clave, valor, actualizado_en: new Date().toISOString() }, { onConflict: 'empresa_id,clave' });
 
     formNumero.addEventListener('submit', async (evento) => {
         evento.preventDefault();

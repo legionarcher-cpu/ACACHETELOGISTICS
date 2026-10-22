@@ -229,16 +229,17 @@
 </dialog>
 
 <!-- ==================================================
-     VENTANA: ACCESO Y LUGARES (si la empresa hace viajes o encomiendas; sql/01 bloques 19 y 23)
-     Usuario del cliente (rol "cliente": entra a Inicio, Viajes / Mis envíos y Mi perfil
-     para solicitar sus viajes o envíos) y sus lugares Casa y Trabajo. Lógica: js/secciones/clientes.js
+     VENTANA: ACCESO DEL CLIENTE (si la empresa hace viajes, envíos o recolecciones)
+     Usuario del cliente (rol "cliente": entra a Inicio, Viajes / Mis envíos / Recolecciones
+     y Mi perfil para solicitar los suyos). Su dirección y ubicación están en la ficha del
+     cliente (Modificar). Lógica: js/secciones/clientes.js
      ================================================== -->
 <dialog id="cliAcceso" class="dialogo" aria-labelledby="cliAccesoTitulo">
     <form id="cliAccesoForm" class="dialogo-form" novalidate>
-        <h3 id="cliAccesoTitulo" class="dialogo-titulo">Acceso y lugares</h3>
+        <h3 id="cliAccesoTitulo" class="dialogo-titulo">Acceso del cliente</h3>
 
         <fieldset class="cli-acceso-grupo">
-            <legend class="campo-etiqueta">Usuario para solicitar viajes o envíos</legend>
+            <legend class="campo-etiqueta">Usuario para solicitar viajes, envíos o recolecciones</legend>
             <!-- Sin usuario -->
             <div id="cliAccesoNuevo" class="campos">
                 <div class="campo">
@@ -259,30 +260,6 @@
                     <input id="cliAccesoClaveNueva" type="text" maxlength="40" class="campo-input" autocomplete="off">
                 </div>
                 <button type="button" id="cliAccesoQuitar" class="boton boton-peligro boton-chico">Quitar acceso</button>
-            </div>
-        </fieldset>
-
-        <fieldset class="cli-acceso-grupo">
-            <legend class="campo-etiqueta">Lugares (arman la ruta con un toque)</legend>
-            <div class="campos">
-                <div class="campo campo-ancho">
-                    <label for="cliCasaTexto" class="campo-etiqueta"><i class="bi bi-house"></i> Casa</label>
-                    <div class="cli-lugar-buscar">
-                        <input id="cliCasaTexto" type="text" maxlength="200" class="campo-input" placeholder="Dirección, coordenadas o enlace de Google Maps">
-                        <button type="button" class="boton boton-secundario boton-chico" data-buscar-lugar="casa"><i class="bi bi-search"></i> Ubicar</button>
-                    </div>
-                    <select id="cliCasaOpciones" class="campo-input" hidden aria-label="Resultados para Casa"></select>
-                    <small id="cliCasaEstado" class="campo-ayuda"></small>
-                </div>
-                <div class="campo campo-ancho">
-                    <label for="cliTrabajoTexto" class="campo-etiqueta"><i class="bi bi-briefcase"></i> Trabajo</label>
-                    <div class="cli-lugar-buscar">
-                        <input id="cliTrabajoTexto" type="text" maxlength="200" class="campo-input" placeholder="Dirección, coordenadas o enlace de Google Maps">
-                        <button type="button" class="boton boton-secundario boton-chico" data-buscar-lugar="trabajo"><i class="bi bi-search"></i> Ubicar</button>
-                    </div>
-                    <select id="cliTrabajoOpciones" class="campo-input" hidden aria-label="Resultados para Trabajo"></select>
-                    <small id="cliTrabajoEstado" class="campo-ayuda"></small>
-                </div>
             </div>
         </fieldset>
 

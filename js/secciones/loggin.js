@@ -23,53 +23,33 @@
 // .login-contenedor.saliendo en css/secciones/loggin.css)
 const DURACION_SALIDA_LOGIN = 250;
 
-// ---------- Validación (Supabase) ----------
-// Busca en la tabla "usuarios" una fila con ese id_usuario y esa clave.
-// Devuelve { id, id_usuario, nombre, rol, permisos, tiendas: {id, codigo, nombre} }
-// o null si no coincide. Lanza un error si no hay conexión con la base de datos.
+// ---------- Validación (Supabase Auth) ----------
+// Inicia sesión en Supabase Auth con el correo interno del usuario ("jlopez01" ->
+// jlopez01@acachete.interno, js/supabase.js: correoInterno) y trae su fila de usuarios.
+// Devuelve { id, id_usuario, nombre, rol, permisos, tiendas: {id, codigo, nombre}, empresas }
+// o null si el usuario o la contraseña no coinciden. Lanza un error si no hay conexión
+// (err.status === 429: demasiados intentos seguidos, Supabase frena un rato).
 //
-// - El id_usuario NO distingue mayúsculas ("Admin" = "admin"): la página
-//   de usuarios lo guarda siempre en minúsculas y aquí se compara igual.
+// - El usuario NO distingue mayúsculas ("Admin" = "admin"); la contraseña SÍ.
 // - Un usuario con aprobado = false (creado por un Admin G3) no puede entrar.
-// - Todos llevan al final el ID de su empresa (sql/01 bloques 16 y 31):
-//   usuario + empresa (ej. jlopez01), en todos los roles (sin tienda ni región).
-//   "admin" y "desar" no cambian.
-// - La clave SÍ distingue mayúsculas.
-//
-// La clave está CIFRADA en la base (sql/01 bloque 20): la compara la función
-// iniciar_sesion dentro de la base y devuelve solo el id del usuario. La página no
-// puede leer la columna clave. (Base sin el bloque 20: se compara tal cual.)
-// Pendiente (Fase 7): Supabase Auth + RLS.
+// - Todos llevan al final el ID de su empresa (ej. jlopez01). "admin" y "desar" no cambian.
+// - La contraseña vive solo en Supabase Auth: la página nunca la lee.
 async function validarCredenciales(usuario, clave) {
-    let filtro;
-    const { data: id, error: errorClave } = await db.rpc('iniciar_sesion', { p_usuario: usuario, p_clave: clave });
-    if (!errorClave) {
-        if (!id) return null;
-        filtro = (q) => q.eq('id', id);
-    } else if (['PGRST202', '42883'].includes(errorClave.code)) {
-        filtro = (q) => q.eq('id_usuario', usuario.toLowerCase()).eq('clave', clave);
-    } else {
-        throw errorClave;
+    const { data: acceso, error: errorAcceso } = await db.auth.signInWithPassword({ email: correoInterno(usuario), password: clave });
+    if (errorAcceso) {
+        if (errorAcceso.status === 400) return null; // usuario o contraseña incorrectos (no se dice cuál)
+        throw errorAcceso;
     }
 
-    // la clave NO se trae; "tiendas(...)" trae los datos de su tienda y
-    // "empresas(...)" los de su empresa (sql/01 bloque 16)
-    const columnas = 'id, id_usuario, nombre, rol, region, aprobado, permisos, foto_url, tiendas(id, codigo, nombre)';
-    const consulta = (extra) => filtro(db.from('usuarios').select(columnas + extra))
-        .maybeSingle(); // una fila o null
-
-    // Se prueba de lo más nuevo a lo más viejo: con cliente_id (sql/01 bloque 19), con
-    // empresas (bloque 16) y sin nada (base anterior). empresas(*) trae también su
-    // paleta de colores si la base ya la tiene (bloque 21).
-    const empresa = ', empresas(*)';
-    let data = null;
-    let error = null;
-    for (const extra of [`, cliente_id${empresa}`, empresa, '']) {
-        ({ data, error } = await consulta(extra));
-        if (!error || !['42703', 'PGRST200', 'PGRST205'].includes(error.code)) break;
+    // "tiendas(...)" trae los datos de su tienda y "empresas(*)" los de su empresa (con su paleta)
+    const columnas = 'id, id_usuario, nombre, rol, region, aprobado, admin_ti, foto_url, cliente_id, '
+        + 'tiendas(id, codigo, nombre), empresas(*)';
+    const { data, error } = await db.from('usuarios').select(columnas).eq('auth_id', acceso.user.id).maybeSingle();
+    if (error || !data) {
+        await salirDeSupabase();
+        if (error) throw error;
+        return null; // tiene acceso pero ya no tiene usuario
     }
-    if (error) throw error;
-    if (!data) return null;
 
     // El Desarrollador no es de ninguna empresa: empieza con la primera activa
     // (la cambia en el menú del usuario)
@@ -78,7 +58,14 @@ async function validarCredenciales(usuario, clave) {
             .select('*').eq('activa', true).order('codigo').limit(1).maybeSingle();
         data.empresas = primera || null;
     }
+    // Sus módulos y funciones (su rol + lo que se le dio o quitó; js/sesion.js: puedeHacer)
+    if (data.aprobado !== false) data.funciones = await leerMisFunciones();
     return data;
+}
+
+// Cierra la sesión de Supabase Auth si al final no puede entrar (sin aprobar, empresa inactiva...)
+function salirDeSupabase() {
+    return db.auth.signOut({ scope: 'local' }).catch(() => { /* sin conexión */ });
 }
 
 registrarSeccion('loggin', (zona) => {
@@ -149,7 +136,9 @@ registrarSeccion('loggin', (zona) => {
             console.error('Error al validar en Supabase:', err);
             botonIngresar.disabled = false;
             botonIngresar.textContent = 'Ingresar';
-            mostrarError('No se pudo conectar con el servidor. Intenta de nuevo.');
+            mostrarError(err && err.status === 429
+                ? 'Demasiados intentos seguidos. Espera unos minutos e intenta de nuevo.'
+                : 'No se pudo conectar con el servidor. Intenta de nuevo.');
             return;
         }
 
@@ -166,6 +155,7 @@ registrarSeccion('loggin', (zona) => {
 
         // Usuario creado por un Admin G3 que aún no fue aprobado (columna aprobado)
         if (encontrado.aprobado === false) {
+            salirDeSupabase();
             botonIngresar.disabled = false;
             botonIngresar.textContent = 'Ingresar';
             mostrarError(encontrado.rol === 'cliente'
@@ -176,6 +166,7 @@ registrarSeccion('loggin', (zona) => {
 
         // Empresa desactivada por el Desarrollador (Tiendas -> Empresas)
         if (encontrado.empresas && encontrado.empresas.activa === false && encontrado.rol !== 'desarrollador') {
+            salirDeSupabase();
             botonIngresar.disabled = false;
             botonIngresar.textContent = 'Ingresar';
             mostrarError('Tu empresa está inactiva. Consulta con el administrador del sistema.');
@@ -192,7 +183,8 @@ registrarSeccion('loggin', (zona) => {
             rol: encontrado.rol,                    // administrador | admin_g1 | admin_g2 | admin_g3 | empleado | piloto | cliente
             tienda: encontrado.tiendas || null,     // { id, codigo, nombre } o null (administradores)
             region: encontrado.region || null,      // solo Admin G2 (ej. 'NOR')
-            permisos: encontrado.permisos || [],
+            funciones: encontrado.funciones || {},  // { 'pedidos': true, 'pedidos.asignar': false, ... }
+            admin_ti: !!encontrado.admin_ti,        // da la llave de soporte (Configuración -> Soporte)
             foto_url: encontrado.foto_url || null,  // foto del encabezado (js/avatar.js)
             empresa: datosEmpresaSesion(encontrado.empresas), // { id, codigo, nombre, actividades } (js/sesion.js)
             cliente_id: encontrado.cliente_id || null, // solo el rol cliente: su fila en la tabla clientes

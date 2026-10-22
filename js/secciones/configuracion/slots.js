@@ -10,15 +10,16 @@
    para despachar". Es distinto de la MARCA (horario del piloto), que solo ven
    el piloto y Admin G2 en adelante.
 
-   Igual que las marcas (sql/00 sección 5; sql/01 bloque 12):
-     - cantidad_slots (tabla "configuracion"): cuántos slots hay en el día.
+   Las mismas tablas que los horarios del piloto, con tipo 'despacho'
+   (sql/instalacion/03_horarios_y_marcas.sql; de la empresa activa):
+     - Cantidad de slots en el día (horarios_dias, dia 0 = la base).
        Al SUBIRLA se crean los nuevos después del último (misma duración);
        al BAJARLA se eliminan los últimos (pide confirmación).
-     - Horas de cada slot (tabla "slots_horario"): desde / hasta.
-     - Slots por día (tablas "slot_dias" y "slots_dia"): un día de la semana
+     - Horas de cada slot (horarios, dia 0): desde (inicio) / hasta (fin).
+     - Slots por día (horarios_dias y horarios con dia 1 a 7): un día de la semana
        puede tener su propia cantidad y horas (0 = no se despacha). Los días
        sin slots propios usan la base. "Usar base" borra lo propio del día.
-     - Los pedidos piden los slots de su fecha con slots_del_dia(fecha).
+     - Los pedidos piden los slots de su fecha con slots_del_dia(fecha, empresa).
 
    Permisos: Administrador y Admin G1 cambian; Admin G2 solo ve.
    ================================================== */
@@ -87,10 +88,11 @@ registrarModuloConfig('slots', (seccion, ctx) => {
     // ==================================================
 
     async function cargarTodo() {
-        const [conf, base, dia] = await Promise.all([
-            db.from('configuracion').select('valor').eq('clave', 'cantidad_slots').maybeSingle(),
-            db.from('slots_horario').select('numero, inicio, fin').order('numero'),
-            db.from('slot_dias').select('dia, cantidad_slots, slots_dia(numero, inicio, fin)').order('dia'),
+        const [base, dia] = await Promise.all([
+            db.from('horarios').select('numero, inicio, fin').eq('tipo', 'despacho').eq('dia', 0).order('numero'),
+            // Cantidad base (dia 0) y días con slots propios (1 a 7), con sus slots
+            db.from('horarios_dias').select('dia, cantidad_slots:cantidad, slots_dia:horarios(numero, inicio, fin)')
+                .eq('tipo', 'despacho').order('dia'),
         ]);
         const error = base.error || dia.error;
         faltaSql.hidden = !error;
@@ -101,9 +103,10 @@ registrarModuloConfig('slots', (seccion, ctx) => {
             return;
         }
         slots = base.data;
-        dias = dia.data;
+        const propia = dia.data.find((d) => d.dia === 0);
+        dias = dia.data.filter((d) => d.dia > 0);
         dias.forEach((d) => d.slots_dia.sort((a, b) => a.numero - b.numero));
-        cantidad = conf.data ? Number(conf.data.valor) || slots.length : slots.length;
+        cantidad = propia ? propia.cantidad_slots : slots.length;
         inputCantidad.value = cantidad;
         inputCantidad.disabled = !puedeModificar;
         dibujarSlots();
@@ -125,18 +128,18 @@ registrarModuloConfig('slots', (seccion, ctx) => {
                 return { error: { mensajePropio: `No caben ${hasta} slots antes de medianoche. Acorta los slots o baja la cantidad.` } };
             }
             ultimo = { numero, inicio: aHora(inicio), fin: aHora(inicio + duracion) };
-            nuevos.push(ultimo);
+            nuevos.push({ tipo: 'despacho', dia: 0, ...ultimo });
         }
-        return nuevos.length ? db.from('slots_horario').insert(nuevos) : { error: null };
+        return nuevos.length ? db.from('horarios').insert(nuevos) : { error: null };
     }
 
     async function guardarCantidad(nueva) {
-        let resultado = { error: null };
-        if (nueva > slots.length) resultado = await crearFaltantes(nueva);
-        else if (nueva < slots.length) resultado = await db.from('slots_horario').delete().gt('numero', nueva);
-        if (!resultado.error) {
-            resultado = await db.from('configuracion')
-                .upsert({ clave: 'cantidad_slots', valor: nueva, actualizado_en: new Date().toISOString() });
+        // Primero la cantidad (es la llave de los slots), luego crear o eliminar slots
+        let resultado = await db.from('horarios_dias')
+            .upsert({ tipo: 'despacho', dia: 0, cantidad: nueva, actualizado_en: new Date().toISOString() }, { onConflict: 'empresa_id,tipo,dia' });
+        if (!resultado.error && nueva > slots.length) resultado = await crearFaltantes(nueva);
+        else if (!resultado.error && nueva < slots.length) {
+            resultado = await db.from('horarios').delete().eq('tipo', 'despacho').eq('dia', 0).gt('numero', nueva);
         }
         if (resultado.error) {
             console.error('Error al guardar la cantidad de slots:', resultado.error);
@@ -205,9 +208,9 @@ registrarModuloConfig('slots', (seccion, ctx) => {
         const nueva = slots.map((s) => (s.numero === editandoSlot.numero ? { ...s, inicio: slotInicio.value, fin: slotFin.value } : s));
         const problema = revisarHoras(nueva);
         if (problema) { slotError.textContent = problema; return; }
-        const { error } = await db.from('slots_horario')
+        const { error } = await db.from('horarios')
             .update({ inicio: slotInicio.value, fin: slotFin.value, actualizado_en: new Date().toISOString() })
-            .eq('numero', editandoSlot.numero);
+            .eq('tipo', 'despacho').eq('dia', 0).eq('numero', editandoSlot.numero);
         if (error) {
             console.error('Error al guardar el slot:', error);
             slotError.textContent = 'No se pudo guardar. Intenta de nuevo.';
@@ -255,7 +258,7 @@ registrarModuloConfig('slots', (seccion, ctx) => {
         if (boton.dataset.accion === 'base') {
             pedirConfirmacion(`¿Quitar los slots propios del ${CFG_DIAS[numero].toLowerCase()}? Volverá a usar la base (${plural(slots.length, 'slot', 'slots')}).`,
                 async () => {
-                    const { error } = await db.from('slot_dias').delete().eq('dia', numero); // borra también sus slots_dia
+                    const { error } = await db.from('horarios_dias').delete().eq('tipo', 'despacho').eq('dia', numero); // borra también sus slots
                     if (error) {
                         console.error('Error al volver a la base:', error);
                         aviso.mostrar('No se pudieron quitar los slots del día.', 'error');
@@ -360,11 +363,12 @@ registrarModuloConfig('slots', (seccion, ctx) => {
 
         const destinos = [editandoDia, ...[...diaOtros.querySelectorAll('input:checked')].map((c) => Number(c.value))];
         const ahora = new Date().toISOString();
-        let resultado = await db.from('slot_dias').upsert(destinos.map((dia) => ({ dia, cantidad_slots: total, actualizado_en: ahora })));
-        if (!resultado.error) resultado = await db.from('slots_dia').delete().in('dia', destinos);
+        let resultado = await db.from('horarios_dias')
+            .upsert(destinos.map((dia) => ({ tipo: 'despacho', dia, cantidad: total, actualizado_en: ahora })), { onConflict: 'empresa_id,tipo,dia' });
+        if (!resultado.error) resultado = await db.from('horarios').delete().eq('tipo', 'despacho').in('dia', destinos);
         if (!resultado.error && filas.length) {
-            resultado = await db.from('slots_dia').insert(destinos.flatMap((dia) => filas.map((f, i) => ({
-                dia, numero: i + 1, inicio: f.inicio, fin: f.fin,
+            resultado = await db.from('horarios').insert(destinos.flatMap((dia) => filas.map((f, i) => ({
+                tipo: 'despacho', dia, numero: i + 1, inicio: f.inicio, fin: f.fin,
             }))));
         }
         if (resultado.error) {

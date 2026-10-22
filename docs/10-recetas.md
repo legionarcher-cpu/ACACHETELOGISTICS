@@ -22,10 +22,10 @@ CSS y JS de cada sección y módulo. Si no se cambia, un navegador puede mezclar
 
 ## Agregar una columna a una tabla
 
-1. `sql/00_instalacion_completa.sql`: agregarla en el `create table` de su sección.
-2. `sql/01_actualizacion_base_existente.sql`: un bloque nuevo al final con
-   `alter table ... add column if not exists ...` (no crear archivos SQL nuevos).
-3. Ejecutar `01` en la base de **cada** empresa que ya exista.
+1. `sql/instalacion/`: agregarla en el `create table` de su módulo.
+2. `sql/actualizaciones/AAAA-MM-DD_tema.sql`: archivo nuevo con
+   `alter table ... add column if not exists ...` (si es en `usuarios`, al final `select public.usuarios_ocultar_clave();`).
+3. Ejecutar ese archivo en la base de **cada** empresa que ya exista.
 4. En el JS: agregarla al `select(...)` y donde se muestre o guarde.
 5. Actualizar [05-base-de-datos.md](05-base-de-datos.md).
 

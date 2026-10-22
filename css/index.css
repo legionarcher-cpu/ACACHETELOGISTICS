@@ -806,6 +806,77 @@ body {
 }
 
 /* ==================================================
+   SOPORTE (solo el Desarrollador, js/soporte.js)
+   Cuadro fijo arriba de la lista de la campana: no tapa nada de la página.
+   data-modo: "puesta" (sin Admin TI), "sin-llave" o "llave" (modo soporte)
+   Con la llave activa, la campana lleva un punto naranja (.soporte-llave).
+   ================================================== */
+
+.noti-soporte {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.556rem;
+    padding: 0.667rem 0.778rem;
+    border-bottom: 1px solid var(--color-borde-suave);
+    background: var(--color-azul-claro);
+    color: var(--color-azul-marino);
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.noti-soporte[hidden] {
+    display: none;
+}
+
+.noti-soporte[data-modo="llave"] {
+    background: var(--color-naranja-claro);
+    color: var(--color-texto);
+}
+
+.noti-soporte > .bi {
+    font-size: 1rem;
+    line-height: 1.1;
+}
+
+.noti-soporte-texto {
+    flex: 1;
+    min-width: 0;
+}
+
+.noti-soporte-boton {
+    flex-shrink: 0;
+    padding: 0.222rem 0.667rem;
+    border: none;
+    border-radius: 999px;
+    background: var(--color-azul);
+    color: var(--color-blanco);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.noti-soporte-boton:hover {
+    background: var(--color-azul-marino);
+}
+
+.noti-soporte-boton[hidden] {
+    display: none;
+}
+
+/* Punto naranja en la campana mientras dura el modo soporte */
+.noti-campana.soporte-llave::after {
+    content: "";
+    position: absolute;
+    bottom: 3px;
+    left: 3px;
+    width: 0.556rem;
+    height: 0.556rem;
+    border-radius: 50%;
+    background: var(--color-naranja);
+    border: 2px solid var(--color-blanco);
+}
+
+/* ==================================================
    SIN SESIÓN (mientras se ve el login)
    La clase "sin-sesion" va en <html> (la pone app.html al
    cargar y js/permisos.js al iniciar/cerrar sesión).

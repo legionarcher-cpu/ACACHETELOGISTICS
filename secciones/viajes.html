@@ -5,7 +5,7 @@
 
      Cambia según quién entra (lo arma js/secciones/viajes.js):
        Cliente   -> sus próximos viajes y los anteriores, su avance hacia el viaje
-                    de cortesía, Casa y Trabajo, y "Solicitar viaje".
+                    de cortesía, su ubicación, y "Solicitar viaje".
        Conductor -> (rol piloto) sus viajes del día con los botones "Voy en camino",
                     "A bordo", "Terminar" y "No se presentó", y enlaces para navegar.
        Personal  -> agenda del día (todos los viajes), con filtros, resumen, cambiar la
@@ -49,15 +49,15 @@
          ================================================== -->
     <div id="viaVistaLista">
 
-        <!-- Solo el cliente: cortesía y sus lugares -->
+        <!-- Solo el cliente: cortesía y su ubicación -->
         <div id="viaCliente" class="via-columnas" hidden>
             <section id="viaCortesia" class="tarjeta via-tarjeta via-cortesia" hidden></section>
             <section class="tarjeta via-tarjeta">
-                <h3 class="via-tarjeta-titulo"><i class="bi bi-geo-alt"></i> Mis lugares</h3>
+                <h3 class="via-tarjeta-titulo"><i class="bi bi-geo-alt"></i> Mi ubicación</h3>
                 <ul id="viaLugaresLista" class="via-lugares"></ul>
                 <p class="via-nota-chica">
-                    Casa y Trabajo arman la ruta con un toque. Para guardarlos: en "Solicitar viaje" ubica el
-                    punto en el mapa y presiona "Guardar como Casa" o "Guardar como Trabajo".
+                    Arma la ruta con un toque. Para guardarla: en "Solicitar viaje" ubica el punto en el
+                    mapa y presiona "Guardar como ubicación del cliente".
                 </p>
             </section>
         </div>

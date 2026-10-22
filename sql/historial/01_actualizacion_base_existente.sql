@@ -1,0 +1,7162 @@
+-- ==================================================
+-- ACTUALIZACIÓN DE UNA BASE EXISTENTE
+-- ACACHETE LOGISTICS
+--
+-- Para qué sirve: poner al día la base que ya está en uso (creada con los
+-- scripts anteriores, ya eliminados), aunque no se hayan ejecutado todos.
+-- Deja las mismas funciones, reglas y columnas que una base nueva.
+-- Una base NUEVA no lo necesita: sql/00_instalacion_completa.sql ya trae todo.
+--
+-- Cómo ejecutarlo:
+--   Supabase -> tu proyecto -> SQL Editor -> New query
+--   -> pegar todo este archivo -> Run
+--   Se puede volver a ejecutar sin error: lo que ya existe no se repite
+--   (if not exists / create or replace / drop ... if exists).
+--
+-- Regla: cada cambio nuevo de estructura se agrega AL FINAL de este archivo
+-- (como un bloque más, que se pueda repetir) y también a
+-- sql/00_instalacion_completa.sql.
+--
+-- Requisito: la base ya tiene las tablas principales del sistema (usuarios,
+-- tiendas, regiones, vehiculos, clientes, notificaciones, horarios,
+-- actividades, pedidos...). Si no, usar sql/00_instalacion_completa.sql.
+--
+-- Qué hace:
+--   1. Usuario "admin" protegido (no se elimina ni cambia de usuario o rol).
+--   2. Funciones que usa la página: cambiar el código de una tienda y
+--      horarios de una fecha.
+--   3. Número de pedido (automático o manual) y código de respaldo
+--      (aleatorio y/o teléfono) + su validación para la app del piloto.
+--   4. Rutas, pilotos por ruta y piloto multitienda.
+--   5. Estado del vehículo automático ("en uso" / "disponible").
+--   6. Tipo de vehículo (camión, pick-up, panel o moto).
+--   7. Qué usa cada actividad en el pedido.
+--   8. Categorías de mercadería: tipos bulto y documento + categorías de Encomiendas.
+--   9. Ubicación de las tiendas en el mapa (cobro por distancia).
+--  10. Tarifas: km que cubre el mínimo (distancia incluida).
+--  11. Clientes: primer y segundo apellido, correo y búsqueda.
+--  12. Slots, flujo de despacho (alistando -> listo -> recibido -> cargado
+--      -> en ruta -> en entrega) y calculador interno de tiempos.
+--  13. Marcas del piloto (se habilitan solas según los horarios).
+--  14. QR: marcas con el QR mensual de la tienda y validación diaria del piloto.
+--  15. Marca tardía con justificación ("hora inicio" y "termina").
+--  16. Empresas internas con ID ("01"), usuarios con el ID de su empresa
+--      (jperez01, cenjperez01) y ruta de entrega del cliente por tienda.
+--      ⚠ Renombra a los usuarios que ya existen (una sola vez): avisarles.
+--  17. Usuarios de tienda con la región y sin el número de la tienda (cenjperez01).
+--  18. Actividad Transporte y palabras de cada actividad (Pedido -> Viaje,
+--      Piloto -> Conductor).
+--  19. Transporte: viajes con agenda, rol cliente, Casa y Trabajo, franjas de
+--      precio, días cerrados, costos por vehículo y viaje de cortesía.
+--  20. Seguridad: contraseñas cifradas, inicio de sesión dentro de la base y
+--      solicitud de usuario del cliente (empresas con Transporte).
+--  21. Paleta de colores de cada empresa interna (empresas.colores).
+--  22. Plan de cada empresa y funciones habilitadas (empresas.plan, empresas.funciones).
+--  23. Solicitudes de envío de los clientes (pedido_solicitudes) y registro de clientes en encomiendas.
+--  24. Caja de pilotos y conductores: fondo, cobros, arqueo y cierre (cajas, cierres_caja).
+--  25. Ubicación del piloto en tiempo real (ubicaciones_pilotos).
+--  26. Qué partes usa cada actividad: vehículos, cobro por km, peso y productos
+--      (+ actividades Masajes y Distribución).
+--  27. Distribuidora: productos, presentaciones, listas de precios con IVA, bodega
+--      del día por ruta, carga por piloto, entrega parcial, venta en ruta,
+--      devolución y cierres de mercadería.
+--  28. Tiendas: código libre (no depende de la región) y tiendas con o sin rutas.
+--  29. Despacho: carga con evidencia por pedido y salida a ruta por slot ("No salió a ruta").
+--  30. Caja de pilotos como parte de cada actividad (actividades.usa_caja).
+--  31. Tiendas: la región es opcional y los usuarios ya no llevan la región (jperez01).
+--  32. Artículos de venta: unidad de medida y costo de cada presentación.
+--  33. QR del piloto: la tienda lo escanea y con "Validar y marcar" valida y marca su horario.
+--  34. QR fijo de la tienda (en su Inicio): el piloto lo escanea y se marca solo.
+--  35. QR fijo: solo marca si el GPS del piloto está en la tienda (radio_marca_m).
+--  36. Visitas (solo Desarrollador): quién entra, desde dónde y a qué pantallas (se guardan 3 días).
+--  37. Entrega: foto del comprobante de pago (efectivo, voucher o SINPE), pedido_evidencias tipo 'pago'.
+--  38. Entrega con QR obligatorio (pedido_iniciar_entrega) y pedidos con productos solo si hay en la bodega del día.
+--  39. Ubicación compartida por el cliente: enlace por WhatsApp antes de registrar el pedido (ubicaciones_compartidas).
+--  40. Limpiar los datos de una empresa desde Tiendas -> Empresas (solo Desarrollador, con su contraseña).
+--  41. Datos de cada empresa: razón social, cédula jurídica, teléfono, dirección, ubicación y a qué se dedica (giro).
+--  42. Usuarios: cédula y departamento (opcionales, para búsquedas).
+--  43. Clientes: persona o empresa, cédula (o cédula jurídica) y razón social.
+--  44. Teléfonos y cédulas: formato de Costa Rica y tope de largo (nada se guarda desbordado).
+--  45. Costos de operación: margen de utilidad deseado y entregas al mes (sin depender de vehículos).
+--  46. Actividad Recolección: el cliente elige la hora, depósitos, entrega en oficina u otro lugar, bloqueos y cobro semanal.
+-- ==================================================
+
+
+-- ---------- Revisión: si la base está vacía, se detiene con un aviso claro ----------
+do $$
+begin
+    if to_regclass('public.usuarios') is null or to_regclass('public.pedidos') is null then
+        raise exception 'A esta base le faltan las tablas principales: ejecute sql/00_instalacion_completa.sql (no este archivo).';
+    end if;
+end;
+$$;
+
+
+-- ==================================================
+-- 0. PIEZAS BÁSICAS (por si alguna no se creó en su momento)
+-- ==================================================
+
+-- Columnas de usuarios: foto, región (G2), aprobación (G3), vehículo (pilotos)
+alter table public.usuarios
+    add column if not exists foto_url       text,
+    add column if not exists region         text references public.regiones(codigo) on delete restrict,
+    add column if not exists aprobado       boolean not null default true,
+    add column if not exists solicitado_por bigint references public.usuarios(id) on delete set null,
+    add column if not exists solicitado_en  timestamptz,
+    add column if not exists vehiculo_id    bigint references public.vehiculos(id) on delete set null;
+
+-- Pesos promedio de artículos (Configuración -> Pedidos -> Artículos frecuentes)
+create table if not exists public.articulos_catalogo (
+    id            bigint generated always as identity primary key,
+    categoria_id  bigint not null references public.categorias_mercaderia(id) on delete cascade,
+    nombre        text not null,
+    peso_kg       numeric(8,2) not null default 0,
+    activo        boolean not null default true,
+    orden         smallint not null default 0,
+
+    constraint articulos_catalogo_peso_valido check (peso_kg >= 0),
+    constraint articulos_catalogo_unico unique (categoria_id, nombre)
+);
+
+alter table public.articulos_catalogo enable row level security;
+grant select, insert, update, delete on public.articulos_catalogo to anon;
+drop policy if exists "TEMPORAL - leer catalogo"      on public.articulos_catalogo;
+drop policy if exists "TEMPORAL - crear catalogo"     on public.articulos_catalogo;
+drop policy if exists "TEMPORAL - modificar catalogo" on public.articulos_catalogo;
+drop policy if exists "TEMPORAL - eliminar catalogo"  on public.articulos_catalogo;
+create policy "TEMPORAL - leer catalogo"      on public.articulos_catalogo for select to anon using (true);
+create policy "TEMPORAL - crear catalogo"     on public.articulos_catalogo for insert to anon with check (true);
+create policy "TEMPORAL - modificar catalogo" on public.articulos_catalogo for update to anon using (true) with check (true);
+create policy "TEMPORAL - eliminar catalogo"  on public.articulos_catalogo for delete to anon using (true);
+
+-- Espacios de fotos (usuarios y entregas)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types) values
+    ('avatares',   'avatares',   true, 2097152, array['image/jpeg', 'image/png', 'image/webp']),
+    ('evidencias', 'evidencias', true, 5242880, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict do nothing;
+
+drop policy if exists "TEMPORAL - ver avatares"        on storage.objects;
+drop policy if exists "TEMPORAL - subir avatares"      on storage.objects;
+drop policy if exists "TEMPORAL - reemplazar avatares" on storage.objects;
+drop policy if exists "TEMPORAL - borrar avatares"     on storage.objects;
+drop policy if exists "TEMPORAL - ver evidencias"      on storage.objects;
+drop policy if exists "TEMPORAL - subir evidencias"    on storage.objects;
+drop policy if exists "TEMPORAL - borrar evidencias"   on storage.objects;
+create policy "TEMPORAL - ver avatares"        on storage.objects for select to anon using (bucket_id = 'avatares');
+create policy "TEMPORAL - subir avatares"      on storage.objects for insert to anon with check (bucket_id = 'avatares');
+create policy "TEMPORAL - reemplazar avatares" on storage.objects for update to anon using (bucket_id = 'avatares') with check (bucket_id = 'avatares');
+create policy "TEMPORAL - borrar avatares"     on storage.objects for delete to anon using (bucket_id = 'avatares');
+create policy "TEMPORAL - ver evidencias"      on storage.objects for select to anon using (bucket_id = 'evidencias');
+create policy "TEMPORAL - subir evidencias"    on storage.objects for insert to anon with check (bucket_id = 'evidencias');
+create policy "TEMPORAL - borrar evidencias"   on storage.objects for delete to anon using (bucket_id = 'evidencias');
+
+
+-- ==================================================
+-- 1. ROL DESARROLLADOR Y USUARIOS PROTEGIDOS
+-- desarrollador: por ENCIMA del Administrador; no aparece para los demás.
+-- Usuario "desar" (clave ak7desa). "desar" y "admin" no se eliminan ni
+-- cambian de usuario o rol.
+-- ==================================================
+
+alter table public.usuarios drop constraint if exists usuarios_rol_valido;
+alter table public.usuarios add constraint usuarios_rol_valido check (
+    rol in ('desarrollador', 'administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado', 'piloto'));
+alter table public.usuarios drop constraint if exists usuarios_tienda_segun_rol;
+alter table public.usuarios add constraint usuarios_tienda_segun_rol check (
+    (rol in ('desarrollador', 'administrador', 'admin_g1') and tienda_id is null and region is null)
+    or (rol = 'admin_g2' and tienda_id is null and region is not null)
+    or (rol in ('admin_g3', 'empleado', 'piloto') and tienda_id is not null and region is null));
+
+insert into public.usuarios (nombre, id_usuario, telefono, clave, permisos, rol) values
+    ('Desarrollador', 'desar', '00000000', 'ak7desa', '{*}', 'desarrollador')
+on conflict do nothing;
+
+create or replace function public.proteger_admin()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if tg_op = 'DELETE' and old.id_usuario in ('admin', 'desar') then
+        raise exception 'El usuario % está protegido y no se puede eliminar.', old.id_usuario
+            using errcode = 'P0001';
+    end if;
+    if tg_op = 'UPDATE' and old.id_usuario in ('admin', 'desar')
+       and (new.id_usuario <> old.id_usuario or new.rol <> old.rol) then
+        raise exception 'Al usuario % no se le puede cambiar el usuario ni el rol.', old.id_usuario
+            using errcode = 'P0001';
+    end if;
+    if tg_op = 'DELETE' then
+        return old;
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists usuarios_proteger_admin on public.usuarios;
+create trigger usuarios_proteger_admin
+    before update or delete on public.usuarios
+    for each row execute function public.proteger_admin();
+
+
+-- ==================================================
+-- 2. FUNCIONES QUE USA LA PÁGINA
+-- ==================================================
+
+-- Cambiar el código de una tienda y renombrar a sus usuarios (sección Tiendas)
+create or replace function public.cambiar_codigo_tienda(p_tienda_id bigint, p_nuevo_codigo text)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_codigo_viejo text;
+begin
+    select codigo into v_codigo_viejo from public.tiendas where id = p_tienda_id for update;
+    if not found then
+        raise exception 'La tienda no existe.' using errcode = 'P0002';
+    end if;
+    if v_codigo_viejo = p_nuevo_codigo then
+        return;
+    end if;
+
+    update public.tiendas
+       set codigo = p_nuevo_codigo, region = left(p_nuevo_codigo, 3)
+     where id = p_tienda_id;
+
+    update public.usuarios
+       set id_usuario = lower(p_nuevo_codigo) || '-' || substr(id_usuario, length(v_codigo_viejo) + 2)
+     where tienda_id = p_tienda_id
+       and id_usuario like lower(v_codigo_viejo) || '-%';
+end;
+$$;
+
+-- Horarios que aplican a una fecha: los propios del día o los de la base
+create or replace function public.marcas_del_dia(p_fecha date default current_date)
+returns table (numero smallint, inicio_desde time, inicio_hasta time, fin time, personalizado boolean)
+language sql
+stable
+as $$
+    select m.numero, m.inicio_desde, m.inicio_hasta, m.fin, true
+    from public.marcas_dia m
+    where m.dia = extract(isodow from p_fecha)
+    union all
+    select b.numero, b.inicio_desde, b.inicio_hasta, b.fin, false
+    from public.marcas_horario b
+    where not exists (select 1 from public.horario_dias d where d.dia = extract(isodow from p_fecha))
+    order by 1;
+$$;
+
+grant execute on function public.cambiar_codigo_tienda(bigint, text) to anon;
+grant execute on function public.marcas_del_dia(date) to anon;
+
+
+-- ==================================================
+-- 3. NÚMERO DE PEDIDO Y CÓDIGO DE RESPALDO
+--   numero_pedido   = "automatico" (P-000001...) | "manual" (lo escribe el empleado)
+--   codigo_respaldo = ["aleatorio"] | ["telefono"] | ["aleatorio", "telefono"]
+-- ==================================================
+
+insert into public.configuracion (clave, valor) values
+    ('numero_pedido',   '"automatico"'),
+    ('codigo_respaldo', '["aleatorio"]')
+on conflict (clave) do nothing;
+
+-- Si quedó guardado como texto ("aleatorio"), pasa a lista (["aleatorio"])
+update public.configuracion
+   set valor = jsonb_build_array(valor)
+ where clave = 'codigo_respaldo' and jsonb_typeof(valor) = 'string';
+
+alter table public.pedidos
+    add column if not exists codigo_telefono text;
+
+create sequence if not exists public.pedidos_codigo_seq;
+
+create or replace function public.pedidos_antes_de_crear()
+returns trigger
+language plpgsql
+as $$
+declare
+    modo_numero   text;
+    opciones      jsonb;
+    digitos       text;
+    usa_aleatorio boolean;
+    usa_telefono  boolean;
+begin
+    select valor #>> '{}' into modo_numero from public.configuracion where clave = 'numero_pedido';
+
+    if modo_numero = 'manual' then
+        new.codigo := upper(trim(coalesce(new.codigo, '')));
+        if new.codigo = '' then
+            raise exception 'Falta el número de pedido (la empresa usa números manuales).'
+                using errcode = '23502';
+        end if;
+    else
+        new.codigo := 'P-' || lpad(nextval('public.pedidos_codigo_seq')::text, 6, '0');
+    end if;
+
+    select valor into opciones from public.configuracion where clave = 'codigo_respaldo';
+    if opciones is null then
+        opciones := '["aleatorio"]';
+    elsif jsonb_typeof(opciones) = 'string' then
+        opciones := jsonb_build_array(opciones);
+    end if;
+
+    digitos := regexp_replace(coalesce(new.cliente_telefono, ''), '\D', '', 'g');
+    usa_aleatorio := opciones ? 'aleatorio';
+    usa_telefono  := opciones ? 'telefono' and length(digitos) >= 4;
+
+    new.codigo_telefono := case when usa_telefono then right(digitos, 4) end;
+
+    if usa_aleatorio or not usa_telefono then
+        new.codigo_respaldo := lpad(floor(random() * 10000)::int::text, 4, '0');
+    else
+        new.codigo_respaldo := new.codigo_telefono;
+    end if;
+
+    return new;
+end;
+$$;
+
+drop trigger if exists pedidos_codigo on public.pedidos;
+create trigger pedidos_codigo
+    before insert on public.pedidos
+    for each row execute function public.pedidos_antes_de_crear();
+
+-- Validar un código de respaldo (app del piloto)
+create or replace function public.validar_codigo_respaldo(p_pedido bigint, p_codigo text)
+returns boolean
+language sql
+stable
+as $$
+    select exists (
+        select 1 from public.pedidos
+        where id = p_pedido
+          and trim(p_codigo) in (codigo_respaldo, codigo_telefono)
+    );
+$$;
+
+grant usage on sequence public.pedidos_codigo_seq to anon;
+grant execute on function public.validar_codigo_respaldo(bigint, text) to anon;
+
+
+-- ==================================================
+-- 4. RUTAS, PILOTOS POR RUTA Y PILOTO MULTITIENDA
+-- ==================================================
+
+create table if not exists public.rutas (
+    id          bigint generated always as identity primary key,
+    tienda_id   bigint not null references public.tiendas(id) on delete cascade,
+    nombre      text not null,
+    actividad   text references public.actividades(codigo) on delete set null,
+    activa      boolean not null default true,
+    orden       smallint not null default 0,
+    creado_en   timestamptz not null default now(),
+
+    constraint rutas_nombre_unico unique (tienda_id, nombre)
+);
+
+create table if not exists public.rutas_pilotos (
+    id           bigint generated always as identity primary key,
+    ruta_id      bigint not null references public.rutas(id) on delete cascade,
+    piloto_id    bigint not null references public.usuarios(id) on delete cascade,
+    fecha_desde  date not null,
+    fecha_hasta  date not null,
+    creado_por   bigint references public.usuarios(id) on delete set null,
+    creado_en    timestamptz not null default now(),
+
+    constraint rutas_pilotos_fechas_validas check (fecha_hasta >= fecha_desde and fecha_hasta - fecha_desde <= 31)
+);
+
+create index if not exists rutas_pilotos_fechas_idx on public.rutas_pilotos (ruta_id, fecha_desde, fecha_hasta);
+
+alter table public.pedidos
+    add column if not exists ruta_id bigint references public.rutas(id) on delete set null;
+
+alter table public.usuarios
+    add column if not exists multitienda boolean not null default false;
+
+alter table public.usuarios
+    drop constraint if exists usuarios_multitienda_solo_piloto;
+alter table public.usuarios
+    add constraint usuarios_multitienda_solo_piloto check (not multitienda or rol = 'piloto');
+
+-- Acceso desde la web (TEMPORAL, igual que las demás tablas)
+do $$
+declare
+    t text;
+begin
+    foreach t in array array['rutas', 'rutas_pilotos'] loop
+        execute format('alter table public.%I enable row level security', t);
+        execute format('grant select, insert, update, delete on public.%I to anon', t);
+        execute format('drop policy if exists "TEMPORAL - leer %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - crear %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - modificar %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - eliminar %1$s" on public.%1$I', t);
+        execute format('create policy "TEMPORAL - leer %1$s" on public.%1$I for select to anon using (true)', t);
+        execute format('create policy "TEMPORAL - crear %1$s" on public.%1$I for insert to anon with check (true)', t);
+        execute format('create policy "TEMPORAL - modificar %1$s" on public.%1$I for update to anon using (true) with check (true)', t);
+        execute format('create policy "TEMPORAL - eliminar %1$s" on public.%1$I for delete to anon using (true)', t);
+    end loop;
+end;
+$$;
+
+
+-- ==================================================
+-- 5. VEHÍCULO "EN USO" AUTOMÁTICO
+-- En uso mientras su piloto tiene pedidos activos; mantenimiento no se toca.
+-- ==================================================
+
+create or replace function public.recalcular_estado_vehiculo(p_vehiculo bigint)
+returns void
+language plpgsql
+as $$
+begin
+    if p_vehiculo is null then
+        return;
+    end if;
+
+    update public.vehiculos v
+       set estado = case
+               when exists (
+                   select 1
+                   from public.pedidos p
+                   join public.usuarios u on u.id = p.piloto_id
+                   where u.vehiculo_id = v.id
+                     and p.anulado = false
+                     and p.estado in ('registrado', 'recibido_bodega', 'asignado', 'reprogramado', 'en_ruta')
+               ) then 'en_uso'
+               else 'disponible'
+           end
+     where v.id = p_vehiculo
+       and v.estado <> 'mantenimiento';
+end;
+$$;
+
+create or replace function public.pedidos_actualizar_vehiculo()
+returns trigger
+language plpgsql
+as $$
+begin
+    if new.piloto_id is not null then
+        perform public.recalcular_estado_vehiculo((select vehiculo_id from public.usuarios where id = new.piloto_id));
+    end if;
+    if tg_op = 'UPDATE' and old.piloto_id is not null and old.piloto_id is distinct from new.piloto_id then
+        perform public.recalcular_estado_vehiculo((select vehiculo_id from public.usuarios where id = old.piloto_id));
+    end if;
+    return null;
+end;
+$$;
+
+drop trigger if exists pedidos_vehiculo_en_uso on public.pedidos;
+create trigger pedidos_vehiculo_en_uso
+    after insert or update of piloto_id, estado, anulado on public.pedidos
+    for each row execute function public.pedidos_actualizar_vehiculo();
+
+create or replace function public.usuarios_actualizar_vehiculo()
+returns trigger
+language plpgsql
+as $$
+begin
+    if old.vehiculo_id is distinct from new.vehiculo_id then
+        perform public.recalcular_estado_vehiculo(old.vehiculo_id);
+        perform public.recalcular_estado_vehiculo(new.vehiculo_id);
+    end if;
+    return null;
+end;
+$$;
+
+drop trigger if exists usuarios_vehiculo_en_uso on public.usuarios;
+create trigger usuarios_vehiculo_en_uso
+    after update of vehiculo_id on public.usuarios
+    for each row execute function public.usuarios_actualizar_vehiculo();
+
+-- Recalcular todos ahora
+select public.recalcular_estado_vehiculo(id) from public.vehiculos;
+
+
+-- ==================================================
+-- 6. VEHÍCULOS: tipo
+-- Vacío = registrado antes (aparece "Sin tipo" hasta que se le ponga).
+-- ==================================================
+
+alter table public.vehiculos
+    add column if not exists tipo text;
+
+alter table public.vehiculos
+    drop constraint if exists vehiculos_tipo_valido;
+alter table public.vehiculos
+    add constraint vehiculos_tipo_valido
+    check (tipo is null or tipo in ('camion', 'pickup', 'panel', 'moto'));
+
+
+-- ==================================================
+-- 7. ACTIVIDADES: qué usa cada una
+-- (se cambian en Configuración -> Actividades)
+-- ==================================================
+
+alter table public.actividades
+    add column if not exists usa_recoleccion boolean not null default false,
+    add column if not exists usa_compra      boolean not null default false,
+    add column if not exists usa_tamanos     boolean not null default false,
+    add column if not exists permite_alcohol boolean not null default false;
+
+update public.actividades
+   set usa_bodega = true, usa_recoleccion = true, usa_tamanos = true
+ where codigo = 'encomiendas';
+
+update public.actividades
+   set usa_compra = true, permite_alcohol = true
+ where codigo = 'tienda';
+
+
+-- ==================================================
+-- 8. CATEGORÍAS DE MERCADERÍA
+--   conteo    -> cajas, bolsas, hieleras y peso aproximado (abarrotes)
+--   articulos -> artículos con su peso promedio (línea blanca, electrónica)
+--   bulto     -> cantidad, tamaño y peso de cada uno (cajas, bolsas)
+--   documento -> solo cantidad; cada uno pesa peso_referencia
+-- ==================================================
+
+alter table public.categorias_mercaderia
+    drop constraint if exists categorias_tipo_valido;
+alter table public.categorias_mercaderia
+    add constraint categorias_tipo_valido check (tipo in ('conteo', 'articulos', 'bulto', 'documento'));
+
+alter table public.categorias_mercaderia
+    add column if not exists peso_referencia numeric(8,2);
+
+-- Categorías de Encomiendas. Los pesos promedio de Línea blanca y
+-- Electrónica se compartirán con los de tienda (catálogo único, pendiente);
+-- mientras tanto el empleado escribe el artículo y su peso.
+insert into public.categorias_mercaderia (actividad, nombre, tipo, icono, orden, peso_referencia) values
+    ('encomiendas', 'Cajas',           'bulto',     'bi-box-seam', 1, null),
+    ('encomiendas', 'Bolsas',          'bulto',     'bi-bag',      2, null),
+    ('encomiendas', 'Documentos',      'documento', 'bi-envelope', 3, 0.2),
+    ('encomiendas', 'Línea blanca',    'articulos', 'bi-snow',     4, null),
+    ('encomiendas', 'Electrónica',     'articulos', 'bi-tv',       5, null),
+    ('encomiendas', 'Otros artículos', 'articulos', 'bi-box',      6, null)
+on conflict do nothing; -- sin columnas: desde el bloque 16 la regla también lleva la empresa
+
+-- ==================================================
+-- 9. UBICACIÓN DE LAS TIENDAS EN EL MAPA
+-- Punto de salida de las entregas de tienda (cobro por distancia).
+-- Se guarda desde el formulario de Pedidos ("Guardar como ubicación de la
+-- tienda"). Vacío = se busca con la dirección de la tienda.
+-- ==================================================
+
+alter table public.tiendas
+    add column if not exists lat numeric(9,6),
+    add column if not exists lng numeric(9,6);
+
+-- ==================================================
+-- 10. TARIFAS: KM QUE CUBRE EL MÍNIMO
+-- Igual que kg_incluidos: el mínimo cubre hasta km_incluidos km; cada km
+-- de más se cobra a precio_km. 0 = se cobra desde el primer km.
+-- ==================================================
+
+alter table public.tarifas
+    add column if not exists km_incluidos numeric(8,2) not null default 0;
+
+alter table public.tarifas
+    drop constraint if exists tarifas_km_incluidos_valido;
+alter table public.tarifas
+    add constraint tarifas_km_incluidos_valido check (km_incluidos >= 0);
+
+-- ==================================================
+-- 11. CLIENTES: PRIMER Y SEGUNDO APELLIDO, CORREO Y BÚSQUEDA
+-- "apellidos" pasa a ser calculada (apellido1 + apellido2) y se agrega
+-- "busqueda" (nombre, apellidos, correo y teléfono sin tildes): la usa el
+-- buscador de clientes del formulario de Pedidos.
+-- Los clientes que ya existen: la primera palabra de sus apellidos queda
+-- como primer apellido y el resto como segundo.
+-- ==================================================
+
+alter table public.clientes
+    add column if not exists apellido1 text,
+    add column if not exists apellido2 text,
+    add column if not exists correo text;
+
+do $$
+begin
+    -- Solo la primera vez: "apellidos" todavía es una columna normal
+    if exists (select 1 from information_schema.columns
+               where table_schema = 'public' and table_name = 'clientes'
+                 and column_name = 'apellidos' and is_generated = 'NEVER') then
+        update public.clientes
+           set apellido1 = coalesce(nullif(split_part(btrim(apellidos), ' ', 1), ''), '-'),
+               apellido2 = nullif(btrim(substr(btrim(apellidos), length(split_part(btrim(apellidos), ' ', 1)) + 1)), '')
+         where apellido1 is null;
+        alter table public.clientes drop column apellidos;
+    end if;
+end;
+$$;
+
+update public.clientes set apellido1 = '-' where apellido1 is null;
+alter table public.clientes alter column apellido1 set not null;
+
+alter table public.clientes
+    add column if not exists apellidos text
+        generated always as (btrim(apellido1 || ' ' || coalesce(apellido2, ''))) stored;
+
+alter table public.clientes
+    add column if not exists busqueda text
+        generated always as (lower(translate(
+            nombre || ' ' || apellido1 || ' ' || coalesce(apellido2, '') || ' ' ||
+            coalesce(correo, '') || ' ' || regexp_replace(telefono, '\D', '', 'g'),
+            'ÁÉÍÓÚÜÑáéíóúüñ', 'AEIOUUNaeiouun'))) stored;
+
+alter table public.clientes
+    drop constraint if exists clientes_correo_formato;
+alter table public.clientes
+    add constraint clientes_correo_formato check (correo is null or correo ~* '^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+-- Desde el bloque 16 el correo no se repite DENTRO de cada empresa (otra regla)
+do $$
+begin
+    if not exists (select 1 from information_schema.columns
+                    where table_schema = 'public' and table_name = 'clientes' and column_name = 'empresa_id') then
+        create unique index if not exists clientes_correo_unico on public.clientes (lower(correo)) where correo is not null;
+    end if;
+end;
+$$;
+
+-- ==================================================
+-- 12. SLOTS Y FLUJO DE DESPACHO
+--   - Slots: rango de horario de despacho de cada pedido (Configuración ->
+--     Slots), igual que las marcas: base + propios por día de la semana.
+--   - Estados nuevos: alistando, listo_despacho, recibido_ruta, cargado, en_entrega.
+--   - Hora de cada paso (trigger pedidos_tiempos) y vistas del calculador
+--     interno: pedidos_tiempos y slots_carga.
+--   - Un solo pedido "en_entrega" por piloto.
+-- ==================================================
+
+insert into public.configuracion (clave, valor) values
+    ('cantidad_slots', '4')
+on conflict (clave) do nothing;
+
+create table if not exists public.slots_horario (
+    numero          smallint primary key,
+    inicio          time not null,
+    fin             time not null,
+    actualizado_en  timestamptz not null default now(),
+
+    constraint slots_numero_valido check (numero between 1 and 24),
+    constraint slots_fin_valido    check (fin > inicio)
+);
+
+insert into public.slots_horario (numero, inicio, fin) values
+    (1, '08:00', '10:00'),
+    (2, '10:00', '12:00'),
+    (3, '13:00', '15:00'),
+    (4, '15:00', '17:00')
+on conflict do nothing;
+
+create table if not exists public.slot_dias (
+    dia             smallint primary key,
+    cantidad_slots  smallint not null,
+    actualizado_en  timestamptz not null default now(),
+
+    constraint slot_dia_valido      check (dia between 1 and 7),
+    constraint slot_cantidad_valida check (cantidad_slots between 0 and 24)
+);
+
+create table if not exists public.slots_dia (
+    dia     smallint not null references public.slot_dias(dia) on delete cascade,
+    numero  smallint not null,
+    inicio  time not null,
+    fin     time not null,
+
+    primary key (dia, numero),
+    constraint slots_dia_numero_valido check (numero between 1 and 24),
+    constraint slots_dia_fin_valido    check (fin > inicio)
+);
+
+create or replace function public.slots_del_dia(p_fecha date default current_date)
+returns table (numero smallint, inicio time, fin time, personalizado boolean)
+language sql
+stable
+as $$
+    select s.numero, s.inicio, s.fin, true
+    from public.slots_dia s
+    where s.dia = extract(isodow from p_fecha)
+    union all
+    select b.numero, b.inicio, b.fin, false
+    from public.slots_horario b
+    where not exists (select 1 from public.slot_dias d where d.dia = extract(isodow from p_fecha))
+    order by 1;
+$$;
+
+-- Slot del pedido y hora de cada paso
+alter table public.pedidos
+    add column if not exists slot_numero      smallint,
+    add column if not exists alistando_en     timestamptz,
+    add column if not exists listo_en         timestamptz,
+    add column if not exists recibido_ruta_en timestamptz,
+    add column if not exists cargado_en       timestamptz,
+    add column if not exists cargado_por      bigint references public.usuarios(id) on delete set null,
+    add column if not exists salida_en        timestamptz,
+    add column if not exists entregando_en    timestamptz,
+    add column if not exists finalizado_en    timestamptz;
+
+alter table public.pedidos drop constraint if exists pedidos_estado_valido;
+alter table public.pedidos add constraint pedidos_estado_valido check (estado in (
+    'registrado', 'recibido_bodega', 'asignado', 'alistando', 'listo_despacho',
+    'recibido_ruta', 'cargado', 'en_ruta', 'en_entrega', 'entregado',
+    'entregado_incidencia', 'no_entregado', 'reprogramado', 'devuelto', 'cancelado'));
+
+create index if not exists pedidos_slot_idx on public.pedidos (tienda_id, fecha_entrega, slot_numero);
+create unique index if not exists pedidos_un_en_entrega on public.pedidos (piloto_id) where estado = 'en_entrega';
+
+create or replace function public.pedidos_marcar_tiempos()
+returns trigger
+language plpgsql
+as $$
+begin
+    if new.estado is distinct from old.estado then
+        case new.estado
+            when 'alistando'      then new.alistando_en     := coalesce(old.alistando_en, now());
+            when 'listo_despacho' then new.listo_en         := coalesce(old.listo_en, now());
+            when 'recibido_ruta'  then new.recibido_ruta_en := now();
+            when 'cargado'        then new.cargado_en       := now();
+            when 'en_ruta'        then new.salida_en        := now();
+            when 'en_entrega'     then new.entregando_en    := now();
+            else null;
+        end case;
+        if new.estado in ('entregado', 'entregado_incidencia', 'no_entregado', 'devuelto', 'cancelado') then
+            new.finalizado_en := now();
+        end if;
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists pedidos_tiempos on public.pedidos;
+create trigger pedidos_tiempos
+    before update of estado on public.pedidos
+    for each row execute function public.pedidos_marcar_tiempos();
+
+create or replace view public.pedidos_tiempos
+with (security_invoker = true) as
+select
+    p.id, p.codigo, p.tienda_id, p.actividad, p.fecha_entrega, p.slot_numero, p.piloto_id, p.estado,
+    round(extract(epoch from (p.alistando_en  - p.creado_en))    / 60, 1) as min_espera_alistar,
+    round(extract(epoch from (p.listo_en      - p.alistando_en)) / 60, 1) as min_alistando,
+    round(extract(epoch from (p.listo_en      - p.creado_en))    / 60, 1) as min_hasta_listo,
+    round(extract(epoch from (p.cargado_en    - p.listo_en))     / 60, 1) as min_espera_carga,
+    round(extract(epoch from (p.salida_en     - p.cargado_en))   / 60, 1) as min_cargado_a_salida,
+    round(extract(epoch from (p.finalizado_en - p.salida_en))    / 60, 1) as min_en_ruta,
+    round(extract(epoch from (p.finalizado_en - p.entregando_en)) / 60, 1) as min_ultimo_tramo,
+    round(extract(epoch from (p.finalizado_en - p.creado_en))    / 60, 1) as min_total
+from public.pedidos p
+where not p.anulado;
+
+create or replace view public.slots_carga
+with (security_invoker = true) as
+select
+    p.tienda_id, p.fecha_entrega, p.slot_numero,
+    count(*)                                   as pedidos,
+    count(p.cargado_en)                        as cargados,
+    count(*) = count(p.cargado_en)             as completo,
+    min(p.listo_en)                            as primer_listo,
+    min(p.cargado_en)                          as primer_escaneo,
+    max(p.cargado_en)                          as ultimo_escaneo,
+    min(p.salida_en)                           as primera_salida,
+    round(extract(epoch from (coalesce(min(p.salida_en), max(p.cargado_en)) - min(p.cargado_en))) / 60, 1) as min_carga,
+    round(extract(epoch from (max(p.cargado_en) - min(p.cargado_en))) / 60, 1)                              as min_carga_todos
+from public.pedidos p
+where p.slot_numero is not null and not p.anulado and p.estado <> 'cancelado'
+group by p.tienda_id, p.fecha_entrega, p.slot_numero;
+
+-- Vehículo "en uso": también con los estados nuevos del despacho
+create or replace function public.recalcular_estado_vehiculo(p_vehiculo bigint)
+returns void
+language plpgsql
+as $$
+begin
+    if p_vehiculo is null then
+        return;
+    end if;
+
+    update public.vehiculos v
+       set estado = case
+               when exists (
+                   select 1
+                   from public.pedidos p
+                   join public.usuarios u on u.id = p.piloto_id
+                   where u.vehiculo_id = v.id
+                     and p.anulado = false
+                     and p.estado in ('registrado', 'recibido_bodega', 'asignado', 'reprogramado', 'alistando',
+                                      'listo_despacho', 'recibido_ruta', 'cargado', 'en_ruta', 'en_entrega')
+               ) then 'en_uso'
+               else 'disponible'
+           end
+     where v.id = p_vehiculo
+       and v.estado <> 'mantenimiento';
+end;
+$$;
+
+-- Acceso desde la web (TEMPORAL, igual que las demás tablas)
+do $$
+declare
+    t text;
+begin
+    foreach t in array array['slots_horario', 'slot_dias', 'slots_dia'] loop
+        execute format('alter table public.%I enable row level security', t);
+        execute format('grant select, insert, update, delete on public.%I to anon', t);
+        execute format('drop policy if exists "TEMPORAL - leer %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - crear %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - modificar %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - eliminar %1$s" on public.%1$I', t);
+        execute format('create policy "TEMPORAL - leer %1$s" on public.%1$I for select to anon using (true)', t);
+        execute format('create policy "TEMPORAL - crear %1$s" on public.%1$I for insert to anon with check (true)', t);
+        execute format('create policy "TEMPORAL - modificar %1$s" on public.%1$I for update to anon using (true) with check (true)', t);
+        execute format('create policy "TEMPORAL - eliminar %1$s" on public.%1$I for delete to anon using (true)', t);
+    end loop;
+end;
+$$;
+
+grant execute on function public.slots_del_dia(date) to anon;
+grant select on public.pedidos_tiempos to anon;
+grant select on public.slots_carga to anon;
+
+-- ==================================================
+-- 13. MARCAS DEL PILOTO
+-- Lo que marca el piloto cada día en su Inicio. Cada marca (horario) se
+-- habilita sola cuando empieza su ventana y se puede marcar hasta que
+-- termina; "a tiempo" si fue dentro de la ventana de inicio. La hora la
+-- valida la base (Costa Rica), no el celular: función marcar_horario.
+-- ==================================================
+
+create table if not exists public.marcas_piloto (
+    id          bigint generated always as identity primary key,
+    piloto_id   bigint not null references public.usuarios(id) on delete cascade,
+    fecha       date not null,
+    numero      smallint not null,
+    marcado_en  timestamptz not null default now(),
+    a_tiempo    boolean not null default true,
+
+    constraint marcas_piloto_unica unique (piloto_id, fecha, numero)
+);
+
+create or replace function public.marcar_horario(p_piloto bigint, p_numero smallint)
+returns timestamptz
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_ahora  timestamp := now() at time zone 'America/Costa_Rica';  -- hora local de la empresa
+    v_hoy    date := v_ahora::date;
+    v_hora   time := v_ahora::time;
+    m        record;
+    v_hecho  timestamptz;
+begin
+    select * into m from public.marcas_del_dia(v_hoy) x where x.numero = p_numero;
+    if not found then
+        raise exception 'El horario % no existe hoy.', p_numero using errcode = 'P0001';
+    end if;
+    if v_hora < m.inicio_desde then
+        raise exception 'El horario % se habilita a las %.', p_numero, to_char(m.inicio_desde, 'HH24:MI') using errcode = 'P0001';
+    end if;
+    if v_hora > m.fin then
+        raise exception 'El horario % ya terminó (%).', p_numero, to_char(m.fin, 'HH24:MI') using errcode = 'P0001';
+    end if;
+    insert into public.marcas_piloto (piloto_id, fecha, numero, a_tiempo)
+    values (p_piloto, v_hoy, p_numero, v_hora <= m.inicio_hasta)
+    on conflict (piloto_id, fecha, numero) do nothing
+    returning marcado_en into v_hecho;
+    if v_hecho is null then
+        raise exception 'El horario % ya estaba marcado.', p_numero using errcode = 'P0001';
+    end if;
+    return v_hecho;
+end;
+$$;
+
+alter table public.marcas_piloto enable row level security;
+grant select on public.marcas_piloto to anon;
+drop policy if exists "TEMPORAL - leer marcas_piloto" on public.marcas_piloto;
+create policy "TEMPORAL - leer marcas_piloto" on public.marcas_piloto for select to anon using (true);
+grant execute on function public.marcar_horario(bigint, smallint) to anon;
+
+-- ==================================================
+-- 14. QR: MARCAS CON QR DE LA TIENDA Y VALIDACIÓN DIARIA DEL PILOTO
+--   - Cada tienda tiene un QR DE MARCAS que cambia cada mes (qr_marcas; se ve e
+--     imprime en Tiendas). El piloto lo escanea y la base marca sola el horario
+--     abierto (marcar_por_qr). Ya no se marca con un botón: marcar_horario se quita.
+--   - Al empezar el día la tienda valida al piloto con su QR DEL DÍA (pilotos_dia;
+--     lo da el G2 en Rutas y asignaciones). Sin validación no puede marcar.
+--   - Cada marca guarda lo mínimo y lo de meses anteriores se borra solo.
+-- ==================================================
+
+drop function if exists public.marcar_horario(bigint, smallint);
+
+create table if not exists public.qr_marcas (
+    tienda_id  bigint not null references public.tiendas(id) on delete cascade,
+    mes        date not null,
+    codigo     text not null,
+    primary key (tienda_id, mes)
+);
+
+create table if not exists public.pilotos_dia (
+    piloto_id     bigint not null references public.usuarios(id) on delete cascade,
+    fecha         date not null,
+    token         uuid not null default gen_random_uuid() unique,
+    validado_en   timestamptz,
+    validado_por  bigint references public.usuarios(id) on delete set null,
+    primary key (piloto_id, fecha)
+);
+
+create or replace function public.ahora_local()
+returns timestamp
+language sql
+stable
+as $$ select now() at time zone 'America/Costa_Rica' $$;
+
+create or replace function public.qr_marca_mes(p_tienda bigint)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_mes    date := date_trunc('month', public.ahora_local())::date;
+    v_codigo text;
+begin
+    delete from public.qr_marcas where mes < v_mes;
+    select codigo into v_codigo from public.qr_marcas where tienda_id = p_tienda and mes = v_mes;
+    if v_codigo is null then
+        insert into public.qr_marcas (tienda_id, mes, codigo)
+        values (p_tienda, v_mes, substr(md5(random()::text || clock_timestamp()::text || p_tienda::text), 1, 16))
+        on conflict (tienda_id, mes) do nothing;
+        select codigo into v_codigo from public.qr_marcas where tienda_id = p_tienda and mes = v_mes;
+    end if;
+    return 'ACACHETE-MARCA:' || p_tienda || ':' || v_codigo;
+end;
+$$;
+
+create or replace function public.qr_piloto_dia(p_piloto bigint)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_hoy   date := public.ahora_local()::date;
+    v_token uuid;
+begin
+    delete from public.pilotos_dia where fecha < date_trunc('month', v_hoy)::date;
+    insert into public.pilotos_dia (piloto_id, fecha) values (p_piloto, v_hoy) on conflict (piloto_id, fecha) do nothing;
+    select token into v_token from public.pilotos_dia where piloto_id = p_piloto and fecha = v_hoy;
+    return 'ACACHETE-PILOTO:' || v_token::text;
+end;
+$$;
+
+create or replace function public.validar_piloto(p_token uuid, p_usuario bigint)
+returns table (piloto_id bigint, nombre text, foto_url text, tienda text, validado_en timestamptz, ya_estaba boolean)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+    v_hoy date := public.ahora_local()::date;
+    d     record;
+begin
+    select * into d from public.pilotos_dia x where x.token = p_token;
+    if not found then
+        raise exception 'Ese QR de piloto no existe.' using errcode = 'P0001';
+    end if;
+    if d.fecha <> v_hoy then
+        raise exception 'Ese QR es del %: pide el QR de hoy.', to_char(d.fecha, 'DD/MM/YYYY') using errcode = 'P0001';
+    end if;
+    if d.validado_en is null then
+        update public.pilotos_dia x set validado_en = now(), validado_por = p_usuario
+         where x.piloto_id = d.piloto_id and x.fecha = v_hoy;
+    end if;
+    return query
+        select u.id, u.nombre, u.foto_url, t.codigo || ' · ' || t.nombre,
+               coalesce(d.validado_en, now()), d.validado_en is not null
+          from public.usuarios u
+          left join public.tiendas t on t.id = u.tienda_id
+         where u.id = d.piloto_id;
+end;
+$$;
+
+create or replace function public.marcar_por_qr(p_piloto bigint, p_qr text)
+returns table (numero smallint, marcado_en timestamptz, a_tiempo boolean, tienda_id bigint)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+    v_ahora   timestamp := public.ahora_local();
+    v_hoy     date := v_ahora::date;
+    v_hora    time := v_ahora::time;
+    v_mes     date := date_trunc('month', v_ahora)::date;
+    v_partes  text[] := string_to_array(coalesce(p_qr, ''), ':');
+    v_tienda  bigint;
+    v_proxima time;
+    m         record;
+begin
+    if coalesce(array_length(v_partes, 1), 0) <> 3 or v_partes[1] <> 'ACACHETE-MARCA' or v_partes[2] !~ '^[0-9]+$' then
+        raise exception 'Ese no es un QR de marcas de tienda.' using errcode = 'P0001';
+    end if;
+    v_tienda := v_partes[2]::bigint;
+    if not exists (select 1 from public.qr_marcas q where q.tienda_id = v_tienda and q.mes = v_mes and q.codigo = v_partes[3]) then
+        raise exception 'Este QR de marcas ya no sirve (cambia cada mes). Pide a la tienda el QR de este mes.' using errcode = 'P0001';
+    end if;
+    if not exists (select 1 from public.pilotos_dia d where d.piloto_id = p_piloto and d.fecha = v_hoy and d.validado_en is not null) then
+        raise exception 'La tienda todavía no te ha validado hoy: muéstrale tu QR del día y luego marca.' using errcode = 'P0001';
+    end if;
+
+    delete from public.marcas_piloto mp where mp.fecha < v_mes;
+
+    select x.* into m from public.marcas_del_dia(v_hoy) x
+     where v_hora between x.inicio_desde and x.fin
+       and not exists (select 1 from public.marcas_piloto mp
+                        where mp.piloto_id = p_piloto and mp.fecha = v_hoy and mp.numero = x.numero)
+     order by x.numero
+     limit 1;
+    if not found then
+        select min(x.inicio_desde) into v_proxima from public.marcas_del_dia(v_hoy) x where x.inicio_desde > v_hora;
+        raise exception '%', case when v_proxima is null
+            then 'No hay ningún horario abierto para marcar ahora.'
+            else 'No hay un horario abierto ahora: el próximo se habilita a las ' || to_char(v_proxima, 'HH24:MI') || '.' end
+            using errcode = 'P0001';
+    end if;
+
+    insert into public.marcas_piloto (piloto_id, fecha, numero, a_tiempo)
+    values (p_piloto, v_hoy, m.numero, v_hora <= m.inicio_hasta);
+
+    return query
+        select mp.numero, mp.marcado_en, mp.a_tiempo, v_tienda
+          from public.marcas_piloto mp
+         where mp.piloto_id = p_piloto and mp.fecha = v_hoy and mp.numero = m.numero;
+end;
+$$;
+
+alter table public.pilotos_dia enable row level security;
+grant select on public.pilotos_dia to anon;
+drop policy if exists "TEMPORAL - leer pilotos_dia" on public.pilotos_dia;
+create policy "TEMPORAL - leer pilotos_dia" on public.pilotos_dia for select to anon using (true);
+alter table public.qr_marcas enable row level security; -- sin acceso directo: solo qr_marca_mes
+grant execute on function public.ahora_local() to anon;
+grant execute on function public.qr_marca_mes(bigint) to anon;
+grant execute on function public.qr_piloto_dia(bigint) to anon;
+grant execute on function public.validar_piloto(uuid, bigint) to anon;
+grant execute on function public.marcar_por_qr(bigint, text) to anon;
+
+-- ==================================================
+-- 15. MARCA TARDÍA CON JUSTIFICACIÓN
+--   inicio_desde = desde aquí se puede marcar (solo lo ven G2 o superior)
+--   inicio_hasta = "HORA INICIO": hasta aquí, a tiempo
+--   fin          = "TERMINA": entre la hora inicio y aquí, MARCA TARDÍA: el piloto
+--                  escribe por qué (se guarda en marcas_piloto.justificacion)
+-- ==================================================
+
+alter table public.marcas_piloto
+    add column if not exists justificacion text;
+
+alter table public.marcas_piloto drop constraint if exists marcas_piloto_justificacion;
+alter table public.marcas_piloto add constraint marcas_piloto_justificacion
+    check (justificacion is null or length(justificacion) <= 200);
+
+-- Cambia lo que devuelve: se quita la versión anterior (2 datos) y se crea la nueva (3)
+drop function if exists public.marcar_por_qr(bigint, text);
+
+create or replace function public.marcar_por_qr(p_piloto bigint, p_qr text, p_justificacion text default null)
+returns table (numero smallint, marcado_en timestamptz, a_tiempo boolean, tienda_id bigint, justificacion text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+    v_ahora   timestamp := public.ahora_local();
+    v_hoy     date := v_ahora::date;
+    v_hora    time := v_ahora::time;
+    v_mes     date := date_trunc('month', v_ahora)::date;
+    v_partes  text[] := string_to_array(coalesce(p_qr, ''), ':');
+    v_tienda  bigint;
+    v_proxima time;
+    m         record;
+begin
+    if coalesce(array_length(v_partes, 1), 0) <> 3 or v_partes[1] <> 'ACACHETE-MARCA' or v_partes[2] !~ '^[0-9]+$' then
+        raise exception 'Ese no es un QR de marcas de tienda.' using errcode = 'P0001';
+    end if;
+    v_tienda := v_partes[2]::bigint;
+    if not exists (select 1 from public.qr_marcas q where q.tienda_id = v_tienda and q.mes = v_mes and q.codigo = v_partes[3]) then
+        raise exception 'Este QR de marcas ya no sirve (cambia cada mes). Pide a la tienda el QR de este mes.' using errcode = 'P0001';
+    end if;
+    if not exists (select 1 from public.pilotos_dia d where d.piloto_id = p_piloto and d.fecha = v_hoy and d.validado_en is not null) then
+        raise exception 'La tienda todavía no te ha validado hoy: muéstrale tu QR del día y luego marca.' using errcode = 'P0001';
+    end if;
+
+    delete from public.marcas_piloto mp where mp.fecha < v_mes;
+
+    select x.* into m from public.marcas_del_dia(v_hoy) x
+     where v_hora between x.inicio_desde and x.fin
+       and not exists (select 1 from public.marcas_piloto mp
+                        where mp.piloto_id = p_piloto and mp.fecha = v_hoy and mp.numero = x.numero)
+     order by x.numero
+     limit 1;
+    if not found then
+        select min(x.inicio_hasta) into v_proxima from public.marcas_del_dia(v_hoy) x where x.inicio_desde > v_hora;
+        raise exception '%', case when v_proxima is null
+            then 'No hay ningún horario abierto para marcar ahora.'
+            else 'Todavía no se puede marcar: el próximo horario tiene hora de inicio ' || to_char(v_proxima, 'HH24:MI') || '.' end
+            using errcode = 'P0001';
+    end if;
+
+    if v_hora > m.inicio_hasta and coalesce(btrim(p_justificacion), '') = '' then
+        raise exception 'JUSTIFICAR:Horario % · la hora de inicio era %. Es una marca tardía: escribe por qué.',
+            m.numero, to_char(m.inicio_hasta, 'HH24:MI') using errcode = 'P0001';
+    end if;
+
+    insert into public.marcas_piloto (piloto_id, fecha, numero, a_tiempo, justificacion)
+    values (p_piloto, v_hoy, m.numero, v_hora <= m.inicio_hasta,
+            case when v_hora > m.inicio_hasta then left(btrim(p_justificacion), 200) end);
+
+    return query
+        select mp.numero, mp.marcado_en, mp.a_tiempo, v_tienda, mp.justificacion
+          from public.marcas_piloto mp
+         where mp.piloto_id = p_piloto and mp.fecha = v_hoy and mp.numero = m.numero;
+end;
+$$;
+
+grant execute on function public.marcar_por_qr(bigint, text, text) to anon;
+
+-- Que la página vea las columnas nuevas de inmediato
+notify pgrst, 'reload schema';
+
+-- ==================================================
+-- 16. EMPRESAS INTERNAS (2026-10-02)
+--   Varias empresas en la MISMA base. Cada una tiene un ID de 2 números
+--   ("01", "02"...), sus actividades (entregas de tienda, encomiendas o las
+--   dos) y sus propias regiones, tiendas, usuarios, clientes, rutas,
+--   vehículos, pedidos, categorías de mercadería (con sus artículos), tarifas
+--   y descuentos. Las crea el Desarrollador (Configuración -> Empresas; lista
+--   en Tiendas -> Empresas). Lo que ya existía queda en la empresa "01".
+--   - empresa_id se llena solo: la página pone la empresa activa y, en
+--     pedidos, rutas, tiendas, usuarios, tarifas y descuentos, la base la
+--     corrige según su tienda o región (triggers).
+--   - USUARIOS con el ID de su empresa al final, sin guiones:
+--       Administrador, G1, G2:    jperez01
+--       G3, Empleado, Piloto:     cenjperez01  (región + nombre + empresa; sin la tienda)
+--     "admin" y "desar" no cambian. Los usuarios que ya existían se renombran
+--     UNA sola vez (cen-001-jperez -> cenjperez01). Al cambiar el ID de una
+--     empresa (cambiar_codigo_empresa) o el código de una tienda se renombran solos.
+--   - clientes_tiendas.ruta_id: ruta de entrega del cliente en cada tienda.
+--   - Lo que no se repite (correo del cliente, nombre de categoría, tarifa por
+--     lugar) ahora es dentro de cada empresa. Los códigos de región y de tienda
+--     siguen siendo únicos en todo el sistema.
+--   Se puede repetir.
+-- ==================================================
+
+create table if not exists public.empresas (
+    id           bigint generated always as identity primary key,
+    codigo       text not null unique,   -- ID de la empresa: "01", "02"... (va al final de sus usuarios)
+    nombre       text not null unique,
+    actividades  text[] not null default '{tienda,encomiendas}', -- códigos de la tabla actividades
+    activa       boolean not null default true,  -- inactiva: sus usuarios no inician sesión
+    creado_en    timestamptz not null default now(),
+
+    constraint empresas_codigo_valido      check (codigo ~ '^[0-9]{2}$'),
+    constraint empresas_actividades_validas check (cardinality(actividades) > 0)
+);
+
+-- La primera empresa: valor por defecto de empresa_id. Si no hay ninguna (ej. después
+-- de herramientas/vaciar_base_datos.sql) la crea, así las inserciones no fallan.
+create or replace function public.empresa_principal()
+returns bigint
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_id bigint;
+begin
+    select id into v_id from public.empresas order by codigo, id limit 1;
+    if v_id is null then
+        insert into public.empresas (codigo, nombre) values ('01', 'Empresa principal') returning id into v_id;
+    end if;
+    return v_id;
+end;
+$$;
+
+select public.empresa_principal();
+
+alter table public.regiones              add column if not exists empresa_id bigint not null default public.empresa_principal() references public.empresas(id) on delete restrict;
+alter table public.tiendas               add column if not exists empresa_id bigint not null default public.empresa_principal() references public.empresas(id) on delete restrict;
+alter table public.clientes              add column if not exists empresa_id bigint not null default public.empresa_principal() references public.empresas(id) on delete restrict;
+alter table public.rutas                 add column if not exists empresa_id bigint not null default public.empresa_principal() references public.empresas(id) on delete restrict;
+alter table public.vehiculos             add column if not exists empresa_id bigint not null default public.empresa_principal() references public.empresas(id) on delete restrict;
+alter table public.pedidos               add column if not exists empresa_id bigint not null default public.empresa_principal() references public.empresas(id) on delete restrict;
+alter table public.categorias_mercaderia add column if not exists empresa_id bigint not null default public.empresa_principal() references public.empresas(id) on delete restrict;
+alter table public.tarifas               add column if not exists empresa_id bigint not null default public.empresa_principal() references public.empresas(id) on delete restrict;
+alter table public.descuentos            add column if not exists empresa_id bigint not null default public.empresa_principal() references public.empresas(id) on delete restrict;
+-- Usuarios: el Desarrollador no es de ninguna empresa (las ve todas)
+alter table public.usuarios              add column if not exists empresa_id bigint default public.empresa_principal() references public.empresas(id) on delete restrict;
+update public.usuarios set empresa_id = null where rol = 'desarrollador' and empresa_id is not null;
+alter table public.usuarios drop constraint if exists usuarios_empresa_segun_rol;
+alter table public.usuarios add constraint usuarios_empresa_segun_rol
+    check (rol = 'desarrollador' or empresa_id is not null);
+
+-- Ruta de entrega del cliente en cada tienda (un cliente puede ser de varias)
+alter table public.clientes_tiendas add column if not exists ruta_id bigint references public.rutas(id) on delete set null;
+
+-- Lo que no se repite, ahora dentro de cada empresa
+alter table public.categorias_mercaderia drop constraint if exists categorias_nombre_unico;
+alter table public.categorias_mercaderia add constraint categorias_nombre_unico unique (empresa_id, actividad, nombre);
+drop index if exists public.clientes_correo_unico;
+create unique index if not exists clientes_correo_unico_empresa on public.clientes (empresa_id, lower(correo)) where correo is not null;
+drop index if exists public.tarifas_alcance_unico;
+create unique index if not exists tarifas_alcance_unico_empresa
+    on public.tarifas (empresa_id, actividad, coalesce(region, ''), coalesce(tienda_id, 0));
+
+create index if not exists tiendas_empresa_idx  on public.tiendas (empresa_id);
+create index if not exists clientes_empresa_idx on public.clientes (empresa_id);
+create index if not exists pedidos_empresa_idx  on public.pedidos (empresa_id, fecha_entrega);
+create index if not exists usuarios_empresa_idx on public.usuarios (empresa_id);
+
+-- ---------- empresa_id según la tienda o la región (triggers) ----------
+
+-- Pedidos y rutas: de su tienda
+create or replace function public.empresa_de_tienda()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if new.tienda_id is not null then
+        select t.empresa_id into new.empresa_id from public.tiendas t where t.id = new.tienda_id;
+    end if;
+    return new;
+end;
+$$;
+
+-- Tiendas y descuentos: de su región
+create or replace function public.empresa_de_region()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if new.region is not null then
+        select r.empresa_id into new.empresa_id from public.regiones r where r.codigo = new.region;
+    end if;
+    return new;
+end;
+$$;
+
+-- Tarifas: de su tienda o de su región (la general queda con la empresa que la crea)
+create or replace function public.empresa_de_lugar()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if new.tienda_id is not null then
+        select t.empresa_id into new.empresa_id from public.tiendas t where t.id = new.tienda_id;
+    elsif new.region is not null then
+        select r.empresa_id into new.empresa_id from public.regiones r where r.codigo = new.region;
+    end if;
+    return new;
+end;
+$$;
+
+-- Usuarios: de su tienda o de su región (Admin G2). Administrador y G1: la que se elige.
+create or replace function public.empresa_de_usuario()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if new.rol = 'desarrollador' then
+        new.empresa_id := null;
+    elsif new.tienda_id is not null then
+        select t.empresa_id into new.empresa_id from public.tiendas t where t.id = new.tienda_id;
+    elsif new.region is not null then
+        select r.empresa_id into new.empresa_id from public.regiones r where r.codigo = new.region;
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists pedidos_empresa on public.pedidos;
+create trigger pedidos_empresa before insert or update of tienda_id on public.pedidos
+    for each row execute function public.empresa_de_tienda();
+drop trigger if exists rutas_empresa on public.rutas;
+create trigger rutas_empresa before insert or update of tienda_id on public.rutas
+    for each row execute function public.empresa_de_tienda();
+drop trigger if exists tiendas_empresa on public.tiendas;
+create trigger tiendas_empresa before insert or update of region on public.tiendas
+    for each row execute function public.empresa_de_region();
+drop trigger if exists descuentos_empresa on public.descuentos;
+create trigger descuentos_empresa before insert or update of region on public.descuentos
+    for each row execute function public.empresa_de_region();
+drop trigger if exists tarifas_empresa on public.tarifas;
+create trigger tarifas_empresa before insert or update of tienda_id, region on public.tarifas
+    for each row execute function public.empresa_de_lugar();
+drop trigger if exists usuarios_empresa on public.usuarios;
+create trigger usuarios_empresa before insert or update of tienda_id, region, rol on public.usuarios
+    for each row execute function public.empresa_de_usuario();
+
+-- ---------- Usuario con el ID de la empresa ----------
+-- Usuario de tienda (G3, Empleado, Piloto): REGIÓN + nombre + ID de la empresa ->
+-- "cen" + "jperez" + "01" = "cenjperez01". No lleva el número de la tienda: el usuario
+-- ya está ligado a su empresa, su tienda y su región; si cambia de sucursal dentro de
+-- la región (o es multisucursal) su usuario NO cambia.
+-- Administrador, G1 y G2: nombre + ID -> "jperez01". "admin" y "desar" no cambian.
+
+-- "jperez" a partir del usuario completo, en cualquier formato:
+--   cenjperez01 / cen001jperez01 / cen001jperez / cen-001-jperez / jperez01 / jperez
+create or replace function public.usuario_base(p_id_usuario text, p_codigo_empresa text, p_codigo_tienda text)
+returns text
+language plpgsql
+immutable
+set search_path = ''
+as $$
+declare
+    v_id     text := coalesce(p_id_usuario, '');
+    v_tienda text := regexp_replace(lower(coalesce(p_codigo_tienda, '')), '[^a-z0-9]', '', 'g');
+    v_region text := lower(left(coalesce(p_codigo_tienda, ''), 3));
+    v_emp    text := coalesce(p_codigo_empresa, '');
+begin
+    if p_codigo_tienda is not null then
+        if v_id like lower(p_codigo_tienda) || '-%' then                                   -- cen-001-jperez
+            v_id := substr(v_id, length(p_codigo_tienda) + 2);
+        elsif v_tienda <> '' and v_id like v_tienda || '%' and length(v_id) > length(v_tienda) then -- cen001jperez
+            v_id := substr(v_id, length(v_tienda) + 1);
+        elsif v_region <> '' and v_id like v_region || '%' and length(v_id) > length(v_region) then -- cenjperez
+            v_id := substr(v_id, length(v_region) + 1);
+        end if;
+    end if;
+    if v_emp <> '' and right(v_id, length(v_emp)) = v_emp and length(v_id) > length(v_emp) then
+        v_id := left(v_id, length(v_id) - length(v_emp));
+    end if;
+    return v_id;
+end;
+$$;
+
+-- región de la tienda + nombre + ID de la empresa: "cen" + "jperez" + "01"
+-- (sin tienda: "jperez" + "01")
+create or replace function public.usuario_completo(p_base text, p_codigo_empresa text, p_codigo_tienda text)
+returns text
+language sql
+immutable
+set search_path = ''
+as $$
+    select coalesce(lower(left(p_codigo_tienda, 3)), '') || p_base || coalesce(p_codigo_empresa, '');
+$$;
+
+-- Usuario completo que no choque con OTRO usuario: si "cenjperez01" ya existe
+-- (ej. otro jperez de otra tienda de la región), prueba "cenjperez201", "cenjperez301"...
+create or replace function public.usuario_libre(p_base text, p_codigo_empresa text, p_codigo_tienda text, p_usuario_id bigint)
+returns text
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_n  integer := 1;
+    v_id text := public.usuario_completo(p_base, p_codigo_empresa, p_codigo_tienda);
+begin
+    while exists (select 1 from public.usuarios where id_usuario = v_id and id <> p_usuario_id) loop
+        v_n := v_n + 1;
+        v_id := public.usuario_completo(p_base || v_n, p_codigo_empresa, p_codigo_tienda);
+    end loop;
+    return v_id;
+end;
+$$;
+
+-- Cambia el ID de una empresa y renombra a sus usuarios (todo o nada)
+create or replace function public.cambiar_codigo_empresa(p_empresa_id bigint, p_codigo text)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_viejo text;
+    v_nuevo text := btrim(coalesce(p_codigo, ''));
+    r       record;
+begin
+    select codigo into v_viejo from public.empresas where id = p_empresa_id for update;
+    if not found then
+        raise exception 'La empresa no existe.' using errcode = 'P0002';
+    end if;
+    if v_viejo = v_nuevo then
+        return;
+    end if;
+
+    update public.empresas set codigo = v_nuevo where id = p_empresa_id;
+
+    -- El usuario lleva la REGIÓN de la tienda (bloque 28)
+    for r in select u.id, u.id_usuario, t.region,
+                    case when left(t.codigo, 3) = t.region then t.codigo else t.region end as tienda
+               from public.usuarios u
+               left join public.tiendas t on t.id = u.tienda_id
+              where u.empresa_id = p_empresa_id
+                and u.id_usuario not in ('admin', 'desar') loop
+        update public.usuarios
+           set id_usuario = public.usuario_libre(public.usuario_base(r.id_usuario, v_viejo, r.tienda), v_nuevo, r.region, r.id)
+         where id = r.id;
+    end loop;
+end;
+$$;
+
+-- Cambiar el código de una tienda. Sus usuarios solo se renombran si la tienda
+-- cambia de REGIÓN (cenjperez01 -> norjperez01); con otro número en la misma región, no.
+create or replace function public.cambiar_codigo_tienda(p_tienda_id bigint, p_nuevo_codigo text)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_codigo_viejo text;
+    v_empresa      text;
+    r              record;
+begin
+    select t.codigo, e.codigo into v_codigo_viejo, v_empresa
+      from public.tiendas t
+      left join public.empresas e on e.id = t.empresa_id
+     where t.id = p_tienda_id
+       for update of t;
+    if not found then
+        raise exception 'La tienda no existe.' using errcode = 'P0002';
+    end if;
+    if v_codigo_viejo = p_nuevo_codigo then
+        return;
+    end if;
+
+    update public.tiendas
+       set codigo = p_nuevo_codigo, region = left(p_nuevo_codigo, 3)
+     where id = p_tienda_id;
+
+    if left(v_codigo_viejo, 3) = left(p_nuevo_codigo, 3) then
+        return;
+    end if;
+    for r in select u.id, u.id_usuario from public.usuarios u
+              where u.tienda_id = p_tienda_id and u.id_usuario not in ('admin', 'desar') loop
+        update public.usuarios
+           set id_usuario = public.usuario_libre(public.usuario_base(r.id_usuario, v_empresa, v_codigo_viejo), v_empresa, p_nuevo_codigo, r.id)
+         where id = r.id;
+    end loop;
+end;
+$$;
+
+-- Usuarios que ya existían: se renombran UNA sola vez (marca en configuracion)
+--   cen-001-jperez -> cenjperez01 · jlopez -> jlopez01
+do $$
+declare
+    r record;
+begin
+    if exists (select 1 from public.configuracion where clave = 'usuarios_con_empresa') then
+        return;
+    end if;
+    for r in select u.id, u.id_usuario, t.codigo as tienda, e.codigo as empresa
+               from public.usuarios u
+               join public.empresas e on e.id = u.empresa_id
+               left join public.tiendas t on t.id = u.tienda_id
+              where u.id_usuario not in ('admin', 'desar')
+              order by u.id loop
+        update public.usuarios
+           set id_usuario = public.usuario_libre(public.usuario_base(r.id_usuario, null, r.tienda), r.empresa, r.tienda, r.id)
+         where id = r.id;
+    end loop;
+    insert into public.configuracion (clave, valor) values ('usuarios_con_empresa', 'true');
+end;
+$$;
+
+grant execute on function public.usuario_libre(text, text, text, bigint) to anon;
+
+-- ---------- Acceso desde la web (TEMPORAL, como las demás tablas) ----------
+-- Empresas y regiones: leer, crear, modificar y eliminar (las regiones ahora se
+-- administran en Tiendas -> Regiones)
+do $$
+declare
+    t text;
+begin
+    foreach t in array array['empresas', 'regiones'] loop
+        execute format('alter table public.%I enable row level security', t);
+        execute format('grant select, insert, update, delete on public.%I to anon', t);
+        execute format('drop policy if exists "TEMPORAL - leer %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - crear %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - modificar %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - eliminar %1$s" on public.%1$I', t);
+        execute format('create policy "TEMPORAL - leer %1$s" on public.%1$I for select to anon using (true)', t);
+        execute format('create policy "TEMPORAL - crear %1$s" on public.%1$I for insert to anon with check (true)', t);
+        execute format('create policy "TEMPORAL - modificar %1$s" on public.%1$I for update to anon using (true) with check (true)', t);
+        execute format('create policy "TEMPORAL - eliminar %1$s" on public.%1$I for delete to anon using (true)', t);
+    end loop;
+end;
+$$;
+
+-- Ruta de entrega del cliente: ahora también se modifica
+grant update on public.clientes_tiendas to anon;
+drop policy if exists "TEMPORAL - modificar clientes_tiendas" on public.clientes_tiendas;
+create policy "TEMPORAL - modificar clientes_tiendas" on public.clientes_tiendas for update to anon using (true) with check (true);
+
+grant execute on function public.cambiar_codigo_empresa(bigint, text) to anon;
+grant execute on function public.cambiar_codigo_tienda(bigint, text) to anon;
+
+notify pgrst, 'reload schema';
+
+-- ==================================================
+-- 17. USUARIOS DE TIENDA SIN EL NÚMERO DE LA TIENDA (2026-10-02)
+--   Usuario de G3, Empleado y Piloto: REGIÓN + nombre + ID de la empresa
+--   ("cenjperez01"), ya no la tienda ("cen001jperez01"). El usuario está
+--   ligado a su empresa, tienda y región; si cambia de sucursal en la misma
+--   región, o es multisucursal, su usuario no cambia.
+--   Convierte a los que quedaron con la tienda (si ya se había ejecutado el
+--   bloque 16 anterior). Si dos quedarían iguales (dos "jperez" de tiendas de
+--   la misma región), al segundo se le agrega un número: "cenjperez201".
+--   Las funciones (usuario_base, usuario_completo, usuario_libre,
+--   cambiar_codigo_tienda) ya están en el bloque 16. Se puede repetir.
+-- ==================================================
+
+do $$
+declare
+    r     record;
+    v_id  text;
+begin
+    -- Desde el bloque 31 los usuarios ya no llevan la región: si ya se quitó, no se vuelve a poner
+    if exists (select 1 from public.configuracion where clave = 'usuarios_sin_region') then
+        return;
+    end if;
+    -- El usuario lleva la REGIÓN de la tienda (bloque 28: el código de la tienda ya no la lleva).
+    -- Para reconocer los formatos viejos se usa el código si empieza con la región.
+    for r in select u.id, u.id_usuario, t.region,
+                    case when left(t.codigo, 3) = t.region then t.codigo else t.region end as tienda,
+                    e.codigo as empresa
+               from public.usuarios u
+               join public.empresas e on e.id = u.empresa_id
+               join public.tiendas t on t.id = u.tienda_id
+              where u.id_usuario not in ('admin', 'desar')
+              order by u.id loop
+        v_id := public.usuario_libre(public.usuario_base(r.id_usuario, r.empresa, r.tienda), r.empresa, r.region, r.id);
+        if v_id <> r.id_usuario then
+            update public.usuarios set id_usuario = v_id where id = r.id;
+        end if;
+    end loop;
+end;
+$$;
+
+notify pgrst, 'reload schema';
+
+-- ==================================================
+-- 18. ACTIVIDAD TRANSPORTE Y PALABRAS DE CADA ACTIVIDAD (2026-10-04)
+--   Cada actividad puede llamar distinto al registro y al conductor
+--   (vacío = "pedido" y "piloto"). Si TODAS las actividades de la empresa
+--   usan la misma palabra, la página la muestra en todo el sistema
+--   (js/palabras.js): una empresa solo de Transporte ve "Viajes" y
+--   "Conductores"; al cambiar a otra empresa vuelve "Pedidos".
+--   Se cambian en Configuración -> Actividades. Diseño: docs/14-transporte.md.
+--   Agrega la actividad "transporte" si no existe (si ya se creó desde la
+--   página, solo le pone las palabras que le falten). Se puede repetir.
+-- ==================================================
+
+alter table public.actividades
+    add column if not exists palabra_registro    text, -- singular, ej. 'viaje'
+    add column if not exists palabra_registros   text, -- plural,   ej. 'viajes'
+    add column if not exists palabra_conductor   text, -- singular, ej. 'conductor'
+    add column if not exists palabra_conductores text; -- plural,   ej. 'conductores'
+
+insert into public.actividades (codigo, nombre, descripcion, icono, usa_recoleccion, orden)
+select 'transporte', 'Transporte', 'Viajes de personas y mercadería de un punto A a un punto B.', 'bi-car-front', true,
+       coalesce(max(orden), 0) + 1
+  from public.actividades
+on conflict (codigo) do nothing;
+
+update public.actividades
+   set palabra_registro    = coalesce(palabra_registro, 'viaje'),
+       palabra_registros   = coalesce(palabra_registros, 'viajes'),
+       palabra_conductor   = coalesce(palabra_conductor, 'conductor'),
+       palabra_conductores = coalesce(palabra_conductores, 'conductores')
+ where codigo = 'transporte';
+
+notify pgrst, 'reload schema';
+
+-- ==================================================
+-- 19. TRANSPORTE: VIAJES, CLIENTES CON USUARIO, FRANJAS, COSTOS Y CORTESÍA (2026-10-04)
+--   Diseño: docs/14-transporte.md. Lo usan js/viajes-comun.js, js/secciones/viajes.js
+--   y js/secciones/configuracion/transporte.js.
+--   - actividades.usa_viajes: la actividad trabaja con VIAJES (agenda, el cliente
+--     solicita, conductor y vehículo automáticos). Transporte = sí.
+--   - Rol "cliente": usuario ligado a un cliente (usuarios.cliente_id). Entra solo a
+--     Inicio, Viajes y Mi perfil. Se crea en Clientes -> "Acceso y lugares".
+--   - clientes: Casa y Trabajo (dirección y punto) para armar la ruta con un toque.
+--   - vehiculos: asientos, carga, acepta mascotas y datos de costos; tipos auto y microbús.
+--   - transporte_config: reglas por empresa (agenda, recargos, cortesía, combustible).
+--   - transporte_franjas: precio por km según la hora de recogida (no se enciman).
+--   - transporte_dias_cerrados, transporte_costos (gastos del mes por vehículo).
+--   - viajes y cortesias. La página SOLO LEE estas dos tablas: reservar, cambiar la
+--     hora, cancelar y avanzar el estado se hace con funciones de la base, que
+--     revisan las reglas y evitan que dos clientes tomen la misma hora.
+--   Se puede repetir.
+-- ==================================================
+
+-- ---------- Actividades: ¿trabaja con viajes? ----------
+alter table public.actividades add column if not exists usa_viajes boolean not null default false;
+update public.actividades set usa_viajes = true where codigo = 'transporte';
+
+-- ---------- Vehículos: lo que necesita la agenda y los costos ----------
+alter table public.vehiculos
+    add column if not exists asientos        smallint,      -- pasajeros (sin contar al conductor)
+    add column if not exists carga_kg        numeric(8,2),  -- carga máxima
+    add column if not exists acepta_mascotas boolean not null default false,
+    add column if not exists km_por_litro    numeric(6,2),  -- rendimiento (costo del combustible)
+    add column if not exists horas_mes       numeric(6,1),  -- horas de trabajo estimadas al mes
+    add column if not exists km_mes          numeric(8,1);  -- km estimados al mes
+alter table public.vehiculos drop constraint if exists vehiculos_tipo_valido;
+alter table public.vehiculos add constraint vehiculos_tipo_valido
+    check (tipo is null or tipo in ('camion', 'pickup', 'panel', 'moto', 'auto', 'microbus'));
+alter table public.vehiculos drop constraint if exists vehiculos_transporte_valido;
+alter table public.vehiculos add constraint vehiculos_transporte_valido check (
+    (asientos is null or asientos between 0 and 60) and (carga_kg is null or carga_kg >= 0)
+    and (km_por_litro is null or km_por_litro > 0) and (horas_mes is null or horas_mes >= 0)
+    and (km_mes is null or km_mes >= 0));
+
+-- ---------- Clientes: Casa y Trabajo ----------
+alter table public.clientes
+    add column if not exists casa_direccion    text,
+    add column if not exists casa_lat          numeric(9,6),
+    add column if not exists casa_lng          numeric(9,6),
+    add column if not exists trabajo_direccion text,
+    add column if not exists trabajo_lat       numeric(9,6),
+    add column if not exists trabajo_lng       numeric(9,6);
+
+-- ---------- Usuarios: rol cliente ----------
+alter table public.usuarios add column if not exists cliente_id bigint references public.clientes(id) on delete cascade;
+create unique index if not exists usuarios_un_acceso_por_cliente on public.usuarios (cliente_id) where cliente_id is not null;
+
+alter table public.usuarios drop constraint if exists usuarios_rol_valido;
+alter table public.usuarios add constraint usuarios_rol_valido check (
+    rol in ('desarrollador', 'administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado', 'piloto', 'cliente'));
+alter table public.usuarios drop constraint if exists usuarios_tienda_segun_rol;
+alter table public.usuarios add constraint usuarios_tienda_segun_rol check (
+    (rol in ('desarrollador', 'administrador', 'admin_g1') and tienda_id is null and region is null)
+    or (rol = 'admin_g2' and tienda_id is null and region is not null)
+    or (rol in ('admin_g3', 'empleado', 'piloto') and tienda_id is not null and region is null)
+    or (rol = 'cliente' and tienda_id is null and region is null and cliente_id is not null));
+alter table public.usuarios drop constraint if exists usuarios_cliente_solo_cliente;
+alter table public.usuarios add constraint usuarios_cliente_solo_cliente check (cliente_id is null or rol = 'cliente');
+
+-- empresa_id del usuario: de su tienda, su región o (cliente) de su cliente
+create or replace function public.empresa_de_usuario()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if new.rol = 'desarrollador' then
+        new.empresa_id := null;
+    elsif new.tienda_id is not null then
+        select t.empresa_id into new.empresa_id from public.tiendas t where t.id = new.tienda_id;
+    elsif new.region is not null then
+        select r.empresa_id into new.empresa_id from public.regiones r where r.codigo = new.region;
+    elsif new.cliente_id is not null then
+        select c.empresa_id into new.empresa_id from public.clientes c where c.id = new.cliente_id;
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists usuarios_empresa on public.usuarios;
+create trigger usuarios_empresa before insert or update of tienda_id, region, rol, cliente_id on public.usuarios
+    for each row execute function public.empresa_de_usuario();
+
+-- ---------- Reglas de transporte de cada empresa ----------
+create table if not exists public.transporte_config (
+    empresa_id           bigint primary key references public.empresas(id) on delete cascade,
+    zona_horaria         text          not null default 'America/Costa_Rica',
+    acercamiento_min     smallint      not null default 15,  -- llegar al punto A (antes de la hora)
+    colchon_min          smallint      not null default 10,  -- después del viaje
+    velocidad_kmh        numeric(5,1)  not null default 30,  -- si el mapa no da los minutos
+    anticipacion_min     smallint      not null default 60,  -- reservar al menos N minutos antes
+    anticipacion_dias    smallint      not null default 14,  -- reservar hasta N días después
+    cancelar_horas       numeric(4,1)  not null default 2,   -- el cliente cancela o cambia hasta N horas antes
+    pasajeros_incluidos  smallint      not null default 1,
+    recargo_pasajero     numeric(10,2) not null default 0,   -- por persona arriba de las incluidas
+    recargo_mercaderia   numeric(10,2) not null default 0,   -- por viaje
+    recargo_mascota      numeric(10,2) not null default 0,   -- por mascota
+    redondeo             numeric(10,2) not null default 100, -- el precio del viaje se redondea hacia arriba
+    cortesia_activa      boolean       not null default true,
+    cortesia_viajes      smallint      not null default 5,   -- viajes terminados...
+    cortesia_dias        smallint      not null default 15,  -- ...dentro de estos días
+    cortesia_vence_dias  smallint      not null default 30,
+    cortesia_radio_km    numeric(5,1)  not null default 8,
+    precio_litro         numeric(10,2) not null default 0,   -- combustible (costos)
+    actualizado_en       timestamptz   not null default now(),
+
+    constraint transporte_config_valida check (
+        acercamiento_min between 0 and 240 and colchon_min between 0 and 240 and velocidad_kmh > 0
+        and anticipacion_min between 0 and 10080 and anticipacion_dias between 0 and 90
+        and cancelar_horas >= 0 and pasajeros_incluidos >= 0
+        and recargo_pasajero >= 0 and recargo_mercaderia >= 0 and recargo_mascota >= 0 and redondeo >= 0
+        and cortesia_viajes > 0 and cortesia_dias > 0 and cortesia_vence_dias > 0 and cortesia_radio_km >= 0
+        and precio_litro >= 0)
+);
+
+-- Precio por km según la hora de recogida. dias: 1 = lunes ... 7 = domingo.
+create table if not exists public.transporte_franjas (
+    id          bigint generated always as identity primary key,
+    empresa_id  bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    nombre      text,
+    dias        smallint[] not null,
+    desde       time not null,
+    hasta       time not null,
+    cargo_base  numeric(10,2) not null default 0,
+    precio_km   numeric(10,2) not null default 0,
+    minimo      numeric(10,2) not null default 0,
+    activa      boolean not null default true,
+    creado_en   timestamptz not null default now(),
+
+    constraint franjas_horas_validas check (hasta > desde),
+    constraint franjas_dias_validos  check (cardinality(dias) > 0 and dias <@ array[1, 2, 3, 4, 5, 6, 7]::smallint[]),
+    constraint franjas_valores_validos check (cargo_base >= 0 and precio_km >= 0 and minimo >= 0)
+);
+create index if not exists transporte_franjas_empresa_idx on public.transporte_franjas (empresa_id);
+
+-- Dos franjas activas no pueden cubrir la misma hora del mismo día
+create or replace function public.franjas_sin_encimar()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_otra record;
+begin
+    if not new.activa then
+        return new;
+    end if;
+    select x.nombre, x.desde, x.hasta into v_otra
+      from public.transporte_franjas x
+     where x.empresa_id = new.empresa_id and x.activa and x.id is distinct from new.id
+       and x.dias && new.dias and x.desde < new.hasta and x.hasta > new.desde
+     limit 1;
+    if found then
+        raise exception 'Se encima con la franja % (%–%).', coalesce(v_otra.nombre, 'sin nombre'),
+            to_char(v_otra.desde, 'HH24:MI'), to_char(v_otra.hasta, 'HH24:MI')
+            using errcode = 'P0001', hint = 'franjas_encimadas';
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists transporte_franjas_sin_encimar on public.transporte_franjas;
+create trigger transporte_franjas_sin_encimar before insert or update on public.transporte_franjas
+    for each row execute function public.franjas_sin_encimar();
+
+create table if not exists public.transporte_dias_cerrados (
+    empresa_id  bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    fecha       date not null,
+    motivo      text,
+    primary key (empresa_id, fecha)
+);
+
+-- Gastos del mes. vehiculo_id vacío = de toda la empresa (se reparte entre los vehículos)
+create table if not exists public.transporte_costos (
+    id           bigint generated always as identity primary key,
+    empresa_id   bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    vehiculo_id  bigint references public.vehiculos(id) on delete cascade,
+    concepto     text not null,
+    tipo         text not null,
+    monto_mes    numeric(12,2) not null,
+    creado_en    timestamptz not null default now(),
+
+    constraint costos_tipo_valido  check (tipo in ('fijo', 'variable')),
+    constraint costos_monto_valido check (monto_mes >= 0)
+);
+create index if not exists transporte_costos_empresa_idx on public.transporte_costos (empresa_id);
+
+-- ---------- Viajes ----------
+create sequence if not exists public.viajes_codigo_seq;
+
+create table if not exists public.viajes (
+    id                      bigint generated always as identity primary key,
+    codigo                  text unique,
+    empresa_id              bigint not null references public.empresas(id) on delete restrict,
+    cliente_id              bigint references public.clientes(id) on delete set null,
+    cliente_nombre          text not null,
+    cliente_telefono        text,
+    solicitado_por          bigint references public.usuarios(id) on delete set null,
+
+    origen_direccion        text not null,
+    origen_lat              numeric(9,6) not null,
+    origen_lng              numeric(9,6) not null,
+    destino_direccion       text not null,
+    destino_lat             numeric(9,6) not null,
+    destino_lng             numeric(9,6) not null,
+    km                      numeric(8,2) not null,
+    minutos                 smallint not null,
+    ruta_aproximada         boolean not null default false,
+
+    personas                smallint not null default 1,
+    mascotas                smallint not null default 0,
+    mascotas_nota           text,
+    lleva_mercaderia        boolean not null default false,
+    mercaderia_descripcion  text,
+    mercaderia_bultos       smallint,
+    mercaderia_kg           numeric(8,2),
+
+    inicio                  timestamptz not null,  -- hora de recogida en A
+    bloque_inicio           timestamptz not null,  -- desde que el vehículo sale hacia A
+    bloque_fin              timestamptz not null,  -- hasta que queda libre
+
+    vehiculo_id             bigint references public.vehiculos(id) on delete set null,
+    conductor_id            bigint references public.usuarios(id) on delete set null,
+    franja_id               bigint references public.transporte_franjas(id) on delete set null,
+    precio_viaje            numeric(10,2) not null default 0,
+    recargos                numeric(10,2) not null default 0,
+    total                   numeric(10,2) not null default 0,
+    desglose                jsonb not null default '{}'::jsonb,
+
+    es_cortesia             boolean not null default false,
+    cortesia_id             bigint,   -- la cortesía que se usó en este viaje
+    cortesia_ganada_id      bigint,   -- la cortesía que se ganó con este viaje (contó entre los 5)
+
+    estado                  text not null default 'confirmado',
+    notas                   text,
+    motivo_cancelacion      text,
+    cancelado_por           bigint references public.usuarios(id) on delete set null,
+    cancelado_en            timestamptz,
+    en_camino_en            timestamptz,
+    iniciado_en             timestamptz,
+    terminado_en            timestamptz,
+    creado_en               timestamptz not null default now(),
+    actualizado_en          timestamptz not null default now(),
+
+    constraint viajes_estado_valido check (estado in ('confirmado', 'en_camino', 'en_curso', 'terminado', 'cancelado', 'no_se_presento')),
+    constraint viajes_quienes_validos check (personas >= 0 and mascotas >= 0 and (personas > 0 or lleva_mercaderia)),
+    constraint viajes_bloque_valido check (bloque_fin > bloque_inicio and km >= 0 and minutos >= 0),
+    constraint viajes_montos_validos check (precio_viaje >= 0 and recargos >= 0 and total >= 0)
+);
+create index if not exists viajes_empresa_inicio_idx on public.viajes (empresa_id, inicio);
+create index if not exists viajes_vehiculo_idx       on public.viajes (vehiculo_id, bloque_inicio);
+create index if not exists viajes_cliente_idx        on public.viajes (cliente_id, estado);
+create index if not exists viajes_conductor_idx      on public.viajes (conductor_id, inicio);
+
+create table if not exists public.cortesias (
+    id              bigint generated always as identity primary key,
+    empresa_id      bigint not null references public.empresas(id) on delete cascade,
+    cliente_id      bigint not null references public.clientes(id) on delete cascade,
+    ganada_en       timestamptz not null default now(),
+    vence_en        timestamptz not null,
+    usada_viaje_id  bigint references public.viajes(id) on delete set null,
+    usada_en        timestamptz
+);
+create index if not exists cortesias_cliente_idx on public.cortesias (cliente_id, vence_en);
+
+do $$
+begin
+    if not exists (select 1 from pg_constraint where conname = 'viajes_cortesia_fk') then
+        alter table public.viajes add constraint viajes_cortesia_fk
+            foreign key (cortesia_id) references public.cortesias(id) on delete set null;
+    end if;
+    if not exists (select 1 from pg_constraint where conname = 'viajes_cortesia_ganada_fk') then
+        alter table public.viajes add constraint viajes_cortesia_ganada_fk
+            foreign key (cortesia_ganada_id) references public.cortesias(id) on delete set null;
+    end if;
+end;
+$$;
+
+-- Código del viaje (V-000001) y fecha de modificación
+create or replace function public.viajes_antes_de_guardar()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if tg_op = 'INSERT' and new.codigo is null then
+        new.codigo := 'V-' || lpad(nextval('public.viajes_codigo_seq')::text, 6, '0');
+    end if;
+    new.actualizado_en := now();
+    return new;
+end;
+$$;
+
+drop trigger if exists viajes_antes_de_guardar on public.viajes;
+create trigger viajes_antes_de_guardar before insert or update on public.viajes
+    for each row execute function public.viajes_antes_de_guardar();
+
+-- ==================================================
+-- FUNCIONES DE TRANSPORTE
+-- ==================================================
+
+-- Distancia en línea recta (km): nadie puede cobrar menos que esto
+create or replace function public.km_recta(a_lat numeric, a_lng numeric, b_lat numeric, b_lng numeric)
+returns numeric
+language sql
+immutable
+set search_path = ''
+as $$
+    select (6371 * 2 * asin(sqrt(
+        power(sin(radians((b_lat - a_lat)::float8) / 2), 2)
+        + cos(radians(a_lat::float8)) * cos(radians(b_lat::float8)) * power(sin(radians((b_lng - a_lng)::float8) / 2), 2))))::numeric;
+$$;
+
+-- Reglas de la empresa (si no tiene, las crea con los valores de siempre)
+create or replace function public.transporte_cfg(p_empresa bigint)
+returns public.transporte_config
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v public.transporte_config;
+begin
+    select * into v from public.transporte_config where empresa_id = p_empresa;
+    if not found then
+        insert into public.transporte_config (empresa_id) values (p_empresa) on conflict (empresa_id) do nothing;
+        select * into v from public.transporte_config where empresa_id = p_empresa;
+    end if;
+    return v;
+end;
+$$;
+
+-- Franja de una hora de recogida (vacía si a esa hora no hay servicio)
+create or replace function public.viaje_franja(p_empresa bigint, p_inicio timestamptz)
+returns public.transporte_franjas
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+    v_local timestamp;
+    f       public.transporte_franjas;
+begin
+    v_local := p_inicio at time zone coalesce(
+        (select zona_horaria from public.transporte_config where empresa_id = p_empresa), 'America/Costa_Rica');
+    select * into f
+      from public.transporte_franjas x
+     where x.empresa_id = p_empresa and x.activa
+       and extract(isodow from v_local)::smallint = any(x.dias)
+       and x.desde <= v_local::time and v_local::time < x.hasta
+     order by x.desde
+     limit 1;
+    return f;
+end;
+$$;
+
+-- Precio del viaje (jsonb con el desglose) o null si a esa hora no hay franja:
+--   viaje = máximo(mínimo, cargo base + km × precio por km), redondeado hacia arriba
+--   recargos = pasajeros adicionales + mercadería + mascotas (montos fijos)
+--   total = viaje (0 si es cortesía) + recargos
+create or replace function public.viaje_precio(p_empresa bigint, p_inicio timestamptz, p_km numeric,
+    p_personas integer, p_mascotas integer, p_mercaderia boolean, p_cortesia boolean default false)
+returns jsonb
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+    c       public.transporte_config;
+    f       public.transporte_franjas;
+    v_viaje numeric;
+    r_pas   numeric;
+    r_merc  numeric;
+    r_masc  numeric;
+begin
+    select * into c from public.transporte_config where empresa_id = p_empresa;
+    f := public.viaje_franja(p_empresa, p_inicio);
+    if f.id is null then
+        return null;
+    end if;
+    v_viaje := greatest(f.minimo, f.cargo_base + coalesce(p_km, 0) * f.precio_km);
+    if coalesce(c.redondeo, 0) > 0 then
+        v_viaje := ceil(v_viaje / c.redondeo) * c.redondeo;
+    end if;
+    r_pas  := greatest(0, coalesce(p_personas, 0) - coalesce(c.pasajeros_incluidos, 1)) * coalesce(c.recargo_pasajero, 0);
+    r_merc := case when p_mercaderia then coalesce(c.recargo_mercaderia, 0) else 0 end;
+    r_masc := coalesce(p_mascotas, 0) * coalesce(c.recargo_mascota, 0);
+    return jsonb_build_object(
+        'franja_id', f.id,
+        'franja', coalesce(f.nombre, to_char(f.desde, 'HH24:MI') || '–' || to_char(f.hasta, 'HH24:MI')),
+        'precio_km', f.precio_km, 'cargo_base', f.cargo_base, 'minimo', f.minimo, 'km', p_km,
+        'viaje', v_viaje, 'cortesia', coalesce(p_cortesia, false),
+        'recargo_pasajeros', r_pas, 'recargo_mercaderia', r_merc, 'recargo_mascotas', r_masc,
+        'recargos', r_pas + r_merc + r_masc,
+        'total', (case when p_cortesia then 0 else v_viaje end) + r_pas + r_merc + r_masc);
+end;
+$$;
+
+-- Bloque que ocupa el vehículo: sale hacia A "acercamiento" minutos antes, hace el
+-- viaje y suma el colchón; redondeado hacia arriba a 15 minutos.
+create or replace function public.viaje_bloque(p_empresa bigint, p_inicio timestamptz, p_minutos integer,
+    out bloque_inicio timestamptz, out bloque_fin timestamptz)
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+    v_acerca integer;
+    v_colchon integer;
+begin
+    select coalesce(acercamiento_min, 15), coalesce(colchon_min, 10) into v_acerca, v_colchon
+      from public.transporte_config where empresa_id = p_empresa;
+    v_acerca := coalesce(v_acerca, 15);
+    v_colchon := coalesce(v_colchon, 10);
+    bloque_inicio := p_inicio - make_interval(mins => v_acerca);
+    bloque_fin := bloque_inicio + make_interval(mins => (ceil((v_acerca + greatest(coalesce(p_minutos, 1), 1) + v_colchon) / 15.0) * 15)::integer);
+end;
+$$;
+
+-- Vehículo libre para un bloque: activo, con conductor, con asientos y carga
+-- suficientes, que acepte mascotas si hacen falta y sin otro viaje que choque.
+-- Prefiere p_preferido (al cambiar la hora) y si no, el de menos viajes ese día.
+create or replace function public.viaje_vehiculo_libre(p_empresa bigint, p_desde timestamptz, p_hasta timestamptz,
+    p_personas integer, p_kg numeric, p_mascotas integer, p_excluir bigint default null, p_preferido bigint default null,
+    out vehiculo_id bigint, out conductor_id bigint)
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+    select v.id, u.id into vehiculo_id, conductor_id
+      from public.vehiculos v
+      join lateral (select x.id from public.usuarios x
+                     where x.vehiculo_id = v.id and x.rol = 'piloto' and x.aprobado
+                     order by x.id limit 1) u on true
+     where v.empresa_id = p_empresa
+       and v.estado <> 'mantenimiento'
+       and coalesce(v.asientos, 0) >= coalesce(p_personas, 0)
+       and (coalesce(p_kg, 0) <= 0 or coalesce(v.carga_kg, 0) >= p_kg)
+       and (coalesce(p_mascotas, 0) = 0 or v.acepta_mascotas)
+       and not exists (
+           select 1 from public.viajes o
+            where o.vehiculo_id = v.id
+              and o.estado not in ('cancelado', 'no_se_presento')
+              and (p_excluir is null or o.id <> p_excluir)
+              and o.bloque_inicio < p_hasta
+              and (case when o.estado = 'terminado' and o.terminado_en is not null
+                        then least(o.bloque_fin, o.terminado_en) else o.bloque_fin end) > p_desde)
+     order by (v.id = p_preferido) desc nulls last,
+              (select count(*) from public.viajes d
+                where d.vehiculo_id = v.id and d.estado not in ('cancelado', 'no_se_presento')
+                  and d.inicio >= p_desde - interval '12 hours' and d.inicio < p_desde + interval '12 hours'),
+              v.id
+     limit 1;
+end;
+$$;
+
+-- ¿Se puede reservar a esa hora? (lanza el error con el motivo)
+create or replace function public.viaje_validar_inicio(p_empresa bigint, p_inicio timestamptz)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    c       public.transporte_config;
+    v_local timestamp;
+begin
+    c := public.transporte_cfg(p_empresa);
+    v_local := p_inicio at time zone c.zona_horaria;
+    if p_inicio < now() + make_interval(mins => c.anticipacion_min) then
+        raise exception 'Reserva con al menos % minutos de anticipación.', c.anticipacion_min using errcode = 'P0001';
+    end if;
+    if v_local::date > (now() at time zone c.zona_horaria)::date + c.anticipacion_dias then
+        raise exception 'Solo se puede reservar hasta % días después de hoy.', c.anticipacion_dias using errcode = 'P0001';
+    end if;
+    if exists (select 1 from public.transporte_dias_cerrados d where d.empresa_id = p_empresa and d.fecha = v_local::date) then
+        raise exception 'Ese día no hay servicio.' using errcode = 'P0001';
+    end if;
+    if (public.viaje_franja(p_empresa, p_inicio)).id is null then
+        raise exception 'A esa hora no hay servicio: elige una hora de la lista.' using errcode = 'P0001';
+    end if;
+    if extract(minute from v_local)::integer % 15 <> 0 then
+        raise exception 'Elige una hora de la lista (cada 15 minutos).' using errcode = 'P0001';
+    end if;
+end;
+$$;
+
+-- Horas de un día: cada 15 minutos dentro de las franjas, si hay vehículo libre
+-- y cuánto cuesta. Si el día no se puede, una sola fila con el motivo.
+create or replace function public.viajes_horas_disponibles(p_empresa bigint, p_fecha date, p_km numeric, p_minutos integer,
+    p_personas integer, p_mascotas integer, p_mercaderia boolean, p_kg numeric, p_excluir bigint default null)
+returns table (inicio timestamptz, hora text, disponible boolean, franja text, total numeric, motivo text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    c        public.transporte_config;
+    v_hoy    date;
+    v_motivo text;
+    v_min    integer;
+    v_ini    timestamptz;
+    v_precio jsonb;
+    f        record;
+    t        timestamp;
+    b        record;
+    vl       record;
+begin
+    c := public.transporte_cfg(p_empresa);
+    v_hoy := (now() at time zone c.zona_horaria)::date;
+    if p_fecha < v_hoy or p_fecha > v_hoy + c.anticipacion_dias then
+        return query select null::timestamptz, null::text, false, null::text, null::numeric,
+            format('Solo se puede reservar desde hoy hasta %s días después.', c.anticipacion_dias);
+        return;
+    end if;
+    select coalesce(d.motivo, '') into v_motivo from public.transporte_dias_cerrados d
+     where d.empresa_id = p_empresa and d.fecha = p_fecha;
+    if found then
+        return query select null::timestamptz, null::text, false, null::text, null::numeric,
+            'Ese día no hay servicio' || case when v_motivo <> '' then ': ' || v_motivo else '.' end;
+        return;
+    end if;
+    v_min := coalesce(p_minutos, ceil(coalesce(p_km, 0) / greatest(c.velocidad_kmh, 1) * 60)::integer);
+    for f in select x.* from public.transporte_franjas x
+              where x.empresa_id = p_empresa and x.activa and extract(isodow from p_fecha)::smallint = any(x.dias)
+              order by x.desde loop
+        for t in select g from generate_series(p_fecha + f.desde, p_fecha + f.hasta - interval '1 minute', interval '15 minutes') g loop
+            v_ini := t at time zone c.zona_horaria;
+            continue when v_ini < now() + make_interval(mins => c.anticipacion_min);
+            select * into b from public.viaje_bloque(p_empresa, v_ini, v_min);
+            select * into vl from public.viaje_vehiculo_libre(p_empresa, b.bloque_inicio, b.bloque_fin,
+                p_personas, p_kg, p_mascotas, p_excluir);
+            v_precio := public.viaje_precio(p_empresa, v_ini, p_km, p_personas, p_mascotas, p_mercaderia, false);
+            return query select v_ini, to_char(t, 'HH24:MI'), vl.vehiculo_id is not null,
+                coalesce(f.nombre, to_char(f.desde, 'HH24:MI') || '–' || to_char(f.hasta, 'HH24:MI')),
+                (v_precio ->> 'total')::numeric,
+                case when vl.vehiculo_id is null then 'Ocupado' end;
+        end loop;
+    end loop;
+end;
+$$;
+
+-- Viaje con su vehículo y su conductor (lo que devuelven las funciones)
+create or replace function public.viaje_json(p_viaje bigint)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select to_jsonb(v) || jsonb_build_object(
+        'vehiculo', (select jsonb_build_object('placa', x.placa, 'marca', x.marca, 'tipo', x.tipo) from public.vehiculos x where x.id = v.vehiculo_id),
+        'conductor', (select jsonb_build_object('nombre', u.nombre, 'telefono', u.telefono) from public.usuarios u where u.id = v.conductor_id))
+      from public.viajes v where v.id = p_viaje;
+$$;
+
+-- Aviso para un usuario (si hay a quién)
+create or replace function public.viaje_avisar(p_usuario bigint, p_titulo text, p_mensaje text, p_viaje bigint)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+    insert into public.notificaciones (usuario_id, tipo, titulo, mensaje, enlace, referencia_tipo, referencia_id)
+    select p_usuario, 'info', p_titulo, p_mensaje, '#viajes?id=' || p_viaje, 'viaje', p_viaje
+     where p_usuario is not null;
+$$;
+
+-- Usuario que hace la acción: { id, rol, empresa_id, cliente_id, nombre }
+create or replace function public.viaje_usuario(p_usuario bigint)
+returns public.usuarios
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+    u public.usuarios;
+begin
+    select * into u from public.usuarios where id = p_usuario;
+    if not found or u.aprobado = false then
+        raise exception 'Usuario no válido: vuelve a iniciar sesión.' using errcode = 'P0001';
+    end if;
+    return u;
+end;
+$$;
+
+-- ---------- Reservar ----------
+-- p: { usuario_id, empresa_id (solo Desarrollador), cliente_id (personal; el cliente es él mismo),
+--      origen: { direccion, lat, lng }, destino: {...}, km, minutos, aproximada,
+--      personas, mascotas, mascotas_nota, lleva_mercaderia, mercaderia_descripcion,
+--      mercaderia_bultos, mercaderia_kg, inicio, notas }
+create or replace function public.viajes_solicitar(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u          public.usuarios;
+    c          public.transporte_config;
+    v_empresa  bigint;
+    v_cliente  record;
+    v_inicio   timestamptz;
+    v_km       numeric;
+    v_min      integer;
+    v_personas integer;
+    v_mascotas integer;
+    v_merc     boolean;
+    v_kg       numeric;
+    v_cort     bigint;
+    v_precio   jsonb;
+    v_viaje    public.viajes;
+    b          record;
+    vl         record;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    if u.rol not in ('cliente', 'administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado', 'desarrollador') then
+        raise exception 'Tu usuario no puede solicitar viajes.' using errcode = 'P0001';
+    end if;
+    v_empresa := case when u.rol = 'desarrollador' then (p ->> 'empresa_id')::bigint else u.empresa_id end;
+    select id, nombre, apellidos, telefono, empresa_id into v_cliente from public.clientes
+     where id = case when u.rol = 'cliente' then u.cliente_id else (p ->> 'cliente_id')::bigint end;
+    if v_cliente.id is null or v_cliente.empresa_id is distinct from v_empresa then
+        raise exception 'Elige el cliente del viaje.' using errcode = 'P0001';
+    end if;
+    if not exists (select 1 from public.empresas e join public.actividades a on a.codigo = any(e.actividades)
+                    where e.id = v_empresa and a.usa_viajes and a.activa) then
+        raise exception 'La empresa no tiene una actividad de viajes activa.' using errcode = 'P0001';
+    end if;
+
+    v_personas := (p ->> 'personas')::integer;
+    v_mascotas := (p ->> 'mascotas')::integer;
+    v_merc := coalesce((p ->> 'lleva_mercaderia')::boolean, false);
+    v_kg := coalesce((p ->> 'mercaderia_kg')::numeric, 0);
+    if v_personas is null or v_personas < 0 then
+        raise exception 'Indica cuántas personas viajan.' using errcode = 'P0001';
+    end if;
+    if v_mascotas is null or v_mascotas < 0 then
+        raise exception 'Indica si lleva mascotas.' using errcode = 'P0001';
+    end if;
+    if v_personas = 0 and not v_merc then
+        raise exception 'Si no viaja nadie, el viaje debe llevar mercadería.' using errcode = 'P0001';
+    end if;
+    if (p #>> '{origen,lat}') is null or (p #>> '{origen,lng}') is null
+       or (p #>> '{destino,lat}') is null or (p #>> '{destino,lng}') is null then
+        raise exception 'Ubica el punto A y el punto B en el mapa.' using errcode = 'P0001';
+    end if;
+    v_inicio := (p ->> 'inicio')::timestamptz;
+    if v_inicio is null then
+        raise exception 'Elige el día y la hora.' using errcode = 'P0001';
+    end if;
+
+    -- Una reserva a la vez por empresa: dos clientes no toman la misma hora
+    perform pg_advisory_xact_lock(7301, v_empresa::integer);
+    c := public.transporte_cfg(v_empresa);
+    perform public.viaje_validar_inicio(v_empresa, v_inicio);
+
+    v_km := round(greatest(coalesce((p ->> 'km')::numeric, 0),
+        public.km_recta((p #>> '{origen,lat}')::numeric, (p #>> '{origen,lng}')::numeric,
+                        (p #>> '{destino,lat}')::numeric, (p #>> '{destino,lng}')::numeric)), 2);
+    v_min := coalesce((p ->> 'minutos')::integer, ceil(v_km / greatest(c.velocidad_kmh, 1) * 60)::integer);
+    select * into b from public.viaje_bloque(v_empresa, v_inicio, v_min);
+    select * into vl from public.viaje_vehiculo_libre(v_empresa, b.bloque_inicio, b.bloque_fin, v_personas, v_kg, v_mascotas);
+    if vl.vehiculo_id is null then
+        raise exception 'Esa hora acaba de ocuparse: elige otra.' using errcode = 'P0001', hint = 'ocupado';
+    end if;
+
+    -- Cortesía: la que vence primero, si el viaje está dentro del radio
+    if c.cortesia_activa and v_km <= c.cortesia_radio_km then
+        select id into v_cort from public.cortesias
+         where cliente_id = v_cliente.id and empresa_id = v_empresa and usada_viaje_id is null and vence_en > now()
+         order by vence_en limit 1
+           for update;
+    end if;
+    v_precio := public.viaje_precio(v_empresa, v_inicio, v_km, v_personas, v_mascotas, v_merc, v_cort is not null);
+
+    insert into public.viajes (
+        empresa_id, cliente_id, cliente_nombre, cliente_telefono, solicitado_por,
+        origen_direccion, origen_lat, origen_lng, destino_direccion, destino_lat, destino_lng,
+        km, minutos, ruta_aproximada, personas, mascotas, mascotas_nota,
+        lleva_mercaderia, mercaderia_descripcion, mercaderia_bultos, mercaderia_kg,
+        inicio, bloque_inicio, bloque_fin, vehiculo_id, conductor_id, franja_id,
+        precio_viaje, recargos, total, desglose, es_cortesia, cortesia_id, notas)
+    values (
+        v_empresa, v_cliente.id, btrim(v_cliente.nombre || ' ' || coalesce(v_cliente.apellidos, '')), v_cliente.telefono, u.id,
+        coalesce(nullif(btrim(p #>> '{origen,direccion}'), ''), 'Punto A'), (p #>> '{origen,lat}')::numeric, (p #>> '{origen,lng}')::numeric,
+        coalesce(nullif(btrim(p #>> '{destino,direccion}'), ''), 'Punto B'), (p #>> '{destino,lat}')::numeric, (p #>> '{destino,lng}')::numeric,
+        v_km, v_min, coalesce((p ->> 'aproximada')::boolean, false), v_personas, v_mascotas, nullif(btrim(p ->> 'mascotas_nota'), ''),
+        v_merc, case when v_merc then nullif(btrim(p ->> 'mercaderia_descripcion'), '') end,
+        case when v_merc then (p ->> 'mercaderia_bultos')::smallint end, case when v_merc then nullif(v_kg, 0) end,
+        v_inicio, b.bloque_inicio, b.bloque_fin, vl.vehiculo_id, vl.conductor_id, (v_precio ->> 'franja_id')::bigint,
+        (v_precio ->> 'viaje')::numeric, (v_precio ->> 'recargos')::numeric, (v_precio ->> 'total')::numeric, v_precio,
+        v_cort is not null, v_cort, nullif(btrim(p ->> 'notas'), ''))
+    returning * into v_viaje;
+
+    if v_cort is not null then
+        update public.cortesias set usada_viaje_id = v_viaje.id, usada_en = now() where id = v_cort;
+    end if;
+    perform public.viaje_avisar(vl.conductor_id, 'Viaje nuevo ' || v_viaje.codigo,
+        format('%s · %s · %s → %s', to_char(v_inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'),
+               v_viaje.cliente_nombre, v_viaje.origen_direccion, v_viaje.destino_direccion), v_viaje.id);
+    return public.viaje_json(v_viaje.id);
+end;
+$$;
+
+-- ¿Puede esta persona cambiar o cancelar el viaje? (lanza el error si no)
+create or replace function public.viaje_permiso(u public.usuarios, v public.viajes, c public.transporte_config)
+returns void
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+    if u.rol = 'cliente' then
+        if v.cliente_id is distinct from u.cliente_id then
+            raise exception 'Ese viaje no es tuyo.' using errcode = 'P0001';
+        end if;
+        if v.estado <> 'confirmado' then
+            raise exception 'El viaje ya empezó: llama a la empresa.' using errcode = 'P0001';
+        end if;
+        if now() > v.inicio - make_interval(secs => (c.cancelar_horas * 3600)::integer) then
+            raise exception 'Solo se puede cambiar o cancelar hasta % horas antes. Llama a la empresa.', c.cancelar_horas
+                using errcode = 'P0001';
+        end if;
+    elsif u.rol in ('administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado') then
+        if u.empresa_id is distinct from v.empresa_id then
+            raise exception 'Ese viaje es de otra empresa.' using errcode = 'P0001';
+        end if;
+        if v.estado not in ('confirmado', 'en_camino') then
+            raise exception 'Ese viaje ya no se puede cambiar.' using errcode = 'P0001';
+        end if;
+    elsif u.rol = 'desarrollador' then
+        if v.estado not in ('confirmado', 'en_camino') then
+            raise exception 'Ese viaje ya no se puede cambiar.' using errcode = 'P0001';
+        end if;
+    else
+        raise exception 'Tu usuario no puede cambiar viajes.' using errcode = 'P0001';
+    end if;
+end;
+$$;
+
+-- ---------- Cancelar ----------
+create or replace function public.viajes_cancelar(p_viaje bigint, p_usuario bigint, p_motivo text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u public.usuarios;
+    v public.viajes;
+    c public.transporte_config;
+begin
+    u := public.viaje_usuario(p_usuario);
+    select * into v from public.viajes where id = p_viaje for update;
+    if not found then
+        raise exception 'El viaje no existe.' using errcode = 'P0001';
+    end if;
+    c := public.transporte_cfg(v.empresa_id);
+    perform public.viaje_permiso(u, v, c);
+
+    update public.viajes
+       set estado = 'cancelado', cancelado_por = u.id, cancelado_en = now(),
+           motivo_cancelacion = nullif(btrim(coalesce(p_motivo, '')), '')
+     where id = v.id;
+    -- La cortesía vuelve si todavía no venció
+    if v.es_cortesia and v.cortesia_id is not null then
+        update public.cortesias set usada_viaje_id = null, usada_en = null
+         where id = v.cortesia_id and vence_en > now();
+    end if;
+    perform public.viaje_avisar(v.conductor_id, 'Viaje cancelado ' || v.codigo,
+        format('%s · %s', to_char(v.inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), v.cliente_nombre), v.id);
+    return public.viaje_json(v.id);
+end;
+$$;
+
+-- ---------- Cambiar la hora (todo o nada) ----------
+create or replace function public.viajes_cambiar_hora(p_viaje bigint, p_usuario bigint, p_inicio timestamptz)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u        public.usuarios;
+    v        public.viajes;
+    c        public.transporte_config;
+    b        record;
+    vl       record;
+    v_precio jsonb;
+begin
+    u := public.viaje_usuario(p_usuario);
+    select * into v from public.viajes where id = p_viaje for update;
+    if not found then
+        raise exception 'El viaje no existe.' using errcode = 'P0001';
+    end if;
+    c := public.transporte_cfg(v.empresa_id);
+    perform public.viaje_permiso(u, v, c);
+    perform pg_advisory_xact_lock(7301, v.empresa_id::integer);
+    perform public.viaje_validar_inicio(v.empresa_id, p_inicio);
+
+    select * into b from public.viaje_bloque(v.empresa_id, p_inicio, v.minutos);
+    select * into vl from public.viaje_vehiculo_libre(v.empresa_id, b.bloque_inicio, b.bloque_fin,
+        v.personas, coalesce(v.mercaderia_kg, 0), v.mascotas, v.id, v.vehiculo_id);
+    if vl.vehiculo_id is null then
+        raise exception 'Esa hora no está disponible: elige otra. Tu viaje sigue como estaba.' using errcode = 'P0001', hint = 'ocupado';
+    end if;
+    v_precio := public.viaje_precio(v.empresa_id, p_inicio, v.km, v.personas, v.mascotas, v.lleva_mercaderia, v.es_cortesia);
+
+    update public.viajes
+       set inicio = p_inicio, bloque_inicio = b.bloque_inicio, bloque_fin = b.bloque_fin,
+           vehiculo_id = vl.vehiculo_id, conductor_id = vl.conductor_id, franja_id = (v_precio ->> 'franja_id')::bigint,
+           precio_viaje = (v_precio ->> 'viaje')::numeric, recargos = (v_precio ->> 'recargos')::numeric,
+           total = (v_precio ->> 'total')::numeric, desglose = v_precio, estado = 'confirmado', en_camino_en = null
+     where id = v.id;
+    if v.conductor_id is distinct from vl.conductor_id then
+        perform public.viaje_avisar(v.conductor_id, 'Viaje reasignado ' || v.codigo, 'Ya no te toca este viaje.', v.id);
+    end if;
+    perform public.viaje_avisar(vl.conductor_id, 'Viaje con hora nueva ' || v.codigo,
+        format('%s · %s', to_char(p_inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), v.cliente_nombre), v.id);
+    return public.viaje_json(v.id);
+end;
+$$;
+
+-- ---------- Cortesía: ¿ya juntó los viajes? ----------
+create or replace function public.cortesia_revisar(p_empresa bigint, p_cliente bigint)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    c     public.transporte_config;
+    v_ids bigint[];
+    v_id  bigint;
+begin
+    c := public.transporte_cfg(p_empresa);
+    if not c.cortesia_activa or p_cliente is null then
+        return;
+    end if;
+    select array_agg(id order by terminado_en) into v_ids
+      from (select id, terminado_en from public.viajes
+             where empresa_id = p_empresa and cliente_id = p_cliente and estado = 'terminado'
+               and not es_cortesia and cortesia_ganada_id is null
+               and terminado_en >= now() - make_interval(days => c.cortesia_dias)
+             order by terminado_en
+             limit c.cortesia_viajes) x;
+    if coalesce(cardinality(v_ids), 0) < c.cortesia_viajes then
+        return;
+    end if;
+    insert into public.cortesias (empresa_id, cliente_id, vence_en)
+    values (p_empresa, p_cliente, now() + make_interval(days => c.cortesia_vence_dias))
+    returning id into v_id;
+    update public.viajes set cortesia_ganada_id = v_id where id = any(v_ids);
+    perform public.viaje_avisar(u.id, '¡Ganaste un viaje de cortesía!',
+        format('Se aplica solo en tu próximo viaje de hasta %s km. Vence el %s.', c.cortesia_radio_km,
+               to_char(now() at time zone c.zona_horaria + make_interval(days => c.cortesia_vence_dias), 'DD/MM/YYYY')), v_ids[1])
+      from public.usuarios u where u.cliente_id = p_cliente;
+end;
+$$;
+
+-- ---------- Avanzar el estado (conductor o personal) ----------
+--   confirmado -> en_camino -> en_curso -> terminado | confirmado / en_camino -> no_se_presento
+create or replace function public.viajes_avanzar(p_viaje bigint, p_usuario bigint, p_estado text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u public.usuarios;
+    v public.viajes;
+    c public.transporte_config;
+begin
+    u := public.viaje_usuario(p_usuario);
+    select * into v from public.viajes where id = p_viaje for update;
+    if not found then
+        raise exception 'El viaje no existe.' using errcode = 'P0001';
+    end if;
+    if not (u.rol = 'desarrollador'
+            or (u.rol = 'piloto' and v.conductor_id = u.id)
+            or (u.rol in ('administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado') and u.empresa_id = v.empresa_id)) then
+        raise exception 'Este viaje no es tuyo.' using errcode = 'P0001';
+    end if;
+    if not ((p_estado = 'en_camino' and v.estado = 'confirmado')
+            or (p_estado = 'en_curso' and v.estado in ('confirmado', 'en_camino'))
+            or (p_estado = 'terminado' and v.estado in ('en_camino', 'en_curso'))
+            or (p_estado = 'no_se_presento' and v.estado in ('confirmado', 'en_camino'))) then
+        raise exception 'El viaje está "%": no puede pasar a "%".', v.estado, p_estado using errcode = 'P0001';
+    end if;
+    c := public.transporte_cfg(v.empresa_id);
+
+    update public.viajes
+       set estado = p_estado,
+           en_camino_en = case when p_estado = 'en_camino' then now() else en_camino_en end,
+           iniciado_en  = case when p_estado = 'en_curso' then now() else iniciado_en end,
+           terminado_en = case when p_estado = 'terminado' then now() else terminado_en end
+     where id = v.id;
+
+    if p_estado = 'en_camino' then
+        perform public.viaje_avisar(x.id, 'Tu conductor va en camino',
+            format('%s · llega a %s cerca de las %s', v.codigo, v.origen_direccion,
+                   to_char(v.inicio at time zone c.zona_horaria, 'HH24:MI')), v.id)
+          from public.usuarios x where x.cliente_id = v.cliente_id;
+    elsif p_estado = 'terminado' then
+        perform public.cortesia_revisar(v.empresa_id, v.cliente_id);
+    end if;
+    return public.viaje_json(v.id);
+end;
+$$;
+
+-- ---------- Cortesía del cliente (Inicio y Viajes) ----------
+create or replace function public.viajes_estado_cliente(p_cliente bigint)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_empresa bigint;
+    c         public.transporte_config;
+    v_n       integer;
+    v_primero timestamptz;
+begin
+    select empresa_id into v_empresa from public.clientes where id = p_cliente;
+    if v_empresa is null then
+        return null;
+    end if;
+    c := public.transporte_cfg(v_empresa);
+    select count(*), min(terminado_en) into v_n, v_primero from public.viajes
+     where empresa_id = v_empresa and cliente_id = p_cliente and estado = 'terminado'
+       and not es_cortesia and cortesia_ganada_id is null
+       and terminado_en >= now() - make_interval(days => c.cortesia_dias);
+    return jsonb_build_object(
+        'activa', c.cortesia_activa, 'necesarios', c.cortesia_viajes, 'dias', c.cortesia_dias,
+        'radio_km', c.cortesia_radio_km, 'cancelar_horas', c.cancelar_horas,
+        'contados', least(v_n, c.cortesia_viajes),
+        'cuenta_hasta', v_primero + make_interval(days => c.cortesia_dias),
+        'cortesias', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'vence_en', vence_en) order by vence_en)
+                                 from public.cortesias
+                                where cliente_id = p_cliente and usada_viaje_id is null and vence_en > now()), '[]'::jsonb));
+end;
+$$;
+
+-- ---------- Acceso desde la web (TEMPORAL, como las demás tablas) ----------
+-- Configuración de transporte: leer, crear, modificar y eliminar
+do $$
+declare
+    t text;
+begin
+    foreach t in array array['transporte_config', 'transporte_franjas', 'transporte_dias_cerrados', 'transporte_costos'] loop
+        execute format('alter table public.%I enable row level security', t);
+        execute format('grant select, insert, update, delete on public.%I to anon', t);
+        execute format('drop policy if exists "TEMPORAL - leer %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - crear %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - modificar %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - eliminar %1$s" on public.%1$I', t);
+        execute format('create policy "TEMPORAL - leer %1$s" on public.%1$I for select to anon using (true)', t);
+        execute format('create policy "TEMPORAL - crear %1$s" on public.%1$I for insert to anon with check (true)', t);
+        execute format('create policy "TEMPORAL - modificar %1$s" on public.%1$I for update to anon using (true) with check (true)', t);
+        execute format('create policy "TEMPORAL - eliminar %1$s" on public.%1$I for delete to anon using (true)', t);
+    end loop;
+    -- Viajes y cortesías: la página SOLO LEE (todo cambio pasa por las funciones de arriba)
+    foreach t in array array['viajes', 'cortesias'] loop
+        execute format('alter table public.%I enable row level security', t);
+        execute format('revoke insert, update, delete on public.%I from anon', t);
+        execute format('grant select on public.%I to anon', t);
+        execute format('drop policy if exists "TEMPORAL - leer %1$s" on public.%1$I', t);
+        execute format('create policy "TEMPORAL - leer %1$s" on public.%1$I for select to anon using (true)', t);
+    end loop;
+end;
+$$;
+
+grant execute on function public.viajes_horas_disponibles(bigint, date, numeric, integer, integer, integer, boolean, numeric, bigint) to anon;
+grant execute on function public.viajes_solicitar(jsonb) to anon;
+grant execute on function public.viajes_cancelar(bigint, bigint, text) to anon;
+grant execute on function public.viajes_cambiar_hora(bigint, bigint, timestamptz) to anon;
+grant execute on function public.viajes_avanzar(bigint, bigint, text) to anon;
+grant execute on function public.viajes_estado_cliente(bigint) to anon;
+grant execute on function public.viaje_precio(bigint, timestamptz, numeric, integer, integer, boolean, boolean) to anon;
+-- Las funciones internas no se llaman desde la página
+revoke execute on function public.transporte_cfg(bigint) from anon, public;
+revoke execute on function public.viaje_validar_inicio(bigint, timestamptz) from anon, public;
+revoke execute on function public.viaje_avisar(bigint, text, text, bigint) from anon, public;
+revoke execute on function public.viaje_usuario(bigint) from anon, public;
+revoke execute on function public.cortesia_revisar(bigint, bigint) from anon, public;
+revoke execute on function public.viaje_json(bigint) from anon, public;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 20. SEGURIDAD: CONTRASEÑAS CIFRADAS Y SOLICITUD DE USUARIO DEL CLIENTE
+--   Lo usan js/secciones/loggin.js (iniciar sesión y "Solicita tu usuario") y
+--   js/secciones/clientes.js (aprobar la solicitud). Ver docs/secciones/viajes.md.
+--   - Las contraseñas se guardan CIFRADAS (bcrypt). Las que ya existían se
+--     cifran aquí; los usuarios siguen entrando con la misma contraseña.
+--   - iniciar_sesion(usuario, clave): compara la clave dentro de la base. La
+--     página ya no puede leer la columna clave.
+--   - El cliente de una empresa con Transporte pide su usuario desde el enlace
+--     index.html#registro?empresa=02. Queda PENDIENTE (cliente y usuario sin
+--     aprobar) y se avisa al Administrador y al G1 de esa empresa.
+--   ⚠ Después de este bloque, si se agrega una columna a usuarios, ejecutar
+--     select public.usuarios_ocultar_clave();  (si no, la página no la puede leer)
+--   Se puede repetir.
+-- ==================================================
+-- ---------- Contraseñas cifradas (bcrypt, extensión pgcrypto) ----------
+create extension if not exists pgcrypto with schema extensions;
+
+-- ¿Ya está cifrada? ($2a$10$..., $2b$..., formato bcrypt)
+create or replace function public.clave_cifrada(p_clave text)
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+    select coalesce(p_clave ~ '^[$]2[abxy][$][0-9]{2}[$]', false);
+$$;
+
+-- La base cifra la clave sola al crear el usuario o al cambiarle la clave
+-- (Usuarios, Clientes -> "Acceso y lugares", solicitud del cliente)
+create or replace function public.cifrar_clave()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if new.clave is not null and not public.clave_cifrada(new.clave) then
+        new.clave := extensions.crypt(new.clave, extensions.gen_salt('bf', 10));
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists usuarios_cifrar_clave on public.usuarios;
+create trigger usuarios_cifrar_clave before insert or update of clave on public.usuarios
+    for each row execute function public.cifrar_clave();
+
+-- Las claves que ya existían se cifran (las ya cifradas no se tocan). Los
+-- usuarios siguen entrando con la misma contraseña.
+update public.usuarios set clave = clave where not public.clave_cifrada(clave);
+
+-- Iniciar sesión: la clave se compara DENTRO de la base. Devuelve el id del
+-- usuario o null (sin decir si falló el usuario o la clave).
+create or replace function public.iniciar_sesion(p_usuario text, p_clave text)
+returns bigint
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_id    bigint;
+    v_clave text;
+begin
+    select u.id, u.clave into v_id, v_clave
+      from public.usuarios u
+     where u.id_usuario = lower(btrim(coalesce(p_usuario, '')));
+    if v_id is not null and public.clave_cifrada(v_clave)
+       and v_clave = extensions.crypt(coalesce(p_clave, ''), v_clave) then
+        return v_id;
+    end if;
+    perform pg_sleep(0.4); -- frena a quien prueba claves al azar
+    return null;
+end;
+$$;
+
+-- La página ya no puede LEER la columna clave (ni cifrada): se le da permiso
+-- de lectura a todas las demás columnas de usuarios. Crear y cambiar la clave
+-- sigue igual. ⚠ Si se agrega una columna a usuarios, volver a ejecutar:
+--   select public.usuarios_ocultar_clave();
+create or replace function public.usuarios_ocultar_clave()
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_columnas text;
+begin
+    select string_agg(format('%I', c.column_name), ', ' order by c.ordinal_position) into v_columnas
+      from information_schema.columns c
+     where c.table_schema = 'public' and c.table_name = 'usuarios' and c.column_name <> 'clave';
+    execute 'revoke select on public.usuarios from anon';
+    execute format('grant select (%s) on public.usuarios to anon', v_columnas);
+end;
+$$;
+
+select public.usuarios_ocultar_clave();
+
+-- ---------- El cliente solicita su usuario (empresas con Transporte) ----------
+-- Enlace: index.html#registro?empresa=02 (o el botón del login si la marca tiene
+-- "registroClientes" en empresas/empresas.js).
+
+-- ¿Esa empresa recibe solicitudes? (activa y con una actividad de viajes)
+-- Devuelve { nombre } o null.
+create or replace function public.registro_clientes_empresa(p_codigo text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select jsonb_build_object('nombre', e.nombre)
+      from public.empresas e
+     where e.codigo = btrim(coalesce(p_codigo, ''))
+       and e.activa
+       and exists (select 1 from public.actividades a where a.codigo = any (e.actividades) and a.usa_viajes);
+$$;
+
+-- Guarda la solicitud: cliente (si su teléfono no existe en la empresa) + usuario
+-- rol cliente, los dos SIN APROBAR (el login no lo deja entrar), y avisa al
+-- Administrador y al G1 de la empresa. Se aprueba en Clientes -> "Revisar".
+--   p = { empresa: '02', nombre, apellido1, apellido2, telefono, correo, usuario, clave }
+--   Devuelve { usuario: 'aramirez02', empresa: 'Transportes ...' }
+create or replace function public.solicitar_acceso_cliente(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_empresa  record;
+    v_nombre   text := regexp_replace(btrim(coalesce(p->>'nombre', '')), '\s+', ' ', 'g');
+    v_ape1     text := regexp_replace(btrim(coalesce(p->>'apellido1', '')), '\s+', ' ', 'g');
+    v_ape2     text := nullif(regexp_replace(btrim(coalesce(p->>'apellido2', '')), '\s+', ' ', 'g'), '');
+    v_tel      text := regexp_replace(coalesce(p->>'telefono', ''), '\D', '', 'g');
+    v_correo   text := nullif(lower(btrim(coalesce(p->>'correo', ''))), '');
+    v_base     text := lower(btrim(coalesce(p->>'usuario', '')));
+    v_clave    text := coalesce(p->>'clave', '');
+    v_cliente  bigint;
+    v_tienda   bigint;
+    v_usuario  text;
+    v_completo text;
+begin
+    select e.id, e.codigo, e.nombre into v_empresa
+      from public.empresas e
+     where e.codigo = btrim(coalesce(p->>'empresa', ''))
+       and e.activa
+       and exists (select 1 from public.actividades a where a.codigo = any (e.actividades) and a.usa_viajes);
+    if not found then
+        raise exception 'Este enlace de registro no es válido. Pide a la empresa el enlace correcto.' using errcode = 'P0001';
+    end if;
+
+    if length(v_nombre) not between 2 and 60 or length(v_ape1) not between 2 and 60 or length(coalesce(v_ape2, '')) > 60 then
+        raise exception 'Escribe tu nombre y tu primer apellido (de 2 a 60 letras).' using errcode = 'P0001';
+    end if;
+    if length(v_tel) not between 8 and 15 then
+        raise exception 'El teléfono debe tener al menos 8 dígitos.' using errcode = 'P0001';
+    end if;
+    if v_correo is not null and v_correo !~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
+        raise exception 'El correo no es válido.' using errcode = 'P0001';
+    end if;
+    if v_base !~ '^[a-z0-9]{3,20}$' then
+        raise exception 'El usuario: de 3 a 20 letras o números, sin espacios.' using errcode = 'P0001';
+    end if;
+    if length(v_clave) not between 6 and 72 then
+        raise exception 'La contraseña debe tener de 6 a 72 caracteres.' using errcode = 'P0001';
+    end if;
+
+    -- Una solicitud a la vez por empresa (evita duplicados si se envía dos veces)
+    perform pg_advisory_xact_lock(7302, v_empresa.id::integer);
+
+    -- Freno contra solicitudes falsas en cantidad
+    if (select count(*) from public.usuarios u
+         where u.empresa_id = v_empresa.id and u.rol = 'cliente' and not u.aprobado
+           and u.creado_en > now() - interval '1 hour') >= 20 then
+        raise exception 'Hay muchas solicitudes en este momento. Intenta de nuevo en una hora.' using errcode = 'P0001';
+    end if;
+
+    -- ¿Ya es cliente de la empresa? (mismo teléfono)
+    select c.id into v_cliente
+      from public.clientes c
+     where c.empresa_id = v_empresa.id and regexp_replace(c.telefono, '\D', '', 'g') = v_tel
+     order by c.aprobado desc, c.id
+     limit 1;
+
+    if v_cliente is not null then
+        if exists (select 1 from public.usuarios u where u.cliente_id = v_cliente) then
+            raise exception 'Ya hay un usuario o una solicitud con ese teléfono. Si olvidaste tu contraseña, comunícate con la empresa.' using errcode = 'P0001';
+        end if;
+    else
+        if v_correo is not null and exists (select 1 from public.clientes c
+                                             where c.empresa_id = v_empresa.id and lower(c.correo) = v_correo) then
+            raise exception 'Ese correo ya está registrado con otro teléfono. Comunícate con la empresa.' using errcode = 'P0001';
+        end if;
+        insert into public.clientes (nombre, apellido1, apellido2, telefono, correo, aprobado, solicitado_en, empresa_id)
+        values (v_nombre, v_ape1, v_ape2, v_tel, v_correo, false, now(), v_empresa.id)
+        returning id into v_cliente;
+        -- En la primera tienda activa de la empresa (así aparece en Clientes y lo ve su G3)
+        select t.id into v_tienda
+          from public.tiendas t
+         where t.empresa_id = v_empresa.id and t.estado = 'activa'
+         order by t.codigo
+         limit 1;
+        if v_tienda is not null then
+            insert into public.clientes_tiendas (cliente_id, tienda_id) values (v_cliente, v_tienda);
+        end if;
+    end if;
+
+    select ct.tienda_id into v_tienda
+      from public.clientes_tiendas ct
+     where ct.cliente_id = v_cliente
+     order by ct.tienda_id
+     limit 1;
+
+    -- Usuario: el que pidió + ID de la empresa (aramirez02); si ya existe, aramirez202...
+    v_completo := btrim(v_nombre || ' ' || v_ape1 || ' ' || coalesce(v_ape2, ''));
+    v_usuario := public.usuario_libre(v_base, v_empresa.codigo, null, 0);
+    insert into public.usuarios (nombre, id_usuario, telefono, clave, permisos, rol, cliente_id, aprobado, solicitado_en)
+    values (v_completo, v_usuario, v_tel, v_clave, '{}', 'cliente', v_cliente, false, now());
+
+    insert into public.notificaciones (usuario_id, tipo, titulo, mensaje, enlace, referencia_tipo, referencia_id)
+    select u.id, 'pendiente', 'Solicitud de acceso a viajes',
+           format('%s (tel. %s) pidió su usuario "%s". Revísala en Clientes.', v_completo, v_tel, v_usuario),
+           case when v_tienda is null then '#clientes' else '#clientes?tienda=' || v_tienda end,
+           'acceso_cliente', v_cliente
+      from public.usuarios u
+     where u.empresa_id = v_empresa.id and u.rol in ('administrador', 'admin_g1') and u.aprobado;
+
+    return jsonb_build_object('usuario', v_usuario, 'empresa', v_empresa.nombre);
+end;
+$$;
+
+grant execute on function public.iniciar_sesion(text, text) to anon;
+grant execute on function public.registro_clientes_empresa(text) to anon;
+grant execute on function public.solicitar_acceso_cliente(jsonb) to anon;
+-- Internas: no se llaman desde la página
+revoke execute on function public.usuarios_ocultar_clave() from anon, public;
+revoke execute on function public.cifrar_clave() from anon, public;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 21. PALETA DE COLORES DE CADA EMPRESA INTERNA
+--   empresas.colores: la paleta que el Desarrollador elige al crear o modificar la
+--   empresa (Tiendas -> Empresas). Se pinta al iniciar sesión con un usuario de esa
+--   empresa (empresas/empresas.js: aplicarColoresEmpresa). {} = colores de la marca.
+--   Ej.: {"color-azul": "#5A6B34", "color-naranja": "#C8A13A", ...}
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.empresas add column if not exists colores jsonb not null default '{}'::jsonb;
+alter table public.empresas drop constraint if exists empresas_colores_objeto;
+alter table public.empresas add constraint empresas_colores_objeto check (jsonb_typeof(colores) = 'object');
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 22. PLAN DE CADA EMPRESA: FUNCIONES HABILITADAS
+--   empresas.plan: 'basico' | 'profesional' | 'completo' | 'personalizado'
+--   empresas.funciones: lista de funciones habilitadas (null = todas, como "Completo").
+--   Las marca el Desarrollador en Configuración -> Planes y funciones
+--   (js/secciones/configuracion/planes.js; catálogo y planes en empresas/empresas.js:
+--   FUNCIONES_PLAN y PLANES). La página oculta a los administradores de la empresa lo
+--   que su plan no incluye.
+--   La base respeta "registro_clientes" (solicitud de usuario de clientes) en
+--   registro_clientes_empresa y solicitar_acceso_cliente.
+--   Las empresas que ya existían quedan en "completo" (no cambia nada).
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.empresas add column if not exists plan text not null default 'completo';
+alter table public.empresas add column if not exists funciones text[];
+alter table public.empresas drop constraint if exists empresas_plan_valido;
+alter table public.empresas add constraint empresas_plan_valido
+    check (plan in ('basico', 'profesional', 'completo', 'personalizado'));
+-- ¿Esa empresa recibe solicitudes? (activa, con una actividad de viajes y su plan lo incluye)
+-- Devuelve { nombre } o null.
+create or replace function public.registro_clientes_empresa(p_codigo text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select jsonb_build_object('nombre', e.nombre)
+      from public.empresas e
+     where e.codigo = btrim(coalesce(p_codigo, ''))
+       and e.activa
+       and exists (select 1 from public.actividades a where a.codigo = any (e.actividades) and a.usa_viajes)
+       and (e.funciones is null or 'registro_clientes' = any (e.funciones)); -- plan (bloque 22)
+$$;
+
+-- Guarda la solicitud: cliente (si su teléfono no existe en la empresa) + usuario
+-- rol cliente, los dos SIN APROBAR (el login no lo deja entrar), y avisa al
+-- Administrador y al G1 de la empresa. Se aprueba en Clientes -> "Revisar".
+--   p = { empresa: '02', nombre, apellido1, apellido2, telefono, correo, usuario, clave }
+--   Devuelve { usuario: 'aramirez02', empresa: 'Transportes ...' }
+create or replace function public.solicitar_acceso_cliente(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_empresa  record;
+    v_nombre   text := regexp_replace(btrim(coalesce(p->>'nombre', '')), '\s+', ' ', 'g');
+    v_ape1     text := regexp_replace(btrim(coalesce(p->>'apellido1', '')), '\s+', ' ', 'g');
+    v_ape2     text := nullif(regexp_replace(btrim(coalesce(p->>'apellido2', '')), '\s+', ' ', 'g'), '');
+    v_tel      text := regexp_replace(coalesce(p->>'telefono', ''), '\D', '', 'g');
+    v_correo   text := nullif(lower(btrim(coalesce(p->>'correo', ''))), '');
+    v_base     text := lower(btrim(coalesce(p->>'usuario', '')));
+    v_clave    text := coalesce(p->>'clave', '');
+    v_cliente  bigint;
+    v_tienda   bigint;
+    v_usuario  text;
+    v_completo text;
+begin
+    select e.id, e.codigo, e.nombre into v_empresa
+      from public.empresas e
+     where e.codigo = btrim(coalesce(p->>'empresa', ''))
+       and e.activa
+       and exists (select 1 from public.actividades a where a.codigo = any (e.actividades) and a.usa_viajes)
+       and (e.funciones is null or 'registro_clientes' = any (e.funciones)); -- plan (bloque 22)
+    if not found then
+        raise exception 'Este enlace de registro no es válido. Pide a la empresa el enlace correcto.' using errcode = 'P0001';
+    end if;
+
+    if length(v_nombre) not between 2 and 60 or length(v_ape1) not between 2 and 60 or length(coalesce(v_ape2, '')) > 60 then
+        raise exception 'Escribe tu nombre y tu primer apellido (de 2 a 60 letras).' using errcode = 'P0001';
+    end if;
+    if length(v_tel) not between 8 and 15 then
+        raise exception 'El teléfono debe tener al menos 8 dígitos.' using errcode = 'P0001';
+    end if;
+    if v_correo is not null and v_correo !~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
+        raise exception 'El correo no es válido.' using errcode = 'P0001';
+    end if;
+    if v_base !~ '^[a-z0-9]{3,20}$' then
+        raise exception 'El usuario: de 3 a 20 letras o números, sin espacios.' using errcode = 'P0001';
+    end if;
+    if length(v_clave) not between 6 and 72 then
+        raise exception 'La contraseña debe tener de 6 a 72 caracteres.' using errcode = 'P0001';
+    end if;
+
+    -- Una solicitud a la vez por empresa (evita duplicados si se envía dos veces)
+    perform pg_advisory_xact_lock(7302, v_empresa.id::integer);
+
+    -- Freno contra solicitudes falsas en cantidad
+    if (select count(*) from public.usuarios u
+         where u.empresa_id = v_empresa.id and u.rol = 'cliente' and not u.aprobado
+           and u.creado_en > now() - interval '1 hour') >= 20 then
+        raise exception 'Hay muchas solicitudes en este momento. Intenta de nuevo en una hora.' using errcode = 'P0001';
+    end if;
+
+    -- ¿Ya es cliente de la empresa? (mismo teléfono)
+    select c.id into v_cliente
+      from public.clientes c
+     where c.empresa_id = v_empresa.id and regexp_replace(c.telefono, '\D', '', 'g') = v_tel
+     order by c.aprobado desc, c.id
+     limit 1;
+
+    if v_cliente is not null then
+        if exists (select 1 from public.usuarios u where u.cliente_id = v_cliente) then
+            raise exception 'Ya hay un usuario o una solicitud con ese teléfono. Si olvidaste tu contraseña, comunícate con la empresa.' using errcode = 'P0001';
+        end if;
+    else
+        if v_correo is not null and exists (select 1 from public.clientes c
+                                             where c.empresa_id = v_empresa.id and lower(c.correo) = v_correo) then
+            raise exception 'Ese correo ya está registrado con otro teléfono. Comunícate con la empresa.' using errcode = 'P0001';
+        end if;
+        insert into public.clientes (nombre, apellido1, apellido2, telefono, correo, aprobado, solicitado_en, empresa_id)
+        values (v_nombre, v_ape1, v_ape2, v_tel, v_correo, false, now(), v_empresa.id)
+        returning id into v_cliente;
+        -- En la primera tienda activa de la empresa (así aparece en Clientes y lo ve su G3)
+        select t.id into v_tienda
+          from public.tiendas t
+         where t.empresa_id = v_empresa.id and t.estado = 'activa'
+         order by t.codigo
+         limit 1;
+        if v_tienda is not null then
+            insert into public.clientes_tiendas (cliente_id, tienda_id) values (v_cliente, v_tienda);
+        end if;
+    end if;
+
+    select ct.tienda_id into v_tienda
+      from public.clientes_tiendas ct
+     where ct.cliente_id = v_cliente
+     order by ct.tienda_id
+     limit 1;
+
+    -- Usuario: el que pidió + ID de la empresa (aramirez02); si ya existe, aramirez202...
+    v_completo := btrim(v_nombre || ' ' || v_ape1 || ' ' || coalesce(v_ape2, ''));
+    v_usuario := public.usuario_libre(v_base, v_empresa.codigo, null, 0);
+    insert into public.usuarios (nombre, id_usuario, telefono, clave, permisos, rol, cliente_id, aprobado, solicitado_en)
+    values (v_completo, v_usuario, v_tel, v_clave, '{}', 'cliente', v_cliente, false, now());
+
+    insert into public.notificaciones (usuario_id, tipo, titulo, mensaje, enlace, referencia_tipo, referencia_id)
+    select u.id, 'pendiente', 'Solicitud de acceso a viajes',
+           format('%s (tel. %s) pidió su usuario "%s". Revísala en Clientes.', v_completo, v_tel, v_usuario),
+           case when v_tienda is null then '#clientes' else '#clientes?tienda=' || v_tienda end,
+           'acceso_cliente', v_cliente
+      from public.usuarios u
+     where u.empresa_id = v_empresa.id and u.rol in ('administrador', 'admin_g1') and u.aprobado;
+
+    return jsonb_build_object('usuario', v_usuario, 'empresa', v_empresa.nombre);
+end;
+$$;
+
+grant execute on function public.registro_clientes_empresa(text) to anon;
+grant execute on function public.solicitar_acceso_cliente(jsonb) to anon;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 23. SOLICITUDES DE ENVÍO DE LOS CLIENTES (recolección y entrega)
+--   El cliente con usuario de una empresa de encomiendas (actividad con
+--   usa_recoleccion) pide en "Mis envíos" (js/secciones/envios.js) que le
+--   recojan un paquete en A y lo entreguen en B, con puntos de referencia.
+--   Queda "pendiente" hasta que el Admin G3 de su tienda (o G2, G1, Administrador)
+--   la revisa en Pedidos: "Revisar y registrar" abre el formulario ya lleno y, al
+--   registrar el pedido, la solicitud pasa a "aprobada" con su pedido_id (desde ahí
+--   siguen los avisos de siempre: piloto, G2, pedidos cercanos). "Rechazar" la
+--   cierra con un motivo. El cliente ve el avance en "Mis envíos".
+--   Plan: función "envios_clientes" (Configuración -> Planes y funciones).
+--   También: la solicitud de usuario de clientes ahora la reciben las empresas con
+--   viajes O con encomiendas (registro_clientes_empresa y solicitar_acceso_cliente).
+--   Se puede repetir.
+-- ==================================================
+
+create table if not exists public.pedido_solicitudes (
+    id                      bigint generated always as identity primary key,
+    empresa_id              bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    tienda_id               bigint references public.tiendas(id) on delete set null,
+    actividad               text not null,
+    cliente_id              bigint not null references public.clientes(id) on delete cascade,
+    usuario_id              bigint references public.usuarios(id) on delete set null,
+    cliente_nombre          text not null,
+    cliente_telefono        text not null,
+    recoleccion_direccion   text not null,
+    recoleccion_referencia  text,
+    recoleccion_lat         numeric(9,6),
+    recoleccion_lng         numeric(9,6),
+    entrega_direccion       text not null,
+    entrega_referencia      text,
+    entrega_lat             numeric(9,6),
+    entrega_lng             numeric(9,6),
+    km                      numeric(8,2),
+    minutos                 integer,
+    recibe_nombre           text,
+    recibe_telefono         text,
+    fecha                   date not null,
+    descripcion             text not null,
+    bultos                  smallint not null default 1,
+    peso_kg                 numeric(8,2),
+    notas                   text,
+    estado                  text not null default 'pendiente',
+    motivo                  text,
+    pedido_id               bigint references public.pedidos(id) on delete set null,
+    revisado_por            bigint references public.usuarios(id) on delete set null,
+    revisado_en             timestamptz,
+    creado_en               timestamptz not null default now(),
+
+    constraint pedsol_estado_valido check (estado in ('pendiente', 'aprobada', 'rechazada', 'cancelada')),
+    constraint pedsol_bultos_valido check (bultos between 1 and 999),
+    constraint pedsol_peso_valido   check (peso_kg is null or peso_kg >= 0)
+);
+create index if not exists pedido_solicitudes_empresa_idx on public.pedido_solicitudes (empresa_id, estado);
+create index if not exists pedido_solicitudes_cliente_idx on public.pedido_solicitudes (cliente_id);
+
+-- La página la lee y la cambia (como las demás tablas de pedidos, por ahora)
+alter table public.pedido_solicitudes enable row level security;
+grant select, insert, update, delete on public.pedido_solicitudes to anon;
+drop policy if exists "TEMPORAL - leer pedido_solicitudes" on public.pedido_solicitudes;
+drop policy if exists "TEMPORAL - crear pedido_solicitudes" on public.pedido_solicitudes;
+drop policy if exists "TEMPORAL - modificar pedido_solicitudes" on public.pedido_solicitudes;
+drop policy if exists "TEMPORAL - eliminar pedido_solicitudes" on public.pedido_solicitudes;
+create policy "TEMPORAL - leer pedido_solicitudes" on public.pedido_solicitudes for select to anon using (true);
+create policy "TEMPORAL - crear pedido_solicitudes" on public.pedido_solicitudes for insert to anon with check (true);
+create policy "TEMPORAL - modificar pedido_solicitudes" on public.pedido_solicitudes for update to anon using (true) with check (true);
+create policy "TEMPORAL - eliminar pedido_solicitudes" on public.pedido_solicitudes for delete to anon using (true);
+
+-- Solicitud de usuario: también para las empresas de encomiendas (recolección)
+-- ¿Esa empresa recibe solicitudes? (activa, con viajes o encomiendas y su plan lo incluye)
+-- Devuelve { nombre } o null.
+create or replace function public.registro_clientes_empresa(p_codigo text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select jsonb_build_object('nombre', e.nombre)
+      from public.empresas e
+     where e.codigo = btrim(coalesce(p_codigo, ''))
+       and e.activa
+       and exists (select 1 from public.actividades a where a.codigo = any (e.actividades) and (a.usa_viajes or a.usa_recoleccion))
+       and (e.funciones is null or 'registro_clientes' = any (e.funciones)); -- plan (bloque 22)
+$$;
+
+-- Guarda la solicitud: cliente (si su teléfono no existe en la empresa) + usuario
+-- rol cliente, los dos SIN APROBAR (el login no lo deja entrar), y avisa al
+-- Administrador y al G1 de la empresa. Se aprueba en Clientes -> "Revisar".
+--   p = { empresa: '02', nombre, apellido1, apellido2, telefono, correo, usuario, clave }
+--   Devuelve { usuario: 'aramirez02', empresa: 'Transportes ...' }
+create or replace function public.solicitar_acceso_cliente(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_empresa  record;
+    v_nombre   text := regexp_replace(btrim(coalesce(p->>'nombre', '')), '\s+', ' ', 'g');
+    v_ape1     text := regexp_replace(btrim(coalesce(p->>'apellido1', '')), '\s+', ' ', 'g');
+    v_ape2     text := nullif(regexp_replace(btrim(coalesce(p->>'apellido2', '')), '\s+', ' ', 'g'), '');
+    v_tel      text := regexp_replace(coalesce(p->>'telefono', ''), '\D', '', 'g');
+    v_correo   text := nullif(lower(btrim(coalesce(p->>'correo', ''))), '');
+    v_base     text := lower(btrim(coalesce(p->>'usuario', '')));
+    v_clave    text := coalesce(p->>'clave', '');
+    v_cliente  bigint;
+    v_tienda   bigint;
+    v_usuario  text;
+    v_completo text;
+begin
+    select e.id, e.codigo, e.nombre into v_empresa
+      from public.empresas e
+     where e.codigo = btrim(coalesce(p->>'empresa', ''))
+       and e.activa
+       and exists (select 1 from public.actividades a where a.codigo = any (e.actividades) and (a.usa_viajes or a.usa_recoleccion))
+       and (e.funciones is null or 'registro_clientes' = any (e.funciones)); -- plan (bloque 22)
+    if not found then
+        raise exception 'Este enlace de registro no es válido. Pide a la empresa el enlace correcto.' using errcode = 'P0001';
+    end if;
+
+    if length(v_nombre) not between 2 and 60 or length(v_ape1) not between 2 and 60 or length(coalesce(v_ape2, '')) > 60 then
+        raise exception 'Escribe tu nombre y tu primer apellido (de 2 a 60 letras).' using errcode = 'P0001';
+    end if;
+    if length(v_tel) not between 8 and 15 then
+        raise exception 'El teléfono debe tener al menos 8 dígitos.' using errcode = 'P0001';
+    end if;
+    if v_correo is not null and v_correo !~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
+        raise exception 'El correo no es válido.' using errcode = 'P0001';
+    end if;
+    if v_base !~ '^[a-z0-9]{3,20}$' then
+        raise exception 'El usuario: de 3 a 20 letras o números, sin espacios.' using errcode = 'P0001';
+    end if;
+    if length(v_clave) not between 6 and 72 then
+        raise exception 'La contraseña debe tener de 6 a 72 caracteres.' using errcode = 'P0001';
+    end if;
+
+    -- Una solicitud a la vez por empresa (evita duplicados si se envía dos veces)
+    perform pg_advisory_xact_lock(7302, v_empresa.id::integer);
+
+    -- Freno contra solicitudes falsas en cantidad
+    if (select count(*) from public.usuarios u
+         where u.empresa_id = v_empresa.id and u.rol = 'cliente' and not u.aprobado
+           and u.creado_en > now() - interval '1 hour') >= 20 then
+        raise exception 'Hay muchas solicitudes en este momento. Intenta de nuevo en una hora.' using errcode = 'P0001';
+    end if;
+
+    -- ¿Ya es cliente de la empresa? (mismo teléfono)
+    select c.id into v_cliente
+      from public.clientes c
+     where c.empresa_id = v_empresa.id and regexp_replace(c.telefono, '\D', '', 'g') = v_tel
+     order by c.aprobado desc, c.id
+     limit 1;
+
+    if v_cliente is not null then
+        if exists (select 1 from public.usuarios u where u.cliente_id = v_cliente) then
+            raise exception 'Ya hay un usuario o una solicitud con ese teléfono. Si olvidaste tu contraseña, comunícate con la empresa.' using errcode = 'P0001';
+        end if;
+    else
+        if v_correo is not null and exists (select 1 from public.clientes c
+                                             where c.empresa_id = v_empresa.id and lower(c.correo) = v_correo) then
+            raise exception 'Ese correo ya está registrado con otro teléfono. Comunícate con la empresa.' using errcode = 'P0001';
+        end if;
+        insert into public.clientes (nombre, apellido1, apellido2, telefono, correo, aprobado, solicitado_en, empresa_id)
+        values (v_nombre, v_ape1, v_ape2, v_tel, v_correo, false, now(), v_empresa.id)
+        returning id into v_cliente;
+        -- En la primera tienda activa de la empresa (así aparece en Clientes y lo ve su G3)
+        select t.id into v_tienda
+          from public.tiendas t
+         where t.empresa_id = v_empresa.id and t.estado = 'activa'
+         order by t.codigo
+         limit 1;
+        if v_tienda is not null then
+            insert into public.clientes_tiendas (cliente_id, tienda_id) values (v_cliente, v_tienda);
+        end if;
+    end if;
+
+    select ct.tienda_id into v_tienda
+      from public.clientes_tiendas ct
+     where ct.cliente_id = v_cliente
+     order by ct.tienda_id
+     limit 1;
+
+    -- Usuario: el que pidió + ID de la empresa (aramirez02); si ya existe, aramirez202...
+    v_completo := btrim(v_nombre || ' ' || v_ape1 || ' ' || coalesce(v_ape2, ''));
+    v_usuario := public.usuario_libre(v_base, v_empresa.codigo, null, 0);
+    insert into public.usuarios (nombre, id_usuario, telefono, clave, permisos, rol, cliente_id, aprobado, solicitado_en)
+    values (v_completo, v_usuario, v_tel, v_clave, '{}', 'cliente', v_cliente, false, now());
+
+    insert into public.notificaciones (usuario_id, tipo, titulo, mensaje, enlace, referencia_tipo, referencia_id)
+    select u.id, 'pendiente', 'Solicitud de acceso de cliente',
+           format('%s (tel. %s) pidió su usuario "%s". Revísala en Clientes.', v_completo, v_tel, v_usuario),
+           case when v_tienda is null then '#clientes' else '#clientes?tienda=' || v_tienda end,
+           'acceso_cliente', v_cliente
+      from public.usuarios u
+     where u.empresa_id = v_empresa.id and u.rol in ('administrador', 'admin_g1') and u.aprobado;
+
+    return jsonb_build_object('usuario', v_usuario, 'empresa', v_empresa.nombre);
+end;
+$$;
+
+grant execute on function public.registro_clientes_empresa(text) to anon;
+grant execute on function public.solicitar_acceso_cliente(jsonb) to anon;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 24. CAJA DE PILOTOS Y CONDUCTORES (como en SISCED)
+--   - cajas: tipos de caja de la empresa (nombre y monto, ej. "Caja básica ₡50 000").
+--   - usuarios.caja_id / caja_monto: el fondo de caja de cada piloto o conductor
+--     (un tipo de caja o un monto propio). Configuración -> Cajas.
+--   - pedidos.cobro_forma: cómo pagó el cliente al entregar (efectivo, sinpe o
+--     tarjeta; lo marca el piloto en "Entregado"). viajes.cobro_forma igual.
+--   - cierres_caja: cada cierre con el fondo, el efectivo, el SINPE y la tarjeta
+--     verificados, el efectivo contado y la diferencia. Lo guarda la base con
+--     caja_cerrar (todo o nada): crea el cierre y les pone cierre_id a los pedidos
+--     y viajes incluidos. Los SINPE o tarjeta sin verificar quedan para el
+--     siguiente cierre. Los cierres no se borran.
+--   Sección Caja (js/secciones/caja.js). Plan: función "caja".
+--   Se puede repetir.
+-- ==================================================
+
+create table if not exists public.cajas (
+    id          bigint generated always as identity primary key,
+    empresa_id  bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    nombre      text not null,
+    monto       numeric(12,2) not null default 0,
+    creado_en   timestamptz not null default now(),
+
+    constraint cajas_monto_valido  check (monto >= 0),
+    constraint cajas_nombre_unico  unique (empresa_id, nombre)
+);
+
+alter table public.usuarios add column if not exists caja_id    bigint references public.cajas(id) on delete set null;
+alter table public.usuarios add column if not exists caja_monto numeric(12,2) not null default 0;
+alter table public.usuarios drop constraint if exists usuarios_caja_valida;
+alter table public.usuarios add constraint usuarios_caja_valida check (caja_monto >= 0);
+
+create table if not exists public.cierres_caja (
+    id                  bigint generated always as identity primary key,
+    empresa_id          bigint not null references public.empresas(id) on delete cascade,
+    piloto_id           bigint references public.usuarios(id) on delete set null,
+    piloto_nombre       text not null,
+    tienda_id           bigint references public.tiendas(id) on delete set null,
+    fecha               date not null default current_date,
+    fondo               numeric(12,2) not null default 0,
+    efectivo            numeric(12,2) not null default 0,
+    sinpe               numeric(12,2) not null default 0,
+    tarjeta             numeric(12,2) not null default 0,
+    efectivo_contado    numeric(12,2) not null default 0,
+    diferencia          numeric(12,2) not null default 0,  -- contado - (fondo + efectivo)
+    cantidad            integer not null default 0,        -- pedidos y viajes incluidos
+    notas               text,
+    cerrado_por         bigint,                            -- sin llave: queda aunque se borre el usuario
+    cerrado_por_nombre  text,
+    cerrado_en          timestamptz not null default now(),
+
+    constraint cierres_caja_montos_validos check (fondo >= 0 and efectivo >= 0 and sinpe >= 0 and tarjeta >= 0 and efectivo_contado >= 0)
+);
+create index if not exists cierres_caja_piloto_idx on public.cierres_caja (empresa_id, piloto_id, cerrado_en);
+
+alter table public.pedidos add column if not exists cobro_forma text;
+alter table public.pedidos add column if not exists cierre_id   bigint references public.cierres_caja(id) on delete set null;
+alter table public.pedidos drop constraint if exists pedidos_cobro_forma_valida;
+alter table public.pedidos add constraint pedidos_cobro_forma_valida check (cobro_forma is null or cobro_forma in ('efectivo', 'sinpe', 'tarjeta'));
+create index if not exists pedidos_caja_idx on public.pedidos (piloto_id, cierre_id);
+
+alter table public.viajes add column if not exists cobro_forma text;
+alter table public.viajes add column if not exists cierre_id   bigint references public.cierres_caja(id) on delete set null;
+alter table public.viajes drop constraint if exists viajes_cobro_forma_valida;
+alter table public.viajes add constraint viajes_cobro_forma_valida check (cobro_forma is null or cobro_forma in ('efectivo', 'sinpe', 'tarjeta'));
+create index if not exists viajes_caja_idx on public.viajes (conductor_id, cierre_id);
+
+-- ---------- Cerrar la caja (todo o nada) ----------
+-- p = { usuario_id, piloto_id, contado, notas,
+--       pedidos: [{ id, forma }], viajes: [{ id, forma }] }   (forma: efectivo | sinpe | tarjeta)
+-- La página manda el efectivo y los SINPE / tarjeta ya verificados. Los montos los
+-- toma la base (total_cobrar del pedido, total del viaje), no la página.
+-- Quién: Administrador y G1 (su empresa), G2 (su región), G3 (su tienda), Desarrollador.
+create or replace function public.caja_cerrar(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u          public.usuarios;
+    pil        public.usuarios;
+    v_contado  numeric := (p ->> 'contado')::numeric;
+    v_ped      jsonb := coalesce(p -> 'pedidos', '[]'::jsonb);
+    v_via      jsonb := coalesce(p -> 'viajes', '[]'::jsonb);
+    v_ef       numeric := 0;
+    v_si       numeric := 0;
+    v_ta       numeric := 0;
+    v_n        integer := 0;
+    v_ef2      numeric := 0;
+    v_si2      numeric := 0;
+    v_ta2      numeric := 0;
+    v_n2       integer := 0;
+    v_cierre   bigint;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    if u.rol not in ('desarrollador', 'administrador', 'admin_g1', 'admin_g2', 'admin_g3') then
+        raise exception 'Tu usuario no puede cerrar cajas.' using errcode = 'P0001';
+    end if;
+    select * into pil from public.usuarios where id = (p ->> 'piloto_id')::bigint and rol = 'piloto';
+    if not found then
+        raise exception 'Ese piloto no existe.' using errcode = 'P0001';
+    end if;
+    if u.rol <> 'desarrollador' and u.empresa_id is distinct from pil.empresa_id then
+        raise exception 'Ese piloto es de otra empresa.' using errcode = 'P0001';
+    end if;
+    if u.rol = 'admin_g3' and u.tienda_id is distinct from pil.tienda_id then
+        raise exception 'Solo puedes cerrar la caja de los pilotos de tu tienda.' using errcode = 'P0001';
+    end if;
+    if u.rol = 'admin_g2' and not exists (select 1 from public.tiendas t where t.id = pil.tienda_id and t.region = u.region) then
+        raise exception 'Solo puedes cerrar la caja de los pilotos de tu región.' using errcode = 'P0001';
+    end if;
+    if v_contado is null or v_contado < 0 then
+        raise exception 'Escribe el efectivo contado (0 o más).' using errcode = 'P0001';
+    end if;
+    if exists (select 1 from jsonb_array_elements(v_ped || v_via) x
+                where coalesce(x ->> 'forma', '') not in ('efectivo', 'sinpe', 'tarjeta')) then
+        raise exception 'Forma de cobro no válida.' using errcode = 'P0001';
+    end if;
+
+    -- Un cierre a la vez por piloto (si dos personas cierran al mismo tiempo)
+    perform pg_advisory_xact_lock(7303, pil.id::integer);
+
+    select coalesce(sum(pe.total_cobrar) filter (where i.forma = 'efectivo'), 0),
+           coalesce(sum(pe.total_cobrar) filter (where i.forma = 'sinpe'), 0),
+           coalesce(sum(pe.total_cobrar) filter (where i.forma = 'tarjeta'), 0),
+           count(*)
+      into v_ef, v_si, v_ta, v_n
+      from jsonb_to_recordset(v_ped) as i(id bigint, forma text)
+      join public.pedidos pe on pe.id = i.id
+     where pe.piloto_id = pil.id and pe.cierre_id is null and not pe.anulado
+       and pe.estado in ('entregado', 'entregado_incidencia');
+
+    select coalesce(sum(vi.total) filter (where i.forma = 'efectivo'), 0),
+           coalesce(sum(vi.total) filter (where i.forma = 'sinpe'), 0),
+           coalesce(sum(vi.total) filter (where i.forma = 'tarjeta'), 0),
+           count(*)
+      into v_ef2, v_si2, v_ta2, v_n2
+      from jsonb_to_recordset(v_via) as i(id bigint, forma text)
+      join public.viajes vi on vi.id = i.id
+     where vi.conductor_id = pil.id and vi.cierre_id is null and vi.estado = 'terminado';
+
+    v_ef := v_ef + v_ef2;
+    v_si := v_si + v_si2;
+    v_ta := v_ta + v_ta2;
+    v_n := v_n + v_n2;
+
+    insert into public.cierres_caja (empresa_id, piloto_id, piloto_nombre, tienda_id, fecha, fondo, efectivo, sinpe, tarjeta,
+        efectivo_contado, diferencia, cantidad, notas, cerrado_por, cerrado_por_nombre)
+    values (pil.empresa_id, pil.id, pil.nombre, pil.tienda_id, (now() at time zone 'America/Costa_Rica')::date,
+        pil.caja_monto, v_ef, v_si, v_ta, round(v_contado, 2), round(v_contado - (pil.caja_monto + v_ef), 2), v_n,
+        nullif(btrim(coalesce(p ->> 'notas', '')), ''), u.id, u.nombre)
+    returning id into v_cierre;
+
+    update public.pedidos pe
+       set cierre_id = v_cierre, cobro_forma = i.forma
+      from jsonb_to_recordset(v_ped) as i(id bigint, forma text)
+     where pe.id = i.id and pe.piloto_id = pil.id and pe.cierre_id is null and not pe.anulado
+       and pe.estado in ('entregado', 'entregado_incidencia');
+
+    update public.viajes vi
+       set cierre_id = v_cierre, cobro_forma = i.forma
+      from jsonb_to_recordset(v_via) as i(id bigint, forma text)
+     where vi.id = i.id and vi.conductor_id = pil.id and vi.cierre_id is null and vi.estado = 'terminado';
+
+    return (select to_jsonb(c) from public.cierres_caja c where c.id = v_cierre);
+end;
+$$;
+
+-- ---------- Acceso desde la web (TEMPORAL, como las demás tablas) ----------
+-- Tipos de caja: leer, crear, modificar y eliminar. Cierres: SOLO leer (se crean con caja_cerrar).
+alter table public.cajas enable row level security;
+grant select, insert, update, delete on public.cajas to anon;
+drop policy if exists "TEMPORAL - leer cajas" on public.cajas;
+drop policy if exists "TEMPORAL - crear cajas" on public.cajas;
+drop policy if exists "TEMPORAL - modificar cajas" on public.cajas;
+drop policy if exists "TEMPORAL - eliminar cajas" on public.cajas;
+create policy "TEMPORAL - leer cajas" on public.cajas for select to anon using (true);
+create policy "TEMPORAL - crear cajas" on public.cajas for insert to anon with check (true);
+create policy "TEMPORAL - modificar cajas" on public.cajas for update to anon using (true) with check (true);
+create policy "TEMPORAL - eliminar cajas" on public.cajas for delete to anon using (true);
+
+alter table public.cierres_caja enable row level security;
+revoke insert, update, delete on public.cierres_caja from anon;
+grant select on public.cierres_caja to anon;
+drop policy if exists "TEMPORAL - leer cierres_caja" on public.cierres_caja;
+create policy "TEMPORAL - leer cierres_caja" on public.cierres_caja for select to anon using (true);
+
+grant execute on function public.caja_cerrar(jsonb) to anon;
+
+-- usuarios tiene columnas nuevas: la página tiene que poder leerlas (bloque 20)
+select public.usuarios_ocultar_clave();
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 25. UBICACIÓN DEL PILOTO EN TIEMPO REAL
+--   - ubicaciones_pilotos: la ÚLTIMA posición de cada piloto o conductor (una
+--     fila por piloto: se reemplaza en cada envío).
+--   - piloto_en_ruta(piloto): true si tiene pedidos "En ruta" / "Entregando" o
+--     viajes "En camino" / "En curso". La web (y la app) solo piden el GPS si es true.
+--   - piloto_ubicacion(...): guarda la posición SOLO si está en ruta; si ya no lo
+--     está, borra su fila (deja de verse en el mapa). Origen: 'web' o 'app'.
+--   La web la manda cada 2 minutos (js/ubicacion.js); el mapa de Inicio la dibuja.
+--   Se puede repetir.
+-- ==================================================
+
+create table if not exists public.ubicaciones_pilotos (
+    piloto_id       bigint primary key references public.usuarios(id) on delete cascade,
+    empresa_id      bigint not null references public.empresas(id) on delete cascade,
+    lat             double precision not null,
+    lng             double precision not null,
+    precision_m     numeric(8,1),       -- metros (lo que da el GPS)
+    velocidad_kmh   numeric(6,1),
+    rumbo           numeric(5,1),       -- grados (0 = norte)
+    origen          text not null default 'web',
+    actualizado_en  timestamptz not null default now(),
+
+    constraint ubicaciones_pilotos_punto_valido  check (lat between -90 and 90 and lng between -180 and 180),
+    constraint ubicaciones_pilotos_origen_valido check (origen in ('web', 'app'))
+);
+create index if not exists ubicaciones_pilotos_empresa_idx on public.ubicaciones_pilotos (empresa_id, actualizado_en);
+
+create or replace function public.piloto_en_ruta(p_piloto bigint)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select exists (select 1 from public.pedidos
+                    where piloto_id = p_piloto and not anulado and estado in ('en_ruta', 'en_entrega'))
+        or exists (select 1 from public.viajes
+                    where conductor_id = p_piloto and estado in ('en_camino', 'en_curso'));
+$$;
+
+-- Devuelve { guardado, en_ruta }
+create or replace function public.piloto_ubicacion(
+    p_piloto bigint, p_lat double precision, p_lng double precision,
+    p_precision numeric default null, p_velocidad numeric default null, p_rumbo numeric default null,
+    p_origen text default 'web')
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    pil public.usuarios;
+begin
+    select * into pil from public.usuarios where id = p_piloto and rol = 'piloto';
+    if not found then
+        raise exception 'Ese piloto no existe.' using errcode = 'P0001';
+    end if;
+    if not public.piloto_en_ruta(pil.id) then
+        delete from public.ubicaciones_pilotos where piloto_id = pil.id;
+        return jsonb_build_object('guardado', false, 'en_ruta', false);
+    end if;
+    if p_lat is null or p_lng is null or abs(p_lat) > 90 or abs(p_lng) > 180 then
+        raise exception 'Ubicación no válida.' using errcode = 'P0001';
+    end if;
+
+    insert into public.ubicaciones_pilotos (piloto_id, empresa_id, lat, lng, precision_m, velocidad_kmh, rumbo, origen, actualizado_en)
+    values (pil.id, pil.empresa_id, p_lat, p_lng, round(p_precision, 1), round(p_velocidad, 1), round(p_rumbo, 1),
+            case when p_origen = 'app' then 'app' else 'web' end, now())
+    on conflict (piloto_id) do update
+       set empresa_id = excluded.empresa_id, lat = excluded.lat, lng = excluded.lng,
+           precision_m = excluded.precision_m, velocidad_kmh = excluded.velocidad_kmh, rumbo = excluded.rumbo,
+           origen = excluded.origen, actualizado_en = excluded.actualizado_en;
+    return jsonb_build_object('guardado', true, 'en_ruta', true);
+end;
+$$;
+
+-- ---------- Acceso desde la web (TEMPORAL, como las demás tablas) ----------
+-- Solo leer: se escribe con piloto_ubicacion.
+alter table public.ubicaciones_pilotos enable row level security;
+revoke insert, update, delete on public.ubicaciones_pilotos from anon;
+grant select on public.ubicaciones_pilotos to anon;
+drop policy if exists "TEMPORAL - leer ubicaciones_pilotos" on public.ubicaciones_pilotos;
+create policy "TEMPORAL - leer ubicaciones_pilotos" on public.ubicaciones_pilotos for select to anon using (true);
+
+grant execute on function public.piloto_en_ruta(bigint) to anon;
+grant execute on function public.piloto_ubicacion(bigint, double precision, double precision, numeric, numeric, numeric, text) to anon;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 26. QUÉ PARTES USA CADA ACTIVIDAD (vehículos, km, peso y productos)
+--   Cada actividad dice si usa:
+--     usa_vehiculos -> vehículos (Configuración -> Vehículos y Costos, vehículo del
+--                      piloto en Usuarios, Pilotos y Mi perfil)
+--     usa_km        -> cobro por km (tarifas, simulador, distancia del Cotizador)
+--     usa_peso      -> peso (tarifas por kg, peso del pedido, Cotizador)
+--     usa_productos -> productos de la distribuidora (Productos, Bodega del día,
+--                      carga, entrega por producto, venta en ruta; bloque siguiente)
+--   La página muestra cada parte si ALGUNA actividad de la empresa la usa
+--   (empresas/empresas.js: empresaUsa). Se cambian en Configuración -> Actividades.
+--   Las que ya existían quedan como antes (vehículos, km y peso: sí).
+--   Masajes: la usaba una empresa y no estaba en la tabla (sin vehículos, km ni peso).
+--   Distribución: actividad nueva con productos.
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.actividades
+    add column if not exists usa_vehiculos boolean not null default true,
+    add column if not exists usa_km        boolean not null default true,
+    add column if not exists usa_peso      boolean not null default true,
+    add column if not exists usa_productos boolean not null default false;
+
+insert into public.actividades (codigo, nombre, descripcion, icono, orden, usa_vehiculos, usa_km, usa_peso, usa_productos) values
+    ('masajes', 'Masajes', 'Servicios a domicilio: sin vehículos, cobro por km ni peso.', 'bi-heart-pulse', 5, false, false, false, false),
+    ('distribucion', 'Distribución', 'Distribuidora: productos con presentación y precio, bodega del día por ruta, carga de pilotos, entrega, venta en ruta y devolución.',
+     'bi-boxes', 6, true, false, false, true)
+on conflict do nothing;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 27. DISTRIBUIDORA (actividades con usa_productos)
+--   Lo crea TODO la empresa (no trae catálogo):
+--     productos                -> artículo (ej. "Leche entera"), con código y categoría opcionales
+--     producto_presentaciones  -> cómo se vende (ej. "Caja 12 x 1 L") y cuántas unidades trae
+--     listas_precios           -> listas (ej. General, Zona Norte, Mayorista); una puede ser la general
+--     precios                  -> precio SIN IVA de cada presentación en cada lista + % de IVA
+--                                 (13 por defecto, se cambia al fijar el precio)
+--     tiendas.lista_precios_id -> lista que usa la tienda (si no tiene, la general)
+--     motivos_entrega_parcial  -> por qué el cliente recibió menos (los crea la empresa)
+--   Operación del día (todo con funciones de la base, todo o nada):
+--     bodegas_dia        -> bodega de UNA ruta en UNA fecha. La abre un G3 o superior
+--                           (dist_bodega_abrir), la llena (ingreso) y reparte la carga entre
+--                           los pilotos de la ruta (carga). Se puede pasar producto de un
+--                           piloto a otro (traspaso).
+--     bodega_movimientos -> ingreso, carga, devolución (buena o dañada), traspaso, ajuste y
+--                           salida (al cerrar). Guardan el precio de ese momento.
+--     pedido_productos   -> líneas del pedido (preventa) o de la venta en ruta (autoventa):
+--                           cantidad pedida, entregada y motivo si se entregó menos.
+--     cierres_mercaderia -> cuadre de cada piloto: cargado = entregado + vendido + devuelto
+--                           + faltante, en unidades y en dinero (con IVA).
+--     Cerrar la bodega devuelve lo que quedó (salida): queda en 0 y se guarda el resumen.
+--   Funciones: dist_bodega_abrir, dist_movimiento, dist_entregar, dist_venta_ruta,
+--   dist_cerrar_piloto, dist_cerrar_bodega (+ dist_bodega_saldo y dist_piloto_resumen
+--   para leer). Sección Distribución (js/secciones/distribucion.js). Plan: "distribucion".
+--   Se puede repetir.
+-- ==================================================
+
+-- ---------- Productos, presentaciones y precios (los crea la empresa) ----------
+create table if not exists public.productos (
+    id          bigint generated always as identity primary key,
+    empresa_id  bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    codigo      text,
+    nombre      text not null,
+    categoria   text,
+    activo      boolean not null default true,
+    creado_en   timestamptz not null default now(),
+
+    constraint productos_nombre_unico unique (empresa_id, nombre)
+);
+
+create table if not exists public.producto_presentaciones (
+    id             bigint generated always as identity primary key,
+    empresa_id     bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    producto_id    bigint not null references public.productos(id) on delete cascade,
+    nombre         text not null,                    -- ej. "Caja 12 x 1 L"
+    unidades       numeric(10,2) not null default 1, -- unidades que trae
+    codigo_barras  text,
+    activa         boolean not null default true,
+    orden          smallint not null default 0,
+
+    constraint presentaciones_unidades_validas check (unidades > 0),
+    constraint presentaciones_nombre_unico unique (producto_id, nombre)
+);
+create index if not exists presentaciones_producto_idx on public.producto_presentaciones (producto_id);
+
+create table if not exists public.listas_precios (
+    id          bigint generated always as identity primary key,
+    empresa_id  bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    nombre      text not null,
+    general     boolean not null default false,  -- la de las tiendas que no eligieron otra
+    activa      boolean not null default true,
+    creado_en   timestamptz not null default now(),
+
+    constraint listas_precios_nombre_unico unique (empresa_id, nombre)
+);
+create unique index if not exists listas_precios_una_general on public.listas_precios (empresa_id) where general;
+
+create table if not exists public.precios (
+    id               bigint generated always as identity primary key,
+    empresa_id       bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    lista_id         bigint not null references public.listas_precios(id) on delete cascade,
+    presentacion_id  bigint not null references public.producto_presentaciones(id) on delete cascade,
+    precio           numeric(12,2) not null default 0,  -- SIN IVA
+    iva_pct          numeric(5,2) not null default 13,  -- % de IVA (13 en Costa Rica; se cambia por precio)
+    actualizado_en   timestamptz not null default now(),
+    actualizado_por  bigint,                            -- sin llave: queda aunque se borre el usuario
+
+    constraint precios_validos check (precio >= 0 and iva_pct >= 0 and iva_pct <= 100),
+    constraint precios_unico unique (lista_id, presentacion_id)
+);
+
+alter table public.tiendas add column if not exists lista_precios_id bigint references public.listas_precios(id) on delete set null;
+
+create table if not exists public.motivos_entrega_parcial (
+    id          bigint generated always as identity primary key,
+    empresa_id  bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    nombre      text not null,
+    activo      boolean not null default true,
+    orden       smallint not null default 0,
+
+    constraint motivos_parcial_nombre_unico unique (empresa_id, nombre)
+);
+
+-- ---------- Bodega del día de cada ruta ----------
+create table if not exists public.bodegas_dia (
+    id                  bigint generated always as identity primary key,
+    empresa_id          bigint not null references public.empresas(id) on delete cascade,
+    ruta_id             bigint not null references public.rutas(id) on delete restrict,
+    tienda_id           bigint not null references public.tiendas(id) on delete restrict,
+    fecha               date not null,
+    lista_id            bigint references public.listas_precios(id) on delete set null, -- precios con que se valora
+    estado              text not null default 'abierta',
+    abierta_por         bigint,
+    abierta_por_nombre  text,
+    abierta_en          timestamptz not null default now(),
+    cerrada_por         bigint,
+    cerrada_por_nombre  text,
+    cerrada_en          timestamptz,
+    notas               text,
+    resumen             jsonb not null default '{}'::jsonb, -- lo que hubo, se cargó, vendió y devolvió (al cerrar)
+
+    constraint bodegas_dia_estado_valido check (estado in ('abierta', 'cerrada')),
+    constraint bodegas_dia_unica unique (ruta_id, fecha)
+);
+create index if not exists bodegas_dia_empresa_idx on public.bodegas_dia (empresa_id, fecha);
+
+create table if not exists public.bodega_movimientos (
+    id                 bigint generated always as identity primary key,
+    empresa_id         bigint not null references public.empresas(id) on delete cascade,
+    bodega_id          bigint not null references public.bodegas_dia(id) on delete cascade,
+    presentacion_id    bigint not null references public.producto_presentaciones(id) on delete restrict,
+    tipo               text not null,
+    piloto_id          bigint references public.usuarios(id) on delete set null, -- carga, devolución; traspaso: el que entrega
+    piloto_destino_id  bigint references public.usuarios(id) on delete set null, -- traspaso: el que recibe
+    cantidad           numeric(12,2) not null,  -- positiva (ajuste: + o -)
+    estado_producto    text,                    -- devolución: bueno | danado
+    precio             numeric(12,2) not null default 0, -- sin IVA, de la lista de la bodega en ese momento
+    iva_pct            numeric(5,2) not null default 0,
+    nota               text,
+    usuario_id         bigint,
+    usuario_nombre     text,
+    creado_en          timestamptz not null default now(),
+
+    constraint movimientos_tipo_valido check (tipo in ('ingreso', 'carga', 'devolucion', 'traspaso', 'ajuste', 'salida')),
+    constraint movimientos_cantidad_valida check (cantidad <> 0 and (tipo = 'ajuste' or cantidad > 0)),
+    constraint movimientos_estado_valido check (estado_producto is null or estado_producto in ('bueno', 'danado'))
+);
+create index if not exists movimientos_bodega_idx on public.bodega_movimientos (bodega_id, piloto_id);
+
+-- ---------- Productos del pedido (preventa) o de la venta en ruta ----------
+create table if not exists public.pedido_productos (
+    id                  bigint generated always as identity primary key,
+    pedido_id           bigint not null references public.pedidos(id) on delete cascade,
+    presentacion_id     bigint not null references public.producto_presentaciones(id) on delete restrict,
+    descripcion         text not null,          -- producto + presentación al momento
+    cantidad            numeric(12,2) not null, -- pedida
+    cantidad_entregada  numeric(12,2),          -- la pone el piloto al entregar
+    motivo              text,                   -- si entregó menos
+    precio              numeric(12,2) not null default 0, -- sin IVA, de la lista del pedido
+    iva_pct             numeric(5,2) not null default 0,
+    bodega_id           bigint references public.bodegas_dia(id) on delete set null, -- de qué bodega salió
+
+    constraint pedido_productos_validos check (cantidad > 0 and precio >= 0 and iva_pct >= 0
+        and (cantidad_entregada is null or (cantidad_entregada >= 0 and cantidad_entregada <= cantidad)))
+);
+create index if not exists pedido_productos_pedido_idx on public.pedido_productos (pedido_id);
+create index if not exists pedido_productos_bodega_idx on public.pedido_productos (bodega_id);
+
+create sequence if not exists public.dist_ventas_seq;
+
+-- ---------- Cierre de mercadería de cada piloto ----------
+create table if not exists public.cierres_mercaderia (
+    id                    bigint generated always as identity primary key,
+    empresa_id            bigint not null references public.empresas(id) on delete cascade,
+    bodega_id             bigint not null references public.bodegas_dia(id) on delete cascade,
+    ruta_id               bigint,
+    tienda_id             bigint,
+    fecha                 date not null,
+    piloto_id             bigint references public.usuarios(id) on delete set null,
+    piloto_nombre         text not null,
+    lineas                jsonb not null default '[]'::jsonb, -- una por presentación
+    unidades_cargadas     numeric(12,2) not null default 0,   -- carga + traspasos recibidos - enviados
+    unidades_entregadas   numeric(12,2) not null default 0,
+    unidades_vendidas     numeric(12,2) not null default 0,
+    unidades_devueltas    numeric(12,2) not null default 0,
+    unidades_faltantes    numeric(12,2) not null default 0,
+    valor_cargado         numeric(14,2) not null default 0,   -- con IVA, precios de la bodega
+    valor_entregado       numeric(14,2) not null default 0,   -- con IVA, precios del pedido
+    valor_vendido         numeric(14,2) not null default 0,
+    valor_devuelto        numeric(14,2) not null default 0,
+    valor_faltante        numeric(14,2) not null default 0,
+    cobrado               numeric(14,2) not null default 0,   -- total a cobrar de sus pedidos y ventas
+    notas                 text,
+    cerrado_por           bigint,
+    cerrado_por_nombre    text,
+    cerrado_en            timestamptz not null default now(),
+
+    constraint cierres_mercaderia_unico unique (bodega_id, piloto_id)
+);
+create index if not exists cierres_mercaderia_empresa_idx on public.cierres_mercaderia (empresa_id, fecha);
+
+-- ---------- Ayudas ----------
+-- ¿El usuario administra esa tienda? (G3 o superior en su alcance)
+create or replace function public.dist_puede_tienda(u public.usuarios, p_tienda bigint)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select case
+        when u.rol = 'desarrollador' then true
+        when u.rol in ('administrador', 'admin_g1') then exists (select 1 from public.tiendas t where t.id = p_tienda and t.empresa_id = u.empresa_id)
+        when u.rol = 'admin_g2' then exists (select 1 from public.tiendas t where t.id = p_tienda and t.empresa_id = u.empresa_id and t.region = u.region)
+        when u.rol = 'admin_g3' then u.tienda_id = p_tienda
+        else false
+    end;
+$$;
+
+-- Precio de una presentación en una lista (si no está, el de la lista general; si no, 0)
+create or replace function public.dist_precio(p_lista bigint, p_presentacion bigint, out precio numeric, out iva_pct numeric)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+begin
+    select pr.precio, pr.iva_pct into precio, iva_pct
+      from public.precios pr where pr.lista_id = p_lista and pr.presentacion_id = p_presentacion;
+    if not found then
+        select pr.precio, pr.iva_pct into precio, iva_pct
+          from public.precios pr
+          join public.listas_precios l on l.id = pr.lista_id and l.general
+         where pr.presentacion_id = p_presentacion
+         limit 1;
+    end if;
+    precio := coalesce(precio, 0);
+    iva_pct := coalesce(iva_pct, 0);
+end;
+$$;
+
+-- "Leche entera · Caja 12 x 1 L"
+create or replace function public.dist_descripcion(p_presentacion bigint)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select p.nombre || ' · ' || pp.nombre
+      from public.producto_presentaciones pp join public.productos p on p.id = pp.producto_id
+     where pp.id = p_presentacion;
+$$;
+
+-- Lo que hay en la bodega de cada presentación
+create or replace function public.dist_bodega_saldo(p_bodega bigint)
+returns table (presentacion_id bigint, ingresado numeric, cargado numeric, devuelto_bueno numeric,
+               devuelto_danado numeric, ajustes numeric, salida numeric, en_bodega numeric)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select m.presentacion_id,
+           coalesce(sum(m.cantidad) filter (where m.tipo = 'ingreso'), 0),
+           coalesce(sum(m.cantidad) filter (where m.tipo = 'carga'), 0),
+           coalesce(sum(m.cantidad) filter (where m.tipo = 'devolucion' and m.estado_producto = 'bueno'), 0),
+           coalesce(sum(m.cantidad) filter (where m.tipo = 'devolucion' and m.estado_producto = 'danado'), 0),
+           coalesce(sum(m.cantidad) filter (where m.tipo = 'ajuste'), 0),
+           coalesce(sum(m.cantidad) filter (where m.tipo = 'salida'), 0),
+           coalesce(sum(case m.tipo when 'ingreso' then m.cantidad when 'carga' then -m.cantidad
+                                    when 'devolucion' then m.cantidad when 'ajuste' then m.cantidad
+                                    when 'salida' then -m.cantidad else 0 end), 0)
+      from public.bodega_movimientos m
+     where m.bodega_id = p_bodega
+     group by m.presentacion_id;
+$$;
+
+-- Lo que lleva un piloto de una bodega: cargado (+ recibido - enviado), devuelto, entregado
+-- (preventa), vendido (venta en ruta) y lo que le queda en mano. valor_unidad: con IVA, con
+-- los precios con que se le cargó (si no, los de la lista de la bodega).
+create or replace function public.dist_piloto_resumen(p_bodega bigint, p_piloto bigint)
+returns table (presentacion_id bigint, cargado numeric, recibido numeric, enviado numeric,
+               devuelto_bueno numeric, devuelto_danado numeric, entregado numeric, vendido numeric,
+               en_mano numeric, valor_unidad numeric, valor_entregado numeric, valor_vendido numeric)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    with mov as (
+        select m.presentacion_id,
+               coalesce(sum(m.cantidad) filter (where m.tipo = 'carga' and m.piloto_id = p_piloto), 0) as cargado,
+               coalesce(sum(m.cantidad) filter (where m.tipo = 'traspaso' and m.piloto_destino_id = p_piloto), 0) as recibido,
+               coalesce(sum(m.cantidad) filter (where m.tipo = 'traspaso' and m.piloto_id = p_piloto), 0) as enviado,
+               coalesce(sum(m.cantidad) filter (where m.tipo = 'devolucion' and m.piloto_id = p_piloto and m.estado_producto = 'bueno'), 0) as dev_b,
+               coalesce(sum(m.cantidad) filter (where m.tipo = 'devolucion' and m.piloto_id = p_piloto and m.estado_producto = 'danado'), 0) as dev_d,
+               sum(m.cantidad * m.precio * (1 + m.iva_pct / 100)) filter (where m.tipo = 'carga')
+                   / nullif(sum(m.cantidad) filter (where m.tipo = 'carga'), 0) as valor_unidad
+          from public.bodega_movimientos m
+         where m.bodega_id = p_bodega and (m.piloto_id = p_piloto or m.piloto_destino_id = p_piloto)
+         group by m.presentacion_id
+    ), ven as (
+        select pp.presentacion_id,
+               coalesce(sum(pp.cantidad_entregada) filter (where not coalesce((pe.detalle ->> 'venta_ruta')::boolean, false)), 0) as entregado,
+               coalesce(sum(pp.cantidad_entregada) filter (where coalesce((pe.detalle ->> 'venta_ruta')::boolean, false)), 0) as vendido,
+               coalesce(sum(round(pp.cantidad_entregada * pp.precio * (1 + pp.iva_pct / 100), 2))
+                   filter (where not coalesce((pe.detalle ->> 'venta_ruta')::boolean, false)), 0) as valor_entregado,
+               coalesce(sum(round(pp.cantidad_entregada * pp.precio * (1 + pp.iva_pct / 100), 2))
+                   filter (where coalesce((pe.detalle ->> 'venta_ruta')::boolean, false)), 0) as valor_vendido
+          from public.pedido_productos pp
+          join public.pedidos pe on pe.id = pp.pedido_id
+         where pp.bodega_id = p_bodega and pe.piloto_id = p_piloto and not pe.anulado and coalesce(pp.cantidad_entregada, 0) > 0
+         group by pp.presentacion_id
+    ), ids as (
+        select mov.presentacion_id from mov union select ven.presentacion_id from ven
+    )
+    select i.presentacion_id,
+           coalesce(mov.cargado, 0), coalesce(mov.recibido, 0), coalesce(mov.enviado, 0),
+           coalesce(mov.dev_b, 0), coalesce(mov.dev_d, 0), coalesce(ven.entregado, 0), coalesce(ven.vendido, 0),
+           coalesce(mov.cargado, 0) + coalesce(mov.recibido, 0) - coalesce(mov.enviado, 0) - coalesce(mov.dev_b, 0)
+               - coalesce(mov.dev_d, 0) - coalesce(ven.entregado, 0) - coalesce(ven.vendido, 0),
+           round(coalesce(mov.valor_unidad, (select d.precio * (1 + d.iva_pct / 100)
+                                               from public.bodegas_dia b, public.dist_precio(b.lista_id, i.presentacion_id) d
+                                              where b.id = p_bodega)), 2),
+           coalesce(ven.valor_entregado, 0), coalesce(ven.valor_vendido, 0)
+      from ids i
+      left join mov on mov.presentacion_id = i.presentacion_id
+      left join ven on ven.presentacion_id = i.presentacion_id;
+$$;
+
+-- Bodega abierta de la que sale lo que entrega o vende un piloto: la de su carga (sin cerrar),
+-- primero la de la ruta indicada y la más reciente
+create or replace function public.dist_bodega_del_piloto(p_piloto bigint, p_ruta bigint default null)
+returns bigint
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select b.id
+      from public.bodegas_dia b
+     where b.estado = 'abierta'
+       and exists (select 1 from public.bodega_movimientos m where m.bodega_id = b.id
+                     and ((m.tipo = 'carga' and m.piloto_id = p_piloto) or (m.tipo = 'traspaso' and m.piloto_destino_id = p_piloto)))
+       and not exists (select 1 from public.cierres_mercaderia c where c.bodega_id = b.id and c.piloto_id = p_piloto)
+     order by (b.ruta_id = p_ruta) desc nulls last, b.fecha desc, b.id desc
+     limit 1;
+$$;
+
+-- ---------- Abrir la bodega del día de una ruta ----------
+-- p = { usuario_id, ruta_id, fecha, lista_id }. Si ya existe, la devuelve.
+create or replace function public.dist_bodega_abrir(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u        public.usuarios;
+    r        public.rutas;
+    t        public.tiendas;
+    v_fecha  date := coalesce((p ->> 'fecha')::date, (now() at time zone 'America/Costa_Rica')::date);
+    v_lista  bigint := (p ->> 'lista_id')::bigint;
+    v_id     bigint;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    select * into r from public.rutas where id = (p ->> 'ruta_id')::bigint;
+    if not found then
+        raise exception 'Esa ruta no existe.' using errcode = 'P0001';
+    end if;
+    select * into t from public.tiendas where id = r.tienda_id;
+    if not public.dist_puede_tienda(u, r.tienda_id) then
+        raise exception 'Solo un Admin G3 o superior de la tienda puede abrir su bodega del día.' using errcode = 'P0001';
+    end if;
+    if v_lista is not null and not exists (select 1 from public.listas_precios l where l.id = v_lista and l.empresa_id = t.empresa_id) then
+        raise exception 'Esa lista de precios no es de la empresa.' using errcode = 'P0001';
+    end if;
+    v_lista := coalesce(v_lista, t.lista_precios_id,
+                        (select l.id from public.listas_precios l where l.empresa_id = t.empresa_id and l.general limit 1));
+
+    insert into public.bodegas_dia (empresa_id, ruta_id, tienda_id, fecha, lista_id, abierta_por, abierta_por_nombre)
+    values (t.empresa_id, r.id, r.tienda_id, v_fecha, v_lista, u.id, u.nombre)
+    on conflict (ruta_id, fecha) do nothing
+    returning id into v_id;
+    if v_id is null then
+        select id into v_id from public.bodegas_dia where ruta_id = r.id and fecha = v_fecha;
+    end if;
+    return (select to_jsonb(b) from public.bodegas_dia b where b.id = v_id);
+end;
+$$;
+
+-- ---------- Movimientos: ingreso, carga, devolución, traspaso, ajuste ----------
+-- p = { usuario_id, bodega_id, tipo, piloto_id, piloto_destino_id, nota,
+--       lineas: [{ presentacion_id, cantidad, estado (devolución: bueno | danado) }] }
+-- Todo o nada: si una línea deja la bodega o al piloto en negativo, no se guarda nada.
+create or replace function public.dist_movimiento(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u         public.usuarios;
+    b         public.bodegas_dia;
+    v_tipo    text := p ->> 'tipo';
+    v_piloto  bigint := (p ->> 'piloto_id')::bigint;
+    v_destino bigint := (p ->> 'piloto_destino_id')::bigint;
+    v_nota    text := nullif(btrim(coalesce(p ->> 'nota', '')), '');
+    l         record;
+    v_precio  record;
+    v_n       integer := 0;
+    v_mal     text;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    select * into b from public.bodegas_dia where id = (p ->> 'bodega_id')::bigint;
+    if not found then
+        raise exception 'Esa bodega no existe.' using errcode = 'P0001';
+    end if;
+    if not public.dist_puede_tienda(u, b.tienda_id) then
+        raise exception 'Solo un Admin G3 o superior de la tienda mueve la bodega.' using errcode = 'P0001';
+    end if;
+    if b.estado <> 'abierta' then
+        raise exception 'La bodega de ese día ya está cerrada.' using errcode = 'P0001';
+    end if;
+    if v_tipo is null or v_tipo not in ('ingreso', 'carga', 'devolucion', 'traspaso', 'ajuste') then
+        raise exception 'Movimiento no válido.' using errcode = 'P0001';
+    end if;
+    if v_tipo = 'ajuste' and v_nota is null then
+        raise exception 'Escribe por qué se ajusta la bodega.' using errcode = 'P0001';
+    end if;
+    if v_tipo in ('carga', 'devolucion', 'traspaso') then
+        if not exists (select 1 from public.usuarios x where x.id = v_piloto and x.rol = 'piloto' and x.empresa_id = b.empresa_id) then
+            raise exception 'Elige el piloto.' using errcode = 'P0001';
+        end if;
+        if exists (select 1 from public.cierres_mercaderia c where c.bodega_id = b.id and c.piloto_id = v_piloto) then
+            raise exception 'Ese piloto ya cerró su mercadería de esta bodega.' using errcode = 'P0001';
+        end if;
+    else
+        v_piloto := null;
+    end if;
+    if v_tipo = 'traspaso' then
+        if v_destino is null or v_destino = v_piloto
+           or not exists (select 1 from public.usuarios x where x.id = v_destino and x.rol = 'piloto' and x.empresa_id = b.empresa_id) then
+            raise exception 'Elige el piloto que recibe (otro distinto).' using errcode = 'P0001';
+        end if;
+        if exists (select 1 from public.cierres_mercaderia c where c.bodega_id = b.id and c.piloto_id = v_destino) then
+            raise exception 'El piloto que recibe ya cerró su mercadería de esta bodega.' using errcode = 'P0001';
+        end if;
+    else
+        v_destino := null;
+    end if;
+    if jsonb_array_length(coalesce(p -> 'lineas', '[]'::jsonb)) = 0 then
+        raise exception 'Agrega al menos un producto.' using errcode = 'P0001';
+    end if;
+
+    -- Un movimiento a la vez por bodega
+    perform pg_advisory_xact_lock(7304, b.id::integer);
+
+    for l in select * from jsonb_to_recordset(p -> 'lineas') as x(presentacion_id bigint, cantidad numeric, estado text) loop
+        if not exists (select 1 from public.producto_presentaciones pp where pp.id = l.presentacion_id and pp.empresa_id = b.empresa_id) then
+            raise exception 'Un producto no es de la empresa.' using errcode = 'P0001';
+        end if;
+        if l.cantidad is null or l.cantidad = 0 or (v_tipo <> 'ajuste' and l.cantidad < 0) then
+            raise exception 'Revisa las cantidades (mayores que 0).' using errcode = 'P0001';
+        end if;
+        select * into v_precio from public.dist_precio(b.lista_id, l.presentacion_id);
+        insert into public.bodega_movimientos (empresa_id, bodega_id, presentacion_id, tipo, piloto_id, piloto_destino_id,
+            cantidad, estado_producto, precio, iva_pct, nota, usuario_id, usuario_nombre)
+        values (b.empresa_id, b.id, l.presentacion_id, v_tipo, v_piloto, v_destino, round(l.cantidad, 2),
+            case when v_tipo = 'devolucion' then (case when l.estado = 'danado' then 'danado' else 'bueno' end) end,
+            v_precio.precio, v_precio.iva_pct, v_nota, u.id, u.nombre);
+        v_n := v_n + 1;
+    end loop;
+
+    -- Nada puede quedar en negativo
+    select public.dist_descripcion(s.presentacion_id) into v_mal
+      from public.dist_bodega_saldo(b.id) s where s.en_bodega < 0 limit 1;
+    if v_mal is not null then
+        raise exception 'No hay suficiente en la bodega: %.', v_mal using errcode = 'P0001';
+    end if;
+    if v_piloto is not null then
+        select public.dist_descripcion(s.presentacion_id) into v_mal
+          from public.dist_piloto_resumen(b.id, v_piloto) s where s.en_mano < 0 limit 1;
+        if v_mal is not null then
+            raise exception 'El piloto no tiene tanto en mano: %.', v_mal using errcode = 'P0001';
+        end if;
+    end if;
+    return jsonb_build_object('movimientos', v_n);
+end;
+$$;
+
+-- ---------- Entregar un pedido con productos (preventa) ----------
+-- p = { usuario_id, pedido_id, cobro_forma, nota,
+--       lineas: [{ id, entregada, motivo }] }   (una por cada línea del pedido)
+-- Si entregó menos de lo pedido, el motivo es obligatorio y el pedido queda "Entregado con
+-- incidencia". El total a cobrar se recalcula con lo entregado (+ el envío si se cobraba).
+-- Si el piloto tiene carga en una bodega del día abierta, lo entregado sale de ella.
+create or replace function public.dist_entregar(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u          public.usuarios;
+    pe         public.pedidos;
+    l          record;
+    v_bodega   bigint;
+    v_forma    text := p ->> 'cobro_forma';
+    v_nota     text := nullif(btrim(coalesce(p ->> 'nota', '')), '');
+    v_prod_ant numeric;
+    v_envio    numeric;
+    v_prod     numeric;
+    v_total    numeric;
+    v_incomp   integer;
+    v_estado   text;
+    v_mal      text;
+    v_faltan   jsonb;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    select * into pe from public.pedidos where id = (p ->> 'pedido_id')::bigint for update;
+    if not found then
+        raise exception 'Ese pedido no existe.' using errcode = 'P0001';
+    end if;
+    if u.id is distinct from pe.piloto_id and not public.dist_puede_tienda(u, pe.tienda_id) then
+        raise exception 'Solo el piloto del pedido (o un G3 o superior de la tienda) lo entrega.' using errcode = 'P0001';
+    end if;
+    if pe.anulado or pe.estado not in ('en_ruta', 'en_entrega') then
+        raise exception 'El pedido no está en ruta: no se puede entregar.' using errcode = 'P0001';
+    end if;
+    if not exists (select 1 from public.pedido_productos x where x.pedido_id = pe.id) then
+        raise exception 'El pedido no tiene productos.' using errcode = 'P0001';
+    end if;
+    if (select count(*) from public.pedido_productos x where x.pedido_id = pe.id)
+       <> (select count(*) from jsonb_to_recordset(coalesce(p -> 'lineas', '[]'::jsonb)) as x(id bigint, entregada numeric, motivo text)
+             join public.pedido_productos pp on pp.id = x.id and pp.pedido_id = pe.id) then
+        raise exception 'Escribe la cantidad entregada de cada producto.' using errcode = 'P0001';
+    end if;
+
+    v_bodega := public.dist_bodega_del_piloto(pe.piloto_id, pe.ruta_id);
+
+    for l in select * from jsonb_to_recordset(p -> 'lineas') as x(id bigint, entregada numeric, motivo text) loop
+        if l.entregada is null or l.entregada < 0 then
+            raise exception 'Revisa las cantidades entregadas (0 o más).' using errcode = 'P0001';
+        end if;
+        if l.entregada > (select pp.cantidad from public.pedido_productos pp where pp.id = l.id) then
+            raise exception 'No se puede entregar más de lo pedido.' using errcode = 'P0001';
+        end if;
+        if l.entregada < (select pp.cantidad from public.pedido_productos pp where pp.id = l.id)
+           and nullif(btrim(coalesce(l.motivo, '')), '') is null then
+            raise exception 'Escribe el motivo de cada producto que se entregó incompleto.' using errcode = 'P0001';
+        end if;
+        update public.pedido_productos
+           set cantidad_entregada = round(l.entregada, 2),
+               motivo = case when l.entregada < cantidad then btrim(l.motivo) end,
+               bodega_id = v_bodega
+         where id = l.id and pedido_id = pe.id;
+    end loop;
+
+    if not exists (select 1 from public.pedido_productos x where x.pedido_id = pe.id and x.cantidad_entregada > 0) then
+        raise exception 'No se entregó ningún producto: márcalo como "No entregado".' using errcode = 'P0001';
+    end if;
+
+    -- Lo entregado tiene que haber salido de su carga
+    if v_bodega is not null then
+        select public.dist_descripcion(s.presentacion_id) into v_mal
+          from public.dist_piloto_resumen(v_bodega, pe.piloto_id) s where s.en_mano < 0 limit 1;
+        if v_mal is not null then
+            raise exception 'El piloto no lleva suficiente en su carga: %.', v_mal using errcode = 'P0001';
+        end if;
+    end if;
+
+    -- Total: productos entregados (con IVA) + el envío que se cobraba
+    v_prod_ant := coalesce((pe.detalle #>> '{productos,total}')::numeric, 0);
+    v_envio := greatest(pe.total_cobrar - v_prod_ant, 0);
+    select coalesce(sum(round(x.cantidad_entregada * x.precio * (1 + x.iva_pct / 100), 2)), 0),
+           count(*) filter (where x.cantidad_entregada < x.cantidad)
+      into v_prod, v_incomp
+      from public.pedido_productos x where x.pedido_id = pe.id;
+    v_total := round(v_envio + v_prod, 2);
+    if v_total > 0 and (v_forma is null or v_forma not in ('efectivo', 'sinpe', 'tarjeta')) then
+        raise exception 'Elige cómo pagó el cliente.' using errcode = 'P0001';
+    end if;
+    v_estado := case when v_incomp > 0 then 'entregado_incidencia' else 'entregado' end;
+    select coalesce(jsonb_agg(jsonb_build_object('producto', x.descripcion, 'pedido', x.cantidad,
+                                                 'entregado', x.cantidad_entregada, 'motivo', x.motivo)), '[]'::jsonb)
+      into v_faltan
+      from public.pedido_productos x where x.pedido_id = pe.id and x.cantidad_entregada < x.cantidad;
+
+    update public.pedidos
+       set estado = v_estado,
+           total_cobrar = v_total,
+           cobro_forma = case when v_total > 0 then v_forma end,
+           detalle = jsonb_set(detalle, '{productos}', coalesce(detalle -> 'productos', '{}'::jsonb)
+                     || jsonb_build_object('total_pedido', v_prod_ant, 'total_entregado', v_prod, 'incompletos', v_incomp)),
+           actualizado_en = now()
+     where id = pe.id;
+
+    insert into public.pedido_entregas (pedido_id, piloto_id, recibio_nombre, comentario)
+    values (pe.id, pe.piloto_id, case when pe.recibe_tipo = 'autorizado' then pe.recibe_nombre else pe.cliente_nombre end,
+            coalesce(v_nota, case when v_incomp > 0 then 'Entrega incompleta' else 'Entregado completo' end))
+    on conflict (pedido_id) do update
+       set piloto_id = excluded.piloto_id, entregado_en = now(), recibio_nombre = excluded.recibio_nombre, comentario = excluded.comentario;
+
+    insert into public.pedido_historial (pedido_id, evento, estado_anterior, estado_nuevo, detalle, usuario_id, usuario_nombre)
+    values (pe.id, 'estado', pe.estado, v_estado,
+            jsonb_build_object('cobro', case when v_total > 0 then v_forma end, 'total', v_total)
+            || case when v_incomp > 0 then jsonb_build_object('incompletos', v_faltan) else '{}'::jsonb end
+            || case when v_nota is not null then jsonb_build_object('nota', v_nota) else '{}'::jsonb end,
+            u.id, u.nombre);
+
+    return jsonb_build_object('estado', v_estado, 'total', v_total, 'incompletos', v_incomp, 'faltan', v_faltan);
+end;
+$$;
+
+-- ---------- Venta en ruta (autoventa): el piloto vende de lo que lleva ----------
+-- p = { usuario_id, piloto_id (si la registra un G3+), cliente_id, cliente_nombre, cliente_telefono,
+--       direccion, lista_id, cobro_forma, nota, lineas: [{ presentacion_id, cantidad }] }
+-- Queda como un pedido ya entregado (detalle.venta_ruta), así entra en la Caja del piloto.
+create or replace function public.dist_venta_ruta(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u          public.usuarios;
+    pil        public.usuarios;
+    b          public.bodegas_dia;
+    r          public.rutas;
+    v_lista    bigint;
+    v_act      text;
+    v_forma    text := p ->> 'cobro_forma';
+    v_ped      bigint;
+    v_codigo   text;
+    l          record;
+    v_precio   record;
+    v_sub      numeric := 0;
+    v_iva      numeric := 0;
+    v_total    numeric;
+    v_mal      text;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    if u.rol = 'piloto' then
+        pil := u;
+    else
+        select * into pil from public.usuarios where id = (p ->> 'piloto_id')::bigint and rol = 'piloto';
+        if not found then
+            raise exception 'Elige el piloto que vendió.' using errcode = 'P0001';
+        end if;
+    end if;
+
+    select * into b from public.bodegas_dia where id = public.dist_bodega_del_piloto(pil.id, null);
+    if not found then
+        raise exception 'Para vender en ruta hace falta tener carga en una bodega del día abierta.' using errcode = 'P0001';
+    end if;
+    if u.rol <> 'piloto' and not public.dist_puede_tienda(u, b.tienda_id) then
+        raise exception 'Solo el piloto o un G3 o superior de la tienda registra la venta.' using errcode = 'P0001';
+    end if;
+    if jsonb_array_length(coalesce(p -> 'lineas', '[]'::jsonb)) = 0 then
+        raise exception 'Agrega al menos un producto.' using errcode = 'P0001';
+    end if;
+    if v_forma is null or v_forma not in ('efectivo', 'sinpe', 'tarjeta') then
+        raise exception 'Elige cómo pagó el cliente.' using errcode = 'P0001';
+    end if;
+    v_lista := (p ->> 'lista_id')::bigint;
+    if v_lista is null or not exists (select 1 from public.listas_precios x where x.id = v_lista and x.empresa_id = b.empresa_id) then
+        v_lista := b.lista_id;
+    end if;
+
+    -- Actividad del pedido: la de la ruta o una de la empresa que use productos
+    select * into r from public.rutas where id = b.ruta_id;
+    v_act := r.actividad;
+    if v_act is null then
+        select a.codigo into v_act
+          from public.actividades a, public.empresas e
+         where e.id = b.empresa_id and a.codigo = any (e.actividades) and a.usa_productos
+         order by a.orden limit 1;
+    end if;
+    v_act := coalesce(v_act, 'distribucion');
+
+    v_codigo := 'VR-' || lpad(nextval('public.dist_ventas_seq')::text, 6, '0');
+    -- Se crea ya entregada (con sus horas): no pasa por "Entregando" (uno a la vez por piloto)
+    insert into public.pedidos (actividad, tienda_id, ruta_id, cliente_id, cliente_nombre, cliente_telefono,
+        direccion_entrega, fecha_entrega, piloto_id, estado, forma_pago, detalle, notas, creado_por, codigo,
+        entregando_en, finalizado_en)
+    values (v_act, b.tienda_id, b.ruta_id, (p ->> 'cliente_id')::bigint,
+        coalesce(nullif(btrim(coalesce(p ->> 'cliente_nombre', '')), ''), 'Cliente de contado'),
+        coalesce(nullif(btrim(coalesce(p ->> 'cliente_telefono', '')), ''), ''),
+        coalesce(nullif(btrim(coalesce(p ->> 'direccion', '')), ''), 'Venta en ruta'),
+        b.fecha, pil.id, 'entregado', case when v_forma = 'tarjeta' then 'tarjeta' else 'efectivo' end,
+        jsonb_build_object('venta_ruta', true, 'lista_id', v_lista),
+        nullif(btrim(coalesce(p ->> 'nota', '')), ''), u.id, v_codigo, now(), now())
+    returning id, codigo into v_ped, v_codigo;
+
+    for l in select * from jsonb_to_recordset(p -> 'lineas') as x(presentacion_id bigint, cantidad numeric) loop
+        if not exists (select 1 from public.producto_presentaciones pp where pp.id = l.presentacion_id and pp.empresa_id = b.empresa_id) then
+            raise exception 'Un producto no es de la empresa.' using errcode = 'P0001';
+        end if;
+        if l.cantidad is null or l.cantidad <= 0 then
+            raise exception 'Revisa las cantidades (mayores que 0).' using errcode = 'P0001';
+        end if;
+        select * into v_precio from public.dist_precio(v_lista, l.presentacion_id);
+        insert into public.pedido_productos (pedido_id, presentacion_id, descripcion, cantidad, cantidad_entregada, precio, iva_pct, bodega_id)
+        values (v_ped, l.presentacion_id, public.dist_descripcion(l.presentacion_id), round(l.cantidad, 2), round(l.cantidad, 2),
+                v_precio.precio, v_precio.iva_pct, b.id);
+        v_sub := v_sub + round(l.cantidad * v_precio.precio, 2);
+        v_iva := v_iva + round(l.cantidad * v_precio.precio * v_precio.iva_pct / 100, 2);
+    end loop;
+
+    select public.dist_descripcion(s.presentacion_id) into v_mal
+      from public.dist_piloto_resumen(b.id, pil.id) s where s.en_mano < 0 limit 1;
+    if v_mal is not null then
+        raise exception 'No llevas suficiente en tu carga: %.', v_mal using errcode = 'P0001';
+    end if;
+
+    select coalesce(sum(round(x.cantidad_entregada * x.precio * (1 + x.iva_pct / 100), 2)), 0) into v_total
+      from public.pedido_productos x where x.pedido_id = v_ped;
+
+    -- Total y forma de cobro (la Caja del piloto la ve como cualquier entrega)
+    update public.pedidos
+       set total_cobrar = v_total, cobro_forma = v_forma,
+           detalle = detalle || jsonb_build_object('productos', jsonb_build_object('subtotal', v_sub, 'iva', v_iva, 'total', v_total,
+                                                                                  'total_pedido', v_total, 'total_entregado', v_total, 'incompletos', 0))
+     where id = v_ped;
+
+    insert into public.pedido_entregas (pedido_id, piloto_id, recibio_nombre, comentario)
+    values (v_ped, pil.id, coalesce(nullif(btrim(coalesce(p ->> 'cliente_nombre', '')), ''), 'Cliente de contado'), 'Venta en ruta')
+    on conflict (pedido_id) do nothing;
+
+    insert into public.pedido_historial (pedido_id, evento, estado_anterior, estado_nuevo, detalle, usuario_id, usuario_nombre)
+    values (v_ped, 'registrado', null, 'entregado', jsonb_build_object('venta_ruta', true, 'cobro', v_forma, 'total', v_total), u.id, u.nombre);
+
+    return jsonb_build_object('id', v_ped, 'codigo', v_codigo, 'total', v_total);
+end;
+$$;
+
+-- ---------- Cerrar la mercadería de un piloto (cuadre) ----------
+-- p = { usuario_id, bodega_id, piloto_id, notas }
+-- Lo que no entregó, vendió ni devolvió queda como FALTANTE (unidades y dinero).
+create or replace function public.dist_cerrar_piloto(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u         public.usuarios;
+    b         public.bodegas_dia;
+    pil       public.usuarios;
+    v_lineas  jsonb;
+    v_cierre  bigint;
+    v_cobrado numeric;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    select * into b from public.bodegas_dia where id = (p ->> 'bodega_id')::bigint;
+    if not found then
+        raise exception 'Esa bodega no existe.' using errcode = 'P0001';
+    end if;
+    if not public.dist_puede_tienda(u, b.tienda_id) then
+        raise exception 'Solo un Admin G3 o superior de la tienda cierra la mercadería.' using errcode = 'P0001';
+    end if;
+    if b.estado <> 'abierta' then
+        raise exception 'La bodega de ese día ya está cerrada.' using errcode = 'P0001';
+    end if;
+    select * into pil from public.usuarios where id = (p ->> 'piloto_id')::bigint and rol = 'piloto';
+    if not found then
+        raise exception 'Ese piloto no existe.' using errcode = 'P0001';
+    end if;
+    if exists (select 1 from public.cierres_mercaderia c where c.bodega_id = b.id and c.piloto_id = pil.id) then
+        raise exception 'Ese piloto ya cerró su mercadería de esta bodega.' using errcode = 'P0001';
+    end if;
+    if exists (select 1 from public.pedidos pe
+                where pe.piloto_id = pil.id and not pe.anulado and pe.estado in ('en_ruta', 'en_entrega')
+                  and exists (select 1 from public.pedido_productos x where x.pedido_id = pe.id)) then
+        raise exception 'El piloto todavía tiene pedidos en ruta: márcalos como entregados o no entregados.' using errcode = 'P0001';
+    end if;
+
+    perform pg_advisory_xact_lock(7304, b.id::integer);
+
+    select coalesce(jsonb_agg(jsonb_build_object(
+               'presentacion_id', s.presentacion_id, 'descripcion', public.dist_descripcion(s.presentacion_id),
+               'cargado', s.cargado + s.recibido - s.enviado, 'entregado', s.entregado, 'vendido', s.vendido,
+               'devuelto_bueno', s.devuelto_bueno, 'devuelto_danado', s.devuelto_danado, 'faltante', s.en_mano,
+               'valor_unidad', s.valor_unidad, 'valor_entregado', s.valor_entregado, 'valor_vendido', s.valor_vendido)
+               order by public.dist_descripcion(s.presentacion_id)), '[]'::jsonb)
+      into v_lineas
+      from public.dist_piloto_resumen(b.id, pil.id) s;
+    if jsonb_array_length(v_lineas) = 0 then
+        raise exception 'Ese piloto no tiene carga en esta bodega.' using errcode = 'P0001';
+    end if;
+
+    select coalesce(sum(pe.total_cobrar), 0) into v_cobrado
+      from public.pedidos pe
+     where pe.piloto_id = pil.id and not pe.anulado
+       and exists (select 1 from public.pedido_productos x where x.pedido_id = pe.id and x.bodega_id = b.id);
+
+    insert into public.cierres_mercaderia (empresa_id, bodega_id, ruta_id, tienda_id, fecha, piloto_id, piloto_nombre, lineas,
+        unidades_cargadas, unidades_entregadas, unidades_vendidas, unidades_devueltas, unidades_faltantes,
+        valor_cargado, valor_entregado, valor_vendido, valor_devuelto, valor_faltante, cobrado,
+        notas, cerrado_por, cerrado_por_nombre)
+    select b.empresa_id, b.id, b.ruta_id, b.tienda_id, b.fecha, pil.id, pil.nombre, v_lineas,
+           sum((x ->> 'cargado')::numeric), sum((x ->> 'entregado')::numeric), sum((x ->> 'vendido')::numeric),
+           sum((x ->> 'devuelto_bueno')::numeric + (x ->> 'devuelto_danado')::numeric), sum((x ->> 'faltante')::numeric),
+           round(sum((x ->> 'cargado')::numeric * (x ->> 'valor_unidad')::numeric), 2),
+           sum((x ->> 'valor_entregado')::numeric), sum((x ->> 'valor_vendido')::numeric),
+           round(sum(((x ->> 'devuelto_bueno')::numeric + (x ->> 'devuelto_danado')::numeric) * (x ->> 'valor_unidad')::numeric), 2),
+           round(sum((x ->> 'faltante')::numeric * (x ->> 'valor_unidad')::numeric), 2),
+           v_cobrado, nullif(btrim(coalesce(p ->> 'notas', '')), ''), u.id, u.nombre
+      from jsonb_array_elements(v_lineas) x
+    returning id into v_cierre;
+
+    return (select to_jsonb(c) from public.cierres_mercaderia c where c.id = v_cierre);
+end;
+$$;
+
+-- ---------- Cerrar la bodega del día (queda en 0) ----------
+-- p = { usuario_id, bodega_id, notas }
+-- Todos los pilotos con carga tienen que estar cerrados. Lo que queda sale de la bodega
+-- (devolución a la tienda) y se guarda el resumen del día.
+create or replace function public.dist_cerrar_bodega(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u          public.usuarios;
+    b          public.bodegas_dia;
+    v_falta    text;
+    v_resumen  jsonb;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    select * into b from public.bodegas_dia where id = (p ->> 'bodega_id')::bigint for update;
+    if not found then
+        raise exception 'Esa bodega no existe.' using errcode = 'P0001';
+    end if;
+    if not public.dist_puede_tienda(u, b.tienda_id) then
+        raise exception 'Solo un Admin G3 o superior de la tienda cierra la bodega.' using errcode = 'P0001';
+    end if;
+    if b.estado <> 'abierta' then
+        raise exception 'La bodega de ese día ya está cerrada.' using errcode = 'P0001';
+    end if;
+
+    perform pg_advisory_xact_lock(7304, b.id::integer);
+
+    select string_agg(distinct x.nombre, ', ') into v_falta
+      from public.bodega_movimientos m
+      join public.usuarios x on x.id in (m.piloto_id, m.piloto_destino_id)
+     where m.bodega_id = b.id and m.tipo in ('carga', 'traspaso')
+       and not exists (select 1 from public.cierres_mercaderia c where c.bodega_id = b.id and c.piloto_id = x.id);
+    if v_falta is not null then
+        raise exception 'Primero cierra la mercadería de: %.', v_falta using errcode = 'P0001';
+    end if;
+
+    -- Lo que queda sale de la bodega (vuelve a la tienda)
+    insert into public.bodega_movimientos (empresa_id, bodega_id, presentacion_id, tipo, cantidad, precio, iva_pct, nota, usuario_id, usuario_nombre)
+    select b.empresa_id, b.id, s.presentacion_id, 'salida', s.en_bodega, d.precio, d.iva_pct, 'Cierre del día: vuelve a la tienda', u.id, u.nombre
+      from public.dist_bodega_saldo(b.id) s, public.dist_precio(b.lista_id, s.presentacion_id) d
+     where s.en_bodega > 0;
+
+    -- Resumen del día por presentación (unidades) y totales (dinero con IVA)
+    with s as (
+        select * from public.dist_bodega_saldo(b.id)
+    ), ven as (
+        select pp.presentacion_id,
+               coalesce(sum(pp.cantidad_entregada) filter (where not coalesce((pe.detalle ->> 'venta_ruta')::boolean, false)), 0) as entregado,
+               coalesce(sum(pp.cantidad_entregada) filter (where coalesce((pe.detalle ->> 'venta_ruta')::boolean, false)), 0) as vendido,
+               coalesce(sum(round(pp.cantidad_entregada * pp.precio * (1 + pp.iva_pct / 100), 2)), 0) as valor_vendido
+          from public.pedido_productos pp join public.pedidos pe on pe.id = pp.pedido_id
+         where pp.bodega_id = b.id and not pe.anulado
+         group by pp.presentacion_id
+    ), fal as (
+        select (x ->> 'presentacion_id')::bigint as presentacion_id, sum((x ->> 'faltante')::numeric) as faltante,
+               sum((x ->> 'faltante')::numeric * (x ->> 'valor_unidad')::numeric) as valor_faltante
+          from public.cierres_mercaderia c, jsonb_array_elements(c.lineas) x
+         where c.bodega_id = b.id
+         group by 1
+    ), lineas as (
+        select s.presentacion_id, public.dist_descripcion(s.presentacion_id) as descripcion,
+               s.ingresado, s.cargado, s.devuelto_bueno, s.devuelto_danado, s.ajustes, s.salida,
+               coalesce(ven.entregado, 0) as entregado, coalesce(ven.vendido, 0) as vendido,
+               coalesce(fal.faltante, 0) as faltante, coalesce(ven.valor_vendido, 0) as valor_vendido,
+               coalesce(fal.valor_faltante, 0) as valor_faltante,
+               round(d.precio * (1 + d.iva_pct / 100), 2) as valor_unidad
+          from s
+          left join ven on ven.presentacion_id = s.presentacion_id
+          left join fal on fal.presentacion_id = s.presentacion_id
+          cross join lateral public.dist_precio(b.lista_id, s.presentacion_id) d
+    )
+    select jsonb_build_object(
+               'lineas', coalesce(jsonb_agg(to_jsonb(lineas) order by lineas.descripcion), '[]'::jsonb),
+               'totales', jsonb_build_object(
+                   'ingresado', coalesce(sum(lineas.ingresado), 0),
+                   'cargado', coalesce(sum(lineas.cargado), 0),
+                   'entregado', coalesce(sum(lineas.entregado), 0),
+                   'vendido', coalesce(sum(lineas.vendido), 0),
+                   'devuelto_bueno', coalesce(sum(lineas.devuelto_bueno), 0),
+                   'devuelto_danado', coalesce(sum(lineas.devuelto_danado), 0),
+                   'ajustes', coalesce(sum(lineas.ajustes), 0),
+                   'salida', coalesce(sum(lineas.salida), 0),
+                   'faltante', coalesce(sum(lineas.faltante), 0),
+                   'valor_ingresado', round(coalesce(sum(lineas.ingresado * lineas.valor_unidad), 0), 2),
+                   'valor_vendido', round(coalesce(sum(lineas.valor_vendido), 0), 2),
+                   'valor_salida', round(coalesce(sum(lineas.salida * lineas.valor_unidad), 0), 2),
+                   'valor_faltante', round(coalesce(sum(lineas.valor_faltante), 0), 2)),
+               'pilotos', (select count(*) from public.cierres_mercaderia c where c.bodega_id = b.id))
+      into v_resumen
+      from lineas;
+
+    update public.bodegas_dia
+       set estado = 'cerrada', cerrada_por = u.id, cerrada_por_nombre = u.nombre, cerrada_en = now(),
+           notas = nullif(btrim(coalesce(p ->> 'notas', '')), ''), resumen = v_resumen
+     where id = b.id;
+
+    return (select to_jsonb(x) from public.bodegas_dia x where x.id = b.id);
+end;
+$$;
+
+-- ---------- Acceso desde la web (TEMPORAL, como las demás tablas) ----------
+-- Productos, presentaciones, listas, precios y motivos: los administra la página.
+do $$
+declare
+    t text;
+begin
+    foreach t in array array['productos', 'producto_presentaciones', 'listas_precios', 'precios', 'motivos_entrega_parcial'] loop
+        execute format('alter table public.%I enable row level security', t);
+        execute format('grant select, insert, update, delete on public.%I to anon', t);
+        execute format('drop policy if exists "TEMPORAL - leer %s" on public.%I', t, t);
+        execute format('drop policy if exists "TEMPORAL - crear %s" on public.%I', t, t);
+        execute format('drop policy if exists "TEMPORAL - modificar %s" on public.%I', t, t);
+        execute format('drop policy if exists "TEMPORAL - eliminar %s" on public.%I', t, t);
+        execute format('create policy "TEMPORAL - leer %s" on public.%I for select to anon using (true)', t, t);
+        execute format('create policy "TEMPORAL - crear %s" on public.%I for insert to anon with check (true)', t, t);
+        execute format('create policy "TEMPORAL - modificar %s" on public.%I for update to anon using (true) with check (true)', t, t);
+        execute format('create policy "TEMPORAL - eliminar %s" on public.%I for delete to anon using (true)', t, t);
+    end loop;
+    -- Bodega, movimientos y cierres: SOLO leer (se escriben con las funciones dist_*)
+    foreach t in array array['bodegas_dia', 'bodega_movimientos', 'cierres_mercaderia'] loop
+        execute format('alter table public.%I enable row level security', t);
+        execute format('revoke insert, update, delete on public.%I from anon', t);
+        execute format('grant select on public.%I to anon', t);
+        execute format('drop policy if exists "TEMPORAL - leer %s" on public.%I', t, t);
+        execute format('create policy "TEMPORAL - leer %s" on public.%I for select to anon using (true)', t, t);
+    end loop;
+end;
+$$;
+
+-- Productos del pedido: la página los crea con el pedido (preventa) y los lee;
+-- lo entregado lo pone dist_entregar
+alter table public.pedido_productos enable row level security;
+revoke update on public.pedido_productos from anon;
+grant select, insert, delete on public.pedido_productos to anon;
+drop policy if exists "TEMPORAL - leer pedido_productos" on public.pedido_productos;
+drop policy if exists "TEMPORAL - crear pedido_productos" on public.pedido_productos;
+drop policy if exists "TEMPORAL - eliminar pedido_productos" on public.pedido_productos;
+create policy "TEMPORAL - leer pedido_productos" on public.pedido_productos for select to anon using (true);
+create policy "TEMPORAL - crear pedido_productos" on public.pedido_productos for insert to anon with check (true);
+create policy "TEMPORAL - eliminar pedido_productos" on public.pedido_productos for delete to anon using (true);
+
+grant execute on function public.dist_bodega_saldo(bigint) to anon;
+grant execute on function public.dist_piloto_resumen(bigint, bigint) to anon;
+grant execute on function public.dist_bodega_abrir(jsonb) to anon;
+grant execute on function public.dist_movimiento(jsonb) to anon;
+grant execute on function public.dist_entregar(jsonb) to anon;
+grant execute on function public.dist_venta_ruta(jsonb) to anon;
+grant execute on function public.dist_cerrar_piloto(jsonb) to anon;
+grant execute on function public.dist_cerrar_bodega(jsonb) to anon;
+-- Internas: no se llaman desde la página
+revoke execute on function public.dist_puede_tienda(public.usuarios, bigint) from anon, public;
+revoke execute on function public.dist_bodega_del_piloto(bigint, bigint) from anon, public;
+
+-- tiendas tiene una columna nueva: la página tiene que poder leerla
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 28. TIENDAS: CÓDIGO LIBRE (NO DEPENDE DE LA REGIÓN) Y CON O SIN RUTAS
+--   - El código de la tienda (sucursal) ya no es "REGIÓN-NÚMERO": es libre
+--     (letras, números y guion; ej. CEN-001, SUC-CENTRO, 25). La región se elige
+--     aparte. Las tiendas que ya existían no cambian.
+--   - Cambiar el código (cambiar_codigo_tienda) ya NO cambia la región ni los
+--     usuarios. Cambiar la región (cambiar_region_tienda) renombra a sus usuarios,
+--     porque el usuario de G3, Empleado y Piloto lleva la REGIÓN (cenjperez01 ->
+--     norjperez01).
+--   - tiendas.usa_rutas: si la tienda envía pedidos (tiene rutas). Una tienda sin
+--     rutas no aparece para crear pedidos, rutas ni bodegas del día.
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.tiendas drop constraint if exists tiendas_codigo_formato;
+alter table public.tiendas drop constraint if exists tiendas_codigo_region;
+alter table public.tiendas add constraint tiendas_codigo_formato check (codigo ~ '^[A-Z0-9][A-Z0-9-]{0,19}$');
+
+alter table public.tiendas add column if not exists usa_rutas boolean not null default true;
+
+-- Cambiar SOLO el código de una tienda (no cambia la región ni los usuarios)
+create or replace function public.cambiar_codigo_tienda(p_tienda_id bigint, p_nuevo_codigo text)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_codigo text := upper(btrim(coalesce(p_nuevo_codigo, '')));
+begin
+    if not exists (select 1 from public.tiendas where id = p_tienda_id) then
+        raise exception 'La tienda no existe.' using errcode = 'P0002';
+    end if;
+    update public.tiendas set codigo = v_codigo where id = p_tienda_id and codigo <> v_codigo;
+end;
+$$;
+
+-- Cambiar la región de una tienda: sus usuarios (G3, Empleado, Piloto) llevan la región
+-- y se renombran solos (cenjperez01 -> norjperez01). Todo o nada.
+create or replace function public.cambiar_region_tienda(p_tienda_id bigint, p_region text)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_vieja   text;
+    v_codigo  text;
+    v_emp_id  bigint;
+    v_empresa text;
+    r         record;
+begin
+    select t.region, t.codigo, t.empresa_id, e.codigo into v_vieja, v_codigo, v_emp_id, v_empresa
+      from public.tiendas t
+      left join public.empresas e on e.id = t.empresa_id
+     where t.id = p_tienda_id
+       for update of t;
+    if not found then
+        raise exception 'La tienda no existe.' using errcode = 'P0002';
+    end if;
+    if v_vieja = p_region then
+        return;
+    end if;
+    if not exists (select 1 from public.regiones g where g.codigo = p_region and g.empresa_id = v_emp_id) then
+        raise exception 'Esa región no existe en la empresa.' using errcode = 'P0001';
+    end if;
+
+    update public.tiendas set region = p_region where id = p_tienda_id;
+
+    for r in select u.id, u.id_usuario from public.usuarios u
+              where u.tienda_id = p_tienda_id and u.id_usuario not in ('admin', 'desar') loop
+        update public.usuarios
+           set id_usuario = public.usuario_libre(
+                   public.usuario_base(r.id_usuario, v_empresa, case when left(v_codigo, 3) = v_vieja then v_codigo else v_vieja end),
+                   v_empresa, p_region, r.id)
+         where id = r.id;
+    end loop;
+end;
+$$;
+
+-- Cambiar el ID de una empresa: sus usuarios de tienda llevan la REGIÓN de su tienda
+create or replace function public.cambiar_codigo_empresa(p_empresa_id bigint, p_codigo text)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_viejo text;
+    v_nuevo text := btrim(coalesce(p_codigo, ''));
+    r       record;
+begin
+    select codigo into v_viejo from public.empresas where id = p_empresa_id for update;
+    if not found then
+        raise exception 'La empresa no existe.' using errcode = 'P0002';
+    end if;
+    if v_viejo = v_nuevo then
+        return;
+    end if;
+
+    update public.empresas set codigo = v_nuevo where id = p_empresa_id;
+
+    for r in select u.id, u.id_usuario, t.region,
+                    case when left(t.codigo, 3) = t.region then t.codigo else t.region end as tienda
+               from public.usuarios u
+               left join public.tiendas t on t.id = u.tienda_id
+              where u.empresa_id = p_empresa_id
+                and u.id_usuario not in ('admin', 'desar') loop
+        update public.usuarios
+           set id_usuario = public.usuario_libre(public.usuario_base(r.id_usuario, v_viejo, r.tienda), v_nuevo, r.region, r.id)
+         where id = r.id;
+    end loop;
+end;
+$$;
+
+grant execute on function public.cambiar_codigo_tienda(bigint, text) to anon;
+grant execute on function public.cambiar_region_tienda(bigint, text) to anon;
+grant execute on function public.cambiar_codigo_empresa(bigint, text) to anon;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 29. DESPACHO: CARGA CON EVIDENCIA POR PEDIDO Y SALIDA A RUTA POR SLOT
+--   - El piloto solo toca los pedidos que la tienda marcó "Listo para despachar".
+--   - Carga POR PEDIDO (pedido_cargar): foto de lo que recibe (bultos, cajas...),
+--     cantidad de bultos recibidos y, si lleva efectivo, cuánto. Queda "Cargado"
+--     (ya no hace falta que la tienda escanee el QR).
+--   - Salida a ruta POR SLOT (piloto_salir_ruta): todos sus pedidos cargados de ese
+--     slot pasan a "En ruta". Los que estaban listos pero no se le entregaron quedan
+--     "No salió a ruta" (no_salio) para que el G2 los reprograme o los cancele.
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.pedidos drop constraint if exists pedidos_estado_valido;
+alter table public.pedidos add constraint pedidos_estado_valido check (estado in (
+    'registrado', 'recibido_bodega', 'asignado', 'alistando', 'listo_despacho',
+    'recibido_ruta', 'cargado', 'en_ruta', 'en_entrega', 'entregado',
+    'entregado_incidencia', 'no_entregado', 'no_salio', 'reprogramado', 'devuelto', 'cancelado'));
+
+alter table public.pedidos
+    add column if not exists carga_bultos   integer,        -- bultos que recibió el piloto
+    add column if not exists carga_efectivo numeric(12,2),  -- efectivo que lleva para este pedido (si lleva)
+    add column if not exists carga_nota     text;
+alter table public.pedidos drop constraint if exists pedidos_carga_valida;
+alter table public.pedidos add constraint pedidos_carga_valida
+    check ((carga_bultos is null or carga_bultos >= 0) and (carga_efectivo is null or carga_efectivo >= 0));
+
+alter table public.pedido_evidencias drop constraint if exists evidencias_tipo_valido;
+alter table public.pedido_evidencias add constraint evidencias_tipo_valido
+    check (tipo in ('entrega', 'mal_estado', 'retraso', 'recepcion', 'carga'));
+
+-- ---------- Cargar un pedido con su evidencia ----------
+-- p = { usuario_id, pedido_id, bultos, efectivo, nota, fotos: [{ url, ruta }] }
+-- La foto la sube la página al Storage "evidencias" y aquí se registra.
+-- Quién: el piloto del pedido (o un G3 o superior de la tienda).
+create or replace function public.pedido_cargar(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u         public.usuarios;
+    pe        public.pedidos;
+    v_bultos  integer := (p ->> 'bultos')::integer;
+    v_efe     numeric := (p ->> 'efectivo')::numeric;
+    v_nota    text := nullif(btrim(coalesce(p ->> 'nota', '')), '');
+    v_fotos   jsonb := coalesce(p -> 'fotos', '[]'::jsonb);
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    select * into pe from public.pedidos where id = (p ->> 'pedido_id')::bigint for update;
+    if not found then
+        raise exception 'Ese pedido no existe.' using errcode = 'P0001';
+    end if;
+    if u.id is distinct from pe.piloto_id and not public.dist_puede_tienda(u, pe.tienda_id) then
+        raise exception 'Solo el piloto del pedido lo carga.' using errcode = 'P0001';
+    end if;
+    if pe.anulado or pe.estado not in ('listo_despacho', 'recibido_ruta') then
+        raise exception 'Solo se cargan los pedidos que la tienda marcó "Listo para despachar".' using errcode = 'P0001';
+    end if;
+    if v_bultos is null or v_bultos < 1 then
+        raise exception 'Escribe cuántos bultos recibiste (1 o más).' using errcode = 'P0001';
+    end if;
+    if v_efe is not null and v_efe < 0 then
+        raise exception 'El efectivo no puede ser negativo.' using errcode = 'P0001';
+    end if;
+    if jsonb_array_length(v_fotos) = 0 then
+        raise exception 'Toma al menos una foto de lo que recibes.' using errcode = 'P0001';
+    end if;
+
+    update public.pedidos
+       set estado = 'cargado', carga_bultos = v_bultos, carga_efectivo = round(nullif(v_efe, 0), 2), carga_nota = v_nota,
+           cargado_por = u.id, actualizado_en = now()
+     where id = pe.id;
+
+    insert into public.pedido_evidencias (pedido_id, tipo, url, ruta, tomada_por)
+    select pe.id, 'carga', f ->> 'url', f ->> 'ruta', u.id
+      from jsonb_array_elements(v_fotos) f
+     where coalesce(f ->> 'url', '') <> '';
+
+    insert into public.pedido_historial (pedido_id, evento, estado_anterior, estado_nuevo, detalle, usuario_id, usuario_nombre)
+    values (pe.id, 'carga', pe.estado, 'cargado',
+            jsonb_build_object('bultos', v_bultos, 'fotos', jsonb_array_length(v_fotos))
+            || case when coalesce(v_efe, 0) > 0 then jsonb_build_object('efectivo', round(v_efe, 2)) else '{}'::jsonb end
+            || case when v_nota is not null then jsonb_build_object('nota', v_nota) else '{}'::jsonb end,
+            u.id, u.nombre);
+
+    return jsonb_build_object('id', pe.id, 'codigo', pe.codigo, 'estado', 'cargado', 'bultos', v_bultos);
+end;
+$$;
+
+-- ---------- Salir a ruta con TODO un slot ----------
+-- p = { usuario_id, slot (vacío = pedidos sin slot), fecha (vacía = hoy), piloto_id (si lo hace un G3+) }
+-- Sus pedidos CARGADOS de ese slot (de esa fecha o de antes) pasan a "En ruta". Los que estaban
+-- listos para despachar (o recibidos) y no se cargaron quedan "No salió a ruta".
+-- Devuelve { en_ruta: [{ id, codigo, tienda_id }], no_salio: [...] }
+create or replace function public.piloto_salir_ruta(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u        public.usuarios;
+    v_piloto bigint;
+    v_slot   smallint := (p ->> 'slot')::smallint;
+    v_fecha  date := coalesce((p ->> 'fecha')::date, (now() at time zone 'America/Costa_Rica')::date);
+    v_ruta   jsonb;
+    v_no     jsonb;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    if u.rol = 'piloto' then
+        v_piloto := u.id;
+    else
+        v_piloto := (p ->> 'piloto_id')::bigint;
+        if u.rol not in ('desarrollador', 'administrador', 'admin_g1', 'admin_g2', 'admin_g3') or v_piloto is null then
+            raise exception 'Solo el piloto sale a ruta con sus pedidos.' using errcode = 'P0001';
+        end if;
+    end if;
+
+    -- Una salida a la vez por piloto
+    perform pg_advisory_xact_lock(7305, v_piloto::integer);
+
+    if not exists (select 1 from public.pedidos
+                    where piloto_id = v_piloto and not anulado and estado = 'cargado'
+                      and slot_numero is not distinct from v_slot and fecha_entrega <= v_fecha) then
+        raise exception 'No tienes pedidos cargados en ese slot.' using errcode = 'P0001';
+    end if;
+
+    -- Cargados -> En ruta (la hora de salida la pone el trigger pedidos_tiempos)
+    select coalesce(jsonb_agg(jsonb_build_object('id', id, 'codigo', codigo, 'tienda_id', tienda_id) order by id), '[]'::jsonb)
+      into v_ruta
+      from public.pedidos
+     where piloto_id = v_piloto and not anulado and estado = 'cargado'
+       and slot_numero is not distinct from v_slot and fecha_entrega <= v_fecha;
+    insert into public.pedido_historial (pedido_id, evento, estado_anterior, estado_nuevo, detalle, usuario_id, usuario_nombre)
+    select (x ->> 'id')::bigint, 'salida', 'cargado', 'en_ruta', jsonb_build_object('slot', v_slot), u.id, u.nombre
+      from jsonb_array_elements(v_ruta) x;
+    update public.pedidos
+       set estado = 'en_ruta', actualizado_en = now()
+     where id in (select (x ->> 'id')::bigint from jsonb_array_elements(v_ruta) x);
+
+    -- Listos que no se cargaron -> No salió a ruta (para reprogramar)
+    select coalesce(jsonb_agg(jsonb_build_object('id', id, 'codigo', codigo, 'tienda_id', tienda_id, 'estado', estado) order by id), '[]'::jsonb)
+      into v_no
+      from public.pedidos
+     where piloto_id = v_piloto and not anulado and estado in ('listo_despacho', 'recibido_ruta')
+       and slot_numero is not distinct from v_slot and fecha_entrega <= v_fecha;
+    insert into public.pedido_historial (pedido_id, evento, estado_anterior, estado_nuevo, detalle, usuario_id, usuario_nombre)
+    select (x ->> 'id')::bigint, 'no_salio', x ->> 'estado', 'no_salio',
+           jsonb_build_object('slot', v_slot, 'motivo', 'Estaba listo pero no se entregó al piloto al salir a ruta'), u.id, u.nombre
+      from jsonb_array_elements(v_no) x;
+    update public.pedidos
+       set estado = 'no_salio', actualizado_en = now()
+     where id in (select (x ->> 'id')::bigint from jsonb_array_elements(v_no) x);
+    return jsonb_build_object('en_ruta', v_ruta, 'no_salio', v_no);
+end;
+$$;
+
+grant execute on function public.pedido_cargar(jsonb) to anon;
+grant execute on function public.piloto_salir_ruta(jsonb) to anon;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 30. CAJA DE PILOTOS COMO PARTE DE CADA ACTIVIDAD
+--   actividades.usa_caja: la actividad cobra y cierra la caja de sus pilotos o
+--   conductores (sección Caja y Configuración -> Cajas). Se marca en
+--   Configuración -> Actividades -> "Qué usa en todo el sistema". La sección aparece
+--   si ALGUNA actividad de la empresa la usa (y su plan incluye "caja").
+--   Todas las actividades que ya existían quedan con caja (no cambia nada).
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.actividades add column if not exists usa_caja boolean not null default true;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 31. TIENDAS: REGIÓN OPCIONAL Y USUARIOS SIN REGIÓN
+--   - Una tienda (sucursal) se puede crear sin región: tiendas.region acepta null.
+--     Una tienda sin región la ven el Administrador y el Admin G1 (el Admin G2 solo
+--     ve las de su región). La empresa de la tienda sale de quien la crea.
+--   - Los usuarios ya NO llevan la región (ni la tienda): todos son nombre + ID de
+--     la empresa ("jperez01"). Cambiar la región o la tienda no cambia el usuario.
+--     Los que ya existían se renombran UNA sola vez (cenjperez01 -> jperez01; si dos
+--     quedarían iguales, al segundo se le agrega un número: jperez201). Marca en
+--     configuracion: 'usuarios_sin_region'.
+--   - cambiar_region_tienda pone, cambia o quita (vacío/null) la región y no toca a
+--     los usuarios. cambiar_codigo_empresa solo cambia el ID de la empresa al final.
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.tiendas alter column region drop not null;
+
+-- Poner, cambiar o quitar (p_region vacío o null) la región de una tienda
+create or replace function public.cambiar_region_tienda(p_tienda_id bigint, p_region text)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_region text := nullif(upper(btrim(coalesce(p_region, ''))), '');
+    v_emp_id bigint;
+begin
+    select t.empresa_id into v_emp_id from public.tiendas t where t.id = p_tienda_id for update;
+    if not found then
+        raise exception 'La tienda no existe.' using errcode = 'P0002';
+    end if;
+    if v_region is not null
+       and not exists (select 1 from public.regiones g where g.codigo = v_region and g.empresa_id = v_emp_id) then
+        raise exception 'Esa región no existe en la empresa.' using errcode = 'P0001';
+    end if;
+    update public.tiendas set region = v_region
+     where id = p_tienda_id and region is distinct from v_region;
+end;
+$$;
+
+-- Cambiar el ID de una empresa: sus usuarios cambian solo el ID del final (jperez01 -> jperez07)
+create or replace function public.cambiar_codigo_empresa(p_empresa_id bigint, p_codigo text)
+returns void
+language plpgsql
+set search_path = ''
+as $$
+declare
+    v_viejo text;
+    v_nuevo text := btrim(coalesce(p_codigo, ''));
+    r       record;
+begin
+    select codigo into v_viejo from public.empresas where id = p_empresa_id for update;
+    if not found then
+        raise exception 'La empresa no existe.' using errcode = 'P0002';
+    end if;
+    if v_viejo = v_nuevo then
+        return;
+    end if;
+
+    update public.empresas set codigo = v_nuevo where id = p_empresa_id;
+
+    for r in select u.id, u.id_usuario from public.usuarios u
+              where u.empresa_id = p_empresa_id and u.id_usuario not in ('admin', 'desar')
+              order by u.id loop
+        update public.usuarios
+           set id_usuario = public.usuario_libre(public.usuario_base(r.id_usuario, v_viejo, null), v_nuevo, null, r.id)
+         where id = r.id;
+    end loop;
+end;
+$$;
+
+-- Usuarios de tienda que ya existían: se les quita la región UNA sola vez
+do $$
+declare
+    r    record;
+    v_id text;
+begin
+    if exists (select 1 from public.configuracion where clave = 'usuarios_sin_region') then
+        return;
+    end if;
+    for r in select u.id, u.id_usuario, e.codigo as empresa,
+                    case when t.region is not null and left(t.codigo, 3) = t.region then t.codigo else t.region end as tienda
+               from public.usuarios u
+               join public.tiendas t on t.id = u.tienda_id
+               left join public.empresas e on e.id = u.empresa_id
+              where u.id_usuario not in ('admin', 'desar')
+              order by u.id loop
+        v_id := public.usuario_libre(public.usuario_base(r.id_usuario, r.empresa, r.tienda), r.empresa, null, r.id);
+        if v_id <> r.id_usuario then
+            update public.usuarios set id_usuario = v_id where id = r.id;
+        end if;
+    end loop;
+    insert into public.configuracion (clave, valor) values ('usuarios_sin_region', 'true');
+end;
+$$;
+
+grant execute on function public.cambiar_region_tienda(bigint, text) to anon;
+grant execute on function public.cambiar_codigo_empresa(bigint, text) to anon;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 32. ARTÍCULOS DE VENTA: UNIDAD Y COSTO DE CADA PRESENTACIÓN
+--   Configuración -> "Artículos de venta y precios": el artículo se crea en una
+--   sola ventana con su unidad, cantidad, presentación, costo y precio.
+--   - producto_presentaciones.unidad: unidad de medida (unidad, kg, litro,
+--     paquete, caja...). Las que ya existían quedan en "unidad".
+--   - producto_presentaciones.costo: lo que le cuesta a la empresa (opcional;
+--     solo lo ven Administrador y G1, para el margen). El precio de venta sigue
+--     en "precios" (sin IVA + % de IVA, por lista).
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.producto_presentaciones add column if not exists unidad text not null default 'unidad';
+alter table public.producto_presentaciones add column if not exists costo numeric(12,2);
+alter table public.producto_presentaciones drop constraint if exists presentaciones_costo_valido;
+alter table public.producto_presentaciones add constraint presentaciones_costo_valido check (costo is null or costo >= 0);
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 33. QR DEL PILOTO: VALIDAR Y MARCAR EN UN SOLO PASO
+--   La tienda escanea el QR del día del piloto y ve su ficha (piloto_qr_info: foto,
+--   nombre, si ya está validado y qué horario puede marcar ahora). Con el botón
+--   "Validar y marcar" (validar_y_marcar_piloto) se valida al piloto Y se marca su
+--   horario abierto en un solo paso: el piloto ya no tiene que escanear el QR de
+--   la tienda (sigue funcionando, marcar_por_qr no cambia).
+--   - Marca tardía: la base responde "JUSTIFICAR:..." y la página pide el motivo.
+--     Nada se guarda hasta que se envía (todo o nada).
+--   - Sin horario abierto (o ya marcado): solo se valida y se dice por qué.
+--   Se puede repetir.
+-- ==================================================
+
+-- Horario que el piloto puede marcar ahora: { numero, inicio_hasta, ya_marcado } o nada
+create or replace function public.piloto_horario_abierto(p_piloto bigint)
+returns table (numero smallint, inicio_hasta time, ya_marcado boolean)
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select x.numero, x.inicio_hasta,
+           exists (select 1 from public.marcas_piloto mp
+                    where mp.piloto_id = p_piloto and mp.fecha = public.ahora_local()::date and mp.numero = x.numero)
+      from public.marcas_del_dia(public.ahora_local()::date) x
+     where public.ahora_local()::time between x.inicio_desde and x.fin
+     order by 3, x.numero   -- primero el que falta marcar
+     limit 1;
+$$;
+
+-- Ficha del QR del piloto (no guarda nada)
+create or replace function public.piloto_qr_info(p_token uuid)
+returns table (piloto_id bigint, nombre text, foto_url text, tienda text, validado_en timestamptz,
+               horario smallint, inicio_hasta time, ya_marcado boolean, tarde boolean)
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+    v_hoy date := public.ahora_local()::date;
+    d     record;
+    h     record;
+begin
+    select * into d from public.pilotos_dia x where x.token = p_token;
+    if not found then
+        raise exception 'Ese QR de piloto no existe.' using errcode = 'P0001';
+    end if;
+    if d.fecha <> v_hoy then
+        raise exception 'Ese QR es del %: pide el QR de hoy.', to_char(d.fecha, 'DD/MM/YYYY') using errcode = 'P0001';
+    end if;
+    select * into h from public.piloto_horario_abierto(d.piloto_id);
+    return query
+        select u.id, u.nombre, u.foto_url, t.codigo || ' · ' || t.nombre, d.validado_en,
+               h.numero, h.inicio_hasta, coalesce(h.ya_marcado, false),
+               h.numero is not null and not coalesce(h.ya_marcado, false) and public.ahora_local()::time > h.inicio_hasta
+          from public.usuarios u
+          left join public.tiendas t on t.id = u.tienda_id
+         where u.id = d.piloto_id;
+end;
+$$;
+
+-- Validar al piloto y marcar su horario abierto (todo o nada)
+create or replace function public.validar_y_marcar_piloto(p_token uuid, p_usuario bigint, p_justificacion text default null)
+returns table (piloto_id bigint, nombre text, validado_en timestamptz, numero smallint, marcado_en timestamptz,
+               a_tiempo boolean, tienda_id bigint, justificacion text, nota text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+    v_ahora  timestamp := public.ahora_local();
+    v_hoy    date := v_ahora::date;
+    v_hora   time := v_ahora::time;
+    v_tienda bigint;
+    v_nota   text;
+    d        record;
+    h        record;
+begin
+    select * into d from public.pilotos_dia x where x.token = p_token for update;
+    if not found then
+        raise exception 'Ese QR de piloto no existe.' using errcode = 'P0001';
+    end if;
+    if d.fecha <> v_hoy then
+        raise exception 'Ese QR es del %: pide el QR de hoy.', to_char(d.fecha, 'DD/MM/YYYY') using errcode = 'P0001';
+    end if;
+    -- Tienda de la marca: la de quien escanea; si no tiene (G1, G2...), la del piloto
+    select coalesce(q.tienda_id, p.tienda_id) into v_tienda
+      from public.usuarios p left join public.usuarios q on q.id = p_usuario
+     where p.id = d.piloto_id;
+
+    select * into h from public.piloto_horario_abierto(d.piloto_id);
+    -- Marca tardía sin motivo: se pide antes de guardar nada
+    if h.numero is not null and not h.ya_marcado and v_hora > h.inicio_hasta and coalesce(btrim(p_justificacion), '') = '' then
+        raise exception 'JUSTIFICAR:Horario % · la hora de inicio era %. Es una marca tardía: escribe por qué.',
+            h.numero, to_char(h.inicio_hasta, 'HH24:MI') using errcode = 'P0001';
+    end if;
+
+    if d.validado_en is null then
+        update public.pilotos_dia x set validado_en = now(), validado_por = p_usuario
+         where x.piloto_id = d.piloto_id and x.fecha = v_hoy;
+    end if;
+
+    delete from public.marcas_piloto mp where mp.fecha < date_trunc('month', v_ahora)::date;
+
+    if h.numero is null then
+        v_nota := 'No hay un horario abierto para marcar ahora: solo quedó validado.';
+    elsif h.ya_marcado then
+        v_nota := 'Ya tenía marcado el horario ' || h.numero || ': solo quedó validado.';
+    else
+        insert into public.marcas_piloto (piloto_id, fecha, numero, a_tiempo, justificacion)
+        values (d.piloto_id, v_hoy, h.numero, v_hora <= h.inicio_hasta,
+                case when v_hora > h.inicio_hasta then left(btrim(p_justificacion), 200) end);
+    end if;
+
+    return query
+        select u.id, u.nombre, coalesce(d.validado_en, now()),
+               mp.numero, mp.marcado_en, mp.a_tiempo, v_tienda, mp.justificacion, v_nota
+          from public.usuarios u
+          left join public.marcas_piloto mp
+                 on v_nota is null and mp.piloto_id = u.id and mp.fecha = v_hoy and mp.numero = h.numero
+         where u.id = d.piloto_id;
+end;
+$$;
+
+grant execute on function public.piloto_qr_info(uuid) to anon;
+grant execute on function public.validar_y_marcar_piloto(uuid, bigint, text) to anon;
+revoke execute on function public.piloto_horario_abierto(bigint) from anon, public;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 34. QR FIJO DE LA TIENDA: EL PILOTO LO ESCANEA Y SE MARCA SOLO
+--   Cada tienda tiene un QR FIJO ("ACACHETE-TIENDA:<tienda>:<código>") que no cambia
+--   cada mes: se ve siempre en el Inicio de la tienda y se imprime una vez. El piloto
+--   lo escanea y la base marca SOLA su horario abierto con la fecha y la hora del
+--   sistema (hora de Costa Rica), SIN validación previa. Marca tardía: pide el motivo.
+--   - qr_tienda_fija(tienda, nuevo): devuelve el QR; nuevo = true genera otro código
+--     (el impreso deja de servir; por si se copió o se perdió).
+--   - marcar_por_qr_fijo(piloto, qr, justificacion): la marca.
+--   El QR del mes (qr_marca_mes / marcar_por_qr) sigue funcionando como antes.
+--   Se puede repetir.
+-- ==================================================
+
+create table if not exists public.qr_tiendas_fijo (
+    tienda_id  bigint primary key references public.tiendas(id) on delete cascade,
+    codigo     text not null,
+    creado_en  timestamptz not null default now()
+);
+alter table public.qr_tiendas_fijo enable row level security; -- sin acceso directo: solo por las funciones
+
+create or replace function public.qr_tienda_fija(p_tienda bigint, p_nuevo boolean default false)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_codigo text;
+begin
+    if not exists (select 1 from public.tiendas t where t.id = p_tienda) then
+        raise exception 'La tienda no existe.' using errcode = 'P0001';
+    end if;
+    if p_nuevo then
+        delete from public.qr_tiendas_fijo where tienda_id = p_tienda;
+    end if;
+    select codigo into v_codigo from public.qr_tiendas_fijo where tienda_id = p_tienda;
+    if v_codigo is null then
+        insert into public.qr_tiendas_fijo (tienda_id, codigo)
+        values (p_tienda, substr(md5(random()::text || clock_timestamp()::text || p_tienda::text), 1, 20))
+        on conflict (tienda_id) do nothing;
+        select codigo into v_codigo from public.qr_tiendas_fijo where tienda_id = p_tienda;
+    end if;
+    return 'ACACHETE-TIENDA:' || p_tienda || ':' || v_codigo;
+end;
+$$;
+
+create or replace function public.marcar_por_qr_fijo(p_piloto bigint, p_qr text, p_justificacion text default null)
+returns table (numero smallint, marcado_en timestamptz, a_tiempo boolean, tienda_id bigint, justificacion text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+    v_ahora   timestamp := public.ahora_local();
+    v_hoy     date := v_ahora::date;
+    v_hora    time := v_ahora::time;
+    v_partes  text[] := string_to_array(coalesce(p_qr, ''), ':');
+    v_tienda  bigint;
+    v_proxima time;
+    m         record;
+begin
+    if coalesce(array_length(v_partes, 1), 0) <> 3 or v_partes[1] <> 'ACACHETE-TIENDA' or v_partes[2] !~ '^[0-9]+$' then
+        raise exception 'Ese no es un QR de tienda.' using errcode = 'P0001';
+    end if;
+    v_tienda := v_partes[2]::bigint;
+    if not exists (select 1 from public.qr_tiendas_fijo q where q.tienda_id = v_tienda and q.codigo = v_partes[3]) then
+        raise exception 'Este QR de la tienda ya no sirve (se generó uno nuevo). Escanea el que está en la tienda.' using errcode = 'P0001';
+    end if;
+    if not exists (select 1 from public.usuarios u where u.id = p_piloto and u.rol = 'piloto') then
+        raise exception 'Solo los pilotos marcan con este QR.' using errcode = 'P0001';
+    end if;
+
+    delete from public.marcas_piloto mp where mp.fecha < date_trunc('month', v_ahora)::date;
+
+    select x.* into m from public.marcas_del_dia(v_hoy) x
+     where v_hora between x.inicio_desde and x.fin
+       and not exists (select 1 from public.marcas_piloto mp
+                        where mp.piloto_id = p_piloto and mp.fecha = v_hoy and mp.numero = x.numero)
+     order by x.numero
+     limit 1;
+    if not found then
+        select min(x.inicio_hasta) into v_proxima from public.marcas_del_dia(v_hoy) x where x.inicio_desde > v_hora;
+        raise exception '%', case when v_proxima is null
+            then 'No hay ningún horario abierto para marcar ahora (o ya lo marcaste).'
+            else 'Todavía no se puede marcar: el próximo horario tiene hora de inicio ' || to_char(v_proxima, 'HH24:MI') || '.' end
+            using errcode = 'P0001';
+    end if;
+
+    if v_hora > m.inicio_hasta and coalesce(btrim(p_justificacion), '') = '' then
+        raise exception 'JUSTIFICAR:Horario % · la hora de inicio era %. Es una marca tardía: escribe por qué.',
+            m.numero, to_char(m.inicio_hasta, 'HH24:MI') using errcode = 'P0001';
+    end if;
+
+    insert into public.marcas_piloto (piloto_id, fecha, numero, a_tiempo, justificacion)
+    values (p_piloto, v_hoy, m.numero, v_hora <= m.inicio_hasta,
+            case when v_hora > m.inicio_hasta then left(btrim(p_justificacion), 200) end);
+
+    return query
+        select mp.numero, mp.marcado_en, mp.a_tiempo, v_tienda, mp.justificacion
+          from public.marcas_piloto mp
+         where mp.piloto_id = p_piloto and mp.fecha = v_hoy and mp.numero = m.numero;
+end;
+$$;
+
+grant execute on function public.qr_tienda_fija(bigint, boolean) to anon;
+grant execute on function public.marcar_por_qr_fijo(bigint, text, text) to anon;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 35. QR FIJO: SOLO SE MARCA ESTANDO EN LA TIENDA (GPS)
+--   El QR fijo de la tienda solo marca si el piloto ESTÁ EN LA TIENDA: el celular manda
+--   su ubicación (GPS) y la base mide la distancia a la ubicación de la tienda
+--   (tiendas.lat / lng). Más lejos que el radio permitido = no marca.
+--   - Radio: configuracion 'radio_marca_m' (150 m por defecto; se cambia en el Inicio
+--     de la tienda, Administrador y G1). Se descuenta la precisión del GPS, hasta 50 m.
+--   - Sin ubicación de la tienda: no marca (se guarda desde su Inicio, "Usar mi
+--     ubicación actual", o desde Pedidos). Sin GPS del celular: no marca.
+--   - Cada marca guarda dónde se hizo (marcas_piloto.lat, lng, distancia_m).
+--   "Validar y marcar" (la tienda escanea al piloto en persona) no cambia.
+--   Se puede repetir.
+-- ==================================================
+
+insert into public.configuracion (clave, valor) values ('radio_marca_m', '150') on conflict (clave) do nothing;
+
+alter table public.marcas_piloto
+    add column if not exists lat         double precision,
+    add column if not exists lng         double precision,
+    add column if not exists distancia_m integer;
+
+-- Cambia lo que recibe (ubicación): se quita la versión de 3 datos (bloque 34)
+drop function if exists public.marcar_por_qr_fijo(bigint, text, text);
+
+create or replace function public.marcar_por_qr_fijo(
+    p_piloto bigint, p_qr text, p_justificacion text default null,
+    p_lat double precision default null, p_lng double precision default null, p_precision double precision default null)
+returns table (numero smallint, marcado_en timestamptz, a_tiempo boolean, tienda_id bigint, justificacion text, distancia_m integer)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+declare
+    v_ahora     timestamp := public.ahora_local();
+    v_hoy       date := v_ahora::date;
+    v_hora      time := v_ahora::time;
+    v_partes    text[] := string_to_array(coalesce(p_qr, ''), ':');
+    v_tienda    bigint;
+    v_proxima   time;
+    v_radio     integer;
+    v_distancia integer;
+    t           record;
+    m           record;
+begin
+    if coalesce(array_length(v_partes, 1), 0) <> 3 or v_partes[1] <> 'ACACHETE-TIENDA' or v_partes[2] !~ '^[0-9]+$' then
+        raise exception 'Ese no es un QR de tienda.' using errcode = 'P0001';
+    end if;
+    v_tienda := v_partes[2]::bigint;
+    if not exists (select 1 from public.qr_tiendas_fijo q where q.tienda_id = v_tienda and q.codigo = v_partes[3]) then
+        raise exception 'Este QR de la tienda ya no sirve (se generó uno nuevo). Escanea el que está en la tienda.' using errcode = 'P0001';
+    end if;
+    if not exists (select 1 from public.usuarios u where u.id = p_piloto and u.rol = 'piloto') then
+        raise exception 'Solo los pilotos marcan con este QR.' using errcode = 'P0001';
+    end if;
+
+    -- ¿Está en la tienda? (GPS del celular vs. ubicación de la tienda)
+    select x.lat, x.lng, x.nombre into t from public.tiendas x where x.id = v_tienda;
+    if t.lat is null or t.lng is null then
+        raise exception 'La tienda % no tiene su ubicación guardada: pide que la guarden en su Inicio ("Usar mi ubicación actual").', t.nombre
+            using errcode = 'P0001';
+    end if;
+    if p_lat is null or p_lng is null then
+        raise exception 'Activa la ubicación (GPS) del celular: solo se puede marcar estando en la tienda.' using errcode = 'P0001';
+    end if;
+    select coalesce((select (valor #>> '{}')::integer from public.configuracion where clave = 'radio_marca_m'), 150) into v_radio;
+    v_distancia := round(public.km_recta(t.lat, t.lng, p_lat::numeric, p_lng::numeric) * 1000);
+    if v_distancia - least(greatest(coalesce(p_precision, 0), 0), 50) > v_radio then
+        raise exception 'Estás a % m de la tienda: solo se puede marcar estando en ella (hasta % m).', v_distancia, v_radio
+            using errcode = 'P0001';
+    end if;
+
+    delete from public.marcas_piloto mp where mp.fecha < date_trunc('month', v_ahora)::date;
+
+    select x.* into m from public.marcas_del_dia(v_hoy) x
+     where v_hora between x.inicio_desde and x.fin
+       and not exists (select 1 from public.marcas_piloto mp
+                        where mp.piloto_id = p_piloto and mp.fecha = v_hoy and mp.numero = x.numero)
+     order by x.numero
+     limit 1;
+    if not found then
+        select min(x.inicio_hasta) into v_proxima from public.marcas_del_dia(v_hoy) x where x.inicio_desde > v_hora;
+        raise exception '%', case when v_proxima is null
+            then 'No hay ningún horario abierto para marcar ahora (o ya lo marcaste).'
+            else 'Todavía no se puede marcar: el próximo horario tiene hora de inicio ' || to_char(v_proxima, 'HH24:MI') || '.' end
+            using errcode = 'P0001';
+    end if;
+
+    if v_hora > m.inicio_hasta and coalesce(btrim(p_justificacion), '') = '' then
+        raise exception 'JUSTIFICAR:Horario % · la hora de inicio era %. Es una marca tardía: escribe por qué.',
+            m.numero, to_char(m.inicio_hasta, 'HH24:MI') using errcode = 'P0001';
+    end if;
+
+    insert into public.marcas_piloto (piloto_id, fecha, numero, a_tiempo, justificacion, lat, lng, distancia_m)
+    values (p_piloto, v_hoy, m.numero, v_hora <= m.inicio_hasta,
+            case when v_hora > m.inicio_hasta then left(btrim(p_justificacion), 200) end,
+            p_lat, p_lng, v_distancia);
+
+    return query
+        select mp.numero, mp.marcado_en, mp.a_tiempo, v_tienda, mp.justificacion, mp.distancia_m
+          from public.marcas_piloto mp
+         where mp.piloto_id = p_piloto and mp.fecha = v_hoy and mp.numero = m.numero;
+end;
+$$;
+
+grant execute on function public.marcar_por_qr_fijo(bigint, text, text, double precision, double precision, double precision) to anon;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 36. VISITAS: QUIÉN ENTRA, DESDE DÓNDE Y A QUÉ PANTALLAS (solo Desarrollador)
+--   Reporte SOLO para el Desarrollador (Tiendas -> pestaña Visitas): quién entró, de qué
+--   empresa, desde qué dispositivo y dirección (IP) y a qué pantallas.
+--   - registrar_visita(usuario, tipo, sección, dispositivo, navegador, app): la llama la
+--     página al iniciar sesión (tipo 'ingreso') y al abrir cada pantalla ('pantalla').
+--     La IP y el país los toma la base de la llamada (no los manda la página).
+--     Las visitas del Desarrollador no se guardan.
+--   - reporte_visitas(usuario, empresa): las visitas (solo si quien pide es Desarrollador).
+--   - Se guardan SOLO 3 DÍAS: cada registro y cada reporte borran lo más viejo.
+--   - La tabla no se lee directo desde la web (sin reglas TEMPORAL): solo por las funciones.
+--   Se puede repetir.
+-- ==================================================
+
+create table if not exists public.visitas (
+    id          bigint generated always as identity primary key,
+    creado_en   timestamptz not null default now(),
+    usuario_id  bigint references public.usuarios(id) on delete cascade,
+    empresa_id  bigint references public.empresas(id) on delete cascade,
+    tipo        text not null default 'pantalla' check (tipo in ('ingreso', 'pantalla')),
+    seccion     text,
+    dispositivo text,
+    navegador   text,
+    app         boolean not null default false,
+    ip          text,
+    pais        text
+);
+create index if not exists visitas_creado_en_idx on public.visitas (creado_en);
+alter table public.visitas enable row level security; -- sin reglas: solo por las funciones
+revoke all on public.visitas from anon, public;
+
+create or replace function public.registrar_visita(
+    p_usuario bigint, p_tipo text default 'pantalla', p_seccion text default null,
+    p_dispositivo text default null, p_navegador text default null, p_app boolean default false)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u          record;
+    v_headers  jsonb;
+    v_ip       text;
+begin
+    select x.rol, x.empresa_id into u from public.usuarios x where x.id = p_usuario;
+    if not found or u.rol = 'desarrollador' or coalesce(p_tipo, '') not in ('ingreso', 'pantalla') then
+        return;
+    end if;
+
+    -- Encabezados de la llamada (Supabase): IP real y país
+    begin
+        v_headers := nullif(current_setting('request.headers', true), '')::jsonb;
+    exception when others then
+        v_headers := null;
+    end;
+    v_ip := coalesce(nullif(btrim(v_headers ->> 'cf-connecting-ip'), ''),
+                     nullif(btrim(split_part(coalesce(v_headers ->> 'x-forwarded-for', ''), ',', 1)), ''),
+                     nullif(btrim(v_headers ->> 'x-real-ip'), ''));
+
+    delete from public.visitas where creado_en < now() - interval '3 days';
+
+    insert into public.visitas (usuario_id, empresa_id, tipo, seccion, dispositivo, navegador, app, ip, pais)
+    values (p_usuario, u.empresa_id, p_tipo, left(nullif(btrim(p_seccion), ''), 40),
+            left(nullif(btrim(p_dispositivo), ''), 60), left(nullif(btrim(p_navegador), ''), 60),
+            coalesce(p_app, false), left(v_ip, 60), left(nullif(btrim(v_headers ->> 'cf-ipcountry'), ''), 5));
+end;
+$$;
+
+create or replace function public.reporte_visitas(p_usuario bigint, p_empresa bigint default null)
+returns table (id bigint, creado_en timestamptz, empresa_id bigint, empresa_codigo text, empresa_nombre text,
+               usuario_id bigint, usuario text, nombre text, rol text, tienda text, tipo text, seccion text,
+               dispositivo text, navegador text, app boolean, ip text, pais text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+#variable_conflict use_column
+begin
+    if not exists (select 1 from public.usuarios x where x.id = p_usuario and x.rol = 'desarrollador') then
+        raise exception 'Solo el Desarrollador ve el reporte de visitas.' using errcode = 'P0001';
+    end if;
+
+    delete from public.visitas v where v.creado_en < now() - interval '3 days';
+
+    return query
+        select v.id, v.creado_en, v.empresa_id, e.codigo::text, e.nombre::text,
+               v.usuario_id, u.id_usuario::text, u.nombre::text, u.rol::text, t.nombre::text, v.tipo, v.seccion,
+               v.dispositivo, v.navegador, v.app, v.ip, v.pais
+          from public.visitas v
+          left join public.usuarios u on u.id = v.usuario_id
+          left join public.empresas e on e.id = v.empresa_id
+          left join public.tiendas t on t.id = u.tienda_id
+         where p_empresa is null or v.empresa_id = p_empresa
+         order by v.creado_en desc
+         limit 5000;
+end;
+$$;
+
+grant execute on function public.registrar_visita(bigint, text, text, text, text, boolean) to anon;
+grant execute on function public.reporte_visitas(bigint, bigint) to anon;
+
+notify pgrst, 'reload schema';
+
+
+
+-- ==================================================
+-- 37. ENTREGA: FOTO DEL COMPROBANTE DE PAGO (efectivo, voucher o SINPE)
+--   Al marcar "Entregado", además de las fotos de lo entregado (tipo 'entrega'), el piloto
+--   puede tomar la foto del COMPROBANTE DE PAGO (tipo 'pago'): el efectivo recibido, el
+--   voucher de la tarjeta o el comprobante de SINPE Móvil. La caja lo muestra al lado del
+--   cobro para verificar el SINPE. Se guardan en pedido_evidencias (Storage evidencias/pago/).
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.pedido_evidencias drop constraint if exists evidencias_tipo_valido;
+alter table public.pedido_evidencias add constraint evidencias_tipo_valido
+    check (tipo in ('entrega', 'mal_estado', 'retraso', 'recepcion', 'carga', 'pago'));
+
+create index if not exists pedido_evidencias_tipo_idx on public.pedido_evidencias (pedido_id, tipo);
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 38. ENTREGA CON QR OBLIGATORIO Y PEDIDOS SOLO CON PRODUCTO EN BODEGA
+--   - El piloto empieza la entrega ESCANEANDO EL QR del pedido (el que tiene el cliente):
+--     pedido_iniciar_entrega lo pasa de "En ruta" a "Entregando". Si el QR no se puede leer,
+--     sirve el código de entrega que da el cliente. La base ya no deja pasar a "Entregando"
+--     de otra forma, ni marcar "Entregado" sin haber pasado por "Entregando".
+--   - Pedidos con productos (distribuidora): no se guarda un producto si la bodega del día
+--     de su ruta no lo tiene disponible (lo que entró menos lo ya pedido). Si ese día aún no
+--     hay bodega, la página deja el pedido "por autorizar" y avisa al G3 o superior.
+--   Se puede repetir.
+-- ==================================================
+
+-- ---------- La entrega se empieza escaneando el QR del pedido ----------
+-- p = { usuario_id, pedido_id, token (lo que trae el QR, sin "ACACHETE-PEDIDO:") | codigo (el del cliente) }
+-- Solo el piloto del pedido y solo desde "En ruta". Uno a la vez (índice pedidos_un_en_entrega).
+create or replace function public.pedido_iniciar_entrega(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u         public.usuarios;
+    pe        public.pedidos;
+    v_id      bigint := (p ->> 'pedido_id')::bigint;
+    v_token   text := nullif(btrim(coalesce(p ->> 'token', '')), '');
+    v_codigo  text := nullif(btrim(coalesce(p ->> 'codigo', '')), '');
+    v_otro    text;
+    v_uuid    uuid;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    if v_token is not null then
+        begin
+            v_uuid := v_token::uuid;
+        exception when others then
+            raise exception 'Ese QR no es de un pedido del sistema.' using errcode = 'P0001';
+        end;
+        select * into pe from public.pedidos where token_qr = v_uuid for update;
+        if not found then
+            raise exception 'Ese QR no es de un pedido del sistema.' using errcode = 'P0001';
+        end if;
+        if v_id is not null and pe.id <> v_id then
+            raise exception 'Ese QR es del pedido %, no de este. Revisa que sea el paquete correcto.', pe.codigo using errcode = 'P0001';
+        end if;
+    else
+        select * into pe from public.pedidos where id = v_id for update;
+        if not found then
+            raise exception 'Ese pedido no existe.' using errcode = 'P0001';
+        end if;
+        if v_codigo is null or v_codigo not in (coalesce(pe.codigo_respaldo, ''), coalesce(pe.codigo_telefono, '')) then
+            raise exception 'El código no coincide. Pídele al cliente el código de entrega de su pedido.' using errcode = 'P0001';
+        end if;
+    end if;
+    if u.id is distinct from pe.piloto_id then
+        raise exception 'El pedido % no es de tu ruta.', pe.codigo using errcode = 'P0001';
+    end if;
+    if pe.anulado or pe.estado <> 'en_ruta' then
+        if pe.estado = 'en_entrega' then
+            return jsonb_build_object('id', pe.id, 'codigo', pe.codigo, 'estado', pe.estado);
+        end if;
+        raise exception 'El pedido % no está en ruta: solo se empieza a entregar un pedido "En ruta".', pe.codigo using errcode = 'P0001';
+    end if;
+    select codigo into v_otro from public.pedidos
+     where piloto_id = pe.piloto_id and estado = 'en_entrega' and id <> pe.id limit 1;
+    if v_otro is not null then
+        raise exception 'Primero marca como entregado (o no entregado) el pedido %.', v_otro using errcode = 'P0001';
+    end if;
+
+    -- Permiso para el trigger pedidos_entrega_con_qr (solo dentro de esta transacción)
+    perform set_config('acachete.entrega_qr', pe.id::text, true);
+    update public.pedidos set estado = 'en_entrega', actualizado_en = now() where id = pe.id;
+    insert into public.pedido_historial (pedido_id, evento, estado_anterior, estado_nuevo, detalle, usuario_id, usuario_nombre)
+    values (pe.id, 'estado', 'en_ruta', 'en_entrega',
+            jsonb_build_object('verificado', case when v_token is not null then 'qr' else 'codigo' end), u.id, u.nombre);
+    return jsonb_build_object('id', pe.id, 'codigo', pe.codigo, 'estado', 'en_entrega');
+end;
+$$;
+
+-- La base no deja pasar a "Entregando" sin pedido_iniciar_entrega, ni marcar "Entregado"
+-- sin haber pasado por "Entregando" ("No entregado" sí se puede desde "En ruta": el cliente no estaba).
+create or replace function public.pedidos_entrega_con_qr()
+returns trigger
+language plpgsql
+as $$
+begin
+    if new.estado is distinct from old.estado then
+        if new.estado = 'en_entrega' and coalesce(current_setting('acachete.entrega_qr', true), '') <> new.id::text then
+            raise exception 'Escanea el QR del pedido (o escribe el código de entrega del cliente) para empezar la entrega.' using errcode = 'P0001';
+        end if;
+        if new.estado in ('entregado', 'entregado_incidencia') and old.estado <> 'en_entrega' then
+            raise exception 'Primero escanea el QR del pedido: solo se marca entregado después de "Entregando".' using errcode = 'P0001';
+        end if;
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists pedidos_entrega_con_qr on public.pedidos;
+create trigger pedidos_entrega_con_qr
+    before update of estado on public.pedidos
+    for each row execute function public.pedidos_entrega_con_qr();
+
+-- ---------- Disponible en la bodega del día para pedidos con productos ----------
+-- Bodegas: la de la ruta en esa fecha (sin ruta: las de la tienda en esa fecha).
+-- Disponible = lo que entró ese día (ingresos + ajustes - salida - devuelto dañado)
+--              - lo ya comprometido (pedidos con productos no cancelados ni devueltos; los
+--                entregados y las ventas en ruta cuentan lo entregado).
+-- Volatile a propósito: dentro del trigger ve las líneas del mismo pedido ya insertadas.
+create or replace function public.dist_disponible_de(p_tienda bigint, p_ruta bigint, p_fecha date, p_excluir bigint default null)
+returns table (presentacion_id bigint, entrado numeric, comprometido numeric, disponible numeric)
+language sql
+security definer
+set search_path = ''
+as $$
+    with b as (
+        select id from public.bodegas_dia
+         where fecha = p_fecha and (case when p_ruta is not null then ruta_id = p_ruta else tienda_id = p_tienda end)
+    ), ent as (
+        select m.presentacion_id,
+               sum(case m.tipo when 'ingreso' then m.cantidad when 'ajuste' then m.cantidad when 'salida' then -m.cantidad
+                               when 'devolucion' then case when m.estado_producto = 'danado' then -m.cantidad else 0 end
+                               else 0 end) as cantidad
+          from public.bodega_movimientos m
+         where m.bodega_id in (select id from b)
+         group by m.presentacion_id
+    ), com as (
+        select pp.presentacion_id,
+               sum(case when pp.cantidad_entregada is not null then pp.cantidad_entregada else pp.cantidad end) as cantidad
+          from public.pedido_productos pp
+          join public.pedidos pe on pe.id = pp.pedido_id
+         where not pe.anulado
+           and pe.id is distinct from p_excluir
+           and pe.estado not in ('cancelado', 'devuelto', 'no_entregado', 'no_salio', 'reprogramado')
+           and (pp.bodega_id in (select id from b)
+                or (pp.bodega_id is null and pe.fecha_entrega = p_fecha
+                    and (case when p_ruta is not null then pe.ruta_id = p_ruta else pe.tienda_id = p_tienda end)))
+         group by pp.presentacion_id
+    ), ids as (
+        select ent.presentacion_id from ent union select com.presentacion_id from com
+    )
+    select i.presentacion_id, coalesce(ent.cantidad, 0), coalesce(com.cantidad, 0),
+           coalesce(ent.cantidad, 0) - coalesce(com.cantidad, 0)
+      from ids i
+      left join ent on ent.presentacion_id = i.presentacion_id
+      left join com on com.presentacion_id = i.presentacion_id;
+$$;
+
+-- Para la página (al registrar el pedido): p = { tienda_id, ruta_id, fecha }
+-- -> { bodegas: cuántas hay ese día, abiertas, productos: { "<presentacion_id>": disponible } }
+create or replace function public.dist_disponible(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_tienda bigint := (p ->> 'tienda_id')::bigint;
+    v_ruta   bigint := (p ->> 'ruta_id')::bigint;
+    v_fecha  date := coalesce((p ->> 'fecha')::date, (now() at time zone 'America/Costa_Rica')::date);
+begin
+    return jsonb_build_object(
+        'bodegas', (select count(*) from public.bodegas_dia
+                     where fecha = v_fecha and (case when v_ruta is not null then ruta_id = v_ruta else tienda_id = v_tienda end)),
+        'abiertas', (select count(*) from public.bodegas_dia
+                      where fecha = v_fecha and estado = 'abierta'
+                        and (case when v_ruta is not null then ruta_id = v_ruta else tienda_id = v_tienda end)),
+        'productos', coalesce((select jsonb_object_agg(d.presentacion_id::text, d.disponible)
+                                 from public.dist_disponible_de(v_tienda, v_ruta, v_fecha) d), '{}'::jsonb));
+end;
+$$;
+
+-- No se guarda un producto de un pedido si la bodega de ese día no lo tiene disponible.
+-- Si ese día todavía no hay bodega, pasa: la página deja el pedido "por autorizar" (G3 o superior).
+-- La venta en ruta (dist_venta_ruta) ya revisa lo que el piloto lleva en mano.
+create or replace function public.pedido_productos_revisar_bodega()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    pe     public.pedidos;
+    v_disp numeric;
+begin
+    if new.bodega_id is not null then
+        return new;
+    end if;
+    select * into pe from public.pedidos where id = new.pedido_id;
+    if not found or coalesce((pe.detalle ->> 'venta_ruta')::boolean, false) then
+        return new;
+    end if;
+    if not exists (select 1 from public.bodegas_dia
+                    where fecha = pe.fecha_entrega
+                      and (case when pe.ruta_id is not null then ruta_id = pe.ruta_id else tienda_id = pe.tienda_id end)) then
+        return new;
+    end if;
+    select d.disponible into v_disp
+      from public.dist_disponible_de(pe.tienda_id, pe.ruta_id, pe.fecha_entrega) d
+     where d.presentacion_id = new.presentacion_id;
+    if coalesce(v_disp, 0) < new.cantidad then
+        raise exception 'No hay suficiente en la bodega: % (pides %, disponibles %).',
+            new.descripcion, trim_scale(new.cantidad), trim_scale(greatest(coalesce(v_disp, 0), 0))
+            using errcode = 'P0001';
+    end if;
+    return new;
+end;
+$$;
+
+drop trigger if exists pedido_productos_revisar_bodega on public.pedido_productos;
+create trigger pedido_productos_revisar_bodega
+    before insert on public.pedido_productos
+    for each row execute function public.pedido_productos_revisar_bodega();
+
+grant execute on function public.pedido_iniciar_entrega(jsonb) to anon;
+grant execute on function public.dist_disponible(jsonb) to anon;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 39. UBICACIÓN COMPARTIDA POR EL CLIENTE (ENLACE ANTES DE REGISTRAR EL PEDIDO)
+--   Antes de registrar un pedido, la tienda le manda al cliente un enlace por WhatsApp
+--   (ubicacion.html?t=<token>). El cliente marca dónde entregar (con su GPS o moviendo el
+--   mapa) y el punto le llega al formulario de "Nuevo pedido" (punto B). Se puede cambiar
+--   hasta que se registre el pedido; después el enlace ya no cambia nada. Vence en 24 horas.
+--   La ubicación también queda en la ficha del cliente. No cambia ningún precio.
+--   Tabla ubicaciones_compartidas (solo por funciones) y ubicacion_pedir / _estado / _usar
+--   (la tienda) y ubicacion_ver / _guardar (la página del cliente, sin sesión).
+--   Se puede repetir.
+-- ==================================================
+
+create table if not exists public.ubicaciones_compartidas (
+    id                 bigint generated always as identity primary key,
+    token              uuid not null default gen_random_uuid() unique, -- va en el enlace (ubicacion.html?t=...)
+    empresa_id         bigint references public.empresas(id) on delete cascade,
+    tienda_id          bigint not null references public.tiendas(id) on delete cascade,
+    cliente_id         bigint references public.clientes(id) on delete set null,
+    cliente_nombre     text,
+    telefono           text not null,          -- solo dígitos
+    pedida_por         bigint,                 -- quién mandó el enlace (sin llave: queda aunque se borre)
+    pedida_por_nombre  text,
+    creado_en          timestamptz not null default now(),
+    vence_en           timestamptz not null default now() + interval '24 hours',
+    lat                numeric(9,6),
+    lng                numeric(9,6),
+    precision_m        integer,                -- metros del GPS (si la marcó con "Mi ubicación")
+    compartida_en      timestamptz,
+    pedido_id          bigint references public.pedidos(id) on delete set null,
+    usada_en           timestamptz,            -- se registró el pedido: el enlace ya no cambia nada
+
+    constraint ubicaciones_compartidas_punto check ((lat is null) = (lng is null))
+);
+create index if not exists ubicaciones_compartidas_tel_idx on public.ubicaciones_compartidas (tienda_id, telefono, creado_en desc);
+
+-- Solo por las funciones de abajo (la página del cliente no inicia sesión)
+alter table public.ubicaciones_compartidas enable row level security;
+revoke all on public.ubicaciones_compartidas from anon, authenticated;
+
+-- ¿El usuario registra pedidos de esa tienda? (Empleado y G3 de la tienda; G2, G1 y Administrador en su alcance)
+create or replace function public.ubicacion_puede_tienda(u public.usuarios, p_tienda bigint)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select u.rol not in ('piloto', 'cliente')
+       and (u.tienda_id = p_tienda or public.dist_puede_tienda(u, p_tienda));
+$$;
+
+-- ---------- La tienda pide la ubicación (antes de registrar el pedido) ----------
+-- p = { usuario_id, tienda_id, cliente_id, nombre, telefono }
+-- Si ya hay un enlace vigente sin usar para ese teléfono en esa tienda, se devuelve ese (con la
+-- ubicación, si el cliente ya la marcó) y se alarga 24 horas. -> { id, token, lat, lng, compartida_en, vence_en }
+create or replace function public.ubicacion_pedir(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u        public.usuarios;
+    v_tienda bigint := (p ->> 'tienda_id')::bigint;
+    v_tel    text := regexp_replace(coalesce(p ->> 'telefono', ''), '\D', '', 'g');
+    r        public.ubicaciones_compartidas;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    if v_tienda is null or not public.ubicacion_puede_tienda(u, v_tienda) then
+        raise exception 'No registras pedidos de esa tienda.' using errcode = 'P0001';
+    end if;
+    if length(v_tel) < 8 then
+        raise exception 'Escribe el teléfono del cliente (al menos 8 dígitos).' using errcode = 'P0001';
+    end if;
+
+    select * into r from public.ubicaciones_compartidas
+     where tienda_id = v_tienda and right(telefono, 8) = right(v_tel, 8)
+       and usada_en is null and vence_en > now()
+     order by creado_en desc
+     limit 1;
+    if found then
+        update public.ubicaciones_compartidas
+           set vence_en = now() + interval '24 hours',
+               cliente_id = coalesce((p ->> 'cliente_id')::bigint, cliente_id),
+               cliente_nombre = coalesce(nullif(btrim(p ->> 'nombre'), ''), cliente_nombre)
+         where id = r.id
+        returning * into r;
+    else
+        insert into public.ubicaciones_compartidas (empresa_id, tienda_id, cliente_id, cliente_nombre, telefono, pedida_por, pedida_por_nombre)
+        values ((select empresa_id from public.tiendas where id = v_tienda), v_tienda, (p ->> 'cliente_id')::bigint,
+                nullif(btrim(p ->> 'nombre'), ''), v_tel, u.id, u.nombre)
+        returning * into r;
+    end if;
+    return jsonb_build_object('id', r.id, 'token', r.token, 'lat', r.lat, 'lng', r.lng, 'precision_m', r.precision_m,
+                              'compartida_en', r.compartida_en, 'vence_en', r.vence_en);
+end;
+$$;
+
+-- ---------- La tienda revisa si el cliente ya la marcó ----------
+-- p = { usuario_id, id } -> { id, lat, lng, precision_m, compartida_en, usada_en, vence_en, cliente_nombre, telefono }
+create or replace function public.ubicacion_estado(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u public.usuarios;
+    r public.ubicaciones_compartidas;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    select * into r from public.ubicaciones_compartidas where id = (p ->> 'id')::bigint;
+    if not found or not public.ubicacion_puede_tienda(u, r.tienda_id) then
+        raise exception 'No se encontró esa solicitud de ubicación.' using errcode = 'P0001';
+    end if;
+    return jsonb_build_object('id', r.id, 'tienda_id', r.tienda_id, 'lat', r.lat, 'lng', r.lng, 'precision_m', r.precision_m,
+                              'compartida_en', r.compartida_en, 'usada_en', r.usada_en, 'vence_en', r.vence_en,
+                              'cliente_id', r.cliente_id, 'cliente_nombre', r.cliente_nombre, 'telefono', r.telefono);
+end;
+$$;
+
+-- ---------- Al registrar el pedido: el enlace se cierra ----------
+-- p = { usuario_id, id, pedido_id }
+create or replace function public.ubicacion_usar(p jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u public.usuarios;
+    r public.ubicaciones_compartidas;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    select * into r from public.ubicaciones_compartidas where id = (p ->> 'id')::bigint;
+    if not found or not public.ubicacion_puede_tienda(u, r.tienda_id) then
+        raise exception 'No se encontró esa solicitud de ubicación.' using errcode = 'P0001';
+    end if;
+    update public.ubicaciones_compartidas
+       set pedido_id = (p ->> 'pedido_id')::bigint, usada_en = now()
+     where id = r.id and usada_en is null;
+end;
+$$;
+
+-- ---------- Página del cliente (ubicacion.html, sin iniciar sesión) ----------
+-- Solo con el token del enlace. No devuelve datos personales: el primer nombre y la tienda.
+-- -> { estado: 'pendiente' | 'compartida' | 'usada' | 'vencida' | 'no_existe', nombre, tienda, lat, lng }
+create or replace function public.ubicacion_ver(p_token text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+    r      public.ubicaciones_compartidas;
+    v_uuid uuid;
+begin
+    begin
+        v_uuid := p_token::uuid;
+    exception when others then
+        return jsonb_build_object('estado', 'no_existe');
+    end;
+    select * into r from public.ubicaciones_compartidas where token = v_uuid;
+    if not found then
+        return jsonb_build_object('estado', 'no_existe');
+    end if;
+    return jsonb_build_object(
+        'estado', case when r.usada_en is not null then 'usada' when r.vence_en <= now() then 'vencida'
+                       when r.compartida_en is not null then 'compartida' else 'pendiente' end,
+        'nombre', split_part(btrim(coalesce(r.cliente_nombre, '')), ' ', 1),
+        'tienda', (select t.nombre from public.tiendas t where t.id = r.tienda_id),
+        'lat', r.lat, 'lng', r.lng);
+end;
+$$;
+
+-- El cliente guarda (o cambia) su ubicación. Se puede cambiar hasta que se registre el pedido.
+-- También queda en su ficha de Clientes (así su próximo pedido ya trae el punto) y la primera
+-- vez se avisa a quien mandó el enlace (campana).
+create or replace function public.ubicacion_guardar(p_token text, p_lat numeric, p_lng numeric, p_precision integer default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    r      public.ubicaciones_compartidas;
+    v_uuid uuid;
+    v_txt  text;
+begin
+    begin
+        v_uuid := p_token::uuid;
+    exception when others then
+        raise exception 'Este enlace no es válido.' using errcode = 'P0001';
+    end;
+    select * into r from public.ubicaciones_compartidas where token = v_uuid for update;
+    if not found then
+        raise exception 'Este enlace no es válido.' using errcode = 'P0001';
+    end if;
+    if r.usada_en is not null then
+        raise exception 'Tu pedido ya se registró con esta ubicación. Si cambió, avísale a la tienda.' using errcode = 'P0001';
+    end if;
+    if r.vence_en <= now() then
+        raise exception 'Este enlace venció. Pídele a la tienda uno nuevo.' using errcode = 'P0001';
+    end if;
+    -- Costa Rica (con la isla del Coco)
+    if p_lat is null or p_lng is null or p_lat not between 5.0 and 11.6 or p_lng not between -87.6 and -82.4 then
+        raise exception 'Ese punto está fuera de Costa Rica. Mueve el mapa hasta el lugar de entrega.' using errcode = 'P0001';
+    end if;
+
+    update public.ubicaciones_compartidas
+       set lat = round(p_lat, 6), lng = round(p_lng, 6),
+           precision_m = case when p_precision > 0 then p_precision end, compartida_en = now()
+     where id = r.id;
+
+    -- Ficha del cliente: la suya o la de la empresa con ese teléfono
+    v_txt := trim(to_char(round(p_lat, 6), 'FM990.000000')) || ', ' || trim(to_char(round(p_lng, 6), 'FM990.000000'));
+    update public.clientes c
+       set ubicacion = v_txt
+     where (r.cliente_id is not null and c.id = r.cliente_id)
+        or (r.cliente_id is null and c.empresa_id is not distinct from r.empresa_id
+            and right(regexp_replace(c.telefono, '\D', '', 'g'), 8) = right(r.telefono, 8));
+
+    -- Aviso (solo la primera vez) a quien mandó el enlace: lo abre en "Nuevo pedido" ya con el punto
+    if r.compartida_en is null then
+        insert into public.notificaciones (usuario_id, tipo, titulo, mensaje, enlace, referencia_tipo, referencia_id)
+        select us.id, 'info', 'El cliente compartió su ubicación',
+               format('%s (tel. %s) marcó dónde entregar. Ya puedes registrar su pedido.',
+                      coalesce(nullif(r.cliente_nombre, ''), 'El cliente'), right(r.telefono, 8)),
+               '#pedidos?nuevo=1&ubicacion=' || r.id, 'ubicacion_compartida', r.id
+          from public.usuarios us
+         where us.id = r.pedida_por;
+    end if;
+    return jsonb_build_object('ok', true);
+end;
+$$;
+
+grant execute on function public.ubicacion_pedir(jsonb) to anon;
+grant execute on function public.ubicacion_estado(jsonb) to anon;
+grant execute on function public.ubicacion_usar(jsonb) to anon;
+grant execute on function public.ubicacion_ver(text) to anon;
+grant execute on function public.ubicacion_guardar(text, numeric, numeric, integer) to anon;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 40. LIMPIAR LOS DATOS DE UNA EMPRESA (solo Desarrollador)
+--   Botón "Limpiar datos" de Tiendas -> Empresas (js/secciones/empresas-internas.js): hace
+--   lo mismo que herramientas/vaciar_base_datos.sql (modo empresa) sin abrir Supabase.
+--   - limpiar_empresa(p): SOLO el Desarrollador y con SU CONTRASEÑA (se comprueba en la
+--     base: la clave pública sola no alcanza). Hay que escribir el ID de la empresa
+--     para confirmar. Borra pedidos, viajes, clientes, rutas, vehículos, usuarios,
+--     tiendas, regiones, tarifas, descuentos, mercadería, caja, distribuidora y
+--     transporte de ESA empresa. Las demás empresas no se tocan.
+--   - "admin" y "desar" nunca se borran; los Administradores si se conservan.
+--   - borrar_empresa: al final borra también la empresa (no la principal, ni si le
+--     quedan usuarios).
+--   Las fotos de Storage no se borran (no estorban).
+--   Se puede repetir.
+-- ==================================================
+
+-- p = { usuario_id, clave, empresa_id, confirmar (el ID de la empresa: '02'),
+--       conservar_administradores (true), borrar_empresa (false) }
+-- -> { empresa, nombre, borrada, filas: { pedidos: n, ... } }
+create or replace function public.limpiar_empresa(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_usuario   bigint := (p ->> 'usuario_id')::bigint;
+    v_clave     text;
+    v_empresa   record;
+    v_admins    boolean := coalesce((p ->> 'conservar_administradores')::boolean, true);
+    v_borrar    boolean := coalesce((p ->> 'borrar_empresa')::boolean, false);
+    v_filas     jsonb := '{}'::jsonb;
+    v_borrada   boolean := false;
+    n           bigint;
+begin
+    -- Solo el Desarrollador, con su contraseña
+    select u.clave into v_clave from public.usuarios u where u.id = v_usuario and u.rol = 'desarrollador';
+    if v_clave is null or not public.clave_cifrada(v_clave)
+       or v_clave <> extensions.crypt(coalesce(p ->> 'clave', ''), v_clave) then
+        perform pg_sleep(0.4); -- frena a quien prueba claves al azar
+        raise exception 'Contraseña del Desarrollador incorrecta: no se borró nada.' using errcode = 'P0001';
+    end if;
+
+    select e.id, e.codigo, e.nombre into v_empresa from public.empresas e where e.id = (p ->> 'empresa_id')::bigint;
+    if not found then
+        raise exception 'No existe esa empresa: no se borró nada.' using errcode = 'P0001';
+    end if;
+    if btrim(coalesce(p ->> 'confirmar', '')) <> v_empresa.codigo then
+        raise exception 'Para confirmar escriba el ID de la empresa (%): no se borró nada.', v_empresa.codigo using errcode = 'P0001';
+    end if;
+
+    -- Viajes y cortesías (se apuntan entre sí con "on delete set null")
+    if to_regclass('public.viajes') is not null then
+        delete from public.viajes where empresa_id = v_empresa.id;
+        get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('viajes', n);
+        delete from public.cortesias where empresa_id = v_empresa.id;
+    end if;
+
+    -- Solicitudes de envío y ubicaciones compartidas por los clientes
+    if to_regclass('public.pedido_solicitudes') is not null then
+        delete from public.pedido_solicitudes where empresa_id = v_empresa.id;
+    end if;
+    if to_regclass('public.ubicaciones_compartidas') is not null then
+        delete from public.ubicaciones_compartidas where empresa_id = v_empresa.id;
+    end if;
+
+    -- Pedidos (su historial, artículos, entregas y evidencias se van con ellos)
+    delete from public.pedidos where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('pedidos', n);
+
+    -- Cierres y tipos de caja
+    if to_regclass('public.cierres_caja') is not null then
+        delete from public.cierres_caja where empresa_id = v_empresa.id;
+        update public.usuarios set caja_id = null where empresa_id = v_empresa.id;
+        delete from public.cajas where empresa_id = v_empresa.id;
+    end if;
+
+    -- Distribuidora: bodegas del día (sus movimientos y cierres se van con ellas) antes
+    -- que las rutas; luego productos, listas de precios y motivos
+    if to_regclass('public.bodegas_dia') is not null then
+        delete from public.bodegas_dia where empresa_id = v_empresa.id;
+        update public.tiendas set lista_precios_id = null where empresa_id = v_empresa.id;
+        delete from public.listas_precios where empresa_id = v_empresa.id;
+        delete from public.productos where empresa_id = v_empresa.id;
+        get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('productos', n);
+        delete from public.motivos_entrega_parcial where empresa_id = v_empresa.id;
+    end if;
+
+    -- Rutas (y sus pilotos por ruta)
+    delete from public.rutas where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('rutas', n);
+
+    -- Usuarios (sus notificaciones, marcas y QR del día se van con ellos).
+    -- "admin" y "desar" nunca; los Administradores si se conservan.
+    delete from public.usuarios
+     where empresa_id = v_empresa.id
+       and id_usuario not in ('admin', 'desar')
+       and (not v_admins or rol <> 'administrador');
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('usuarios', n);
+
+    -- Clientes (sus tiendas y su usuario de viajes se van con ellos)
+    delete from public.clientes where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('clientes', n);
+
+    -- Configuración de transporte de la empresa
+    if to_regclass('public.transporte_costos') is not null then
+        delete from public.transporte_costos where empresa_id = v_empresa.id;
+        delete from public.transporte_franjas where empresa_id = v_empresa.id;
+        delete from public.transporte_dias_cerrados where empresa_id = v_empresa.id;
+        delete from public.transporte_config where empresa_id = v_empresa.id;
+    end if;
+
+    delete from public.vehiculos where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('vehiculos', n);
+    delete from public.tarifas where empresa_id = v_empresa.id;
+    delete from public.descuentos where empresa_id = v_empresa.id;
+    -- Categorías de mercadería (sus artículos frecuentes se van con ellas)
+    delete from public.categorias_mercaderia where empresa_id = v_empresa.id;
+
+    -- Tiendas y regiones (sus marcas, capacidades y QR se van con ellas)
+    delete from public.tiendas where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('tiendas', n);
+    delete from public.regiones where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('regiones', n);
+
+    -- La empresa misma: nunca la principal, ni si le quedan usuarios
+    if v_borrar and v_empresa.id <> public.empresa_principal()
+       and not exists (select 1 from public.usuarios where empresa_id = v_empresa.id) then
+        delete from public.empresas where id = v_empresa.id;
+        v_borrada := true;
+    end if;
+
+    return jsonb_build_object('empresa', v_empresa.codigo, 'nombre', v_empresa.nombre,
+                              'borrada', v_borrada, 'filas', v_filas);
+end;
+$$;
+
+revoke execute on function public.limpiar_empresa(jsonb) from public;
+grant execute on function public.limpiar_empresa(jsonb) to anon;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 41. DATOS DE CADA EMPRESA INTERNA: RAZÓN SOCIAL, CÉDULA JURÍDICA, TELÉFONO, DIRECCIÓN, UBICACIÓN Y GIRO
+--   Los llena el Desarrollador en Tiendas -> Empresas -> Nueva / Modificar
+--   (js/secciones/empresas-internas.js). Todos opcionales.
+--   - razon_social: nombre legal (ej. "Corporación Dinant S.A.")
+--   - cedula_juridica: cédula jurídica (ej. "3-101-123456")
+--   - telefono:     teléfono de la empresa
+--   - direccion:    dirección escrita
+--   - ubicacion:    coordenadas "9.93, -84.08" o enlace de Google Maps (botón "Mapa")
+--   - giro:         a qué se dedica, por escrito (ej. "Distribución de alimentos")
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.empresas add column if not exists razon_social text;
+alter table public.empresas add column if not exists cedula_juridica text;
+alter table public.empresas add column if not exists telefono text;
+alter table public.empresas add column if not exists direccion text;
+alter table public.empresas add column if not exists ubicacion text;
+alter table public.empresas add column if not exists giro text;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 42. USUARIOS: CÉDULA Y DEPARTAMENTO (para búsquedas)
+--   Los llena quien crea o modifica el usuario (Usuarios -> Nuevo / Modificar,
+--   js/secciones/usuarios.js). Los dos opcionales; el buscador de Usuarios los usa.
+--   - cedula:       cédula de identidad (ej. "1-1234-5678")
+--   - departamento: área donde trabaja (ej. "Bodega", "Ventas", "Contabilidad")
+--   Al final se vuelve a ejecutar usuarios_ocultar_clave() (sql/01 bloque 20): la
+--   página solo lee las columnas con permiso, y las nuevas lo necesitan.
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.usuarios add column if not exists cedula text;
+alter table public.usuarios add column if not exists departamento text;
+create index if not exists usuarios_cedula_idx on public.usuarios (cedula) where cedula is not null;
+
+select public.usuarios_ocultar_clave();
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 43. CLIENTES: PERSONA O EMPRESA, CÉDULA Y RAZÓN SOCIAL
+--   Clientes -> Nuevo / Modificar (js/secciones/clientes.js): se elige si el cliente es
+--   una PERSONA o una EMPRESA.
+--   - tipo:          'persona' (los de antes) | 'empresa'
+--   - cedula:        cédula de la persona o cédula jurídica de la empresa
+--   - razon_social:  solo empresas (nombre legal). Su nombre y apellidos pasan a ser los
+--                    de la persona de contacto (el apellido puede quedar vacío: '')
+--   "busqueda" (el buscador de clientes) ahora también lleva la razón social y la cédula.
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.clientes add column if not exists tipo text not null default 'persona';
+alter table public.clientes add column if not exists cedula text;
+alter table public.clientes add column if not exists razon_social text;
+
+alter table public.clientes drop constraint if exists clientes_tipo_valido;
+alter table public.clientes add constraint clientes_tipo_valido check (tipo in ('persona', 'empresa'));
+alter table public.clientes drop constraint if exists clientes_empresa_razon_social;
+alter table public.clientes add constraint clientes_empresa_razon_social
+    check (tipo <> 'empresa' or nullif(btrim(razon_social), '') is not null);
+
+-- Búsqueda con la razón social y la cédula (se rehace solo si todavía no las tiene)
+do $$
+begin
+    if not exists (select 1 from information_schema.columns
+                    where table_schema = 'public' and table_name = 'clientes' and column_name = 'busqueda'
+                      and generation_expression like '%razon_social%') then
+        alter table public.clientes drop column if exists busqueda;
+        alter table public.clientes
+            add column busqueda text
+                generated always as (lower(translate(
+                    nombre || ' ' || apellido1 || ' ' || coalesce(apellido2, '') || ' ' ||
+                    coalesce(razon_social, '') || ' ' || coalesce(cedula, '') || ' ' ||
+                    coalesce(correo, '') || ' ' || regexp_replace(telefono, '\D', '', 'g'),
+                    'ÁÉÍÓÚÜÑáéíóúüñ', 'AEIOUUNaeiouun'))) stored;
+    end if;
+end;
+$$;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 44. TELÉFONOS Y CÉDULAS: FORMATO DE COSTA RICA Y TOPE DE LARGO
+-- Formato de Costa Rica en la pantalla (js/componentes.js, FORMATOS_CR): teléfono 8888-1234,
+-- cédula física 1-0234-0567 (o DIMEX de 11 a 12 dígitos) y cédula jurídica 3-101-123456.
+-- Aquí la base pone el TOPE, para que nadie guarde un dato desbordado aunque se salte la
+-- pantalla: largo máximo y solo números, espacios, guiones, "+", "(", ")" y punto.
+--   - clientes:  teléfono (20), cédula (20), razón social (150), nombre y apellidos (60), correo (120)
+--   - usuarios:  teléfono (20), cédula (20), departamento (60)
+--   - empresas:  teléfono (20), cédula jurídica (20), razón social (150), giro (200),
+--                dirección (250), ubicación (300)
+--   - tiendas:   teléfono (20)
+--   - pedidos, viajes y solicitudes de pedido: teléfonos hasta 30 (copian el del cliente)
+-- Cada regla se agrega SOLO si ningún dato que ya existe la incumple, así nada que ya
+-- funciona deja de guardarse. Si alguno la incumple, sale un aviso (NOTICE) con la tabla y
+-- cuántas filas: se corrigen y se vuelve a ejecutar. Para verlas, por ejemplo:
+--   select id, telefono from public.clientes where not (char_length(telefono) <= 20
+--       and telefono ~ '^[0-9 +().-]*$');
+-- Se puede repetir.
+-- ==================================================
+
+do $$
+declare
+    r record;
+    malos bigint;
+begin
+    for r in select * from (values
+        ('clientes', 'clientes_telefono_formato',   $c$char_length(telefono) <= 20 and telefono ~ '^[0-9 +().-]*$'$c$),
+        ('clientes', 'clientes_cedula_formato',     $c$char_length(cedula) <= 20 and cedula ~ '^[0-9-]*$'$c$),
+        ('clientes', 'clientes_razon_social_largo', $c$char_length(razon_social) <= 150$c$),
+        ('clientes', 'clientes_nombre_largo',       $c$char_length(nombre) <= 60 and char_length(apellido1) <= 60 and char_length(coalesce(apellido2, '')) <= 60$c$),
+        ('clientes', 'clientes_correo_largo',       $c$char_length(correo) <= 120$c$),
+        ('usuarios', 'usuarios_telefono_formato',   $c$char_length(telefono) <= 20 and telefono ~ '^[0-9 +().-]*$'$c$),
+        ('usuarios', 'usuarios_cedula_formato',     $c$char_length(cedula) <= 20 and cedula ~ '^[0-9-]*$'$c$),
+        ('usuarios', 'usuarios_departamento_largo', $c$char_length(departamento) <= 60$c$),
+        ('empresas', 'empresas_telefono_formato',   $c$char_length(telefono) <= 20 and telefono ~ '^[0-9 +().-]*$'$c$),
+        ('empresas', 'empresas_cedula_formato',     $c$char_length(cedula_juridica) <= 20 and cedula_juridica ~ '^[0-9-]*$'$c$),
+        ('empresas', 'empresas_datos_largo',        $c$char_length(coalesce(razon_social, '')) <= 150 and char_length(coalesce(giro, '')) <= 200 and char_length(coalesce(direccion, '')) <= 250 and char_length(coalesce(ubicacion, '')) <= 300$c$),
+        ('tiendas',  'tiendas_telefono_formato',    $c$char_length(telefono) <= 20 and telefono ~ '^[0-9 +().-]*$'$c$),
+        ('pedidos',  'pedidos_telefonos_largo',     $c$char_length(cliente_telefono) <= 30 and char_length(coalesce(recibe_telefono, '')) <= 30$c$),
+        ('viajes',   'viajes_telefono_largo',       $c$char_length(cliente_telefono) <= 30$c$),
+        ('pedido_solicitudes', 'pedido_solicitudes_telefonos_largo',
+                                                    $c$char_length(cliente_telefono) <= 30 and char_length(coalesce(recibe_telefono, '')) <= 30$c$)
+    ) as v(tabla, nombre, condicion)
+    loop
+        -- Ya está: no se vuelve a revisar
+        if exists (select 1 from pg_constraint
+                    where conname = r.nombre and conrelid = to_regclass('public.' || r.tabla)) then
+            continue;
+        end if;
+        begin
+            execute format('select count(*) from public.%I where not (%s)', r.tabla, r.condicion) into malos;
+        exception when undefined_table or undefined_column then
+            raise notice 'Se salta %: falta la tabla o una columna (ejecute antes los bloques anteriores).', r.nombre;
+            continue;
+        end;
+        if malos > 0 then
+            raise notice 'NO se agregó %: % fila(s) de % no lo cumplen. Corríjalas y vuelva a ejecutar este bloque.',
+                r.nombre, malos, r.tabla;
+        else
+            execute format('alter table public.%I add constraint %I check (%s)', r.tabla, r.nombre, r.condicion);
+        end if;
+    end loop;
+end;
+$$;
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 45. COSTOS DE OPERACIÓN: MARGEN DE UTILIDAD Y ENTREGAS AL MES
+--   Configuración -> Costos de operación (js/secciones/configuracion/costos.js) NO depende
+--   de vehículos: suma los gastos del mes que se registran (combustible incluido, como un
+--   gasto más) y los reparte entre las entregas o viajes del mes. Con eso calcula el precio
+--   mínimo para cubrir gastos y el precio sugerido con el margen de utilidad deseado.
+--   Columnas nuevas de transporte_config:
+--   - margen_objetivo: % de utilidad deseado, de 0 a 90 (precio sugerido = costo ÷ (1 − margen))
+--   - trabajos_mes:    entregas o viajes estimados al mes (vacío = los reales de 30 días)
+--   Sin este bloque la pantalla calcula igual con lo escrito, pero no lo guarda.
+--   Se puede repetir.
+-- ==================================================
+
+alter table public.transporte_config add column if not exists margen_objetivo numeric(5,2) not null default 20;
+alter table public.transporte_config add column if not exists trabajos_mes integer;
+
+alter table public.transporte_config drop constraint if exists transporte_config_margen_valido;
+alter table public.transporte_config add constraint transporte_config_margen_valido check (
+    margen_objetivo between 0 and 90
+    and (trabajos_mes is null or trabajos_mes >= 0));
+
+notify pgrst, 'reload schema';
+
+
+-- ==================================================
+-- 46. RECOLECCIÓN: AGENDA DEL CLIENTE, DEPÓSITOS, BLOQUEOS Y COBRO SEMANAL (2026-10-20)
+--   Actividad nueva "recoleccion" (docs/secciones/recolecciones.md). No cambia las demás:
+--   tiene su propia marca, sus tablas y su sección (#recolecciones).
+--   - El cliente elige día y hora (una sola agenda por empresa: cada espacio lo toma
+--     un solo cliente), dónde se recoge, qué (DEPÓSITOS: cuántos y de quién es cada uno,
+--     u OTRO: descripción) y dónde se entrega: la OFICINA de la empresa (Tiendas ->
+--     Empresas, bloque 41) u OTRO lugar en el mapa. Cambia la hora o cancela mientras el
+--     espacio nuevo esté libre y hasta "cancelar_horas" antes.
+--   - Quien atiende (Administrador, Admin G1, piloto o quien tenga la función
+--     "recolecciones.atender") ve las solicitudes y hace el proceso del conductor:
+--     en camino -> recogida -> entregada (o "no estaba"). Bloquea horas (almuerzo,
+--     entrada, salida): un día o todas las semanas.
+--   - Tarifa DIARIA por cliente, como las rutas: se marcan los días que se trabajan
+--     (lun..dom) y cada día marcado se cobra el monto fijo, HAYA O NO recolecciones
+--     (recoleccion_cargos, los arma recoleccion_generar_cargos). Al final de la semana
+--     se ve cuánto cobrar a cada uno y se marca como cobrado.
+--   - actividades.usa_agenda_recoleccion (OJO: distinta de usa_recoleccion, que es el
+--     "punto de partida" de Encomiendas).
+--   Recicla de Transporte (bloque 19): viaje_usuario. La página SOLO LEE recolecciones;
+--   reservar, cambiar, cancelar y avanzar va por funciones de la base.
+--   Se puede repetir.
+-- ==================================================
+
+-- ---------- Actividad ----------
+alter table public.actividades add column if not exists usa_agenda_recoleccion boolean not null default false;
+
+insert into public.actividades (codigo, nombre, descripcion, icono, orden, usa_vehiculos, usa_km, usa_peso, usa_productos, usa_caja,
+                                palabra_registro, palabra_registros, palabra_conductor, palabra_conductores, usa_agenda_recoleccion)
+select 'recoleccion', 'Recolección',
+       'El cliente elige la hora y qué se recoge (depósitos u otros) y dónde se entrega. Una sola agenda; tarifa diaria por cliente que se cobra cada semana.',
+       'bi-inbox', coalesce(max(orden), 0) + 1, false, false, false, false, false,
+       'recolección', 'recolecciones', 'conductor', 'conductores', true
+  from public.actividades
+on conflict (codigo) do nothing;
+update public.actividades set usa_agenda_recoleccion = true where codigo = 'recoleccion';
+
+-- ---------- Reglas de cada empresa ----------
+create table if not exists public.recoleccion_config (
+    empresa_id         bigint primary key references public.empresas(id) on delete cascade,
+    zona_horaria       text          not null default 'America/Costa_Rica',
+    dias               smallint[]    not null default '{1,2,3,4,5}', -- 1 = lunes ... 7 = domingo
+    hora_inicio        time          not null default '08:00',
+    hora_fin           time          not null default '17:00',
+    espacio_min        smallint      not null default 30,   -- lo que dura cada espacio de la agenda
+    anticipacion_min   smallint      not null default 60,   -- solicitar al menos N minutos antes
+    anticipacion_dias  smallint      not null default 14,   -- solicitar hasta N días después
+    cancelar_horas     numeric(4,1)  not null default 1,    -- el cliente cambia o cancela hasta N horas antes
+    actualizado_en     timestamptz   not null default now(),
+
+    constraint recoleccion_config_valida check (
+        hora_fin > hora_inicio and espacio_min between 5 and 240
+        and anticipacion_min between 0 and 10080 and anticipacion_dias between 0 and 90
+        and cancelar_horas >= 0
+        and cardinality(dias) > 0 and dias <@ array[1, 2, 3, 4, 5, 6, 7]::smallint[])
+);
+
+-- ---------- Horas bloqueadas por quien atiende (almuerzo, entrada, salida...) ----------
+-- Un día (fecha) o todas las semanas (dias). Una solicitud que ya existía no se borra.
+create table if not exists public.recoleccion_bloqueos (
+    id          bigint generated always as identity primary key,
+    empresa_id  bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    fecha       date,
+    dias        smallint[],
+    desde       time not null,
+    hasta       time not null,
+    motivo      text,
+    creado_por  bigint references public.usuarios(id) on delete set null,
+    creado_en   timestamptz not null default now(),
+
+    constraint recoleccion_bloqueos_validos check (
+        hasta > desde
+        and ((fecha is not null) <> (coalesce(cardinality(dias), 0) > 0))
+        and (dias is null or dias <@ array[1, 2, 3, 4, 5, 6, 7]::smallint[]))
+);
+create index if not exists recoleccion_bloqueos_empresa_idx on public.recoleccion_bloqueos (empresa_id);
+
+-- ---------- Tarifa diaria de cada cliente (como las rutas: días marcados) ----------
+-- Cada día marcado (desde "desde") se cobra monto_dia, haya o no recolecciones.
+create table if not exists public.recoleccion_tarifas (
+    cliente_id      bigint primary key references public.clientes(id) on delete cascade,
+    empresa_id      bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    monto_dia       numeric(10,2) not null,
+    dias            smallint[] not null default '{1,2,3,4,5}', -- 1 = lunes ... 7 = domingo
+    desde           date not null default current_date,       -- se cobra desde este día
+    actualizado_por bigint references public.usuarios(id) on delete set null,
+    actualizado_en  timestamptz not null default now(),
+
+    constraint recoleccion_tarifas_monto check (monto_dia >= 0),
+    constraint recoleccion_tarifas_dias check (cardinality(dias) > 0 and dias <@ array[1, 2, 3, 4, 5, 6, 7]::smallint[])
+);
+create index if not exists recoleccion_tarifas_empresa_idx on public.recoleccion_tarifas (empresa_id);
+-- Si la tabla ya existía (bloque ejecutado antes de la tarifa por días): se completa
+alter table public.recoleccion_tarifas add column if not exists dias smallint[] not null default '{1,2,3,4,5}';
+alter table public.recoleccion_tarifas add column if not exists desde date not null default current_date;
+alter table public.recoleccion_tarifas drop constraint if exists recoleccion_tarifas_dias;
+alter table public.recoleccion_tarifas add constraint recoleccion_tarifas_dias
+    check (cardinality(dias) > 0 and dias <@ array[1, 2, 3, 4, 5, 6, 7]::smallint[]);
+
+-- ---------- Recolecciones ----------
+create sequence if not exists public.recolecciones_codigo_seq;
+
+create table if not exists public.recolecciones (
+    id                  bigint generated always as identity primary key,
+    codigo              text unique,
+    empresa_id          bigint not null references public.empresas(id) on delete cascade,
+    cliente_id          bigint references public.clientes(id) on delete set null,
+    cliente_nombre      text not null,
+    cliente_telefono    text,
+    solicitado_por      bigint references public.usuarios(id) on delete set null,
+
+    inicio              timestamptz not null,   -- espacio de la agenda
+    fin                 timestamptz not null,
+
+    recoger_direccion   text not null,
+    recoger_lat         numeric(9,6) not null,
+    recoger_lng         numeric(9,6) not null,
+    que                 text not null default 'depositos',  -- 'depositos' | 'otro'
+    depositos           jsonb not null default '[]'::jsonb, -- de quién es cada depósito: ["Juan Pérez", ...]
+    descripcion         text,                               -- 'otro': qué se recoge
+    entrega             text not null default 'oficina',    -- 'oficina' (la de la empresa) | 'otro'
+    entrega_direccion   text,
+    entrega_lat         numeric(9,6),
+    entrega_lng         numeric(9,6),
+    notas               text,
+
+    estado              text not null default 'confirmada',
+    conductor_id        bigint references public.usuarios(id) on delete set null, -- quien la atendió
+    motivo_cancelacion  text,
+    cancelado_por       bigint references public.usuarios(id) on delete set null,
+    cancelado_en        timestamptz,
+    en_camino_en        timestamptz,
+    recogida_en         timestamptz,
+    entregada_en        timestamptz,
+    creado_en           timestamptz not null default now(),
+    actualizado_en      timestamptz not null default now(),
+
+    constraint recolecciones_estado_valido check (estado in ('confirmada', 'en_camino', 'recogida', 'entregada', 'cancelada', 'no_estaba')),
+    constraint recolecciones_que_valido check (
+        que in ('depositos', 'otro')
+        and (que <> 'depositos' or jsonb_array_length(depositos) between 1 and 50)
+        and (que <> 'otro' or nullif(btrim(descripcion), '') is not null)),
+    constraint recolecciones_entrega_valida check (
+        entrega in ('oficina', 'otro') and (entrega <> 'otro' or (entrega_lat is not null and entrega_lng is not null))),
+    constraint recolecciones_horas_validas check (fin > inicio)
+);
+create index if not exists recolecciones_empresa_inicio_idx on public.recolecciones (empresa_id, inicio);
+create index if not exists recolecciones_cliente_idx        on public.recolecciones (cliente_id, estado);
+-- Un solo cliente por espacio (además del candado de las funciones)
+create unique index if not exists recolecciones_un_espacio on public.recolecciones (empresa_id, inicio) where estado <> 'cancelada';
+
+-- Código (R-000001) y fecha de modificación
+create or replace function public.recolecciones_antes_de_guardar()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+    if tg_op = 'INSERT' and new.codigo is null then
+        new.codigo := 'R-' || lpad(nextval('public.recolecciones_codigo_seq')::text, 6, '0');
+    end if;
+    new.actualizado_en := now();
+    return new;
+end;
+$$;
+
+drop trigger if exists recolecciones_antes_de_guardar on public.recolecciones;
+create trigger recolecciones_antes_de_guardar before insert or update on public.recolecciones
+    for each row execute function public.recolecciones_antes_de_guardar();
+
+-- ---------- Lo que se cobra: un monto por cliente y por día marcado en su tarifa ----------
+create table if not exists public.recoleccion_cargos (
+    id             bigint generated always as identity primary key,
+    empresa_id     bigint not null references public.empresas(id) on delete cascade,
+    cliente_id     bigint not null references public.clientes(id) on delete cascade,
+    fecha          date not null,
+    monto          numeric(10,2) not null,
+    recolecciones  smallint not null default 0,   -- (sin uso: el día se cobra haya o no recolecciones)
+    cobrado_en     timestamptz,
+    cobrado_por    bigint references public.usuarios(id) on delete set null,
+    creado_en      timestamptz not null default now(),
+
+    constraint recoleccion_cargos_unico unique (empresa_id, cliente_id, fecha),
+    constraint recoleccion_cargos_monto check (monto >= 0 and recolecciones >= 0)
+);
+create index if not exists recoleccion_cargos_fecha_idx on public.recoleccion_cargos (empresa_id, fecha);
+alter table public.recoleccion_cargos alter column recolecciones set default 0; -- (si ya existía con 1)
+
+-- ==================================================
+-- FUNCIONES DE RECOLECCIÓN
+-- ==================================================
+
+-- Reglas de la empresa (si no tiene, las crea con los valores de siempre)
+create or replace function public.recoleccion_cfg(p_empresa bigint)
+returns public.recoleccion_config
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v public.recoleccion_config;
+begin
+    select * into v from public.recoleccion_config where empresa_id = p_empresa;
+    if not found then
+        insert into public.recoleccion_config (empresa_id) values (p_empresa) on conflict (empresa_id) do nothing;
+        select * into v from public.recoleccion_config where empresa_id = p_empresa;
+    end if;
+    return v;
+end;
+$$;
+
+-- ¿El espacio cae en una hora bloqueada? Devuelve el motivo ('' si no tiene) o null
+create or replace function public.recoleccion_bloqueo(p_empresa bigint, p_inicio timestamptz, p_fin timestamptz)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select coalesce(b.motivo, '')
+      from public.recoleccion_bloqueos b,
+           lateral (select coalesce((select zona_horaria from public.recoleccion_config where empresa_id = p_empresa),
+                                    'America/Costa_Rica') as zona) z
+     where b.empresa_id = p_empresa
+       and (b.fecha = (p_inicio at time zone z.zona)::date
+            or extract(isodow from (p_inicio at time zone z.zona))::smallint = any(b.dias))
+       and b.desde < (p_fin at time zone z.zona)::time
+       and b.hasta > (p_inicio at time zone z.zona)::time
+     order by b.desde
+     limit 1;
+$$;
+
+-- ¿Otra recolección activa ocupa el espacio?
+create or replace function public.recoleccion_ocupado(p_empresa bigint, p_inicio timestamptz, p_fin timestamptz, p_excluir bigint default null)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select exists (
+        select 1 from public.recolecciones r
+         where r.empresa_id = p_empresa and r.estado <> 'cancelada'
+           and (p_excluir is null or r.id <> p_excluir)
+           and r.inicio < p_fin and r.fin > p_inicio);
+$$;
+
+-- ¿Se puede tomar ese espacio? (lanza el error con el motivo; hint 'ocupado' si ya lo tomó otro)
+create or replace function public.recoleccion_validar(p_empresa bigint, p_inicio timestamptz, p_excluir bigint default null)
+returns timestamptz   -- el fin del espacio
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    c       public.recoleccion_config;
+    v_local timestamp;
+    v_fin   timestamptz;
+begin
+    c := public.recoleccion_cfg(p_empresa);
+    v_local := p_inicio at time zone c.zona_horaria;
+    v_fin := p_inicio + make_interval(mins => c.espacio_min);
+    if p_inicio < now() + make_interval(mins => c.anticipacion_min) then
+        raise exception 'Solicita con al menos % minutos de anticipación.', c.anticipacion_min using errcode = 'P0001';
+    end if;
+    if v_local::date > (now() at time zone c.zona_horaria)::date + c.anticipacion_dias then
+        raise exception 'Solo se puede solicitar hasta % días después de hoy.', c.anticipacion_dias using errcode = 'P0001';
+    end if;
+    if not (extract(isodow from v_local)::smallint = any(c.dias))
+       or v_local::time < c.hora_inicio or (v_fin at time zone c.zona_horaria)::time > c.hora_fin
+       or (extract(epoch from (v_local::time - c.hora_inicio))::integer / 60) % c.espacio_min <> 0 then
+        raise exception 'A esa hora no hay servicio: elige una hora de la lista.' using errcode = 'P0001';
+    end if;
+    if public.recoleccion_bloqueo(p_empresa, p_inicio, v_fin) is not null then
+        raise exception 'Esa hora no está disponible: elige otra.' using errcode = 'P0001', hint = 'ocupado';
+    end if;
+    if public.recoleccion_ocupado(p_empresa, p_inicio, v_fin, p_excluir) then
+        raise exception 'Esa hora acaba de ocuparse: elige otra.' using errcode = 'P0001', hint = 'ocupado';
+    end if;
+    return v_fin;
+end;
+$$;
+
+-- Horas de un día: cada espacio dentro del horario, libre o no. Si el día no se
+-- puede, una sola fila con el motivo. p_excluir: la que se está cambiando de hora.
+-- p_detalle (quien atiende): el motivo del bloqueo y el código de quien ocupa.
+create or replace function public.recolecciones_horas(p_empresa bigint, p_fecha date, p_excluir bigint default null,
+    p_detalle boolean default false)
+returns table (inicio timestamptz, hora text, disponible boolean, motivo text)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    c        public.recoleccion_config;
+    v_hoy    date;
+    v_ini    timestamptz;
+    v_fin    timestamptz;
+    v_bloq   text;
+    v_ocupa  text;
+    t        timestamp;
+begin
+    c := public.recoleccion_cfg(p_empresa);
+    v_hoy := (now() at time zone c.zona_horaria)::date;
+    if p_fecha < v_hoy or p_fecha > v_hoy + c.anticipacion_dias then
+        return query select null::timestamptz, null::text, false,
+            format('Solo se puede solicitar desde hoy hasta %s días después.', c.anticipacion_dias);
+        return;
+    end if;
+    if not (extract(isodow from p_fecha)::smallint = any(c.dias)) then
+        return query select null::timestamptz, null::text, false, 'Ese día no hay servicio.'::text;
+        return;
+    end if;
+    for t in select g from generate_series(p_fecha + c.hora_inicio,
+                                           p_fecha + c.hora_fin - make_interval(mins => c.espacio_min),
+                                           make_interval(mins => c.espacio_min)) g loop
+        v_ini := t at time zone c.zona_horaria;
+        continue when v_ini < now() + make_interval(mins => c.anticipacion_min);
+        v_fin := v_ini + make_interval(mins => c.espacio_min);
+        v_bloq := public.recoleccion_bloqueo(p_empresa, v_ini, v_fin);
+        v_ocupa := null;
+        if v_bloq is null then
+            select r.codigo into v_ocupa from public.recolecciones r
+             where r.empresa_id = p_empresa and r.estado <> 'cancelada'
+               and (p_excluir is null or r.id <> p_excluir)
+               and r.inicio < v_fin and r.fin > v_ini
+             limit 1;
+        end if;
+        return query select v_ini, to_char(t, 'HH24:MI'), v_bloq is null and v_ocupa is null,
+            case when v_bloq is not null then (case when p_detalle and v_bloq <> '' then v_bloq else 'No disponible' end)
+                 when v_ocupa is not null then (case when p_detalle then 'Ocupado · ' || v_ocupa else 'Ocupado' end) end;
+    end loop;
+end;
+$$;
+
+-- Recolección como json (lo que devuelven las funciones)
+create or replace function public.recoleccion_json(p_id bigint)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select to_jsonb(r) || jsonb_build_object(
+        'conductor', (select jsonb_build_object('nombre', u.nombre, 'telefono', u.telefono) from public.usuarios u where u.id = r.conductor_id))
+      from public.recolecciones r where r.id = p_id;
+$$;
+
+-- ¿Este usuario atiende las recolecciones? (hace el proceso del conductor y bloquea horas)
+create or replace function public.recoleccion_atiende(u public.usuarios)
+returns boolean
+language sql
+stable
+set search_path = ''
+as $$
+    select u.rol in ('desarrollador', 'administrador', 'admin_g1', 'piloto')
+        or 'recolecciones.atender' = any(coalesce(u.permisos, '{}'::text[]));
+$$;
+
+-- Aviso a un usuario, o a todos los que atienden la empresa (p_usuario null)
+create or replace function public.recoleccion_avisar(p_empresa bigint, p_usuario bigint, p_titulo text, p_mensaje text, p_id bigint)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+    insert into public.notificaciones (usuario_id, tipo, titulo, mensaje, enlace, referencia_tipo, referencia_id)
+    select u.id, 'info', p_titulo, p_mensaje, '#recolecciones?id=' || p_id, 'recoleccion', p_id
+      from public.usuarios u
+     where u.aprobado
+       and (case when p_usuario is not null then u.id = p_usuario
+                 else u.empresa_id = p_empresa and public.recoleccion_atiende(u) and u.rol <> 'desarrollador' end);
+$$;
+
+-- ---------- Solicitar ----------
+-- p: { usuario_id, empresa_id (solo Desarrollador), cliente_id (personal; el cliente es él mismo),
+--      inicio, recoger: { direccion, lat, lng }, que: 'depositos' | 'otro',
+--      depositos: ['de quién es', ...], descripcion, entrega: 'oficina' | 'otro',
+--      entrega_lugar: { direccion, lat, lng } (si es 'otro'), notas }
+create or replace function public.recolecciones_solicitar(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u          public.usuarios;
+    c          public.recoleccion_config;
+    v_empresa  bigint;
+    v_emp      jsonb;
+    v_cliente  record;
+    v_inicio   timestamptz;
+    v_fin      timestamptz;
+    v_que      text := coalesce(p ->> 'que', 'depositos');
+    v_dep      jsonb := '[]'::jsonb;
+    v_texto    text;
+    v_entrega  text := coalesce(p ->> 'entrega', 'oficina');
+    v_ent_dir  text;
+    v_ent_lat  numeric;
+    v_ent_lng  numeric;
+    v_punto    text[];
+    v_r        public.recolecciones;
+begin
+    u := public.viaje_usuario((p ->> 'usuario_id')::bigint);
+    if u.rol not in ('cliente', 'administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado', 'desarrollador') then
+        raise exception 'Tu usuario no puede solicitar recolecciones.' using errcode = 'P0001';
+    end if;
+    v_empresa := case when u.rol = 'desarrollador' then (p ->> 'empresa_id')::bigint else u.empresa_id end;
+    select id, nombre, apellidos, telefono, empresa_id into v_cliente from public.clientes
+     where id = case when u.rol = 'cliente' then u.cliente_id else (p ->> 'cliente_id')::bigint end;
+    if v_cliente.id is null or v_cliente.empresa_id is distinct from v_empresa then
+        raise exception 'Elige el cliente de la recolección.' using errcode = 'P0001';
+    end if;
+    -- to_jsonb: dirección y ubicación de la oficina (bloque 41) sin fallar si faltan las columnas
+    select to_jsonb(e) into v_emp from public.empresas e where e.id = v_empresa;
+    if not exists (select 1 from public.empresas e join public.actividades a on a.codigo = any (e.actividades)
+                    where e.id = v_empresa and a.usa_agenda_recoleccion and a.activa) then
+        raise exception 'La empresa no tiene la actividad Recolección activa.' using errcode = 'P0001';
+    end if;
+
+    -- Dónde se recoge
+    if (p #>> '{recoger,lat}') is null or (p #>> '{recoger,lng}') is null then
+        raise exception 'Ubica en el mapa dónde se recoge.' using errcode = 'P0001';
+    end if;
+
+    -- Qué se recoge
+    if v_que = 'depositos' then
+        for v_texto in select btrim(x) from jsonb_array_elements_text(coalesce(p -> 'depositos', '[]'::jsonb)) x loop
+            if v_texto = '' then
+                raise exception 'Escribe de quién es cada depósito.' using errcode = 'P0001';
+            end if;
+            v_dep := v_dep || to_jsonb(left(regexp_replace(v_texto, '\s+', ' ', 'g'), 80));
+        end loop;
+        if jsonb_array_length(v_dep) not between 1 and 50 then
+            raise exception 'Indica cuántos depósitos son (de 1 a 50).' using errcode = 'P0001';
+        end if;
+    elsif v_que = 'otro' then
+        if nullif(btrim(coalesce(p ->> 'descripcion', '')), '') is null then
+            raise exception 'Escribe qué hay que recoger.' using errcode = 'P0001';
+        end if;
+    else
+        raise exception 'Indica qué hay que recoger.' using errcode = 'P0001';
+    end if;
+
+    -- Dónde se entrega: la oficina de la empresa (bloque 41) u otro lugar
+    if v_entrega = 'oficina' then
+        v_ent_dir := coalesce(nullif(btrim(coalesce(v_emp ->> 'direccion', '')), ''), 'Oficina de ' || (v_emp ->> 'nombre'));
+        v_punto := regexp_match(coalesce(v_emp ->> 'ubicacion', ''), '(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)');
+        if v_punto is not null then
+            v_ent_lat := v_punto[1]::numeric;
+            v_ent_lng := v_punto[2]::numeric;
+        end if;
+    elsif v_entrega = 'otro' then
+        if (p #>> '{entrega_lugar,lat}') is null or (p #>> '{entrega_lugar,lng}') is null then
+            raise exception 'Ubica en el mapa dónde se entrega.' using errcode = 'P0001';
+        end if;
+        v_ent_dir := coalesce(nullif(btrim(p #>> '{entrega_lugar,direccion}'), ''), 'Punto de entrega');
+        v_ent_lat := (p #>> '{entrega_lugar,lat}')::numeric;
+        v_ent_lng := (p #>> '{entrega_lugar,lng}')::numeric;
+    else
+        raise exception 'Indica dónde se entrega.' using errcode = 'P0001';
+    end if;
+
+    v_inicio := (p ->> 'inicio')::timestamptz;
+    if v_inicio is null then
+        raise exception 'Elige el día y la hora.' using errcode = 'P0001';
+    end if;
+
+    -- Una solicitud a la vez por empresa: dos clientes no toman el mismo espacio
+    perform pg_advisory_xact_lock(7303, v_empresa::integer);
+    c := public.recoleccion_cfg(v_empresa);
+    v_fin := public.recoleccion_validar(v_empresa, v_inicio, null);
+
+    insert into public.recolecciones (
+        empresa_id, cliente_id, cliente_nombre, cliente_telefono, solicitado_por, inicio, fin,
+        recoger_direccion, recoger_lat, recoger_lng, que, depositos, descripcion,
+        entrega, entrega_direccion, entrega_lat, entrega_lng, notas)
+    values (
+        v_empresa, v_cliente.id, btrim(v_cliente.nombre || ' ' || coalesce(v_cliente.apellidos, '')), v_cliente.telefono, u.id,
+        v_inicio, v_fin,
+        coalesce(nullif(btrim(p #>> '{recoger,direccion}'), ''), 'Punto de recogida'),
+        (p #>> '{recoger,lat}')::numeric, (p #>> '{recoger,lng}')::numeric,
+        v_que, v_dep, case when v_que = 'otro' then left(btrim(p ->> 'descripcion'), 200) end,
+        v_entrega, v_ent_dir, v_ent_lat, v_ent_lng, nullif(left(btrim(coalesce(p ->> 'notas', '')), 200), ''))
+    returning * into v_r;
+
+    perform public.recoleccion_avisar(v_empresa, null, 'Recolección nueva ' || v_r.codigo,
+        format('%s · %s · %s', to_char(v_inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), v_r.cliente_nombre,
+               case when v_que = 'depositos' then jsonb_array_length(v_dep) || ' depósito(s)' else v_r.descripcion end), v_r.id);
+    return public.recoleccion_json(v_r.id);
+end;
+$$;
+
+-- ¿Puede esta persona cambiar o cancelar? (lanza el error si no)
+create or replace function public.recoleccion_permiso(u public.usuarios, r public.recolecciones, c public.recoleccion_config)
+returns void
+language plpgsql
+stable
+set search_path = ''
+as $$
+begin
+    if u.rol = 'cliente' then
+        if r.cliente_id is distinct from u.cliente_id then
+            raise exception 'Esa recolección no es tuya.' using errcode = 'P0001';
+        end if;
+        if r.estado <> 'confirmada' then
+            raise exception 'La recolección ya empezó: llama a la empresa.' using errcode = 'P0001';
+        end if;
+        if now() > r.inicio - make_interval(secs => (c.cancelar_horas * 3600)::integer) then
+            raise exception 'Solo se puede cambiar o cancelar hasta % horas antes. Llama a la empresa.', c.cancelar_horas
+                using errcode = 'P0001';
+        end if;
+    elsif u.rol in ('administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado', 'piloto') then
+        if u.empresa_id is distinct from r.empresa_id then
+            raise exception 'Esa recolección es de otra empresa.' using errcode = 'P0001';
+        end if;
+        if r.estado not in ('confirmada', 'en_camino') then
+            raise exception 'Esa recolección ya no se puede cambiar.' using errcode = 'P0001';
+        end if;
+    elsif u.rol = 'desarrollador' then
+        if r.estado not in ('confirmada', 'en_camino') then
+            raise exception 'Esa recolección ya no se puede cambiar.' using errcode = 'P0001';
+        end if;
+    else
+        raise exception 'Tu usuario no puede cambiar recolecciones.' using errcode = 'P0001';
+    end if;
+end;
+$$;
+
+-- ---------- Cambiar la hora (todo o nada: si el espacio nuevo no está libre, sigue como estaba) ----------
+create or replace function public.recolecciones_cambiar_hora(p_id bigint, p_usuario bigint, p_inicio timestamptz)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u     public.usuarios;
+    r     public.recolecciones;
+    c     public.recoleccion_config;
+    v_fin timestamptz;
+begin
+    u := public.viaje_usuario(p_usuario);
+    select * into r from public.recolecciones where id = p_id for update;
+    if not found then
+        raise exception 'La recolección no existe.' using errcode = 'P0001';
+    end if;
+    c := public.recoleccion_cfg(r.empresa_id);
+    perform public.recoleccion_permiso(u, r, c);
+    perform pg_advisory_xact_lock(7303, r.empresa_id::integer);
+    begin
+        v_fin := public.recoleccion_validar(r.empresa_id, p_inicio, r.id);
+    exception when sqlstate 'P0001' then
+        raise exception '% Tu recolección sigue como estaba.', sqlerrm using errcode = 'P0001', hint = 'ocupado';
+    end;
+
+    update public.recolecciones
+       set inicio = p_inicio, fin = v_fin, estado = 'confirmada', en_camino_en = null
+     where id = r.id;
+    perform public.recoleccion_avisar(r.empresa_id, null, 'Recolección con hora nueva ' || r.codigo,
+        format('%s · %s', to_char(p_inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), r.cliente_nombre), r.id);
+    return public.recoleccion_json(r.id);
+end;
+$$;
+
+-- ---------- Cancelar ----------
+create or replace function public.recolecciones_cancelar(p_id bigint, p_usuario bigint, p_motivo text default null)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u public.usuarios;
+    r public.recolecciones;
+    c public.recoleccion_config;
+begin
+    u := public.viaje_usuario(p_usuario);
+    select * into r from public.recolecciones where id = p_id for update;
+    if not found then
+        raise exception 'La recolección no existe.' using errcode = 'P0001';
+    end if;
+    c := public.recoleccion_cfg(r.empresa_id);
+    perform public.recoleccion_permiso(u, r, c);
+
+    update public.recolecciones
+       set estado = 'cancelada', cancelado_por = u.id, cancelado_en = now(),
+           motivo_cancelacion = nullif(left(btrim(coalesce(p_motivo, '')), 150), '')
+     where id = r.id;
+    perform public.recoleccion_avisar(r.empresa_id, null, 'Recolección cancelada ' || r.codigo,
+        format('%s · %s', to_char(r.inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), r.cliente_nombre), r.id);
+    return public.recoleccion_json(r.id);
+end;
+$$;
+
+-- ---------- Avanzar (quien atiende hace el proceso del conductor) ----------
+--   confirmada -> en_camino -> recogida -> entregada · confirmada / en_camino -> no_estaba
+create or replace function public.recolecciones_avanzar(p_id bigint, p_usuario bigint, p_estado text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u       public.usuarios;
+    r       public.recolecciones;
+    c       public.recoleccion_config;
+begin
+    u := public.viaje_usuario(p_usuario);
+    select * into r from public.recolecciones where id = p_id for update;
+    if not found then
+        raise exception 'La recolección no existe.' using errcode = 'P0001';
+    end if;
+    if not public.recoleccion_atiende(u) or (u.rol <> 'desarrollador' and u.empresa_id is distinct from r.empresa_id) then
+        raise exception 'Tu usuario no atiende las recolecciones.' using errcode = 'P0001';
+    end if;
+    if not ((p_estado = 'en_camino' and r.estado = 'confirmada')
+            or (p_estado = 'recogida' and r.estado in ('confirmada', 'en_camino'))
+            or (p_estado = 'entregada' and r.estado in ('en_camino', 'recogida'))
+            or (p_estado = 'no_estaba' and r.estado in ('confirmada', 'en_camino'))) then
+        raise exception 'La recolección está "%": no puede pasar a "%".', r.estado, p_estado using errcode = 'P0001';
+    end if;
+    c := public.recoleccion_cfg(r.empresa_id);
+
+    update public.recolecciones
+       set estado = p_estado,
+           conductor_id = coalesce(conductor_id, u.id),
+           en_camino_en = case when p_estado = 'en_camino' then now() else en_camino_en end,
+           recogida_en  = case when p_estado = 'recogida' then now() else recogida_en end,
+           entregada_en = case when p_estado = 'entregada' then now() else entregada_en end
+     where id = r.id;
+
+    if p_estado = 'en_camino' then
+        perform public.recoleccion_avisar(r.empresa_id, x.id, 'Vamos en camino a recoger',
+            format('%s · %s cerca de las %s', r.codigo, r.recoger_direccion, to_char(r.inicio at time zone c.zona_horaria, 'HH24:MI')), r.id)
+          from public.usuarios x where x.cliente_id = r.cliente_id;
+    elsif p_estado = 'entregada' then
+        perform public.recoleccion_avisar(r.empresa_id, x.id, 'Recolección entregada ' || r.codigo,
+            format('Se entregó en %s.', coalesce(r.entrega_direccion, 'el destino')), r.id)
+          from public.usuarios x where x.cliente_id = r.cliente_id;
+    end if;
+    return public.recoleccion_json(r.id);
+end;
+$$;
+
+-- ---------- Cobro: un cargo por cada día marcado en la tarifa del cliente ----------
+-- Arma los cargos de los días entre p_desde y p_hasta (máximo 62 días) que faltan: uno por
+-- cliente y día marcado en su tarifa, desde que rige. Los que ya existen (cobrados o
+-- corregidos a mano) no se tocan. La llaman Cobros y la vista del cliente.
+create or replace function public.recoleccion_generar_cargos(p_empresa bigint, p_desde date, p_hasta date)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    n integer;
+begin
+    if p_hasta < p_desde or p_hasta - p_desde > 62 then
+        raise exception 'Elige un periodo de hasta 62 días.' using errcode = 'P0001';
+    end if;
+    insert into public.recoleccion_cargos (empresa_id, cliente_id, fecha, monto, recolecciones)
+    select t.empresa_id, t.cliente_id, d::date, t.monto_dia, 0
+      from public.recoleccion_tarifas t
+      cross join lateral generate_series(greatest(p_desde, t.desde), p_hasta, interval '1 day') d
+     where t.empresa_id = p_empresa
+       and t.monto_dia > 0
+       and extract(isodow from d)::smallint = any(t.dias)
+    on conflict (empresa_id, cliente_id, fecha) do nothing;
+    get diagnostics n = row_count;
+    return n;
+end;
+$$;
+
+-- ---------- Solicitud de usuario del cliente: también para Recolección ----------
+-- (las mismas funciones del bloque 23, con la actividad nueva en la condición)
+create or replace function public.registro_clientes_empresa(p_codigo text)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select jsonb_build_object('nombre', e.nombre)
+      from public.empresas e
+     where e.codigo = btrim(coalesce(p_codigo, ''))
+       and e.activa
+       and exists (select 1 from public.actividades a where a.codigo = any (e.actividades)
+                     and (a.usa_viajes or a.usa_recoleccion or a.usa_agenda_recoleccion))
+       and (e.funciones is null or 'registro_clientes' = any (e.funciones)); -- plan (bloque 22)
+$$;
+
+create or replace function public.solicitar_acceso_cliente(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_empresa  record;
+    v_nombre   text := regexp_replace(btrim(coalesce(p->>'nombre', '')), '\s+', ' ', 'g');
+    v_ape1     text := regexp_replace(btrim(coalesce(p->>'apellido1', '')), '\s+', ' ', 'g');
+    v_ape2     text := nullif(regexp_replace(btrim(coalesce(p->>'apellido2', '')), '\s+', ' ', 'g'), '');
+    v_tel      text := regexp_replace(coalesce(p->>'telefono', ''), '\D', '', 'g');
+    v_correo   text := nullif(lower(btrim(coalesce(p->>'correo', ''))), '');
+    v_base     text := lower(btrim(coalesce(p->>'usuario', '')));
+    v_clave    text := coalesce(p->>'clave', '');
+    v_cliente  bigint;
+    v_tienda   bigint;
+    v_usuario  text;
+    v_completo text;
+begin
+    select e.id, e.codigo, e.nombre into v_empresa
+      from public.empresas e
+     where e.codigo = btrim(coalesce(p->>'empresa', ''))
+       and e.activa
+       and exists (select 1 from public.actividades a where a.codigo = any (e.actividades)
+                     and (a.usa_viajes or a.usa_recoleccion or a.usa_agenda_recoleccion))
+       and (e.funciones is null or 'registro_clientes' = any (e.funciones)); -- plan (bloque 22)
+    if not found then
+        raise exception 'Este enlace de registro no es válido. Pide a la empresa el enlace correcto.' using errcode = 'P0001';
+    end if;
+
+    if length(v_nombre) not between 2 and 60 or length(v_ape1) not between 2 and 60 or length(coalesce(v_ape2, '')) > 60 then
+        raise exception 'Escribe tu nombre y tu primer apellido (de 2 a 60 letras).' using errcode = 'P0001';
+    end if;
+    if length(v_tel) not between 8 and 15 then
+        raise exception 'El teléfono debe tener al menos 8 dígitos.' using errcode = 'P0001';
+    end if;
+    if v_correo is not null and v_correo !~* '^[^@\s]+@[^@\s]+\.[^@\s]+$' then
+        raise exception 'El correo no es válido.' using errcode = 'P0001';
+    end if;
+    if v_base !~ '^[a-z0-9]{3,20}$' then
+        raise exception 'El usuario: de 3 a 20 letras o números, sin espacios.' using errcode = 'P0001';
+    end if;
+    if length(v_clave) not between 6 and 72 then
+        raise exception 'La contraseña debe tener de 6 a 72 caracteres.' using errcode = 'P0001';
+    end if;
+
+    -- Una solicitud a la vez por empresa (evita duplicados si se envía dos veces)
+    perform pg_advisory_xact_lock(7302, v_empresa.id::integer);
+
+    -- Freno contra solicitudes falsas en cantidad
+    if (select count(*) from public.usuarios u
+         where u.empresa_id = v_empresa.id and u.rol = 'cliente' and not u.aprobado
+           and u.creado_en > now() - interval '1 hour') >= 20 then
+        raise exception 'Hay muchas solicitudes en este momento. Intenta de nuevo en una hora.' using errcode = 'P0001';
+    end if;
+
+    -- ¿Ya es cliente de la empresa? (mismo teléfono)
+    select c.id into v_cliente
+      from public.clientes c
+     where c.empresa_id = v_empresa.id and regexp_replace(c.telefono, '\D', '', 'g') = v_tel
+     order by c.aprobado desc, c.id
+     limit 1;
+
+    if v_cliente is not null then
+        if exists (select 1 from public.usuarios u where u.cliente_id = v_cliente) then
+            raise exception 'Ya hay un usuario o una solicitud con ese teléfono. Si olvidaste tu contraseña, comunícate con la empresa.' using errcode = 'P0001';
+        end if;
+    else
+        if v_correo is not null and exists (select 1 from public.clientes c
+                                             where c.empresa_id = v_empresa.id and lower(c.correo) = v_correo) then
+            raise exception 'Ese correo ya está registrado con otro teléfono. Comunícate con la empresa.' using errcode = 'P0001';
+        end if;
+        insert into public.clientes (nombre, apellido1, apellido2, telefono, correo, aprobado, solicitado_en, empresa_id)
+        values (v_nombre, v_ape1, v_ape2, v_tel, v_correo, false, now(), v_empresa.id)
+        returning id into v_cliente;
+        -- En la primera tienda activa de la empresa (así aparece en Clientes y lo ve su G3)
+        select t.id into v_tienda
+          from public.tiendas t
+         where t.empresa_id = v_empresa.id and t.estado = 'activa'
+         order by t.codigo
+         limit 1;
+        if v_tienda is not null then
+            insert into public.clientes_tiendas (cliente_id, tienda_id) values (v_cliente, v_tienda);
+        end if;
+    end if;
+
+    select ct.tienda_id into v_tienda
+      from public.clientes_tiendas ct
+     where ct.cliente_id = v_cliente
+     order by ct.tienda_id
+     limit 1;
+
+    -- Usuario: el que pidió + ID de la empresa (aramirez02); si ya existe, aramirez202...
+    v_completo := btrim(v_nombre || ' ' || v_ape1 || ' ' || coalesce(v_ape2, ''));
+    v_usuario := public.usuario_libre(v_base, v_empresa.codigo, null, 0);
+    insert into public.usuarios (nombre, id_usuario, telefono, clave, permisos, rol, cliente_id, aprobado, solicitado_en)
+    values (v_completo, v_usuario, v_tel, v_clave, '{}', 'cliente', v_cliente, false, now());
+
+    insert into public.notificaciones (usuario_id, tipo, titulo, mensaje, enlace, referencia_tipo, referencia_id)
+    select u.id, 'pendiente', 'Solicitud de acceso de cliente',
+           format('%s (tel. %s) pidió su usuario "%s". Revísala en Clientes.', v_completo, v_tel, v_usuario),
+           case when v_tienda is null then '#clientes' else '#clientes?tienda=' || v_tienda end,
+           'acceso_cliente', v_cliente
+      from public.usuarios u
+     where u.empresa_id = v_empresa.id and u.rol in ('administrador', 'admin_g1') and u.aprobado;
+
+    return jsonb_build_object('usuario', v_usuario, 'empresa', v_empresa.nombre);
+end;
+$$;
+
+-- ---------- Limpiar una empresa (bloque 40): también borra sus recolecciones ----------
+-- p = { usuario_id, clave, empresa_id, confirmar (el ID de la empresa: '02'),
+--       conservar_administradores (true), borrar_empresa (false) }
+-- -> { empresa, nombre, borrada, filas: { pedidos: n, ... } }
+create or replace function public.limpiar_empresa(p jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v_usuario   bigint := (p ->> 'usuario_id')::bigint;
+    v_clave     text;
+    v_empresa   record;
+    v_admins    boolean := coalesce((p ->> 'conservar_administradores')::boolean, true);
+    v_borrar    boolean := coalesce((p ->> 'borrar_empresa')::boolean, false);
+    v_filas     jsonb := '{}'::jsonb;
+    v_borrada   boolean := false;
+    n           bigint;
+begin
+    -- Solo el Desarrollador, con su contraseña
+    select u.clave into v_clave from public.usuarios u where u.id = v_usuario and u.rol = 'desarrollador';
+    if v_clave is null or not public.clave_cifrada(v_clave)
+       or v_clave <> extensions.crypt(coalesce(p ->> 'clave', ''), v_clave) then
+        perform pg_sleep(0.4); -- frena a quien prueba claves al azar
+        raise exception 'Contraseña del Desarrollador incorrecta: no se borró nada.' using errcode = 'P0001';
+    end if;
+
+    select e.id, e.codigo, e.nombre into v_empresa from public.empresas e where e.id = (p ->> 'empresa_id')::bigint;
+    if not found then
+        raise exception 'No existe esa empresa: no se borró nada.' using errcode = 'P0001';
+    end if;
+    if btrim(coalesce(p ->> 'confirmar', '')) <> v_empresa.codigo then
+        raise exception 'Para confirmar escriba el ID de la empresa (%): no se borró nada.', v_empresa.codigo using errcode = 'P0001';
+    end if;
+
+    -- Viajes y cortesías (se apuntan entre sí con "on delete set null")
+    if to_regclass('public.viajes') is not null then
+        delete from public.viajes where empresa_id = v_empresa.id;
+        get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('viajes', n);
+        delete from public.cortesias where empresa_id = v_empresa.id;
+    end if;
+
+    -- Recolecciones (bloque 46): las solicitudes, sus cargos, tarifas, bloqueos y reglas
+    if to_regclass('public.recolecciones') is not null then
+        delete from public.recolecciones where empresa_id = v_empresa.id;
+        get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('recolecciones', n);
+        delete from public.recoleccion_cargos where empresa_id = v_empresa.id;
+        delete from public.recoleccion_tarifas where empresa_id = v_empresa.id;
+        delete from public.recoleccion_bloqueos where empresa_id = v_empresa.id;
+        delete from public.recoleccion_config where empresa_id = v_empresa.id;
+    end if;
+
+    -- Solicitudes de envío y ubicaciones compartidas por los clientes
+    if to_regclass('public.pedido_solicitudes') is not null then
+        delete from public.pedido_solicitudes where empresa_id = v_empresa.id;
+    end if;
+    if to_regclass('public.ubicaciones_compartidas') is not null then
+        delete from public.ubicaciones_compartidas where empresa_id = v_empresa.id;
+    end if;
+
+    -- Pedidos (su historial, artículos, entregas y evidencias se van con ellos)
+    delete from public.pedidos where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('pedidos', n);
+
+    -- Cierres y tipos de caja
+    if to_regclass('public.cierres_caja') is not null then
+        delete from public.cierres_caja where empresa_id = v_empresa.id;
+        update public.usuarios set caja_id = null where empresa_id = v_empresa.id;
+        delete from public.cajas where empresa_id = v_empresa.id;
+    end if;
+
+    -- Distribuidora: bodegas del día (sus movimientos y cierres se van con ellas) antes
+    -- que las rutas; luego productos, listas de precios y motivos
+    if to_regclass('public.bodegas_dia') is not null then
+        delete from public.bodegas_dia where empresa_id = v_empresa.id;
+        update public.tiendas set lista_precios_id = null where empresa_id = v_empresa.id;
+        delete from public.listas_precios where empresa_id = v_empresa.id;
+        delete from public.productos where empresa_id = v_empresa.id;
+        get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('productos', n);
+        delete from public.motivos_entrega_parcial where empresa_id = v_empresa.id;
+    end if;
+
+    -- Rutas (y sus pilotos por ruta)
+    delete from public.rutas where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('rutas', n);
+
+    -- Usuarios (sus notificaciones, marcas y QR del día se van con ellos).
+    -- "admin" y "desar" nunca; los Administradores si se conservan.
+    delete from public.usuarios
+     where empresa_id = v_empresa.id
+       and id_usuario not in ('admin', 'desar')
+       and (not v_admins or rol <> 'administrador');
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('usuarios', n);
+
+    -- Clientes (sus tiendas y su usuario de viajes se van con ellos)
+    delete from public.clientes where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('clientes', n);
+
+    -- Configuración de transporte de la empresa
+    if to_regclass('public.transporte_costos') is not null then
+        delete from public.transporte_costos where empresa_id = v_empresa.id;
+        delete from public.transporte_franjas where empresa_id = v_empresa.id;
+        delete from public.transporte_dias_cerrados where empresa_id = v_empresa.id;
+        delete from public.transporte_config where empresa_id = v_empresa.id;
+    end if;
+
+    delete from public.vehiculos where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('vehiculos', n);
+    delete from public.tarifas where empresa_id = v_empresa.id;
+    delete from public.descuentos where empresa_id = v_empresa.id;
+    -- Categorías de mercadería (sus artículos frecuentes se van con ellas)
+    delete from public.categorias_mercaderia where empresa_id = v_empresa.id;
+
+    -- Tiendas y regiones (sus marcas, capacidades y QR se van con ellas)
+    delete from public.tiendas where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('tiendas', n);
+    delete from public.regiones where empresa_id = v_empresa.id;
+    get diagnostics n = row_count; v_filas := v_filas || jsonb_build_object('regiones', n);
+
+    -- La empresa misma: nunca la principal, ni si le quedan usuarios
+    if v_borrar and v_empresa.id <> public.empresa_principal()
+       and not exists (select 1 from public.usuarios where empresa_id = v_empresa.id) then
+        delete from public.empresas where id = v_empresa.id;
+        v_borrada := true;
+    end if;
+
+    return jsonb_build_object('empresa', v_empresa.codigo, 'nombre', v_empresa.nombre,
+                              'borrada', v_borrada, 'filas', v_filas);
+end;
+$$;
+
+revoke execute on function public.limpiar_empresa(jsonb) from public;
+grant execute on function public.limpiar_empresa(jsonb) to anon;
+
+-- ---------- Acceso desde la web (TEMPORAL, como las demás tablas) ----------
+do $$
+declare
+    t text;
+begin
+    -- Reglas, bloqueos, tarifas y cargos: los cambia la página (quien atiende)
+    foreach t in array array['recoleccion_config', 'recoleccion_bloqueos', 'recoleccion_tarifas', 'recoleccion_cargos'] loop
+        execute format('alter table public.%I enable row level security', t);
+        execute format('grant select, insert, update, delete on public.%I to anon', t);
+        execute format('drop policy if exists "TEMPORAL - leer %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - crear %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - modificar %1$s" on public.%1$I', t);
+        execute format('drop policy if exists "TEMPORAL - eliminar %1$s" on public.%1$I', t);
+        execute format('create policy "TEMPORAL - leer %1$s" on public.%1$I for select to anon using (true)', t);
+        execute format('create policy "TEMPORAL - crear %1$s" on public.%1$I for insert to anon with check (true)', t);
+        execute format('create policy "TEMPORAL - modificar %1$s" on public.%1$I for update to anon using (true) with check (true)', t);
+        execute format('create policy "TEMPORAL - eliminar %1$s" on public.%1$I for delete to anon using (true)', t);
+    end loop;
+    -- Recolecciones: la página SOLO LEE (todo cambio pasa por las funciones de arriba)
+    alter table public.recolecciones enable row level security;
+    revoke insert, update, delete on public.recolecciones from anon;
+    grant select on public.recolecciones to anon;
+    drop policy if exists "TEMPORAL - leer recolecciones" on public.recolecciones;
+    create policy "TEMPORAL - leer recolecciones" on public.recolecciones for select to anon using (true);
+end;
+$$;
+
+grant execute on function public.recolecciones_horas(bigint, date, bigint, boolean) to anon;
+grant execute on function public.recolecciones_solicitar(jsonb) to anon;
+grant execute on function public.recolecciones_cambiar_hora(bigint, bigint, timestamptz) to anon;
+grant execute on function public.recolecciones_cancelar(bigint, bigint, text) to anon;
+grant execute on function public.recolecciones_avanzar(bigint, bigint, text) to anon;
+grant execute on function public.recoleccion_generar_cargos(bigint, date, date) to anon;
+grant execute on function public.registro_clientes_empresa(text) to anon;
+grant execute on function public.solicitar_acceso_cliente(jsonb) to anon;
+-- Las funciones internas no se llaman desde la página
+revoke execute on function public.recoleccion_cfg(bigint) from anon, public;
+revoke execute on function public.recoleccion_bloqueo(bigint, timestamptz, timestamptz) from anon, public;
+revoke execute on function public.recoleccion_ocupado(bigint, timestamptz, timestamptz, bigint) from anon, public;
+revoke execute on function public.recoleccion_validar(bigint, timestamptz, bigint) from anon, public;
+revoke execute on function public.recoleccion_json(bigint) from anon, public;
+revoke execute on function public.recoleccion_avisar(bigint, bigint, text, text, bigint) from anon, public;
+
+notify pgrst, 'reload schema';

@@ -198,6 +198,17 @@
                 </label>
             </div>
 
+            <!-- Admin TI (columna usuarios.admin_ti): da la llave de soporte al Desarrollador en
+                 Configuración -> Soporte. Lo marca o lo quita solo el Administrador; el Desarrollador
+                 lo puede marcar al dejar lista la empresa, pero no quitarlo. No para Pilotos. -->
+            <div id="usrCampoAdminTI" class="campo campo-ancho" hidden>
+                <label class="usr-casilla">
+                    <input id="usrAdminTI" type="checkbox">
+                    <span><strong>Admin TI</strong> — da la llave de soporte al Desarrollador (Configuración → Soporte).
+                    Mientras la empresa no tenga Admin TI, el Desarrollador puede configurarla.</span>
+                </label>
+            </div>
+
             <!-- Usuario: se escribe solo el nombre; el ID de la empresa al final (ej. "01")
                  lo agrega el sistema. No lleva la región (sql/01 bloque 31). -->
             <div class="campo">
@@ -239,7 +250,7 @@
                        autocomplete="off" placeholder="Escribe el departamento nuevo (ej. Bodega)" aria-label="Departamento nuevo" hidden>
             </div>
 
-            <!-- Módulos y funciones (columna permisos; catálogo y reglas en js/sesion.js: MODULOS_USUARIO).
+            <!-- Módulos y funciones (tablas funciones y usuario_funciones; catálogo en js/sesion.js: MODULOS_USUARIO).
                  Vienen marcados los de su rol; se pueden quitar o dar de otros roles. Igual que su rol = {*}. -->
             <fieldset id="usrCampoModulos" class="campo-ancho usr-modulos">
                 <legend class="campo-etiqueta">Módulos y funciones</legend>

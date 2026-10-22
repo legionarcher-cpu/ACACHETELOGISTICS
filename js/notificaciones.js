@@ -197,14 +197,11 @@ async function notificarResultado({ usuarioId, aprobado, titulo, mensaje, enlace
 }
 
 // Algo ya se resolvió (aprobado, rechazado o eliminado): sus avisos
-// "pendiente" se marcan como leídos para todos los aprobadores.
+// "pendiente" se marcan como leídos para todos los aprobadores. Lo hace la base
+// (resolver_pendientes): cada usuario solo puede cambiar sus propios avisos.
 async function resolverPendientes(referenciaTipo, referenciaId) {
     try {
-        const { error } = await db.from('notificaciones')
-            .update({ leida: true })
-            .eq('tipo', 'pendiente')
-            .eq('referencia_tipo', referenciaTipo)
-            .eq('referencia_id', referenciaId);
+        const { error } = await db.rpc('resolver_pendientes', { p_tipo: referenciaTipo, p_id: referenciaId });
         if (error) throw error;
     } catch (err) {
         console.error('No se pudieron cerrar los avisos pendientes:', err);

@@ -258,23 +258,42 @@ function empresaTieneViajes() {
     return codigosActividadesEmpresa().some(esActividadDeViajes);
 }
 
+// ---------- Recolecciones con agenda (sql/instalacion/09_recolecciones.sql) ----------
+// Una actividad con usa_recolecciones ("recoleccion") trabaja con su propia agenda
+// (sección Recolecciones: el cliente elige la hora; una sola agenda) y no con pedidos.
+// OJO: no es usa_punto_partida (el punto A de los pedidos de Encomiendas, más abajo).
+function esActividadDeRecolecciones(codigo) {
+    const info = typeof palabrasActividades !== 'undefined' ? palabrasActividades[codigo] : null;
+    return info && info.recolecciones != null ? !!info.recolecciones : codigo === 'recoleccion';
+}
+
+// ¿La empresa hace recolecciones? (sección Recolecciones)
+function empresaTieneRecolecciones() {
+    return codigosActividadesEmpresa().some(esActividadDeRecolecciones);
+}
+
+// Actividades que NO trabajan con pedidos: las de viajes y las de recolección con agenda
+function esActividadSinPedidos(codigo) {
+    return esActividadDeViajes(codigo) || esActividadDeRecolecciones(codigo);
+}
+
 // ¿La empresa hace pedidos? (Pedidos, Rutas, Cotizador). Una empresa solo de
-// Transporte no los ve: su Inicio y sus Reportes muestran los viajes.
+// Transporte (o solo de Recolección) no los ve: su Inicio muestra lo suyo.
 function empresaTienePedidos() {
     const codigos = codigosActividadesEmpresa();
-    return !codigos.length || codigos.some((c) => !esActividadDeViajes(c));
+    return !codigos.length || codigos.some((c) => !esActividadSinPedidos(c));
 }
 
-// ¿La actividad recoge en un punto de partida (usa_recoleccion, ej. Encomiendas)?
+// ¿La actividad recoge en un punto de partida (usa_punto_partida, ej. Encomiendas)?
 // js/palabras.js trae el dato de la base; mientras no lo tenga, se deduce por el código.
-function esActividadDeRecoleccion(codigo) {
+function esActividadConPuntoPartida(codigo) {
     const info = typeof palabrasActividades !== 'undefined' ? palabrasActividades[codigo] : null;
-    return info && info.recoleccion != null ? !!info.recoleccion : (USO_ANTERIOR.usa_recoleccion || []).includes(codigo);
+    return info && info.puntoPartida != null ? !!info.puntoPartida : (USO_ANTERIOR.usa_punto_partida || []).includes(codigo);
 }
 
-// ¿La empresa hace envíos con recolección? (el cliente con usuario los solicita en "Mis envíos")
-function empresaTieneRecoleccion() {
-    return codigosActividadesEmpresa().some((c) => !esActividadDeViajes(c) && esActividadDeRecoleccion(c));
+// ¿La empresa hace envíos con punto de partida? (el cliente con usuario los solicita en "Mis envíos")
+function empresaTieneEnvios() {
+    return codigosActividadesEmpresa().some((c) => !esActividadSinPedidos(c) && esActividadConPuntoPartida(c));
 }
 
 // ---------- Partes que usa cada actividad (sql/01 bloque 26) ----------
@@ -306,15 +325,14 @@ function aplicarPartesEmpresa() {
 // Actividades de la empresa que trabajan con PEDIDOS (las pestañas de Pedidos, Rutas,
 // Reportes y Configuración -> Pedidos)
 function actividadesDePedidos(actividades) {
-    return actividadesDeLaEmpresa(actividades).filter((a) => !esActividadDeViajes(a.codigo));
+    return actividadesDeLaEmpresa(actividades).filter((a) => !esActividadSinPedidos(a.codigo));
 }
 
 // ¿La actividad usa esta parte del pedido? (Configuración -> Actividades)
-//   usa_bodega, usa_recoleccion, usa_compra, usa_tamanos, permite_alcohol
-// Si la base no tiene la columna (falta sql/01_actualizacion_base_existente),
-// se deduce por el código, como antes. Lo usan Pedidos y Reportes.
+//   usa_bodega, usa_punto_partida, usa_compra, usa_tamanos, permite_alcohol
+// Si la actividad no trae el dato, se deduce por el código. Lo usan Pedidos y Reportes.
 const USO_ANTERIOR = {
-    usa_bodega: ['encomiendas'], usa_recoleccion: ['encomiendas'], usa_tamanos: ['encomiendas'],
+    usa_bodega: ['encomiendas'], usa_punto_partida: ['encomiendas'], usa_tamanos: ['encomiendas'],
     usa_compra: ['tienda'], permite_alcohol: ['tienda'],
 };
 function usaActividad(act, uso) {

@@ -48,9 +48,9 @@
         app.html#facturas?tienda=3  ->  parametrosSeccion().get('tienda') = "3"
      (Opcional) Si la sección no va en el menú y se abre desde otra,
         agregarla a SECCION_DEL_MENU (más abajo) para resaltar su "madre".
-     5. (Solo si USAR_PERMISOS = true en js/sesion.js) agregar 'facturas'
-        a la columna "permisos" de los usuarios que puedan verla
-        (desde la sección Usuarios). Los que tienen {*} ya la ven.
+     5. Si se quiere dar o quitar por usuario (Usuarios -> "Módulos y
+        funciones"): agregar 'facturas' a la tabla funciones de la base
+        (sql/instalacion/01_base.sql) con los roles que la traen.
      No hace falta tocar este archivo.
    ---------------------------------------------------
 
@@ -379,6 +379,18 @@ const BOTONES_PIE_VIAJES = {
     '.btn-hor': 'viajes',
     '.btn-del': 'viajes',
 };
+// Empresa sin pedidos ni viajes, con Recolección (sql/01 bloque 46): lo mismo, en su agenda
+const BOTONES_PIE_RECOLECCION = {
+    '.btn-crear': 'recolecciones?nuevo=1',
+    '.btn-hor': 'recolecciones',
+    '.btn-del': 'recolecciones',
+};
+// Botones de una empresa sin pedidos: los de Viajes o, si no hace viajes, los de Recolección
+function botonesSinPedidos() {
+    const conViajes = typeof empresaTieneViajes === 'function' && empresaTieneViajes();
+    const conRecoleccion = typeof empresaTieneRecolecciones === 'function' && empresaTieneRecolecciones();
+    return !conViajes && conRecoleccion ? BOTONES_PIE_RECOLECCION : BOTONES_PIE_VIAJES;
+}
 
 // Botones según lo que hace la empresa (la de la sesión). Se revisa al cargar cada
 // sección y al cambiar la sesión (js/sesion.js: actualizarSegunEmpresa):
@@ -387,11 +399,14 @@ const BOTONES_PIE_VIAJES = {
 //   Y cualquiera que lleve a un módulo que el usuario no tiene (js/sesion.js: tienePermiso)
 function ajustarPie() {
     const soloViajes = typeof empresaTienePedidos === 'function' && !empresaTienePedidos();
+    const sinPedidos = botonesSinPedidos();
     // Función que pide cada botón (Usuarios -> "Módulos y funciones"; js/sesion.js: puedeHacer)
-    const funcion = { '.btn-crear': soloViajes ? 'viajes.solicitar' : 'pedidos.crear', '.btn-piloto': 'rutas.gestionar',
+    const funcion = {
+        '.btn-crear': !soloViajes ? 'pedidos.crear' : sinPedidos === BOTONES_PIE_RECOLECCION ? 'recolecciones.solicitar' : 'viajes.solicitar',
+        '.btn-piloto': 'rutas.gestionar',
         '.btn-del': soloViajes ? null : 'pedidos.cancelar' };
     const sinPermiso = (selector) => {
-        const destino = (soloViajes && BOTONES_PIE_VIAJES[selector]) || BOTONES_PIE[selector];
+        const destino = (soloViajes && sinPedidos[selector]) || BOTONES_PIE[selector];
         if (!destino || !obtenerSesion()) return false;
         return !tienePermiso(destino.split('?')[0]) || (!!funcion[selector] && !puedeHacer(funcion[selector]));
     };
@@ -416,7 +431,7 @@ Object.entries(BOTONES_PIE).forEach(([selector, destinoPedidos]) => {
     if (!boton) return;
     boton.addEventListener('click', () => {
         const soloViajes = typeof empresaTienePedidos === 'function' && !empresaTienePedidos();
-        const destino = (soloViajes && BOTONES_PIE_VIAJES[selector]) || destinoPedidos;
+        const destino = (soloViajes && botonesSinPedidos()[selector]) || destinoPedidos;
         const seccion = destino.split('?')[0];
         if (obtenerSesion() && tienePermiso(seccion)) irA(destino);
     });

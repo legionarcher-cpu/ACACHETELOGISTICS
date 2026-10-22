@@ -509,7 +509,7 @@ function abrirEntregaProductos({ pedido, lineas, motivos = [], sesion }) {
             if (err) {
                 console.error('Error al entregar el pedido:', err);
                 error.textContent = err.code === 'P0001' ? err.message
-                    : distFaltaSql(err) ? 'Falta ejecutar sql/01 (bloque 27: distribuidora).' : 'No se pudo guardar la entrega. Intenta de nuevo.';
+                    : distFaltaSql(err) ? 'Falta instalar la base de datos (sql/instalacion).' : 'No se pudo guardar la entrega. Intenta de nuevo.';
                 return;
             }
             resultado = data;

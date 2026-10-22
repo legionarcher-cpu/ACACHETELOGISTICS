@@ -21,7 +21,11 @@
      al iniciar sesión con un usuario de esa empresa.
    - Trabajar con esta: cambia la empresa activa del Desarrollador (js/sesion.js).
    - Limpiar datos: borra todo lo de la empresa (función limpiar_empresa, sql/01
-     bloque 40), con la contraseña del Desarrollador y su ID para confirmar.
+     bloque 40), con la contraseña del Desarrollador y su ID para confirmar. Nunca borra
+     al Admin TI.
+   - Modificar (salvo el estado), cambiar el ID, limpiar y eliminar: mientras la empresa no
+     tenga Admin TI (puesta en marcha) o con la llave de soporte "Ver y corregir"
+     (js/soporte.js). El estado (Activa / Inactiva) y el plan, siempre.
    - Eliminar: solo si no tiene nada (si no, marcarla Inactiva o limpiarla).
    ================================================== */
 
@@ -321,7 +325,9 @@ registrarSeccion('empresas-internas', (zona) => {
 
     // Copia a la empresa nueva la configuración de pedidos de la empresa activa
     // (solo de las actividades que hará): categorías con sus artículos (pesos),
-    // tarifas generales y descuentos generales. Devuelve el primer error o null.
+    // tarifas generales, descuentos generales, motivos de retraso, horarios del piloto,
+    // slots de despacho, pedidos por horario de la base y los ajustes (número de pedido,
+    // código de respaldo, radio de marca). Devuelve el primer error o null.
     async function copiarConfiguracion(destinoId, acts) {
         const cat = await db.from('categorias_mercaderia')
             .select('id, actividad, nombre, tipo, icono, peso_referencia, activa, orden').in('actividad', acts);
@@ -354,6 +360,41 @@ registrarSeccion('empresas-internas', (zona) => {
         const susDescuentos = des.data.filter((d) => !d.actividad || acts.includes(d.actividad));
         if (susDescuentos.length) {
             const r = await db.from('descuentos').insert(susDescuentos.map((d) => ({ ...d, empresa_id: destinoId })));
+            if (r.error) return r.error;
+        }
+        // Motivos de retraso de todas o de sus actividades
+        const mot = await db.from('motivos_retraso').select('nombre, actividad, activo, orden');
+        if (mot.error) return mot.error;
+        const susMotivos = mot.data.filter((m) => !m.actividad || acts.includes(m.actividad));
+        if (susMotivos.length) {
+            const r = await db.from('motivos_retraso').insert(susMotivos.map((m) => ({ ...m, empresa_id: destinoId })));
+            if (r.error) return r.error;
+        }
+        // Horarios del piloto y slots de despacho (primero los días: son la llave de los horarios)
+        const dias = await db.from('horarios_dias').select('tipo, dia, cantidad');
+        if (dias.error) return dias.error;
+        if (dias.data.length) {
+            const r = await db.from('horarios_dias').insert(dias.data.map((d) => ({ ...d, empresa_id: destinoId })));
+            if (r.error) return r.error;
+            const hor = await db.from('horarios').select('tipo, dia, numero, abre, inicio, fin');
+            if (hor.error) return hor.error;
+            if (hor.data.length) {
+                const r2 = await db.from('horarios').insert(hor.data.map((h) => ({ ...h, empresa_id: destinoId })));
+                if (r2.error) return r2.error;
+            }
+        }
+        // Pedidos por horario de la base (sin región ni tienda)
+        const cap = await db.from('horarios_capacidad').select('pedidos').is('region', null).is('tienda_id', null);
+        if (cap.error) return cap.error;
+        if (cap.data.length) {
+            const r = await db.from('horarios_capacidad').insert({ pedidos: cap.data[0].pedidos, empresa_id: destinoId });
+            if (r.error) return r.error;
+        }
+        // Ajustes de la empresa (tabla configuracion)
+        const conf = await db.from('configuracion').select('clave, valor');
+        if (conf.error) return conf.error;
+        if (conf.data.length) {
+            const r = await db.from('configuracion').insert(conf.data.map((c) => ({ ...c, empresa_id: destinoId })));
             if (r.error) return r.error;
         }
         return null;
@@ -414,7 +455,8 @@ registrarSeccion('empresas-internas', (zona) => {
                 console.error('Error al cambiar el ID de la empresa:', r.error);
                 errorForm.textContent = r.error.code === '23505'
                     ? 'No se pudo: ese ID ya existe o algún usuario quedaría repetido.'
-                    : r.error.code === 'PGRST202' ? 'Falta ejecutar sql/01 (bloque 16: empresas).'
+                    : r.error.code === 'PGRST202' ? 'Falta instalar la base de datos (sql/instalacion).'
+                    : r.error.code === '42501' ? r.error.message // ya tiene Admin TI: pide la llave (soporte_exigir)
                     : 'No se pudo cambiar el ID. Intenta de nuevo.';
                 return;
             }
@@ -427,7 +469,10 @@ registrarSeccion('empresas-internas', (zona) => {
             console.error('Error al guardar la empresa:', error);
             errorForm.textContent = error.code === '23505' ? 'Ya existe una empresa con ese nombre o ese ID.'
                 : error.code === '23514' ? 'Revisa el ID (2 números) y las actividades.'
-                : ['PGRST204', '42703'].includes(error.code) ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 21: paleta de colores).'
+                : ['PGRST204', '42703'].includes(error.code) ? 'Falta instalar la base de datos (sql/instalacion).'
+                // La base no dejó cambiarla (no devolvió la fila): ya tiene Admin TI y no hay llave
+                : error.code === 'PGRST116' || error.code === '42501'
+                    ? 'Esta empresa ya tiene Admin TI: para cambiarla pide una llave de soporte "Ver y corregir".'
                 : 'No se pudo guardar. Intenta de nuevo.';
             return;
         }
@@ -573,8 +618,8 @@ registrarSeccion('empresas-internas', (zona) => {
         boton.textContent = 'Limpiar';
         if (error) {
             console.error('Error al limpiar la empresa:', error);
-            errorLimpiar.textContent = error.code === 'PGRST202' ? 'Falta ejecutar sql/01 (bloque 40: limpiar empresa).'
-                : error.code === 'P0001' ? error.message
+            errorLimpiar.textContent = error.code === 'PGRST202' ? 'Falta instalar la base de datos (sql/instalacion).'
+                : ['P0001', '42501'].includes(error.code) ? error.message
                 : 'No se pudo limpiar. Intenta de nuevo.';
             return;
         }

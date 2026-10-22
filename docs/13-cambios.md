@@ -2,6 +2,193 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-21 · El aviso de soporte pasa a la campana
+
+SQL: ninguno. Ctrl+F5 (versión `20261021e`).
+
+- El aviso del Desarrollador ("Puesta en marcha…", "tiene Admin TI…", "Modo soporte… vence a las…") ya no es una franja
+  flotante debajo del encabezado, que tapaba información según la resolución de la pantalla. Ahora es un cuadro fijo
+  arriba de la lista de la **campana**, con el botón "Usar llave" (`js/soporte.js`, `#soporteAviso` en `app.html`).
+- Mientras dura la llave, la campana lleva un **punto naranja**. Al usar la llave y al vencer sale un aviso emergente
+  de unos segundos.
+
+## 2026-10-21 · Estados del pedido solo por la base, y las horas al historial (Etapa 2D)
+
+SQL: **instalación desde cero** con `sql/instalacion/` (00 a 12; se pueden hacer juntas 2A a 2D). Pruebas:
+[11-pruebas.md](11-pruebas.md), "Etapa 2D".
+
+- **Funciones nuevas** (`04_rutas_y_pedidos.sql`), que revisan quién puede (función del usuario y su alcance) y que el
+  pedido siga en el estado que se veía, y escriben el historial:
+  - `pedido_estado`: todos los botones de estado del pedido (En bodega, Alistando, Listo para despachar, aprobar la
+    salida escaneando, Entregado, No entregado, Devuelto, Cancelado). "Entregado" guarda además el cierre en
+    `pedido_entregas` y exige la forma de cobro y la mayoría de edad.
+  - `pedido_asignar`: asignar piloto, fecha, horario y ruta, o reprogramar.
+  - `pedidos_liberar_piloto`: Usuarios, cuando un piloto deja una tienda.
+- **La página ya no cambia el estado directo** (`pedidos_revisar_cambio`): ni el estado, piloto, fecha, horario, slot,
+  ruta, carga, cobro o caja. Sí los datos del pedido. Lo que agrega al historial va a nombre de quien está conectado y
+  no puede ser un cambio de estado.
+- **Red de seguridad:** si algún cambio de estado no quedó en el historial, la base lo anota al terminar.
+- **Horas de cada paso:** se quitan de `pedidos` las columnas `alistando_en`, `listo_en`, `recibido_ruta_en`,
+  `cargado_en`, `salida_en`, `entregando_en` y `finalizado_en`. Salen del historial con la vista nueva `pedidos_pasos`;
+  `pedidos_tiempos` y `slots_carga` la usan. La Caja toma la fecha de la entrega de `pedido_entregas`.
+- De paso: "Cargar con foto" también respeta la autorización pendiente de un pedido sin bodega del día.
+
+## 2026-10-21 · Llave de soporte del Admin TI y límite del Desarrollador (Etapa 2C)
+
+SQL: **instalación desde cero** con `sql/instalacion/` (00 a 12; se pueden hacer juntas 2A, 2B y 2C). Pruebas:
+[11-pruebas.md](11-pruebas.md), "Etapa 2C".
+
+- **Admin TI**: casilla del usuario (columna `usuarios.admin_ti`), no un rol. La pone o la quita solo el Administrador
+  de la empresa; el Desarrollador la puede poner, pero no quitarla. No la pueden tener Pilotos ni clientes.
+- **Lo que ve el Desarrollador** (reglas de `11_acceso_web.sql` con `soporte_empresas`):
+  - siempre: la configuración y los usuarios de todas las empresas (sin las cuentas de los clientes), el plan y si la
+    empresa está activa;
+  - **puesta en marcha** (la empresa no tiene Admin TI): además cambia su configuración, tiendas y usuarios;
+  - con la **llave**: ve los clientes, pedidos, viajes, inventario, precios, cajas y costos; con "Ver y corregir"
+    también los cambia (y la configuración). Las funciones que lo dejaban pasar ahora piden la llave (`soporte_exigir`).
+- **La llave** (Configuración → Soporte, `js/secciones/configuracion/soporte.js`): la crea el Admin TI o el
+  Administrador; dura 1, 4 o 24 horas; "Solo ver" o "Ver y corregir"; es un código como `K7M2-Q9XP` que se ve una vez y
+  se guarda cifrado. Una nueva anula la anterior; se puede anular. Cuando el Desarrollador entra con ella se avisa al
+  Administrador y al Admin TI. Con 5 códigos equivocados en 30 minutos se anula y se avisa.
+- **Franja de soporte** (`js/soporte.js`, solo el Desarrollador): dice en qué modo está con la empresa activa y tiene
+  el botón "Usar llave". (Desde el mismo día está dentro de la campana; ver la entrada de arriba.)
+- **Bitácora** (`soporte_bitacora`): llaves creadas, usadas y anuladas, códigos equivocados, pantallas que abrió el
+  Desarrollador con la llave y todo lo que creó, cambió o borró (un trigger en todas las tablas). Nadie la cambia ni la
+  borra.
+- **Emergencia sin llave** (Usuarios, solo el Desarrollador): bloquear, desbloquear y cerrar las sesiones de un
+  usuario (`soporte_emergencia`). Queda en la bitácora y avisa al Administrador y al Admin TI.
+- De paso: `piloto_salir_ruta` revisa que el piloto sea de una tienda que administra quien lo hace (antes, cualquier
+  administrador podía mandar el piloto de otra empresa); Usuarios avisa si la base no dejó guardar un cambio.
+- Pendiente: forzar el cambio de contraseña y "ver errores" (del diseño) no se hicieron; los cambios de estado del
+  pedido por funciones (2D).
+
+## 2026-10-21 · Alcance por región y tienda, y funciones de cada usuario en la base (Etapa 2B)
+
+SQL: **instalación desde cero** con `sql/instalacion/` (00 a 12, igual que la 2A; se pueden hacer juntas). Pruebas:
+[11-pruebas.md](11-pruebas.md), "Etapa 2B".
+
+- **Módulos y funciones en tablas:**
+  - `funciones` es el catálogo, con los roles que traen cada módulo y función. Es la única lista: la página la lee de
+    la base y ya no está repetida en `js/sesion.js`.
+  - `usuario_funciones` guarda lo que se le dio o se le quitó a cada usuario.
+  - Se quita la columna `usuarios.permisos` y la copia `funcion_del_rol`.
+  - La página lee lo suyo con `mis_funciones()` y el formulario de Usuarios guarda con `usuario_guardar_funciones`,
+    que revisa quién puede.
+- **Alcance en la base (RLS):**
+  - **Pedidos** (con su historial, artículos, entregas y fotos) y **cierres de caja**: Administrador y G1 toda la
+    empresa; G2 su región; G3 y Empleado su tienda, más los pilotos de su tienda; Piloto solo los suyos.
+  - **Viajes**: el conductor ve solo los suyos.
+  - Clientes y usuarios siguen viéndose en toda la empresa. Así se encuentra al cliente aunque esté en otra tienda, y
+    llegan los avisos a los administradores.
+- **Escribir según la función:**
+  - tarifas, horarios, ajustes, transporte, costos, cajas, categorías y artículos: "Cambiar la configuración";
+  - el G2 cambia tarifas, descuentos y pedidos por horario de su región;
+  - productos y precios: "Modificar productos y precios";
+  - rutas: "Crear rutas y asignar pilotos";
+  - regiones: "Crear y modificar tiendas y regiones";
+  - recolecciones: "Atender" (bloqueos y horario) y "Cobrar" (tarifas y cobros).
+- Pendiente: la llave de soporte del Admin TI (2C) y los cambios de estado del pedido por funciones (2D).
+
+## 2026-10-21 · Inicio de sesión real y candado por empresa (Etapa 2A)
+
+SQL: **instalación desde cero otra vez** con `sql/instalacion/` (00 a 12, en orden; los datos siguen siendo de prueba).
+En Supabase: Authentication → Sign In / Providers → **desactivar "Allow new users to sign up"** (los accesos los crea la
+base). Pruebas: [11-pruebas.md](11-pruebas.md), "Etapa 2A".
+
+- **Supabase Auth**: cada usuario entra con su usuario de siempre (`jperez01`); por detrás la base le crea un acceso con
+  un correo interno que nadie ve (`jperez01@acachete.interno`). La contraseña vive solo en Supabase Auth:
+  `usuarios.clave` queda siempre vacía (es un buzón: la página escribe ahí la contraseña nueva y la base la pasa a Auth).
+  Se quitan `iniciar_sesion`, `cifrar_clave` y `clave_cifrada`. Cerrar sesión cierra también la de Supabase; si la
+  sesión vence, la página vuelve al login.
+- **Reglas RLS reales** (`11_acceso_web.sql`) en vez de las TEMPORAL abiertas a la clave pública:
+  - Sin sesión no se lee ni se cambia nada. Solo quedan el registro de clientes, la ubicación compartida por enlace y
+    la lista de actividades.
+  - Cada empresa ve y cambia solo lo suyo; el Desarrollador ve todas.
+  - El rol **cliente** solo ve lo suyo: su ficha, sus viajes (con el nombre y el teléfono del conductor), sus envíos,
+    sus recolecciones y sus cobros, más los catálogos para pedir.
+  - Las tablas de movimientos se cambian solo con las funciones de cada módulo.
+- **Funciones**: todas las que reciben el usuario (`usuario_activo`) confirman que es el de la sesión: ya nadie puede
+  actuar en nombre de otro. Las de marcas y QR, ubicación del piloto, visitas, horas de viajes y recolecciones, y
+  bodega revisan además la empresa. Sin sesión ya no se puede ejecutar ninguna función (antes, todas).
+- **Usuarios**: la base revisa quién cambia a quién (`usuarios_revisar_cambio`), con las mismas reglas de la página:
+  - nadie se cambia su propio rol, tienda ni permisos;
+  - G1 maneja Empleados y Pilotos; G2, los de su región; G3 y Empleado, Empleados de su tienda, que quedan por aprobar.
+- **Ajustes por empresa**: `configuracion` lleva `empresa_id` (número de pedido, código de respaldo, radio de marca); se
+  copian al crear una empresa.
+- **Avisos que manda la base**:
+  - la solicitud de envío del cliente avisa sola a quien la aprueba, y se cierra sola si el cliente la cancela;
+  - "cerrar los avisos pendientes" es la función `resolver_pendientes`;
+  - cada usuario solo marca sus propios avisos.
+- Solo el Desarrollador cambia las **actividades** y los **tamaños de bulto**, que son de todo el sistema, y las
+  **empresas**.
+- **Pendiente** (Etapa 2B y siguientes):
+  - que G2, G3, Empleado y Piloto vean solo su región o su tienda también en la base;
+  - las funciones de cada usuario en tablas;
+  - permisos por función en cada tabla;
+  - la llave de soporte del Admin TI;
+  - las horas de cada paso del pedido en el historial.
+
+## 2026-10-20 · Base reconstruida y ordenada (Etapa 1)
+
+SQL: **instalación desde cero** con `sql/instalacion/` (00 a 12, en orden; `00_reiniciar_base.sql` borra todo: los
+datos eran de prueba). Guía: [`sql/LEEME.md`](../sql/LEEME.md). Los scripts viejos (`00`, `01` con los bloques 0 a
+46, `por_funcion/`, `dividir_sql`, `vaciar_base_datos.sql`) pasan a `sql/historial/` y ya no se ejecutan. Desde
+ahora cada cambio es un archivo con fecha en `sql/actualizaciones/` (y se actualiza su módulo de instalación).
+
+- **Un archivo por módulo**: cada tabla se crea una sola vez con todas sus columnas y cada función en su versión
+  final (antes: 61 tablas parchadas con 120 `alter table` y funciones reescritas hasta 4 veces).
+- **Horarios en una sola estructura** (por empresa): `horarios_dias`, `horarios` y `horarios_capacidad` con `tipo`
+  `turno` (horarios del piloto) o `despacho` (slots). Reemplazan `marcas_horario`, `horario_dias`, `marcas_dia`,
+  `capacidad_marcas`, `slots_horario`, `slot_dias`, `slots_dia` y las claves `cantidad_marcas`, `pedidos_por_marca`
+  y `cantidad_slots` de `configuracion`. `marcas_del_dia` y `slots_del_dia` reciben la empresa.
+- **Nombres claros**: `usa_recoleccion` → `usa_punto_partida`, `usa_agenda_recoleccion` → `usa_recolecciones`,
+  `pedidos.direccion_recoleccion` → `direccion_partida`, `pedido_solicitudes.recoleccion_*` → `partida_*`,
+  `transporte_costos` → `costos_operacion` (sin vehículo) y el margen y los trabajos al mes en `costos_config`.
+  En SQL: `viaje_usuario` → `usuario_activo`, `dist_puede_tienda` → `puede_tienda`, nueva `nombre_completo`.
+- **Quitado**: `tiendas_actividades` (no se usaba), el QR de marcas mensual (`qr_marcas`, `qr_marca_mes`,
+  `marcar_por_qr`: queda el QR fijo con GPS), `vehiculos.km_por_litro`, `horas_mes`, `km_mes`,
+  `transporte_config.precio_litro`, `clientes.apellidos` (apellido1 y apellido2 siempre separados) y Casa / Trabajo
+  del cliente (Viajes y Recolecciones usan su dirección y ubicación de la ficha; Clientes → "Acceso del cliente").
+- **Motivos de retraso** por empresa y por actividad (vacía = todas).
+- **Costo del reporte de Viajes**: gastos del mes ÷ viajes del mes (antes, por vehículo con precio del litro: el
+  combustible podía contarse doble). En Configuración → Transporte, el margen de cada franja usa el viaje promedio.
+- Configuración → Actividades muestra la casilla **Recolecciones con agenda**. Al crear una empresa se le copian
+  también los motivos, los horarios y los slots.
+- Sin cambio en esta etapa (van con la Etapa 2, cuando la base haga cumplir las reglas): las horas de cada paso del
+  pedido siguen en `pedidos` (la página todavía escribe el historial), el rol + funciones del usuario sigue en
+  `usuarios.permisos`, y la región ya era opcional y con llave real.
+
+## 2026-10-20 · Actividad Recolección (agenda del cliente, depósitos, bloqueos y cobro semanal)
+
+SQL: **`sql/01_actualizacion_base_existente.sql` bloque 46** (= `sql/por_funcion/01_actualizacion_23_recoleccion.sql`;
+instalación nueva: `sql/00`, sección 39). Guía: [secciones/recolecciones.md](secciones/recolecciones.md).
+
+- **Actividad nueva `recoleccion`** con su sección **Recolecciones** (`#recolecciones`), aparte de Transporte y sin
+  cambiar las demás actividades. Marca nueva `actividades.usa_agenda_recoleccion` (no es `usa_recoleccion`).
+- **Una sola agenda** por empresa: el cliente elige el día y un espacio libre, dónde se recoge (mapa; Casa / Trabajo),
+  qué (**depósitos**: cuántos y de quién es cada uno, u **otra cosa**) y dónde se entrega (**la oficina de la
+  empresa** u **otro lugar**). Cambia la hora (todo o nada) o cancela mientras el espacio esté libre y hasta
+  `cancelar_horas` antes.
+- **Quien atiende** (Administrador, Admin G1, piloto o la función nueva `recolecciones.atender`) hace el proceso del
+  conductor: En camino → Recogida → Entregada (o No estaba). Pestaña **Bloqueos y horario**: bloquear horas (almuerzo,
+  entrada, salida: todas las semanas o un día) y el horario de servicio.
+- **Cobro semanal** (función `recolecciones.cobrar`): tarifa diaria por cliente **como en las rutas**: se marcan los
+  días que se trabajan y desde cuándo, y **cada día marcado se cobra el monto fijo, haya o no recolecciones**
+  (`recoleccion_generar_cargos` arma los días que falten). Pestaña **Cobros** por semana, "Cobrado" y corregir el
+  monto de un día (ej. feriado en ₡0). Un cliente sin tarifa no se cobra. El cliente ve lo que tiene pendiente.
+- Tablas nuevas: `recolecciones` (solo lectura para la página), `recoleccion_config`, `recoleccion_bloqueos`,
+  `recoleccion_tarifas`, `recoleccion_cargos`. Funciones: `recolecciones_horas`, `_solicitar`, `_cambiar_hora`,
+  `_cancelar`, `_avanzar` (recicla `viaje_usuario`). El bloque vuelve a crear `registro_clientes_empresa` y
+  `solicitar_acceso_cliente` (el cliente pide su usuario también en Recolección) y `limpiar_empresa` (también borra
+  las recolecciones).
+- Lo común que se tocó, sin cambiar lo que ya existe: `empresas/empresas.js` (`esActividadDeRecolecciones`,
+  `empresaTieneRecolecciones`, `esActividadSinPedidos`: la actividad no sale en Pedidos, Rutas, Artículos ni
+  Configuración → Pedidos), `js/palabras.js` (lee la marca), `js/sesion.js` (sección, módulo y funciones; piloto y
+  cliente la ven), menú (`app.html`), pie (`BOTONES_PIE_RECOLECCION`), Inicio (empresa de Recolección sin viajes →
+  directo a Recolecciones), Clientes ("Acceso y lugares" también con Recolección) y `js/supabase.js` (tablas por empresa).
+- Se activa en Tiendas → Empresas marcando **Recolección**. La marca no aparece en Configuración → Actividades (se
+  pone con el SQL).
+
 ## 2026-10-19 · Limpiar una empresa con un botón, datos de la empresa, usuarios y clientes persona / empresa
 
 SQL: **`sql/01_actualizacion_base_existente.sql` bloques 40 a 45** (=

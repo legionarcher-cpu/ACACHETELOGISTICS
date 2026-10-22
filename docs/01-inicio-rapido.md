@@ -30,8 +30,8 @@ Al cambiar de empresa hay que iniciar sesión otra vez (cada empresa guarda su p
 
 ## Orden recomendado para una base NUEVA
 
-1. Crear las **regiones** reales (en `sql/00_instalacion_completa.sql` antes de ejecutarlo, o en
-   Supabase → tabla `regiones`).
+1. Instalar la base con `sql/instalacion/` (01 a 12, ver `sql/LEEME.md`) y crear las **regiones** reales
+   (opcionales) en Tiendas → Regiones.
 2. **Tiendas** (sección Tiendas).
 3. **Usuarios**: administradores G1/G2, luego G3, empleados y pilotos (sección Usuarios).
 4. **Vehículos** (Configuración → Vehículos) y asignarlos a los pilotos (Usuarios).

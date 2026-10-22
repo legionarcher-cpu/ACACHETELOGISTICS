@@ -7,7 +7,7 @@
 
    QUIÉN VE QUÉ:
      Cliente (rol cliente)   -> SUS viajes: próximos y anteriores; cambia la hora o cancela
-                                hasta "cancelar_horas" antes; su cortesía; Casa y Trabajo.
+                                hasta "cancelar_horas" antes; su cortesía; su ubicación.
      Conductor (rol piloto)  -> sus viajes del día: "Voy en camino" -> "A bordo" ->
                                 "Terminar" (o "No se presentó") y enlaces para navegar.
      Personal (Administrador, G1, G2, G3, Empleado) -> agenda del día de la empresa:
@@ -16,8 +16,9 @@
 
    SOLICITUD (4 pasos, primero la ruta y después la hora):
      1. Personas (obligatorio), mascotas Sí/No (obligatorio, sin respuesta marcada) y mercadería.
-     2. Ruta A -> B con el mapa (js/mapa.js: km y minutos por calle). Botones Casa y Trabajo
-        para llenar un punto; "Guardar como Casa/Trabajo" guarda el punto en el cliente.
+     2. Ruta A -> B con el mapa (js/mapa.js: km y minutos por calle). Botón "Ubicación del
+        cliente" para llenar un punto con la dirección y la ubicación de su ficha; "Guardar
+        como ubicación del cliente" guarda el punto en su ficha (clientes.direccion y ubicacion).
      3. Día y hora: la base (viajes_horas_disponibles) da las horas cada 15 min dentro de
         las franjas, si hay vehículo libre para el bloque y el precio de cada una.
      4. Confirmar: viajes_solicitar revisa otra vez, asigna vehículo y conductor y confirma.
@@ -47,7 +48,7 @@ registrarSeccion('viajes', (zona) => {
     let viajes = [];            // los de la lista (día elegido, o los del cliente)
     let vehiculos = [];
     let estadoCliente = null;   // cortesía del cliente del viaje (viajes_estado_cliente)
-    let clienteViaje = null;    // { id, nombre, apellidos, telefono, casa_*, trabajo_* } del viaje que se solicita
+    let clienteViaje = null;    // { id, nombre, apellido1, apellido2, telefono, direccion, ubicacion } del viaje que se solicita
     let mapa = null;
     let ruta = null;            // { km, minutos, aproximada } de A -> B
     let horaElegida = null;     // { inicio, hora, total, franja }
@@ -60,7 +61,9 @@ registrarSeccion('viajes', (zona) => {
     // AYUDAS
     // ==================================================
 
-    const nombreCliente = (c) => [c.nombre, c.apellidos].filter(Boolean).join(' ');
+    const nombreCliente = (c) => [c.nombre, c.apellido1, c.apellido2].filter(Boolean).join(' ');
+    // Punto de la ficha del cliente ({ lat, lng } de su ubicación) o null
+    const puntoCliente = (c) => (c ? puntoDeTexto(c.ubicacion) : null);
     const mismoDia = (t, fecha) => viaFechaISO(new Date(t)) === fecha;
     // ¿El cliente todavía puede cambiar o cancelar? (la base lo vuelve a revisar)
     const clientePuedeCambiar = (v) => v.estado === 'confirmado'
@@ -227,12 +230,12 @@ registrarSeccion('viajes', (zona) => {
     $('#viaBuscar').addEventListener('input', dibujarLista);
 
     // ==================================================
-    // CLIENTE: CORTESÍA Y LUGARES
+    // CLIENTE: CORTESÍA Y SU UBICACIÓN
     // ==================================================
 
     async function cargarDatosCliente(id) {
         const [cli, est] = await Promise.all([
-            db.from('clientes').select('id, nombre, apellidos, telefono, casa_direccion, casa_lat, casa_lng, trabajo_direccion, trabajo_lat, trabajo_lng')
+            db.from('clientes').select('id, nombre, apellido1, apellido2, telefono, direccion, ubicacion')
                 .eq('id', id).maybeSingle(),
             db.rpc('viajes_estado_cliente', { p_cliente: id }),
         ]);
@@ -241,42 +244,35 @@ registrarSeccion('viajes', (zona) => {
         return cli.data;
     }
 
+    // "Mi ubicación": la dirección y el punto de la ficha del cliente
     function pintarMisLugares() {
-        const ul = $('#viaLugaresLista');
-        ul.replaceChildren(...['casa', 'trabajo'].map((lugar) => {
-            const li = viaElemento('li', 'via-lugar');
-            const icono = viaElemento('i', `bi ${lugar === 'casa' ? 'bi-house' : 'bi-briefcase'}`);
-            const textos = viaElemento('span', 'via-lugar-textos');
-            textos.append(viaElemento('strong', null, lugar === 'casa' ? 'Casa' : 'Trabajo'),
-                viaElemento('small', null, (clienteViaje && clienteViaje[`${lugar}_direccion`]) || 'Sin guardar'));
-            li.append(icono, textos);
-            if (clienteViaje && clienteViaje[`${lugar}_lat`] != null) {
-                li.appendChild(viaBoton('Quitar', 'bi-x-lg', 'boton-secundario', { quitar: lugar }));
-            }
-            return li;
-        }));
+        const li = viaElemento('li', 'via-lugar');
+        const textos = viaElemento('span', 'via-lugar-textos');
+        const punto = puntoCliente(clienteViaje);
+        textos.append(viaElemento('strong', null, 'Mi ubicación'),
+            viaElemento('small', null, punto ? (clienteViaje.direccion || 'Ubicada en el mapa') : 'Sin guardar'));
+        li.append(viaElemento('i', 'bi bi-geo-alt'), textos);
+        if (punto) li.appendChild(viaBoton('Quitar', 'bi-x-lg', 'boton-secundario', { quitar: '1' }));
+        $('#viaLugaresLista').replaceChildren(li);
     }
 
     $('#viaLugaresLista').addEventListener('click', async (evento) => {
         const b = evento.target.closest('button[data-quitar]');
         if (!b || !clienteViaje) return;
-        const lugar = b.dataset.quitar;
-        if (!confirm(`¿Quitar ${lugar === 'casa' ? 'Casa' : 'Trabajo'}?`)) return;
-        await guardarLugar(lugar, null);
+        if (!confirm('¿Quitar tu ubicación guardada?')) return;
+        await guardarUbicacionCliente(null);
     });
 
-    // Guarda Casa o Trabajo en el cliente del viaje (punto = { direccion, lat, lng } o null)
-    async function guardarLugar(lugar, punto) {
+    // Guarda la dirección y la ubicación en la ficha del cliente (punto = { direccion, lat, lng } o null)
+    async function guardarUbicacionCliente(punto) {
         if (!clienteViaje) return;
-        const datos = {
-            [`${lugar}_direccion`]: punto ? punto.direccion : null,
-            [`${lugar}_lat`]: punto ? Number(punto.lat.toFixed(6)) : null,
-            [`${lugar}_lng`]: punto ? Number(punto.lng.toFixed(6)) : null,
-        };
+        const datos = punto
+            ? { direccion: punto.direccion, ubicacion: `${punto.lat.toFixed(6)}, ${punto.lng.toFixed(6)}` }
+            : { ubicacion: null };
         const { error } = await db.from('clientes').update(datos).eq('id', clienteViaje.id);
-        if (error) { mostrarError(error, 'guardar el lugar'); return; }
+        if (error) { mostrarError(error, 'guardar la ubicación'); return; }
         Object.assign(clienteViaje, datos);
-        aviso.mostrar(punto ? `${lugar === 'casa' ? 'Casa' : 'Trabajo'} guardado.` : `${lugar === 'casa' ? 'Casa' : 'Trabajo'} quitado.`);
+        aviso.mostrar(punto ? 'Ubicación del cliente guardada.' : 'Ubicación del cliente quitada.');
         pintarMisLugares();
         pintarBotonesLugares();
     }
@@ -442,9 +438,9 @@ registrarSeccion('viajes', (zona) => {
         const palabras = palabrasDeBusqueda($('#viaCliBuscar').value);
         const caja = $('#viaCliResultados');
         if (!palabras.length || palabras.join('').length < 2) { caja.hidden = true; return; }
-        let q = db.from('clientes').select('id, nombre, apellidos, telefono, correo').eq('aprobado', true);
+        let q = db.from('clientes').select('id, nombre, apellido1, apellido2, telefono, correo').eq('aprobado', true);
         palabras.forEach((p) => { q = q.ilike('busqueda', `%${p}%`); });
-        const { data, error } = await q.order('apellidos').limit(8);
+        const { data, error } = await q.order('apellido1').order('apellido2').limit(8);
         if (!activa) return;
         if (error) { mostrarError(error, 'buscar clientes'); return; }
         caja.hidden = false;
@@ -540,24 +536,20 @@ registrarSeccion('viajes', (zona) => {
         }
     }
 
-    // Botones Casa / Trabajo de cada punto y "Guardar como..."
+    // Botón "Ubicación del cliente" de cada punto y "Guardar como ubicación del cliente"
     function pintarBotonesLugares() {
         const puntos = mapa ? mapa.puntos() : { a: null, b: null };
+        const suyo = puntoCliente(clienteViaje);
         zona.querySelectorAll('.via-lugares-botones').forEach((caja) => {
             const lado = caja.dataset.lado;
             caja.replaceChildren();
             if (!clienteViaje) return;
-            ['casa', 'trabajo'].forEach((lugar) => {
-                const tiene = clienteViaje[`${lugar}_lat`] != null;
-                const b = viaBoton(lugar === 'casa' ? 'Casa' : 'Trabajo', lugar === 'casa' ? 'bi-house' : 'bi-briefcase', 'boton-secundario', { usar: lugar, lado });
-                b.disabled = !tiene;
-                b.title = tiene ? clienteViaje[`${lugar}_direccion`] || '' : `Sin guardar: ubica el punto y usa "Guardar como ${lugar === 'casa' ? 'Casa' : 'Trabajo'}"`;
-                caja.appendChild(b);
-            });
+            const b = viaBoton('Ubicación del cliente', 'bi-geo-alt', 'boton-secundario', { usar: '1', lado });
+            b.disabled = !suyo;
+            b.title = suyo ? clienteViaje.direccion || '' : 'Sin guardar: ubica el punto y usa "Guardar como ubicación del cliente"';
+            caja.appendChild(b);
             if (puntos[lado]) {
-                ['casa', 'trabajo'].forEach((lugar) => {
-                    caja.appendChild(viaBoton(`Guardar como ${lugar === 'casa' ? 'Casa' : 'Trabajo'}`, 'bi-bookmark-plus', 'boton-secundario via-boton-suave', { guardar: lugar, lado }));
-                });
+                caja.appendChild(viaBoton('Guardar como ubicación del cliente', 'bi-bookmark-plus', 'boton-secundario via-boton-suave', { guardar: '1', lado }));
             }
         });
     }
@@ -568,19 +560,17 @@ registrarSeccion('viajes', (zona) => {
         const lado = b.dataset.lado;
         const entrada = lado === 'a' ? entradaA : entradaB;
         if (b.dataset.usar) {
-            const lugar = b.dataset.usar;
-            entrada.value = clienteViaje[`${lugar}_direccion`] || (lugar === 'casa' ? 'Casa' : 'Trabajo');
+            const punto = puntoCliente(clienteViaje);
+            if (!punto) return;
+            entrada.value = clienteViaje.direccion || 'Ubicación del cliente';
             entrada.dataset.ubicado = entrada.value;
-            const punto = { lat: Number(clienteViaje[`${lugar}_lat`]), lng: Number(clienteViaje[`${lugar}_lng`]) };
             if (lado === 'a') mapa.ponerA(punto); else mapa.ponerB(punto);
         }
         if (b.dataset.guardar) {
             const punto = mapa.puntos()[lado];
             if (!punto) return;
-            const lugar = b.dataset.guardar;
-            const anterior = clienteViaje[`${lugar}_direccion`];
-            if (anterior && !confirm(`¿Reemplazar ${lugar === 'casa' ? 'Casa' : 'Trabajo'} (${anterior})?`)) return;
-            await guardarLugar(lugar, { direccion: entrada.value.trim() || `Punto ${lado.toUpperCase()}`, lat: punto.lat, lng: punto.lng });
+            if (puntoCliente(clienteViaje) && !confirm(`¿Reemplazar la ubicación guardada del cliente (${clienteViaje.direccion || 'sin dirección'})?`)) return;
+            await guardarUbicacionCliente({ direccion: entrada.value.trim() || `Punto ${lado.toUpperCase()}`, lat: punto.lat, lng: punto.lng });
         }
     }));
 

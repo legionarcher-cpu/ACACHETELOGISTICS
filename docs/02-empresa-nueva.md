@@ -66,13 +66,13 @@ Las imágenes van en `img/`; la herramienta avisa si la ruta no existe. También
 ## Base de datos propia (en blanco)
 
 1. supabase.com → **New project**.
-2. SQL Editor → pegar **todo** `sql/00_instalacion_completa.sql` → **Run** (una sola vez).
-   Antes, cambiar las regiones de ejemplo por las reales.
+2. SQL Editor → ejecutar uno por uno los archivos de `sql/instalacion/` del **01 al 12**, en orden
+   (ver [`sql/LEEME.md`](../sql/LEEME.md)). Las regiones de ejemplo se cambian después en Tiendas → Regiones.
 3. Project Settings → API → copiar **Project URL** y **anon public** en `supabase: { url, anonKey }`.
 4. Entrar con `admin` / `admin123` y cambiar la clave.
 
-Queda sin tiendas, usuarios (solo `admin`), clientes ni pedidos; con la configuración inicial
-(actividades, categorías, pesos promedio, tamaños, tarifas de ejemplo, motivos, 5 horarios).
+Queda sin tiendas, usuarios (solo `desar` y `admin`), clientes ni pedidos; con la configuración inicial
+(actividades, empresa 01, categorías, pesos promedio, tamaños, tarifas de ejemplo, motivos, 5 horarios y 4 slots).
 
 > Si varias marcas usan **la misma** base (supabase vacío), comparten todos los datos, salvo que se
 > separen con **empresas internas** (cada una ve solo lo suyo). Para separar del todo (otra base),

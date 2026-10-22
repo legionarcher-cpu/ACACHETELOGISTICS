@@ -65,9 +65,8 @@
 
 // Columnas que se traen. "clientes_tiendas(tienda_id)" = tiendas del cliente;
 // "solicitante:usuarios!solicitado_por(nombre)" = quién pidió la aprobación.
-// "apellidos" la calcula la base (apellido1 + apellido2): solo se lee.
-// clientes_tiendas.ruta_id = ruta de entrega del cliente en esa tienda (sql/01 bloque 16).
-const CLI_COLUMNAS = 'id, nombre, apellido1, apellido2, apellidos, telefono, correo, direccion, ubicacion, aprobado, ' +
+// clientes_tiendas.ruta_id = ruta de entrega del cliente en esa tienda.
+const CLI_COLUMNAS = 'id, nombre, apellido1, apellido2, telefono, correo, direccion, ubicacion, aprobado, ' +
     'cambios_pendientes, solicitado_por, solicitado_en, ' +
     'clientes_tiendas(tienda_id, ruta_id), solicitante:usuarios!solicitado_por(nombre)';
 const CLI_COLUMNAS_SIN_RUTA = CLI_COLUMNAS.replace('clientes_tiendas(tienda_id, ruta_id)', 'clientes_tiendas(tienda_id)');
@@ -179,12 +178,13 @@ registrarSeccion('clientes', (zona) => {
     let revisando = null;       // cliente cuya solicitud se revisa
     let eliminandoId = null;
 
-    // Viajes (Transporte): acceso del cliente y sus lugares Casa / Trabajo (sql/01 bloque 19)
-    const conViajes = typeof empresaTieneViajes === 'function' && empresaTieneViajes();
-    // Usuario del cliente: si la empresa hace viajes o encomiendas ("Mis envíos", sql/01 bloque 23)
-    const conAcceso = conViajes || (typeof empresaTieneRecoleccion === 'function' && empresaTieneRecoleccion());
+    // Usuario del cliente: si la empresa hace viajes, envíos con punto de partida ("Mis envíos")
+    // o recolecciones (el cliente solicita los suyos)
+    const conAcceso = (typeof empresaTieneViajes === 'function' && empresaTieneViajes())
+        || (typeof empresaTieneEnvios === 'function' && empresaTieneEnvios())
+        || (typeof empresaTieneRecolecciones === 'function' && empresaTieneRecolecciones());
     let accesos = new Map();    // cliente_id -> { id, id_usuario } de su usuario
-    let enAcceso = null;        // cliente de la ventana "Acceso y lugares"
+    let enAcceso = null;        // cliente de la ventana "Acceso del cliente"
 
     const idsAlcance = () => new Set(tiendasAlcance.map((t) => t.id));
     const idsTiendasDe = (c) => (c.clientes_tiendas || []).map((ct) => ct.tienda_id);
@@ -304,23 +304,24 @@ registrarSeccion('clientes', (zona) => {
 
     async function cargarClientes() {
         const columnas = () => (hayTipo ? CLI_COLUMNAS_TIPO : '') + (hayRutas ? CLI_COLUMNAS : CLI_COLUMNAS_SIN_RUTA);
-        let { data, error } = await db.from('clientes').select(columnas()).order('apellidos');
-        if (error && error.code === '42703' && hayTipo) { // faltan tipo, cedula y razon_social (sql/01 bloque 43)
+        const ordenados = () => db.from('clientes').select(columnas()).order('apellido1').order('apellido2').order('nombre');
+        let { data, error } = await ordenados();
+        if (error && error.code === '42703' && hayTipo) { // faltan tipo, cedula y razon_social
             hayTipo = false;
             $('#cliCampoTipo').hidden = true;
             $('#cliCampoCedula').hidden = true;
-            ({ data, error } = await db.from('clientes').select(columnas()).order('apellidos'));
+            ({ data, error } = await ordenados());
         }
-        if (error && error.code === '42703' && hayRutas) { // falta clientes_tiendas.ruta_id (sql/01 bloque 16)
+        if (error && error.code === '42703' && hayRutas) { // falta clientes_tiendas.ruta_id
             hayRutas = false;
-            ({ data, error } = await db.from('clientes').select(columnas()).order('apellidos'));
+            ({ data, error } = await ordenados());
             cajaTiendas.querySelectorAll('.cli-ruta').forEach((s) => s.remove());
         }
         if (error) {
             console.error('Error al cargar clientes:', error);
             contador.textContent = 'No se pudo cargar la lista.';
             aviso.mostrar(error.code === '42P01' || error.code === 'PGRST205'
-                ? 'Falta instalar la base de datos (sql/00_instalacion_completa.sql).'
+                ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudieron cargar los clientes. Revisa la conexión.', 'error');
             return;
         }
@@ -450,12 +451,12 @@ registrarSeccion('clientes', (zona) => {
                     : 'No tienes permiso para modificar este cliente',
                 !puedeModificar(c)));
 
-            // Viajes: usuario del cliente y Casa / Trabajo (solo quien administra, ya aprobado
-            // y sin una solicitud de acceso por revisar: esa se aprueba con "Revisar")
+            // Usuario del cliente (solo quien administra, ya aprobado y sin una solicitud de
+            // acceso por revisar: esa se aprueba con "Revisar")
             if (conAcceso && puedeAdministrar(c) && c.aprobado && !accesoPendiente(c)) {
                 const acceso = accesos.get(c.id);
                 botones.push(crearBotonIcono('acceso', c.id, acceso ? 'bi-person-check' : 'bi-key',
-                    acceso ? `Acceso del cliente: ${acceso.id_usuario} · Casa y Trabajo` : 'Dar acceso al cliente (usuario) y guardar Casa y Trabajo'));
+                    acceso ? `Acceso del cliente: ${acceso.id_usuario}` : 'Dar acceso al cliente (usuario y contraseña)'));
             }
 
             botones.push(crearBotonIcono('eliminar', c.id, 'bi-trash3',
@@ -561,16 +562,12 @@ registrarSeccion('clientes', (zona) => {
     });
 
     // ==================================================
-    // ACCESO Y LUGARES (Viajes, sql/01 bloque 19)
-    //   - Usuario rol "cliente": nombre + ID de la empresa (mramirez02), con su
-    //     contraseña. Entra a Inicio, Viajes y Mi perfil para solicitar sus viajes.
-    //   - Casa y Trabajo: dirección + punto (se ubica con el buscador de js/mapa.js).
+    // ACCESO DEL CLIENTE
+    //   Usuario rol "cliente": nombre + ID de la empresa (mramirez02), con su contraseña.
+    //   Entra a Inicio, Viajes / Mis envíos / Recolecciones y Mi perfil para solicitar los
+    //   suyos. Su dirección y su ubicación son las de su ficha (Modificar).
     // ==================================================
     const accesoDialogo = $('#cliAcceso');
-    const lugares = {
-        casa: { texto: $('#cliCasaTexto'), opciones: $('#cliCasaOpciones'), estado: $('#cliCasaEstado'), punto: null, resultados: [] },
-        trabajo: { texto: $('#cliTrabajoTexto'), opciones: $('#cliTrabajoOpciones'), estado: $('#cliTrabajoEstado'), punto: null, resultados: [] },
-    };
 
     // "Ana María Ramírez" -> "aramirez"
     const usuarioPropuesto = (c) => textoParaBuscar(`${(c.nombre || '').trim().charAt(0)}${(c.apellido1 || '').split(' ')[0]}`)
@@ -582,15 +579,10 @@ registrarSeccion('clientes', (zona) => {
     }
     $('#cliAccesoUsuario').addEventListener('input', pintarEjemploUsuario);
 
-    function pintarLugar(lugar) {
-        const l = lugares[lugar];
-        l.estado.textContent = l.punto ? `Ubicado: ${Number(l.punto.lat).toFixed(5)}, ${Number(l.punto.lng).toFixed(5)}` : 'Sin ubicar';
-    }
-
-    async function abrirAcceso(c) {
+    function abrirAcceso(c) {
         enAcceso = c;
         $('#cliAccesoError').textContent = '';
-        $('#cliAccesoTitulo').textContent = `Acceso y lugares: ${cliNombreCompleto(c)}`;
+        $('#cliAccesoTitulo').textContent = `Acceso del cliente: ${cliNombreCompleto(c)}`;
         const acceso = accesos.get(c.id);
         $('#cliAccesoNuevo').hidden = !!acceso;
         $('#cliAccesoTiene').hidden = !acceso;
@@ -599,52 +591,8 @@ registrarSeccion('clientes', (zona) => {
         $('#cliAccesoClaveNueva').value = '';
         if (acceso) $('#cliAccesoActual').textContent = acceso.id_usuario;
         pintarEjemploUsuario();
-
-        const { data, error } = await db.from('clientes')
-            .select('casa_direccion, casa_lat, casa_lng, trabajo_direccion, trabajo_lat, trabajo_lng').eq('id', c.id).maybeSingle();
-        if (error) {
-            aviso.mostrar(error.code === '42703' ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 19: transporte).'
-                : 'No se pudieron cargar los lugares del cliente.', 'error');
-            return;
-        }
-        ['casa', 'trabajo'].forEach((lugar) => {
-            const l = lugares[lugar];
-            l.texto.value = (data && data[`${lugar}_direccion`]) || '';
-            l.punto = data && data[`${lugar}_lat`] != null ? { lat: Number(data[`${lugar}_lat`]), lng: Number(data[`${lugar}_lng`]) } : null;
-            l.opciones.hidden = true;
-            pintarLugar(lugar);
-        });
         accesoDialogo.showModal();
     }
-
-    // "Ubicar": busca la dirección (o lee coordenadas / enlace) y pone el primer resultado
-    accesoDialogo.addEventListener('click', async (e) => {
-        const b = e.target.closest('button[data-buscar-lugar]');
-        if (!b) return;
-        const l = lugares[b.dataset.buscarLugar];
-        const texto = l.texto.value.trim();
-        if (!texto) { l.estado.textContent = 'Escribe primero la dirección.'; return; }
-        l.estado.textContent = 'Buscando...';
-        try {
-            l.resultados = await buscarDireccion(texto); // js/mapa.js
-        } catch (err) {
-            l.estado.textContent = 'No se pudo buscar (revisa internet).';
-            return;
-        }
-        if (!l.resultados.length) { l.estado.textContent = 'No se encontró: escribe barrio y cantón, o pega las coordenadas.'; return; }
-        l.opciones.replaceChildren(...l.resultados.map((r, i) => new Option(r.texto, i)));
-        l.opciones.hidden = l.resultados.length < 2;
-        l.punto = { lat: l.resultados[0].lat, lng: l.resultados[0].lng };
-        pintarLugar(b.dataset.buscarLugar);
-    });
-    Object.entries(lugares).forEach(([lugar, l]) => {
-        l.opciones.addEventListener('change', () => {
-            const r = l.resultados[Number(l.opciones.value)];
-            if (r) { l.punto = { lat: r.lat, lng: r.lng }; pintarLugar(lugar); }
-        });
-        // Si se borra la dirección, se quita el lugar al guardar
-        l.texto.addEventListener('input', () => { if (!l.texto.value.trim()) { l.punto = null; pintarLugar(lugar); } });
-    });
 
     $('#cliAccesoCancelar').addEventListener('click', () => accesoDialogo.close());
 
@@ -666,52 +614,35 @@ registrarSeccion('clientes', (zona) => {
         errorCaja.textContent = '';
         const acceso = accesos.get(c.id);
 
-        // Lugares: con texto y sin punto ubicado -> hay que presionar "Ubicar"
-        const datosLugares = {};
-        for (const [lugar, l] of Object.entries(lugares)) {
-            const texto = l.texto.value.trim();
-            if (texto && !l.punto) { errorCaja.textContent = `Presiona "Ubicar" en ${lugar === 'casa' ? 'Casa' : 'Trabajo'} (o borra la dirección).`; return; }
-            datosLugares[`${lugar}_direccion`] = texto || null;
-            datosLugares[`${lugar}_lat`] = texto ? Number(Number(l.punto.lat).toFixed(6)) : null;
-            datosLugares[`${lugar}_lng`] = texto ? Number(Number(l.punto.lng).toFixed(6)) : null;
-        }
-
         const boton = $('#cliAccesoGuardar');
         boton.disabled = true;
         const listo = (texto, tipo = 'error') => { boton.disabled = false; if (tipo === 'error') errorCaja.textContent = texto; };
 
-        const { error: errLugares } = await db.from('clientes').update(datosLugares).eq('id', c.id);
-        if (errLugares) { listo('No se pudieron guardar los lugares.'); return; }
-
-        let mensaje = 'Lugares guardados.';
+        let mensaje;
         if (!acceso) {
             const base = $('#cliAccesoUsuario').value.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
             const clave = $('#cliAccesoClave').value;
-            // Sin usuario ni contraseña escritos: solo se guardan los lugares
-            if (base || clave) {
-                if (!/^[a-z0-9]{3,20}$/.test(base)) { listo('El usuario: de 3 a 20 letras o números, sin espacios.'); return; }
-                if (clave.length < 6) { listo('La contraseña debe tener al menos 6 caracteres.'); return; }
-                const libre = await db.rpc('usuario_libre', { p_base: base, p_codigo_empresa: codigoEmpresa(), p_codigo_tienda: null, p_usuario_id: 0 });
-                const idUsuario = libre.error ? usuarioCompuesto(base) : libre.data;
-                const { error } = await db.from('usuarios').insert({
-                    nombre: cliNombreCompleto(c), id_usuario: idUsuario, telefono: c.telefono || null, clave,
-                    permisos: [], rol: 'cliente', cliente_id: c.id, aprobado: true,
-                });
-                if (error) {
-                    console.error('Error al dar acceso:', error);
-                    listo(error.code === '23505' ? 'Ese usuario ya existe: prueba otro.'
-                        : ['42703', '23514'].includes(error.code) ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 19: transporte).'
-                            : 'No se pudo crear el usuario.');
-                    return;
-                }
-                mensaje = `Listo: ${cliNombreCompleto(c)} entra con el usuario "${idUsuario}" y la contraseña que escribiste.`;
+            if (!/^[a-z0-9]{3,20}$/.test(base)) { listo('El usuario: de 3 a 20 letras o números, sin espacios.'); return; }
+            if (clave.length < 6) { listo('La contraseña debe tener al menos 6 caracteres.'); return; }
+            const libre = await db.rpc('usuario_libre', { p_base: base, p_codigo_empresa: codigoEmpresa(), p_codigo_tienda: null, p_usuario_id: 0 });
+            const idUsuario = libre.error ? usuarioCompuesto(base) : libre.data;
+            const { error } = await db.from('usuarios').insert({
+                nombre: cliNombreCompleto(c), id_usuario: idUsuario, telefono: c.telefono || null, clave,
+                rol: 'cliente', cliente_id: c.id, aprobado: true,
+            });
+            if (error) {
+                console.error('Error al dar acceso:', error);
+                listo(error.code === '23505' ? 'Ese usuario ya existe: prueba otro.' : 'No se pudo crear el usuario.');
+                return;
             }
-        } else if ($('#cliAccesoClaveNueva').value) {
+            mensaje = `Listo: ${cliNombreCompleto(c)} entra con el usuario "${idUsuario}" y la contraseña que escribiste.`;
+        } else {
             const clave = $('#cliAccesoClaveNueva').value;
+            if (!clave) { listo('', 'ok'); accesoDialogo.close(); return; }
             if (clave.length < 6) { listo('La contraseña debe tener al menos 6 caracteres.'); return; }
             const { error } = await db.from('usuarios').update({ clave }).eq('id', acceso.id);
             if (error) { listo('No se pudo cambiar la contraseña.'); return; }
-            mensaje = `Contraseña de ${acceso.id_usuario} cambiada y lugares guardados.`;
+            mensaje = `Contraseña de ${acceso.id_usuario} cambiada.`;
         }
         listo('', 'ok');
         accesoDialogo.close();
@@ -976,7 +907,7 @@ registrarSeccion('clientes', (zona) => {
             errorForm.textContent = error.mensajePropio
                 // Correo repetido (índice clientes_correo_unico): puede ser de un cliente de otra tienda
                 || (error.code === '23505' ? 'Ya hay un cliente con ese correo (puede estar en otra tienda). Búscalo o usa otro correo.'
-                : error.code === '42703' || error.code === 'PGRST204' ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloques 11 y 16: clientes).'
+                : error.code === '42703' || error.code === 'PGRST204' ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudo guardar. Revisa la conexión e intenta de nuevo.');
             if (error.code === '23505') campos.correo.focus();
             return;

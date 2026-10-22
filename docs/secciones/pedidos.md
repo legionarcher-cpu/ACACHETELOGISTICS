@@ -171,14 +171,16 @@ G2) y no se puede alistar, asignar ni cargar hasta que lo autoricen.
 
 **Aprobar salida:** es la aprobación de salida de **cada pedido**, por eso está dentro de su detalle (no en la
 lista). Cámara del celular o de la PC (librería gratis jsQR; solo funciona con https o en localhost). Solo vale
-el QR de ese pedido (el de otro da aviso). Al leerlo, el pedido queda "Cargado" (`cargado_en`, `cargado_por`),
+el QR de ese pedido (el de otro da aviso). Al leerlo, el pedido queda "Cargado" (`cargado_por` y su fila del historial),
 se muestra cómo va su slot ("Slot 2: 3 de 5 cargados") y la ventana se cierra sola. Sin cámara se escribe el
 número del pedido.
 
 "Salir a ruta" (por slot) y el orden de entrega están en Inicio → **Mi ruta** (ver [inicio.md](inicio.md)).
 "Entregado" de un pedido con alcohol pide confirmar la mayoría de edad.
-Cada acción queda en la línea de tiempo (`pedido_historial`) y la base guarda la hora de cada paso para el
-calculador interno (vistas `pedidos_tiempos` y `slots_carga`, ver [05-base-de-datos.md](../05-base-de-datos.md)).
+Cada botón de estado y la ventana de asignar llaman a funciones de la base (`pedido_estado`, `pedido_asignar`),
+que revisan quién puede y escriben la línea de tiempo (`pedido_historial`); la página ya no cambia el estado, el
+piloto ni la fecha directo. De la línea de tiempo sale la hora de cada paso para el calculador interno (vistas
+`pedidos_pasos`, `pedidos_tiempos` y `slots_carga`, ver [05-base-de-datos.md](../05-base-de-datos.md)).
 
 ## QR del pedido
 

@@ -4,8 +4,8 @@
 
    Lo carga js/secciones/configuracion.js la primera vez que se abre la tarjeta
    "Costos de operación" (todas las empresas si su plan incluye "cfg_costos";
-   Administrador y Admin G1). Tablas: sql/01 bloque 19 (transporte_costos y
-   transporte_config) y bloque 45 (margen_objetivo y trabajos_mes).
+   Administrador y Admin G1). Tablas: costos_operacion (gastos) y costos_config
+   (margen_objetivo y trabajos_mes), sql/instalacion/06_costos.sql.
 
    NO depende de vehículos: todo lo que cuesta operar (salarios, seguros, combustible,
    mantenimiento…) se escribe como un gasto del mes.
@@ -16,14 +16,11 @@
         el margen de utilidad deseado (costo ÷ (1 − margen)), ingreso del mes necesario y
         margen real de 30 días (cobrado − gastado). Se recalcula mientras se escribe.
      3. Gastos del mes (fijos y variables).
-   Sin el bloque 45 se calcula igual con lo escrito, pero el margen y las entregas al mes
-   no se guardan.
    "Real" (30 días) junta:
      - viajes terminados (km y lo cobrado: total), si la empresa hace viajes;
      - pedidos entregados (km: distancia_km o los del mapa; cobrado: costo_envio, ya con
        descuento).
-   Los gastos viejos que tenían un vehículo (vehiculo_id) lo conservan: el reporte de
-   Viajes los sigue usando (costosPorVehiculo, js/viajes-comun.js).
+   El reporte de Viajes usa el mismo costo por viaje (costoPorTrabajo, js/viajes-comun.js).
    ================================================== */
 
 registrarModuloConfig('costos', (seccion, ctx) => {
@@ -31,8 +28,7 @@ registrarModuloConfig('costos', (seccion, ctx) => {
     const $ = (selector) => zona.querySelector(selector);         // ventanas (fuera del <section>)
     const enSeccion = (selector) => seccion.querySelector(selector);
 
-    const COS_MARGEN_BASE = 20;                                // % de utilidad si la empresa no guardó el suyo
-    const COS_COLUMNAS_45 = ['trabajos_mes', 'margen_objetivo']; // sql/01 bloque 45
+    const COS_MARGEN_BASE = 20; // % de utilidad si la empresa no guardó el suyo
     // Conceptos sugeridos al crear un gasto (más los que ya usa la empresa)
     const COS_CONCEPTOS = ['Combustible', 'Salario del conductor', 'Cuota del vehículo', 'Seguro', 'Marchamo',
         'Plan de teléfono', 'Parqueo', 'Mantenimiento', 'Llantas', 'Lavado'];
@@ -85,8 +81,8 @@ registrarModuloConfig('costos', (seccion, ctx) => {
 
     async function cargar() {
         const [cfg, co] = await Promise.all([
-            db.from('transporte_config').select('*').maybeSingle(),
-            db.from('transporte_costos').select('*').order('concepto'),
+            db.from('costos_config').select('*').maybeSingle(),
+            db.from('costos_operacion').select('*').order('concepto'),
         ]);
         if (!activo) return;
         const error = cfg.error || co.error;
@@ -216,15 +212,10 @@ registrarModuloConfig('costos', (seccion, ctx) => {
     enSeccion('#cfgCosTrabajosMes').addEventListener('input', dibujarCalculo);
     enSeccion('#cfgCosMargen').addEventListener('input', dibujarCalculo);
 
-    // Guarda en transporte_config. Sin el bloque 45 avisa (el cálculo de la pantalla sí usa lo escrito).
+    // Guarda en costos_config (una fila por empresa)
     async function guardarConfig(datos, mensaje) {
         datos.actualizado_en = new Date().toISOString();
-        const { error } = await db.from('transporte_config').upsert(datos, { onConflict: 'empresa_id' });
-        if (error && ['42703', 'PGRST204'].includes(error.code) && Object.keys(datos).some((k) => COS_COLUMNAS_45.includes(k))) {
-            aviso.mostrar('Para guardar el margen y las entregas al mes falta ejecutar '
-                + 'sql/01_actualizacion_base_existente.sql (bloque 45). El cálculo de la pantalla sí los usa.', 'error');
-            return;
-        }
+        const { error } = await db.from('costos_config').upsert(datos, { onConflict: 'empresa_id' });
         if (error) { errorBase(error, 'guardar los datos del cálculo'); return; }
         aviso.mostrar(mensaje);
         cargar();
@@ -300,11 +291,10 @@ registrarModuloConfig('costos', (seccion, ctx) => {
         const monto = Number($('#cfgCosGaMonto').value);
         if (!concepto) { error.textContent = 'Elige el concepto o escribe uno nuevo.'; listaConcepto.campo().focus(); return; }
         if ($('#cfgCosGaMonto').value.trim() === '' || !Number.isFinite(monto) || monto < 0) { error.textContent = 'Escribe el monto del mes (0 o más).'; return; }
-        // Sin vehículo: el gasto es de la empresa (uno viejo con vehículo lo conserva)
         const datos = { concepto, tipo: $('#cfgCosGaTipo').value, monto_mes: monto };
         const { error: err } = editandoGasto
-            ? await db.from('transporte_costos').update(datos).eq('id', editandoGasto.id)
-            : await db.from('transporte_costos').insert({ ...datos, vehiculo_id: null });
+            ? await db.from('costos_operacion').update(datos).eq('id', editandoGasto.id)
+            : await db.from('costos_operacion').insert(datos);
         if (err) { error.textContent = viaErrorTexto(err, 'guardar el gasto'); return; }
         $('#cfgCosGastoDialogo').close();
         aviso.mostrar(editandoGasto ? 'Gasto actualizado.' : 'Gasto agregado.');
@@ -321,7 +311,7 @@ registrarModuloConfig('costos', (seccion, ctx) => {
         if (b.dataset.accion === 'editar-gasto') abrirGasto(g);
         if (b.dataset.accion === 'eliminar-gasto') {
             pedirConfirmacion(`¿Eliminar el gasto "${g.concepto}" (${dinero(g.monto_mes)} al mes)?`, async () => {
-                const { error } = await db.from('transporte_costos').delete().eq('id', g.id);
+                const { error } = await db.from('costos_operacion').delete().eq('id', g.id);
                 if (error) { errorBase(error, 'eliminar el gasto'); return; }
                 aviso.mostrar('Gasto eliminado.');
                 cargar();

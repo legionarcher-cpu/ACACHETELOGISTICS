@@ -49,9 +49,17 @@ que **trae cada rol** (viene marcado al crear el usuario). Al personal (G1, G2, 
 **dar** cualquier módulo y, dentro de cada uno, funciones (registrar pedidos, alistar, despachar, cancelar, cerrar
 caja, exportar...), aunque su rol no las traiga ("otro rol"). Ej.: dos Empleados, uno de bodega (ve, alista,
 despacha y cierra la caja de los pilotos) y otro de ventas (registra y ve). Lo que **ve** sigue siendo su alcance
-(G2 su región; G3 y Empleado su tienda). Al piloto solo se le puede quitar. Catálogo: `MODULOS_USUARIO` en
-`js/sesion.js`; cada sección usa `puedeHacer('modulo.funcion', loQueDaSuRol)`. Columna `permisos` (ver
-`USAR_PERMISOS`). El Administrador y el Desarrollador no se limitan.
+(G2 su región; G3 y Empleado su tienda). Al piloto solo se le puede quitar. El Administrador y el Desarrollador no
+se limitan.
+
+- **Dónde vive:** en la base, desde la Etapa 2B.
+  - La tabla `funciones` es el catálogo, con los roles que traen cada módulo y función. Es la única lista.
+  - La tabla `usuario_funciones` guarda lo que se le dio o se le quitó a cada usuario.
+- **Cómo lo usa la página:**
+  - La sesión guarda lo de cada usuario (`mis_funciones()`, en `sesion.funciones`).
+  - Cada sección pregunta con `puedeHacer('modulo.funcion', loQueDaSuRol)`.
+- **La base hace cumplir lo mismo:** quién cambia tarifas, rutas, productos... (`puede`, reglas de
+  `11_acceso_web.sql`) y qué pedidos ve cada uno (región, tienda, sus pedidos).
 
 **Transporte (sql/01 bloque 19):** **Viajes** la ven todos los roles si la empresa hace viajes (el cliente, los suyos;
 el piloto, los que maneja; el personal, la agenda). Si la empresa es **solo** de viajes, Pedidos, Rutas y Cotizador
@@ -99,11 +107,19 @@ Reservar, cambiar la hora, cancelar y avanzar un viaje lo revisan **las funcione
 - **Qué botones del pie ve:** `css/index.css`, bloque "SEGÚN EL ROL".
 - **Aprobaciones y avisos:** `js/notificaciones.js`.
 
-⚠ Todo esto hoy lo aplica **la página**. La base de datos acepta cualquier consulta con la clave
-pública. Aprobado: que todas las consultas pasen por una sola función de "alcance del usuario", y en la
-Fase 7 que la base de datos misma aplique la jerarquía (Supabase Auth + RLS). Ver [12-pendientes.md](12-pendientes.md).
+La página decide qué **muestra**; la base aplica lo mismo con Supabase Auth y reglas RLS (Etapas 2A, 2B y 2C,
+`sql/instalacion/11_acceso_web.sql`). Ver [05-base-de-datos.md](05-base-de-datos.md), "Acceso".
 
 **Desarrollador:** en el código `esDesarrollador()`; `esAdministrador()` también es verdadero para él,
-así que tiene todo lo del Administrador. La lista de Usuarios lo excluye (`.neq('rol', 'desarrollador')`)
+así que la página le muestra lo del Administrador. La lista de Usuarios lo excluye (`.neq('rol', 'desarrollador')`)
 y no recibe avisos de aprobación. Los usuarios `desar` y `admin` están protegidos en la base de datos
 (no se eliminan ni cambian de usuario o rol).
+
+**Límite del Desarrollador y Admin TI (Etapa 2C, lo aplica la base):**
+- **Admin TI** es una casilla del usuario (Usuarios → formulario), no un rol: la pone o quita el Administrador; el
+  Desarrollador solo la pone. El Admin TI y el Administrador dan la llave en **Configuración → Soporte**.
+- Sin llave, el Desarrollador ve la configuración y el personal de cada empresa, cambia el plan y si está activa, y
+  usa las acciones de emergencia de Usuarios (bloquear, desbloquear, cerrar sesiones).
+- Mientras la empresa **no tenga Admin TI** (puesta en marcha) también cambia su configuración, tiendas y usuarios.
+- Clientes, pedidos, viajes, inventario, precios, cajas y costos: solo con la **llave** ("Solo ver" o "Ver y
+  corregir"). El aviso de soporte, arriba de la lista de la campana (`js/soporte.js`), le dice en qué modo está. Todo queda en la bitácora.

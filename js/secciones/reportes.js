@@ -15,7 +15,7 @@
                           por tienda", columna "Compra"
        permite_alcohol -> tarjeta y columna "Alcohol"
        usa_bodega      -> tarjeta "En bodega"
-       usa_recoleccion -> tarjeta y columna "Punto de partida"
+       usa_punto_partida -> tarjeta y columna "Punto de partida"
        usa_tamanos     -> gráfica "Bultos por tamaño"
        sin compra      -> tarjeta "Peso transportado" y columna "Bultos"
      Para agregar algo propio de una actividad: TARJETAS_ACTIVIDAD,
@@ -168,7 +168,7 @@ function montarReporteCajas(caja, { puedeExportar, aviso, tiendas, limitar }) {
             console.error('Error al cargar los cierres de caja:', error);
             hayTabla = !['42P01', 'PGRST205', '42703'].includes(error.code);
             cierres = [];
-            dibujar(hayTabla ? 'No se pudieron cargar los cierres de caja.' : 'Falta ejecutar sql/01 (bloque 24: caja de pilotos).');
+            dibujar(hayTabla ? 'No se pudieron cargar los cierres de caja.' : 'Falta instalar la base de datos (sql/instalacion).');
             return;
         }
         cierres = data || [];
@@ -580,7 +580,7 @@ registrarSeccion('reportes', (zona) => {
         if (esG3) qTie = qTie.eq('id', tiendaActual() || 0);
         const columnasAct = 'codigo, nombre, icono, usa_bodega, orden';
         const [tie, reg, actNueva] = await Promise.all([qTie, qReg,
-            db.from('actividades').select(`${columnasAct}, usa_recoleccion, usa_compra, usa_tamanos, permite_alcohol`).order('orden')]);
+            db.from('actividades').select(`${columnasAct}, usa_punto_partida, usa_compra, usa_tamanos, permite_alcohol`).order('orden')]);
         // Sin sql/01_actualizacion_base_existente no existen las columnas de "qué usa":
         // se leen las básicas y usaActividad() lo deduce por el código
         const act = actNueva.error && actNueva.error.code === '42703'
@@ -660,7 +660,7 @@ registrarSeccion('reportes', (zona) => {
         contenido.classList.add('cargando');
 
         let q = db.from('pedidos').select(
-            'id, codigo, actividad, tienda_id, cliente_id, cliente_nombre, cliente_telefono, direccion_recoleccion, ' +
+            'id, codigo, actividad, tienda_id, cliente_id, cliente_nombre, cliente_telefono, direccion_partida, ' +
             'fecha_entrega, marca_numero, piloto_id, creado_por, estado, motivo_cancelacion, costo_envio, monto_compra, cobrar_compra, ' +
             'total_cobrar, peso_total_kg, lleva_alcohol, envio_gratis:costo_desglose->envio_gratis, creado_en, ' +
             'pedido_articulos(categoria, cantidad, tamano), ' +
@@ -681,7 +681,7 @@ registrarSeccion('reportes', (zona) => {
         if (error) {
             console.error('Error al cargar el reporte:', error);
             aviso.mostrar(error.code === 'PGRST205' || error.code === '42P01'
-                ? 'Falta ejecutar los SQL de pedidos (14 en adelante).'
+                ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudo cargar el reporte. Revisa la conexión.', 'error');
             return;
         }
@@ -746,7 +746,7 @@ registrarSeccion('reportes', (zona) => {
             enviosGratis: noCancelados.filter((p) => p.envio_gratis === true).length,
             conAlcohol: noCancelados.filter((p) => p.lleva_alcohol).length,
             enBodega: lista.filter((p) => p.estado === 'recibido_bodega').length,
-            conRecoleccion: noCancelados.filter((p) => p.direccion_recoleccion).length,
+            conRecoleccion: noCancelados.filter((p) => p.direccion_partida).length,
         };
     }
 
@@ -826,7 +826,7 @@ registrarSeccion('reportes', (zona) => {
           tarjeta: (r) => ['Peso transportado', kilos(r.peso), `${r.unidades} bultos / unidades`] },
         { si: () => usa('usa_bodega'),
           tarjeta: (r) => ['En bodega', String(r.enBodega), 'esperando piloto'] },
-        { si: () => usa('usa_recoleccion'),
+        { si: () => usa('usa_punto_partida'),
           tarjeta: (r) => ['Con punto de partida', String(r.conRecoleccion), `${porcentaje(r.conRecoleccion, r.noCancelados)} de los pedidos`] },
     ];
 
@@ -1086,7 +1086,7 @@ registrarSeccion('reportes', (zona) => {
         { id: 'tienda', texto: 'Tienda', valor: (p) => nombreTienda(p.tienda_id) },
         { id: 'cliente', texto: 'Cliente', valor: (p) => p.cliente_nombre },
         { id: 'telefono', texto: 'Teléfono', valor: (p) => p.cliente_telefono },
-        { id: 'recoleccion', texto: 'Punto de partida', valor: (p) => p.direccion_recoleccion || '', si: () => usa('usa_recoleccion') },
+        { id: 'recoleccion', texto: 'Punto de partida', valor: (p) => p.direccion_partida || '', si: () => usa('usa_punto_partida') },
         { id: 'piloto', texto: 'Piloto', valor: (p) => (p.piloto_id ? nombres[p.piloto_id] || '' : '') },
         { id: 'estado', texto: 'Estado', valor: (p) => REP_TEXTO_ESTADO[p.estado] || p.estado },
         { id: 'envio', texto: 'Envío', valor: (p) => Number(p.costo_envio || 0), ver: (p) => dinero(p.costo_envio), numero: true },

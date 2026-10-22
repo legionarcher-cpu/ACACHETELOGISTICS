@@ -13,23 +13,23 @@
    "MÓDULOS EN ARCHIVO APARTE" más abajo). ACTIVIDADES no es una página:
    se abre en una ventana flotante encima de las tarjetas.
 
-   MÓDULO HORARIOS (sql/00, sección 5):
-     - Valores base (tabla "configuracion"):
-         cantidad_marcas   -> cuántas marcas debe hacer el piloto (base 5)
-         pedidos_por_marca -> pedidos máximos en cada marca (base 5)
-       Al SUBIR la cantidad de marcas se crean las nuevas con horas
-       sugeridas (continúan después de la última). Al BAJARLA se eliminan
-       las últimas (pide confirmación).
-     (En pantalla se dice "HORARIO"; las tablas siguen usando "marca".)
-     - Horas de cada horario (tabla "marcas_horario"):
-         ventana de inicio (desde / hasta) y hora de término.
-     - Horario por día (tablas horario_dias y marcas_dia): un día de la semana puede
-       quedar PREAJUSTADO con su propia cantidad de marcas y sus horas
-       (tablas "horario_dias" y "marcas_dia"). Ej.: domingo con 1 marca,
-       o 0 = sin marcas. Los días sin horario propio usan la base.
+   MÓDULO HORARIOS del piloto (sql/instalacion/03_horarios_y_marcas.sql; tablas
+   horarios_dias, horarios y horarios_capacidad con tipo 'turno', de la empresa activa):
+     - Valores base:
+         cantidad de horarios -> horarios_dias (dia 0 = la base)
+         pedidos por horario  -> horarios_capacidad sin región ni tienda (base 5)
+       Al SUBIR la cantidad se crean los nuevos con horas sugeridas (continúan
+       después del último). Al BAJARLA se eliminan los últimos (pide confirmación).
+     (En pantalla se dice "HORARIO"; en el código, "marca".)
+     - Horas de cada horario (horarios, dia 0): abre (desde cuándo se puede marcar),
+       inicio (hora inicio: a tiempo hasta aquí) y fin (termina).
+     - Horario por día: un día de la semana puede quedar PREAJUSTADO con su propia
+       cantidad y sus horas (horarios_dias y horarios con dia 1 a 7). Ej.: domingo con
+       1 horario, o 0 = sin horarios. Los días sin horario propio usan la base.
        "Usar base" borra el horario propio del día.
-     - Pedidos por marca por región o tienda (tabla "capacidad_marcas").
+     - Pedidos por horario por región o tienda (horarios_capacidad con región o tienda).
        Prioridad: tienda > región > base.
+   Los slots de despacho usan las mismas tablas con tipo 'despacho' (configuracion/slots.js).
 
    MÓDULO VEHÍCULOS (tabla "vehiculos", sql/00, sección 2):
      - Resumen por estado (disponible / en uso / mantenimiento); al
@@ -58,17 +58,20 @@
    Estilos: css/secciones/configuracion.css + css/componentes.css
    ================================================== */
 
-// Valores por defecto si todavía no existen en la tabla "configuracion"
+// Valores por defecto si la empresa todavía no tiene los suyos
 const CFG_POR_DEFECTO = {
     cantidad_marcas: 5,
     pedidos_por_marca: 5,
 };
 
+// Columnas de "horarios" con los nombres que usa este módulo (tipo 'turno')
+const CFG_COLUMNAS_MARCA = 'numero, inicio_desde:abre, inicio_hasta:inicio, fin';
+
 // Horas sugeridas para una marca nueva: ventana de 30 min y dura 2 horas
 const CFG_VENTANA_MIN = 30;
 const CFG_DURACION_MIN = 120;
 
-// Días de la semana: 1 = lunes ... 7 = domingo (igual que en la tabla horario_dias)
+// Días de la semana: 1 = lunes ... 7 = domingo (igual que en la tabla horarios_dias)
 const CFG_DIAS = { 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 7: 'Domingo' };
 
 // Estados de un vehículo (los mismos que permite la base, sql/00 sección 2) y su etiqueta
@@ -88,10 +91,10 @@ const CFG_TIPOS_VEHICULO = {
     microbus: { texto: 'Microbús',   icono: 'bi-bus-front' },
 };
 
-// Datos de Transporte de un vehículo (sql/01 bloque 19). Solo se piden si la empresa
-// hace viajes: asientos, carga y mascotas los usa la agenda para asignar el vehículo;
-// km por litro, horas y km del mes, los costos (Configuración -> Transporte).
-const CFG_VEH_TRANSPORTE = ['asientos', 'carga_kg', 'acepta_mascotas', 'km_por_litro', 'horas_mes', 'km_mes'];
+// Datos de Transporte de un vehículo. Solo se piden si la empresa hace viajes: asientos,
+// carga y mascotas los usa la agenda para asignar el vehículo. (Los costos ya no van por
+// vehículo: Configuración -> Costos de operación.)
+const CFG_VEH_TRANSPORTE = ['asientos', 'carga_kg', 'acepta_mascotas'];
 
 // ==================================================
 // MÓDULOS EN ARCHIVO APARTE
@@ -173,12 +176,13 @@ registrarSeccion('configuracion', (zona) => {
 
     // ---------- Estado ----------
     let config = { ...CFG_POR_DEFECTO };
+    let capacidadBase = null; // fila de horarios_capacidad sin región ni tienda: { id, pedidos } o null
     let marcas = [];        // [{ numero, inicio_desde, inicio_hasta, fin }]
     let ajustes = [];       // [{ id, region, tienda_id, pedidos_por_marca, regiones, tiendas }]
     let regiones = [];
     let tiendas = [];
     let dias = [];          // días con horario propio: [{ dia, cantidad_marcas, marcas_dia: [...] }]
-    let faltaSqlDias = false; // true si la base no tiene las tablas del horario por día
+    let faltaSqlDias = false; // true si no se pudo leer el horario por día
     let editandoDia = null; // número del día (1 a 7) que se está editando
     let editandoMarca = null;
     let editandoAjuste = null;
@@ -265,6 +269,12 @@ registrarSeccion('configuracion', (zona) => {
         cajas: {
             permitido: () => esGeneral && enPlan('caja') && usaParte('caja'), // y alguna actividad cierra caja (bloque 30)
             abrir: () => abrirModuloExterno('cajas'),
+        },
+        // Llave de soporte para el Desarrollador y bitácora (js/secciones/configuracion/soporte.js).
+        // El Admin TI y el Administrador de la empresa (el Desarrollador usa la llave: js/soporte.js).
+        soporte: {
+            permitido: () => esAdminTI() && !esDesarrollador(),
+            abrir: () => abrirModuloExterno('soporte'),
         },
         // Plan de pago de cada empresa y funciones habilitadas
         // (js/secciones/configuracion/planes.js). SOLO el Desarrollador.
@@ -368,38 +378,39 @@ registrarSeccion('configuracion', (zona) => {
     // ==================================================
 
     async function cargarTodo() {
-        const [conf, marc, ajus, reg, tie, dia] = await Promise.all([
-            db.from('configuracion').select('clave, valor'),
-            db.from('marcas_horario').select('numero, inicio_desde, inicio_hasta, fin').order('numero'),
-            db.from('capacidad_marcas').select('id, region, tienda_id, pedidos_por_marca, regiones(nombre), tiendas(codigo, nombre, region)'),
+        const [dia, marc, ajus, reg, tie] = await Promise.all([
+            // Cantidad base (dia 0) y días con horario propio (1 a 7), con sus horarios
+            db.from('horarios_dias').select(`dia, cantidad_marcas:cantidad, marcas_dia:horarios(${CFG_COLUMNAS_MARCA})`)
+                .eq('tipo', 'turno').order('dia'),
+            db.from('horarios').select(CFG_COLUMNAS_MARCA).eq('tipo', 'turno').eq('dia', 0).order('numero'),
+            db.from('horarios_capacidad').select('id, region, tienda_id, pedidos_por_marca:pedidos, regiones(nombre), tiendas(codigo, nombre, region)'),
             db.from('regiones').select('codigo, nombre').order('nombre'),
             db.from('tiendas').select('id, codigo, nombre, region').order('codigo'),
-            db.from('horario_dias').select('dia, cantidad_marcas, marcas_dia(numero, inicio_desde, inicio_hasta, fin)').order('dia'),
         ]);
 
-        // El horario por día es aparte: si faltan sus tablas, el resto sigue funcionando
-        faltaSqlDias = !!dia.error;
-        if (dia.error) console.error('Error al cargar el horario por día:', dia.error);
-        dias = dia.error ? [] : dia.data;
-        dias.forEach((d) => d.marcas_dia.sort((a, b) => a.numero - b.numero));
-
-        const error = conf.error || marc.error || ajus.error || reg.error || tie.error;
+        const error = dia.error || marc.error || ajus.error || reg.error || tie.error;
         if (error) {
             console.error('Error al cargar la configuración:', error);
             aviso.mostrar(error.code === 'PGRST205' || error.code === '42P01'
-                ? 'Falta instalar la base de datos (sql/00_instalacion_completa.sql).'
+                ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudo cargar la configuración. Revisa la conexión.', 'error');
             return;
         }
 
-        config = { ...CFG_POR_DEFECTO };
-        conf.data.forEach((fila) => { config[fila.clave] = fila.valor; });
+        const base = dia.data.find((d) => d.dia === 0);
+        dias = dia.data.filter((d) => d.dia > 0);
+        dias.forEach((d) => d.marcas_dia.sort((a, b) => a.numero - b.numero));
+        faltaSqlDias = false;
+        capacidadBase = ajus.data.find((a) => !a.region && !a.tienda_id) || null;
+        config = {
+            cantidad_marcas: base ? base.cantidad_marcas : marc.data.length || CFG_POR_DEFECTO.cantidad_marcas,
+            pedidos_por_marca: capacidadBase ? capacidadBase.pedidos_por_marca : CFG_POR_DEFECTO.pedidos_por_marca,
+        };
         marcas = marc.data;
-        ajustes = ajus.data;
         regiones = reg.data;
         tiendas = tie.data;
-        // Solo los ajustes de las regiones y tiendas de la empresa activa (sql/01 bloque 16)
-        ajustes = ajustes.filter((a) => regiones.some((r) => r.codigo === a.region) || tiendas.some((t) => t.id === a.tienda_id));
+        // Los ajustes: los que tienen región o tienda (de la empresa activa)
+        ajustes = ajus.data.filter((a) => regiones.some((r) => r.codigo === a.region) || tiendas.some((t) => t.id === a.tienda_id));
 
         // Admin G2: solo su región, las tiendas de su región y sus ajustes
         if (regionG2) {
@@ -422,12 +433,14 @@ registrarSeccion('configuracion', (zona) => {
     // 1. VALORES BASE
     // ==================================================
 
-    // Guarda valores en la tabla "configuracion" (crea la clave si no existe)
-    async function guardarConfig(valores) {
-        const ahora = new Date().toISOString();
-        const filas = Object.entries(valores).map(([clave, valor]) => ({ clave, valor, actualizado_en: ahora }));
-        return db.from('configuracion').upsert(filas);
-    }
+    // Guarda la cantidad base (horarios_dias, dia 0; antes que sus horarios: son su llave)
+    const guardarCantidadBase = (cantidad) => db.from('horarios_dias')
+        .upsert({ tipo: 'turno', dia: 0, cantidad, actualizado_en: new Date().toISOString() }, { onConflict: 'empresa_id,tipo,dia' });
+
+    // Guarda los pedidos por horario de la base (horarios_capacidad sin región ni tienda)
+    const guardarPedidosBase = (pedidos) => (capacidadBase
+        ? db.from('horarios_capacidad').update({ pedidos }).eq('id', capacidadBase.id)
+        : db.from('horarios_capacidad').insert({ pedidos }));
 
     // Crea las marcas que faltan hasta llegar a "cantidad", con horas sugeridas
     // que continúan después de la última marca
@@ -441,28 +454,29 @@ registrarSeccion('configuracion', (zona) => {
                     'Ajusta primero las horas de los últimos horarios para que terminen más temprano.' } };
             }
             nuevas.push({
-                numero,
-                inicio_desde: aHora(inicio),
-                inicio_hasta: aHora(inicio + CFG_VENTANA_MIN),
+                tipo: 'turno', dia: 0, numero,
+                abre: aHora(inicio),
+                inicio: aHora(inicio + CFG_VENTANA_MIN),
                 fin: aHora(inicio + CFG_DURACION_MIN),
             });
             inicio += CFG_DURACION_MIN;
         }
-        return nuevas.length ? db.from('marcas_horario').insert(nuevas) : { error: null };
+        return nuevas.length ? db.from('horarios').insert(nuevas) : { error: null };
     }
 
     async function guardarBase(cantidad, pedidos) {
         botonBase.disabled = true;
 
-        // Primero las marcas (crear o eliminar), luego los valores
-        let resultado = { error: null };
-        if (cantidad > marcas.length) {
+        // Primero la cantidad (es la llave de los horarios), luego los horarios (crear o
+        // eliminar) y al final los pedidos por horario
+        let resultado = await guardarCantidadBase(cantidad);
+        if (!resultado.error && cantidad > marcas.length) {
             resultado = await crearMarcasFaltantes(cantidad);
-        } else if (cantidad < marcas.length) {
-            resultado = await db.from('marcas_horario').delete().gt('numero', cantidad);
+        } else if (!resultado.error && cantidad < marcas.length) {
+            resultado = await db.from('horarios').delete().eq('tipo', 'turno').eq('dia', 0).gt('numero', cantidad);
         }
         if (!resultado.error) {
-            resultado = await guardarConfig({ cantidad_marcas: cantidad, pedidos_por_marca: pedidos });
+            resultado = await guardarPedidosBase(pedidos);
         }
 
         botonBase.disabled = false;
@@ -579,9 +593,9 @@ registrarSeccion('configuracion', (zona) => {
             return;
         }
 
-        const { error } = await db.from('marcas_horario')
-            .update({ inicio_desde: desde, inicio_hasta: hasta, fin, actualizado_en: new Date().toISOString() })
-            .eq('numero', editandoMarca.numero);
+        const { error } = await db.from('horarios')
+            .update({ abre: desde, inicio: hasta, fin, actualizado_en: new Date().toISOString() })
+            .eq('tipo', 'turno').eq('dia', 0).eq('numero', editandoMarca.numero);
 
         if (error) {
             console.error('Error al guardar la marca:', error);
@@ -594,9 +608,9 @@ registrarSeccion('configuracion', (zona) => {
     });
 
     // ==================================================
-    // 3. HORARIO POR DÍA DE LA SEMANA (tablas horario_dias y marcas_dia)
-    // Un día con fila en "horario_dias" usa SUS marcas ("marcas_dia");
-    // si no tiene, usa la base (valores base + horas de cada marca).
+    // 3. HORARIO POR DÍA DE LA SEMANA (horarios_dias y horarios con dia 1 a 7)
+    // Un día con fila en "horarios_dias" usa SUS horarios; si no tiene, usa la base
+    // (valores base + horas de cada horario).
     // ==================================================
 
     // Marcas que aplican a un día: las propias o las de la base
@@ -607,7 +621,7 @@ registrarSeccion('configuracion', (zona) => {
         cuerpoDias.replaceChildren();
         const columnas = puedeModificar ? 5 : 4;
         if (faltaSqlDias) {
-            cuerpoDias.appendChild(crearFilaVacia('Falta instalar la base de datos (sql/00_instalacion_completa.sql).', columnas));
+            cuerpoDias.appendChild(crearFilaVacia('Falta instalar la base de datos (sql/instalacion).', columnas));
             return;
         }
 
@@ -650,8 +664,8 @@ registrarSeccion('configuracion', (zona) => {
             pedirConfirmacion(
                 `¿Quitar el horario propio del ${CFG_DIAS[numero].toLowerCase()}? Volverá a usar la base (${plural(marcas.length, 'horario', 'horarios')}).`,
                 async () => {
-                    // on delete cascade: también borra sus filas de "marcas_dia"
-                    const { error } = await db.from('horario_dias').delete().eq('dia', numero);
+                    // on delete cascade: también borra sus horarios
+                    const { error } = await db.from('horarios_dias').delete().eq('tipo', 'turno').eq('dia', numero);
                     if (error) {
                         console.error('Error al volver a la base:', error);
                         aviso.mostrar('No se pudo quitar el horario del día.', 'error');
@@ -801,15 +815,15 @@ registrarSeccion('configuracion', (zona) => {
         const botonGuardar = $('#cfgDiaGuardar');
         botonGuardar.disabled = true;
 
-        // 1. El día (o días) con su cantidad  2. Borrar sus marcas anteriores  3. Guardar las nuevas
-        let resultado = await db.from('horario_dias')
-            .upsert(destinos.map((dia) => ({ dia, cantidad_marcas: cantidad, actualizado_en: ahora })));
+        // 1. El día (o días) con su cantidad  2. Borrar sus horarios anteriores  3. Guardar los nuevos
+        let resultado = await db.from('horarios_dias')
+            .upsert(destinos.map((dia) => ({ tipo: 'turno', dia, cantidad, actualizado_en: ahora })), { onConflict: 'empresa_id,tipo,dia' });
         if (!resultado.error) {
-            resultado = await db.from('marcas_dia').delete().in('dia', destinos);
+            resultado = await db.from('horarios').delete().eq('tipo', 'turno').in('dia', destinos);
         }
         if (!resultado.error && filas.length) {
-            resultado = await db.from('marcas_dia').insert(destinos.flatMap((dia) => filas.map((f, i) => ({
-                dia, numero: i + 1, inicio_desde: f.desde, inicio_hasta: f.hasta, fin: f.fin,
+            resultado = await db.from('horarios').insert(destinos.flatMap((dia) => filas.map((f, i) => ({
+                tipo: 'turno', dia, numero: i + 1, abre: f.desde, inicio: f.hasta, fin: f.fin,
             }))));
         }
 
@@ -916,7 +930,7 @@ registrarSeccion('configuracion', (zona) => {
             pedirConfirmacion(
                 `¿Quitar el ajuste de ${textoDestino(ajuste)}? Volverá a usar la base (${config.pedidos_por_marca} pedidos por horario).`,
                 async () => {
-                    const { error } = await db.from('capacidad_marcas').delete().eq('id', ajuste.id);
+                    const { error } = await db.from('horarios_capacidad').delete().eq('id', ajuste.id);
                     if (error) {
                         console.error('Error al quitar ajuste:', error);
                         aviso.mostrar('No se pudo quitar el ajuste.', 'error');
@@ -946,10 +960,10 @@ registrarSeccion('configuracion', (zona) => {
         }
 
         const { error } = editandoAjuste
-            ? await db.from('capacidad_marcas').update({ pedidos_por_marca: pedidos }).eq('id', editandoAjuste.id)
-            : await db.from('capacidad_marcas').insert(ajusteTipo.value === 'region'
-                ? { region: destino, pedidos_por_marca: pedidos }
-                : { tienda_id: Number(destino), pedidos_por_marca: pedidos });
+            ? await db.from('horarios_capacidad').update({ pedidos }).eq('id', editandoAjuste.id)
+            : await db.from('horarios_capacidad').insert(ajusteTipo.value === 'region'
+                ? { region: destino, pedidos }
+                : { tienda_id: Number(destino), pedidos });
 
         if (error) {
             console.error('Error al guardar ajuste:', error);
@@ -999,7 +1013,7 @@ registrarSeccion('configuracion', (zona) => {
         if (error) {
             console.error('Error al cargar vehículos:', error);
             aviso.mostrar(error.code === '42703' // columna "tipo" (o las de Transporte, bloque 19) no existe
-                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql en Supabase.'
+                ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudieron cargar los vehículos. Revisa la conexión.', 'error');
             return;
         }

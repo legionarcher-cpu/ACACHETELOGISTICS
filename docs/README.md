@@ -9,8 +9,8 @@ servidor propio.
 > marcha hasta la entrega y los cierres: [MANUAL-DE-USO.md](MANUAL-DE-USO.md).
 >
 > Esta carpeta explica **cómo está hecho hoy** y **dónde tocar** para cambiarlo.
-> **Resumen de todo en un solo archivo** (qué hace cada parte, cómo modificarla y cómo ligar una app):
-> [GUIA-RESUMIDA-Y-APP.md](../GUIA-RESUMIDA-Y-APP.md), en la raíz.
+> **Resumen en un solo archivo** (qué hace cada SQL y cada componente de la app y la web):
+> [GUIA-DEL-SISTEMA.md](../GUIA-DEL-SISTEMA.md), en la raíz.
 > **Página web de presentación** (aparte de la app): `index.html` en la raíz + carpeta `web/` (ver
 > [web/LEEME.md](../web/LEEME.md)).
 > El documento de diseño original (ideas, fases, decisiones) es
@@ -76,8 +76,8 @@ empresas.js ──►  │ Encabezado: logo ACACHETE + logo empresa, título,  �
 
 1. **Un solo lugar por cosa.** Colores en `css/variables.css`; piezas comunes en `css/componentes.css`
    y `js/componentes.js`; datos de la empresa en `empresas/empresas.js`.
-2. **La base de datos se cambia solo con scripts** numerados en `sql/` (nunca a mano en Supabase), y se
-   actualiza también `sql/00_instalacion_completa.sql`.
+2. **La base de datos se cambia solo con scripts** (nunca a mano en Supabase): un archivo con fecha en
+   `sql/actualizaciones/` y el mismo cambio en su módulo de `sql/instalacion/` (ver `sql/LEEME.md`).
 3. **Un pedido nunca se borra:** se cancela o se anula.
 4. **Seguridad:** hoy las reglas de quién ve qué las aplica la página (modo rápido de pruebas). Antes de
    usar datos reales hace falta la Fase 7 (ver [12-pendientes.md](12-pendientes.md)).

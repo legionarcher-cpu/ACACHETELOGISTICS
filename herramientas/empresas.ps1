@@ -18,8 +18,8 @@
 #
 # La paleta de cada EMPRESA INTERNA (01, 02... de Tiendas -> Empresas) se elige
 # en la página, al crearla o modificarla (se guarda en la base).
-# Recordatorio: en un proyecto NUEVO de Supabase hay que ejecutar primero
-# sql/00_instalacion_completa.sql.
+# Recordatorio: en un proyecto NUEVO de Supabase hay que ejecutar primero los
+# archivos de sql/instalacion (01 a 12, en orden).
 # ==================================================
 
 $ErrorActionPreference = 'Stop'
@@ -234,7 +234,7 @@ switch ($opcion) {
         $texto = $texto.Replace($MARCA_FIN, $bloque + $MARCA_FIN)
         PreguntarActiva $clave
         $mensaje = "Empresa '$nombre' agregada. " + (AgregarEncabezado $clave $nombre $encabezado $completa)
-        if ($base[0]) { $mensaje += ' Ejecuta sql/00_instalacion_completa.sql en su proyecto de Supabase.' }
+        if ($base[0]) { $mensaje += ' Ejecuta los archivos de sql/instalacion (01 a 12, en orden) en su proyecto de Supabase.' }
         if ($act -eq '4') { $mensaje += ' Transporte: para que sus clientes soliciten usuario, pon su ID en registroClientes.' }
     }
     '2' {
@@ -246,7 +246,7 @@ switch ($opcion) {
         if (-not $m.Success -or $m.Index -gt $b[1]) { Write-Host "No se encontró el campo supabase de '$clave'." -ForegroundColor Red; exit 1 }
         $texto = $texto.Substring(0, $m.Index) + "supabase: { url: $(Js $base[0]), anonKey: $(Js $base[1]) }" + $texto.Substring($m.Index + $m.Length)
         PreguntarActiva $clave
-        $mensaje = if ($base[0]) { "'$clave' usa el proyecto $($base[0]). Si es NUEVO, ejecuta sql\00_instalacion_completa.sql." } else { "'$clave' usa la base de js/supabase.js (compartida)." }
+        $mensaje = if ($base[0]) { "'$clave' usa el proyecto $($base[0]). Si es NUEVO, ejecuta los archivos de sql\instalacion (01 a 12, en orden)." } else { "'$clave' usa la base de js/supabase.js (compartida)." }
     }
     '3' {
         $clave = ElegirEmpresa

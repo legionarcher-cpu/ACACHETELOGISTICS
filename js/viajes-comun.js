@@ -10,8 +10,8 @@
      - Estados, formatos (dinero, hora, fecha) y mensajes de error.
      - tarjetaViaje(): la tarjeta de un viaje (Viajes e Inicio).
      - pintarCortesia(): avance del cliente hacia su viaje de cortesía.
-     - Precio por franja y costos por vehículo (Configuración -> Transporte y reportes):
-         precioFranja(), textoDias(), costosPorVehiculo(), costoDeViaje().
+     - Precio por franja y costo de operación por viaje (Configuración -> Transporte y reportes):
+         precioFranja(), textoDias(), costoPorTrabajo().
      - montarInicioViajes(zona): Inicio del cliente y de las empresas solo de viajes
        (js/secciones/inicio.js).
      - montarReporteViajes(caja, opciones): pestaña "Viajes" de Reportes, con su
@@ -51,7 +51,6 @@ const VIA_CONFIG_BASE = {
     anticipacion_min: 60, anticipacion_dias: 14, cancelar_horas: 2,
     pasajeros_incluidos: 1, recargo_pasajero: 0, recargo_mercaderia: 0, recargo_mascota: 0, redondeo: 100,
     cortesia_activa: true, cortesia_viajes: 5, cortesia_dias: 15, cortesia_vence_dias: 30, cortesia_radio_km: 8,
-    precio_litro: 0,
 };
 
 // ==================================================
@@ -84,7 +83,7 @@ function viaErrorTexto(error, accion = 'completar la acción') {
     if (!error) return '';
     if (error.code === 'P0001') return error.message;
     if (['PGRST202', '42883', '42P01', 'PGRST205', '42703', 'PGRST200'].includes(error.code)) {
-        return 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 19: transporte) en Supabase.';
+        return 'Falta instalar la base de datos (sql/instalacion).';
     }
     return `No se pudo ${accion}. Revisa la conexión e intenta de nuevo.`;
 }
@@ -148,54 +147,12 @@ function recargosViaje({ personas = 1, mascotas = 0, mercaderia = false }, confi
     return { pasajeros, mercaderia: merc, mascotas: masc, total: pasajeros + merc + masc };
 }
 
-// Costos de cada vehículo (Configuración -> Transporte):
-//   fijos  (cuota, seguro, marchamo, salario...) ÷ horas del mes = costo por hora
-//   variables (mantenimiento, llantas...) ÷ km del mes + combustible (precio litro ÷ km por litro) = costo por km
-//   Los gastos sin vehículo son de la empresa y se reparten igual entre los vehículos.
-//   "Real": con los viajes terminados de los últimos 30 días (km y minutos de cada uno).
-// Devuelve { porVehiculo: Map(id -> {...}), empresa: { costoHora, costoKm, costoKmTotal } }
-function costosPorVehiculo(vehiculos, costos, config, viajes30 = []) {
-    const suma = (lista, tipo) => lista.filter((c) => c.tipo === tipo).reduce((s, c) => s + Number(c.monto_mes || 0), 0);
-    const generales = costos.filter((c) => !c.vehiculo_id);
-    const n = Math.max(1, vehiculos.length);
-    const repartoFijo = suma(generales, 'fijo') / n;
-    const repartoVariable = suma(generales, 'variable') / n;
-    const precioLitro = Number(config.precio_litro || 0);
-    const porVehiculo = new Map();
-    let totFijos = 0; let totVar = 0; let totHoras = 0; let totKm = 0; let totComb = 0; let conComb = 0;
-
-    vehiculos.forEach((v) => {
-        const propios = costos.filter((c) => c.vehiculo_id === v.id);
-        const fijos = suma(propios, 'fijo') + repartoFijo;
-        const variables = suma(propios, 'variable') + repartoVariable;
-        const horasMes = Number(v.horas_mes || 0);
-        const kmMes = Number(v.km_mes || 0);
-        const combustibleKm = precioLitro > 0 && Number(v.km_por_litro || 0) > 0 ? precioLitro / Number(v.km_por_litro) : 0;
-        const suyos = viajes30.filter((x) => x.vehiculo_id === v.id && x.estado === 'terminado');
-        const horasReal = suyos.reduce((s, x) => s + Number(x.minutos || 0), 0) / 60;
-        const kmReal = suyos.reduce((s, x) => s + Number(x.km || 0), 0);
-        porVehiculo.set(v.id, {
-            fijos, variables, horasMes, kmMes, combustibleKm,
-            costoHora: horasMes > 0 ? fijos / horasMes : null,
-            costoKm: (kmMes > 0 ? variables / kmMes : 0) + combustibleKm,
-            horasReal, kmReal, viajesReal: suyos.length,
-            costoHoraReal: horasReal > 0 ? fijos / horasReal : null,
-            costoKmReal: kmReal > 0 ? variables / kmReal + combustibleKm : null,
-        });
-        totFijos += fijos; totVar += variables; totHoras += horasMes; totKm += kmMes;
-        if (combustibleKm) { totComb += combustibleKm; conComb++; }
-    });
-    const costoHora = totHoras > 0 ? totFijos / totHoras : null;
-    const costoKm = (totKm > 0 ? totVar / totKm : 0) + (conComb ? totComb / conComb : 0);
-    // Costo de recorrer 1 km contando el tiempo (a la velocidad de referencia): para comparar con el precio por km
-    const costoKmTotal = costoKm + (costoHora ? costoHora / Math.max(1, Number(config.velocidad_kmh || 30)) : 0);
-    return { porVehiculo, empresa: { costoHora, costoKm, costoKmTotal, fijos: totFijos, variables: totVar } };
-}
-
-// Costo estimado de un viaje con los costos de su vehículo
-function costoDeViaje(viaje, costoVehiculo) {
-    if (!costoVehiculo) return 0;
-    return (Number(viaje.minutos || 0) / 60) * Number(costoVehiculo.costoHora || 0) + Number(viaje.km || 0) * Number(costoVehiculo.costoKm || 0);
+// Costo de operación de cada viaje (Configuración -> Costos de operación): los gastos del mes
+// (costos_operacion, el combustible es un gasto más) ÷ los viajes del mes (los que se
+// escribieron en costos_config.trabajos_mes o, si no, los terminados de los últimos 30 días).
+function costoPorTrabajo(costos, trabajosMes) {
+    const gastos = (costos || []).reduce((s, c) => s + Number(c.monto_mes || 0), 0);
+    return Number(trabajosMes) > 0 ? gastos / Number(trabajosMes) : 0;
 }
 
 // ==================================================
@@ -553,9 +510,7 @@ function montarReporteViajes(caja, { puedeExportar = false, aviso } = {}) {
     const POR_PAGINA = 25;
     let viajes = [];
     let vehiculos = [];
-    let costos = [];
-    let config = { ...VIA_CONFIG_BASE };
-    let costosVeh = { porVehiculo: new Map(), empresa: {} };
+    let costoViaje = 0;   // costo de operación de cada viaje (costoPorTrabajo)
     let pagina = 0;
     let activo = true;
 
@@ -605,7 +560,7 @@ function montarReporteViajes(caja, { puedeExportar = false, aviso } = {}) {
         const validos = lista.filter((v) => !['cancelado', 'no_se_presento'].includes(v.estado));
         const terminados = lista.filter((v) => v.estado === 'terminado');
         const cortesias = terminados.filter((v) => v.es_cortesia);
-        const costo = terminados.reduce((s, v) => s + costoDeViaje(v, costosVeh.porVehiculo.get(v.vehiculo_id)), 0);
+        const costo = terminados.length * costoViaje;
         const ingresos = terminados.reduce((s, v) => s + Number(v.total || 0), 0);
         return {
             total: validos.length,
@@ -653,7 +608,7 @@ function montarReporteViajes(caja, { puedeExportar = false, aviso } = {}) {
             const k = v.vehiculo_id || 0;
             const f = m.get(k) || { nombre: v.vehiculos ? `${v.vehiculos.placa}${v.conductor ? ` · ${v.conductor.nombre}` : ''}` : 'Sin vehículo', viajes: 0, km: 0, horas: 0, ingresos: 0, costo: 0 };
             f.viajes++; f.km += Number(v.km || 0); f.horas += Number(v.minutos || 0) / 60; f.ingresos += Number(v.total || 0);
-            f.costo += costoDeViaje(v, costosVeh.porVehiculo.get(v.vehiculo_id));
+            f.costo += costoViaje;
             m.set(k, f);
         });
         return [...m.values()].sort((a, b) => b.ingresos - a.ingresos);
@@ -717,10 +672,10 @@ function montarReporteViajes(caja, { puedeExportar = false, aviso } = {}) {
         const hace30 = new Date(Date.now() - 30 * 86400000).toISOString();
         const [via, veh, cos, cfg, v30] = await Promise.all([
             db.from('viajes').select(VIA_SELECT).gte('inicio', ini).lt('inicio', fin).order('inicio', { ascending: false }).limit(5000),
-            db.from('vehiculos').select('id, placa, marca, horas_mes, km_mes, km_por_litro').order('placa'),
-            db.from('transporte_costos').select('vehiculo_id, tipo, monto_mes'),
-            cargarConfigTransporte(),
-            db.from('viajes').select('vehiculo_id, estado, km, minutos').eq('estado', 'terminado').gte('inicio', hace30),
+            db.from('vehiculos').select('id, placa, marca').order('placa'),
+            db.from('costos_operacion').select('monto_mes'),
+            db.from('costos_config').select('trabajos_mes').maybeSingle(),
+            db.from('viajes').select('id', { count: 'exact', head: true }).eq('estado', 'terminado').gte('inicio', hace30),
         ]);
         if (!activo) return;
         const error = via.error || veh.error;
@@ -730,9 +685,8 @@ function montarReporteViajes(caja, { puedeExportar = false, aviso } = {}) {
         }
         viajes = via.data;
         vehiculos = veh.data;
-        costos = cos.error ? [] : cos.data;
-        config = cfg.config;
-        costosVeh = costosPorVehiculo(vehiculos, costos, config, v30.error ? [] : v30.data);
+        const viajesMes = (cfg.data && cfg.data.trabajos_mes) || (v30.error ? 0 : v30.count);
+        costoViaje = costoPorTrabajo(cos.error ? [] : cos.data, viajesMes);
         const actual = $('#rvVehiculo').value;
         $('#rvVehiculo').replaceChildren(new Option('Todos', ''), ...vehiculos.map((v) => new Option(`${v.placa} · ${v.marca}`, v.id)));
         $('#rvVehiculo').value = vehiculos.some((v) => String(v.id) === actual) ? actual : '';

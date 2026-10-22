@@ -219,7 +219,7 @@ registrarSeccion('rutas', (zona) => {
         if (error) {
             console.error('Error al obtener el QR del piloto:', error);
             aviso.mostrar(error.code === 'PGRST202' || error.code === '42883'
-                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 14: QR).'
+                ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudo obtener el QR del piloto.', 'error');
             return;
         }

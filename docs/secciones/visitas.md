@@ -41,9 +41,9 @@ Desarrollador no se anotan. Si falla (sin internet o sin el bloque 36), no se av
 
 ## Seguridad
 
-La tabla `visitas` no tiene reglas TEMPORAL: desde la web no se lee ni se escribe directo, solo por las dos
-funciones. `reporte_visitas` solo responde si el usuario que pide es Desarrollador. Como todavía no hay
-Supabase Auth (Fase 7), el usuario lo manda la página; con la Fase 7 debe salir de la sesión de la base.
+Desde la web la tabla `visitas` no se lee ni se escribe directo, solo con las dos funciones. Las dos confirman con la
+sesión de Supabase Auth que el usuario que manda la página es el de la sesión: cada uno anota solo sus visitas, y
+`reporte_visitas` solo responde al Desarrollador.
 
 ## Dónde tocar
 

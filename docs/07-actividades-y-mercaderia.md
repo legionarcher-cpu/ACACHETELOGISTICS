@@ -22,6 +22,7 @@ Una empresa nueva puede copiar los de la empresa activa al crearse.
 | `transporte` | Transporte | **Viajes con agenda** (`usa_viajes`): sección Viajes en vez de Pedidos, precio por franja, cortesía. Se llama "viaje" y "conductor" ([secciones/viajes.md](secciones/viajes.md)) |
 | `masajes` | Masajes | Servicio a domicilio: **sin** vehículos, cobro por km ni peso |
 | `distribucion` | Distribución | **Productos** (`usa_productos`): ver [15-distribuidora.md](15-distribuidora.md). Vehículos sí; km y peso no |
+| `recoleccion` | Recolección | **Agenda propia** (`usa_agenda_recoleccion`, bloque 46): sección Recolecciones, el cliente elige la hora; depósitos; una sola agenda; cobro semanal por tarifa diaria ([secciones/recolecciones.md](secciones/recolecciones.md)). No usa pedidos |
 
 **Partes que se ven en todo el sistema** (sql/01 bloque 26, Configuración → Actividades → "Qué usa en todo el
 sistema"): `usa_vehiculos`, `usa_km`, `usa_peso`, `usa_productos`. Una parte se muestra si **alguna** actividad de

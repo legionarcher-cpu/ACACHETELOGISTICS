@@ -9,9 +9,9 @@
    Qué se configura (todo es de la empresa activa):
      1. Franjas y precio (transporte_franjas): precio por km según la hora de recogida,
         cargo base y mínimo; días de la semana. No se enciman (lo revisa también la base).
-        Margen de cada franja contra el costo de recorrer 1 km (gastos y vehículos de
-        Configuración -> Costos de operación, js/secciones/configuracion/costos.js;
-        fórmula: costosPorVehiculo de js/viajes-comun.js).
+        Margen de cada franja: el precio de un viaje promedio (km de los terminados en 30
+        días) contra el costo de operación por viaje (Configuración -> Costos de operación;
+        fórmula: costoPorTrabajo de js/viajes-comun.js).
      2. Recargos, agenda y cortesía (transporte_config): recargos fijos, minutos para
         llegar al punto A y colchón, anticipación, plazo para cambiar o cancelar,
         zona horaria y reglas del viaje de cortesía.
@@ -29,7 +29,8 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
     let config = { ...VIA_CONFIG_BASE };
     let franjas = [];
     let cerrados = [];
-    let resumenCostos = { porVehiculo: new Map(), empresa: {} }; // solo para el margen de las franjas
+    let costoViaje = 0;     // costo de operación por viaje (solo para el margen de las franjas)
+    let kmPromedio = 0;     // km del viaje promedio (terminados en 30 días)
     let editandoFranja = null;
     let activo = true;
 
@@ -47,15 +48,17 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
     // ==================================================
 
     async function cargar() {
-        const [cfg, fr, ce, co, ve] = await Promise.all([
+        const hace30 = new Date(Date.now() - 30 * 86400000).toISOString();
+        const [cfg, fr, ce, co, cc, v30] = await Promise.all([
             db.from('transporte_config').select('*').maybeSingle(),
             db.from('transporte_franjas').select('*').order('desde'),
             db.from('transporte_dias_cerrados').select('fecha, motivo').gte('fecha', viaFechaISO(new Date(), -7)).order('fecha'),
-            db.from('transporte_costos').select('*').order('concepto'),
-            db.from('vehiculos').select('id, horas_mes, km_mes, km_por_litro'),
+            db.from('costos_operacion').select('monto_mes'),
+            db.from('costos_config').select('trabajos_mes').maybeSingle(),
+            db.from('viajes').select('km').eq('estado', 'terminado').gte('inicio', hace30).limit(5000),
         ]);
         if (!activo) return;
-        const error = cfg.error || fr.error || ce.error || co.error || ve.error;
+        const error = cfg.error || fr.error || ce.error;
         enSeccion('#cfgTraFaltaSql').hidden = !faltaSql(error);
         enSeccion('#cfgTraContenido').hidden = faltaSql(error);
         if (error) {
@@ -65,7 +68,9 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
         config = { ...VIA_CONFIG_BASE, ...(cfg.data || {}) };
         franjas = fr.data;
         cerrados = ce.data;
-        resumenCostos = costosPorVehiculo(ve.data, co.data, config);
+        const terminados = v30.error ? [] : v30.data;
+        kmPromedio = terminados.length ? terminados.reduce((s, v) => s + Number(v.km || 0), 0) / terminados.length : 0;
+        costoViaje = costoPorTrabajo(co.error ? [] : co.data, (cc.data && cc.data.trabajos_mes) || terminados.length);
         pintarReglas();
         dibujarFranjas();
         dibujarSimulador();
@@ -127,14 +132,14 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
     // 1. FRANJAS
     // ==================================================
 
-    // Margen del precio por km contra el costo de recorrer 1 km
+    // Margen de la franja: precio de un viaje promedio contra el costo de operación por viaje
     function celdaMargen(f) {
-        const costoKm = resumenCostos.empresa.costoKmTotal;
-        const precio = Number(f.precio_km || 0);
-        if (!costoKm || !precio) return crearCelda('—');
-        const margen = Math.round(((precio - costoKm) / precio) * 100);
+        if (!costoViaje || !kmPromedio) return crearCelda('—');
+        const precio = precioFranja(f, kmPromedio, config);
+        if (!precio) return crearCelda('—');
+        const margen = Math.round(((precio - costoViaje) / precio) * 100);
         const td = crearCeldaEtiqueta(`${margen} %`, margen >= 20 ? 'etiqueta-verde' : margen >= 0 ? 'etiqueta-naranja' : 'etiqueta-rosada');
-        td.title = `Costo de 1 km ≈ ${dinero(costoKm)} · precio ${dinero(precio)} por km`;
+        td.title = `Viaje promedio de ${viaKm(kmPromedio)}: precio ${dinero(precio)} · costo de operación ${dinero(costoViaje)}`;
         return td;
     }
 

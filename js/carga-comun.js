@@ -253,7 +253,7 @@ function abrirCargaPedido({ pedido, sesion }) {
                 console.error('Error al cargar el pedido:', errBase);
                 await db.storage.from(CARGA_BUCKET).remove(subidas.map((s) => s.ruta));
                 error.textContent = errBase.code === 'P0001' ? errBase.message
-                    : ['PGRST202', '42883'].includes(errBase.code) ? 'Falta ejecutar sql/01 (bloque 29: carga con evidencia).'
+                    : ['PGRST202', '42883'].includes(errBase.code) ? 'Falta instalar la base de datos (sql/instalacion).'
                         : 'No se pudo guardar la carga. Intenta de nuevo.';
                 return;
             }

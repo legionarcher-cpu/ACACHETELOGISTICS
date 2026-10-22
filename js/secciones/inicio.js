@@ -101,6 +101,13 @@ registrarSeccion('inicio', (zona) => {
     // Cliente con usuario o empresa solo de viajes (Transporte): el Inicio es el de
     // viajes (montarInicioViajes, js/viajes-comun.js), con sus datos, no los de pedidos.
     // El cliente de una empresa sin viajes (solo encomiendas) va directo a "Mis envíos".
+    // Empresa de Recolección sin viajes (sql/01 bloque 46): el cliente, y todos si la empresa no
+    // hace pedidos, van directo a Recolecciones (su agenda es su Inicio).
+    if (typeof empresaTieneRecolecciones === 'function' && empresaTieneRecolecciones() && !empresaTieneViajes()
+        && (esCliente() || !empresaTienePedidos()) && tienePermiso('recolecciones')) {
+        location.replace('#recolecciones');
+        return undefined;
+    }
     if (esCliente() && !empresaTieneViajes() && tienePermiso('envios')) {
         location.replace('#envios'); // replace: "atrás" no vuelve a Inicio
         return undefined;
@@ -234,7 +241,7 @@ registrarSeccion('inicio', (zona) => {
     function mostrarError(error, que) {
         console.error(`Error al cargar ${que}:`, error);
         aviso.mostrar(error && error.code === '42703'
-            ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql en Supabase.'
+            ? 'Falta instalar la base de datos (sql/instalacion).'
             : 'No se pudo cargar el resumen. Revisa la conexión.', 'error');
     }
 
@@ -849,7 +856,7 @@ registrarSeccion('inicio', (zona) => {
         if (error) {
             console.error('Error al cargar mi ruta:', error);
             $('#iniMiRutaResumen').textContent = error.code === '42703' || error.code === '22P02'
-                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 12: despacho).'
+                ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudo cargar tu ruta.';
             return;
         }
@@ -1036,7 +1043,7 @@ registrarSeccion('inicio', (zona) => {
         if (error) {
             console.error('Error al salir a ruta:', error);
             avisoRuta.mostrar(error.code === 'P0001' ? error.message
-                : ['PGRST202', '42883'].includes(error.code) ? 'Falta ejecutar sql/01 (bloque 29: salida a ruta por slot).'
+                : ['PGRST202', '42883'].includes(error.code) ? 'Falta instalar la base de datos (sql/instalacion).'
                     : 'No se pudo marcar la salida. Intenta de nuevo.', 'error');
             boton.disabled = false;
             return;
@@ -1082,10 +1089,9 @@ registrarSeccion('inicio', (zona) => {
     //   Las marcas del día salen de marcas_del_dia (Configuración -> Horarios).
     //   SE MARCA CON QR (js/qr.js), de dos formas:
     //   - La tienda escanea "Mi QR del día" del piloto y presiona "Validar y marcar":
-    //     valida y marca el horario abierto en un solo paso (sql/01 bloque 33).
-    //   - O el piloto escanea el QR FIJO de la tienda (su Inicio, bloque 34): se marca solo,
-    //     sin validación previa (marcar_por_qr_fijo). El QR del mes (Tiendas) también sirve si ya
-    //     está validado (marcar_por_qr). Siempre hora de Costa Rica y aviso a la tienda.
+    //     valida y marca el horario abierto en un solo paso.
+    //   - O el piloto escanea el QR FIJO de la tienda (su Inicio) estando en ella (GPS): se
+    //     marca solo (marcar_por_qr_fijo). Siempre hora de Costa Rica y aviso a la tienda.
     //   El piloto ve solo "HORA INICIO" (inicio_hasta) y "TERMINA" (fin); "inicia desde"
     //   (desde cuándo se puede marcar) solo lo ven G2 o superior.
     //   Se redibuja cada 30 s y se recarga al marcar (evento "acachete:marca").
@@ -1102,18 +1108,14 @@ registrarSeccion('inicio', (zona) => {
     async function cargarMarcas() {
         if (!esPiloto) return;
         const [mar, hechas, val] = await Promise.all([
-            db.rpc('marcas_del_dia', { p_fecha: hoy }),
-            db.from('marcas_piloto').select('numero, marcado_en, a_tiempo, justificacion').eq('piloto_id', sesion.id || 0).eq('fecha', hoy)
-                // sin el bloque 15 de sql/01 no existe "justificacion": se lee sin ella
-                .then((r) => (r.error && r.error.code === '42703'
-                    ? db.from('marcas_piloto').select('numero, marcado_en, a_tiempo').eq('piloto_id', sesion.id || 0).eq('fecha', hoy)
-                    : r)),
+            db.rpc('marcas_del_dia', { p_fecha: hoy, p_empresa: empresaActivaId() }),
+            db.from('marcas_piloto').select('numero, marcado_en, a_tiempo, justificacion').eq('piloto_id', sesion.id || 0).eq('fecha', hoy),
             db.from('pilotos_dia').select('validado_en').eq('piloto_id', sesion.id || 0).eq('fecha', hoy).maybeSingle(),
         ]);
-        // ¿La tienda ya lo validó hoy con su QR del día? (sql/01 bloque 14)
+        // ¿La tienda ya lo validó hoy con su QR del día?
         const linea = $('#iniValidacion');
         if (val.error) {
-            linea.textContent = 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 14: QR).';
+            linea.textContent = 'Falta instalar la base de datos (sql/instalacion).';
             linea.className = 'ini-validacion pendiente';
         } else if (val.data && val.data.validado_en) {
             linea.textContent = `✔ La tienda te validó hoy a las ${new Date(val.data.validado_en).toLocaleTimeString('es-CR', { hour: '2-digit', minute: '2-digit' })}. Para marcar, escanea el QR de la tienda o muestra "Mi QR del día".`;
@@ -1168,7 +1170,7 @@ registrarSeccion('inicio', (zona) => {
         const proxima = marcasHoy.find((m) => !marcadas[m.numero] && ahora < minutosDe(m.inicio_desde));
         $('#iniMarcasResumen').textContent = !marcasSinTabla
             ? `${hechas} de ${marcasHoy.length} marcadas` + (proxima ? ` · próximo horario: hora de inicio ${hhmmIni(proxima.inicio_hasta)}` : '')
-            : 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 13: marcas del piloto).';
+            : 'Falta instalar la base de datos (sql/instalacion).';
         marcasHoy.forEach((m) => {
             const e = estadoMarca(m, ahora);
             const li = document.createElement('li');
@@ -1190,7 +1192,7 @@ registrarSeccion('inicio', (zona) => {
     }
 
     // "Escanear QR de la tienda": marca el horario abierto y avisa a la tienda (js/qr.js:
-    // qrLeerMarca -> marcar_por_qr + qrAvisarLlegada). Al terminar, qr.js lanza "acachete:marca".
+    // qrLeerMarca -> marcar_por_qr_fijo + qrAvisarLlegada). Al terminar, qr.js lanza "acachete:marca".
     $('#iniEscanearMarca').addEventListener('click', () => abrirLectorQr({
         titulo: 'Marcar llegada',
         ayuda: 'Escanea el QR de marcas que está en la tienda: tu horario se marca solo con la hora del sistema.',
@@ -1203,7 +1205,7 @@ registrarSeccion('inicio', (zona) => {
         if (error) {
             console.error('Error al obtener mi QR del día:', error);
             avisoMarcas.mostrar(error.code === 'PGRST202' || error.code === '42883'
-                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 14: QR).'
+                ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudo obtener tu QR del día.', 'error');
             return;
         }
@@ -1250,7 +1252,7 @@ registrarSeccion('inicio', (zona) => {
         if (error) {
             console.error('Error al obtener el QR de la tienda:', error);
             avisoQrTienda.mostrar(error.code === 'PGRST202' || error.code === '42883'
-                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 34: QR fijo de la tienda).'
+                ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudo obtener el QR de la tienda.', 'error');
             return;
         }
@@ -1290,7 +1292,8 @@ registrarSeccion('inicio', (zona) => {
         if (!esGeneral) return;
         const n = Math.round(Number($('#iniQrTiendaRadio').value));
         if (!(n >= 30 && n <= 2000)) { avisoQrTienda.mostrar('La distancia va de 30 a 2000 m.', 'error'); return; }
-        const { error } = await db.from('configuracion').upsert({ clave: 'radio_marca_m', valor: n }, { onConflict: 'clave' });
+        // (js/supabase.js le pone la empresa activa: cada empresa tiene su distancia)
+        const { error } = await db.from('configuracion').upsert({ clave: 'radio_marca_m', valor: n }, { onConflict: 'empresa_id,clave' });
         if (error) {
             console.error('Error al guardar la distancia para marcar:', error);
             avisoQrTienda.mostrar('No se pudo guardar la distancia.', 'error');

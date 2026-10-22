@@ -9,9 +9,13 @@
 
 - Se muestra siempre que **no hay sesión**, sin importar el `#`. Encabezado, menú (bloqueado) y pie
   siguen visibles alrededor.
-- `validarCredenciales(usuario, clave)`: la función de la base `iniciar_sesion` compara la clave **cifrada**
-  (bcrypt, sql/01 bloque 20; distingue mayúsculas) y devuelve el id; luego se traen sus datos sin la clave. Base
-  sin el bloque 20: compara `id_usuario` + `clave` tal cual.
+- `validarCredenciales(usuario, clave)`: entra a **Supabase Auth** (`db.auth.signInWithPassword`) con el correo
+  interno del usuario (`jperez01` → `jperez01@acachete.interno`, `correoInterno` en `js/supabase.js`; la contraseña
+  distingue mayúsculas) y luego trae su fila de `usuarios` por `auth_id`. Si al final no puede entrar (sin aprobar,
+  empresa inactiva), se cierra la sesión de Supabase. Muchos intentos seguidos: Supabase frena un rato ("Demasiados
+  intentos").
+- La sesión de Supabase se guarda en `sessionStorage` (se cierra con la pestaña). "Cerrar sesión" la cierra también;
+  si vence o se pierde, la página vuelve al login (`salirSinAcceso` en `js/supabase.js`).
 - Mensaje genérico "Usuario o contraseña incorrectos" (no da pistas de qué usuarios existen).
 - Usuario con `aprobado = false` (creado por un G3, o cliente que pidió su usuario): no puede entrar.
 - Usuario con el ID de su empresa al final (`jperez01`; sql/01 bloques 16 y 31). Trae también su
@@ -37,7 +41,8 @@
 - Mientras no se apruebe, al entrar dice "Tu solicitud todavía está en revisión". Se aprueba en **Clientes → Revisar**
   ([tiendas-y-clientes.md](tiendas-y-clientes.md)).
 
-⚠ Falta la Fase 7 (Supabase Auth + RLS) para que la base aplique también quién ve qué.
+La base aplica quién ve qué (reglas RLS por empresa y por rol, `sql/instalacion/11_acceso_web.sql`). Pendiente
+(Etapa 2B): que G2, G3, Empleado y Piloto vean solo su región o su tienda también en la base.
 
 ## Mi perfil
 

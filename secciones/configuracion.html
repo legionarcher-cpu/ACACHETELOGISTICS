@@ -10,17 +10,17 @@
        3. En js/secciones/configuracion.js: agregarlo a CFG_MODULOS
           (quién puede usarlo y qué hacer al abrirlo).
 
-     Estructura de la base: sql/00_instalacion_completa.sql (sección indicada en cada módulo).
+     Estructura de la base: sql/instalacion/ (un archivo por módulo).
 
-     Módulo HORARIOS (tablas configuracion, marcas_horario y capacidad_marcas,
-     sql/00 sección 5):
-       (En pantalla se dice "HORARIO"; en la base de datos se sigue llamando "marca".)
+     Módulo HORARIOS (tablas horarios_dias, horarios y horarios_capacidad con tipo 'turno',
+     sql/instalacion/03_horarios_y_marcas.sql):
+       (En pantalla se dice "HORARIO"; en el código, "marca".)
        - Cantidad de horarios del piloto (base 5) y pedidos máximos por horario (base 5).
-       - Horas predeterminadas de cada marca: inicia desde (solo G2+), hora inicio (a tiempo hasta
+       - Horas predeterminadas de cada horario: inicia desde (solo G2+), hora inicio (a tiempo hasta
          aquí) y termina (marca tardía con justificación hasta aquí).
-       - Horario por día de la semana (tablas horario_dias y marcas_dia):
+       - Horario por día de la semana (horarios_dias y horarios con dia 1 a 7):
          un día puede tener su propia cantidad
-         de marcas y sus horas (ej. domingo con 1 marca); si no, usa la base.
+         de horarios y sus horas (ej. domingo con 1 horario); si no, usa la base.
        - Pedidos por marca distintos para una región o una tienda.
      Administrador y Admin G1: todo. Admin G2: ve la base (solo lectura) y
      administra los pedidos por marca de su región y de sus tiendas.
@@ -151,6 +151,16 @@
             </span>
             <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
         </button>
+        <!-- Soporte: llave para el Desarrollador y bitácora (js/secciones/configuracion/soporte.js) -->
+        <button type="button" class="cfg-modulo-tarjeta" data-modulo="soporte">
+            <span class="cfg-modulo-icono"><i class="bi bi-shield-lock"></i></span>
+            <span class="cfg-modulo-textos">
+                <span class="cfg-modulo-nombre">Soporte</span>
+                <span class="cfg-modulo-descripcion">Llave para que el Desarrollador vea o corrija los datos por un rato, y la bitácora de lo que hizo.</span>
+                <span class="cfg-modulo-acceso">Admin TI y Administrador</span>
+            </span>
+            <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
+        </button>
         <!-- Planes y funciones: plan de pago de cada empresa (js/secciones/configuracion/planes.js) -->
         <button type="button" class="cfg-modulo-tarjeta" data-modulo="planes">
             <span class="cfg-modulo-icono"><i class="bi bi-ui-checks-grid"></i></span>
@@ -269,7 +279,7 @@
             </div>
         </div>
 
-        <!-- ---------- 3. Horario por día de la semana (horario_dias y marcas_dia) ---------- -->
+        <!-- ---------- 3. Horario por día de la semana (horarios_dias y horarios, dia 1 a 7) ---------- -->
         <div class="tarjeta cfg-tarjeta">
             <div class="cfg-tarjeta-cabecera">
                 <div>
@@ -330,8 +340,8 @@
     <!-- ==================================================
          MÓDULO: SLOTS (oculto hasta que se abre su tarjeta)
          Rangos de horario de DESPACHO de los pedidos (distintos de las marcas
-         del piloto). Tablas slots_horario, slot_dias y slots_dia (sql/00,
-         sección 5; sql/01 bloque 12). Lógica: js/secciones/configuracion/slots.js
+         del piloto). Tablas horarios_dias y horarios con tipo 'despacho'
+         (sql/instalacion/03_horarios_y_marcas.sql). Lógica: js/secciones/configuracion/slots.js
          ================================================== -->
     <section class="cfg-modulo" data-modulo="slots" hidden>
         <div class="cfg-modulo-cabecera">
@@ -349,7 +359,7 @@
             <i class="bi bi-eye"></i> Como Admin G2 puedes ver los slots; los cambia el Administrador o Admin G1.
         </p>
         <p id="cfgSlotFaltaSql" class="aviso visible error" hidden>
-            Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 12: slots).
+            Falta instalar la base de datos (sql/instalacion).
         </p>
 
         <!-- ---------- 1. Cantidad de slots ---------- -->
@@ -588,7 +598,7 @@
         <!-- Si la base no tiene las tablas de pedidos -->
         <p id="cfgPedFaltaSql" class="cfg-nota" hidden>
             <i class="bi bi-exclamation-triangle"></i>
-            Falta instalar la base de datos: <strong>sql/00_instalacion_completa.sql</strong>.
+            Falta instalar la base de datos: <strong>sql/instalacion</strong>.
         </p>
 
         <!-- Tarjetas de cada lista (las arma el JS) -->
@@ -710,7 +720,7 @@
     <!-- ==================================================
          MÓDULO: TRANSPORTE (solo si la empresa hace viajes; Administrador y Admin G1)
          Tablas de sql/01 bloque 19: transporte_config, transporte_franjas,
-         transporte_dias_cerrados. Los costos (transporte_costos) están en "Costos de operación";
+         transporte_dias_cerrados. Los costos (costos_operacion) están en "Costos de operación";
          aquí solo se usan para el margen de cada franja.
          Lógica: js/secciones/configuracion/transporte.js. Ids "cfgTra".
          ================================================== -->
@@ -723,7 +733,7 @@
 
         <p id="cfgTraFaltaSql" class="cfg-nota" hidden>
             <i class="bi bi-exclamation-triangle"></i>
-            Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloque 19: transporte) en Supabase.
+            Falta instalar la base de datos (<strong>sql/instalacion</strong>) en Supabase.
         </p>
 
         <div id="cfgTraContenido" class="cfg-tra">
@@ -943,7 +953,7 @@
 
         <p id="cfgCosFaltaSql" class="cfg-nota" hidden>
             <i class="bi bi-exclamation-triangle"></i>
-            Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloque 19: tablas de costos) en Supabase.
+            Falta instalar la base de datos (<strong>sql/instalacion</strong>) en Supabase.
         </p>
 
         <div id="cfgCosContenido" class="cfg-tra">
@@ -963,7 +973,7 @@
 
                 <div id="cfgCosResumen" class="resumen cfg-tra-resumen"></div>
 
-                <!-- Entregas al mes (transporte_config.trabajos_mes, sql/01 bloque 45). Vacío = las reales de 30 días -->
+                <!-- Entregas al mes (costos_config.trabajos_mes). Vacío = las reales de 30 días -->
                 <form id="cfgCosDatos" class="cfg-tra-combustible" novalidate>
                     <div class="campo">
                         <label for="cfgCosTrabajosMes" class="campo-etiqueta">Entregas o viajes al mes (estimado)</label>
@@ -1049,7 +1059,7 @@
 
         <p id="cfgCajFaltaSql" class="cfg-nota" hidden>
             <i class="bi bi-exclamation-triangle"></i>
-            Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloque 24: caja) en Supabase.
+            Falta instalar la base de datos (<strong>sql/instalacion</strong>) en Supabase.
         </p>
 
         <div id="cfgCajContenido" class="cfg-tra">
@@ -1176,7 +1186,7 @@
 
         <p id="cfgArtFaltaSql" class="cfg-nota" hidden>
             <i class="bi bi-exclamation-triangle"></i>
-            Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloque 27: distribuidora) en Supabase.
+            Falta instalar la base de datos (<strong>sql/instalacion</strong>) en Supabase.
         </p>
         <p id="cfgArtFaltaSql32" class="cfg-nota" hidden>
             <i class="bi bi-info-circle"></i>
@@ -1279,7 +1289,7 @@
 
         <p id="cfgPlaFaltaSql" class="cfg-nota" hidden>
             <i class="bi bi-exclamation-triangle"></i>
-            Falta ejecutar <strong>sql/01_actualizacion_base_existente.sql</strong> (bloque 22: plan de cada empresa) en Supabase.
+            Falta instalar la base de datos (<strong>sql/instalacion</strong>) en Supabase.
         </p>
 
         <p class="cfg-nota">
@@ -1290,6 +1300,125 @@
         </p>
 
         <div id="cfgPlaLista" class="cfg-pla-lista"></div>
+    </section>
+
+    <!-- ==================================================
+         MÓDULO: SOPORTE (Admin TI y Administrador de la empresa)
+         Llave para que el Desarrollador vea (o corrija) los datos de la empresa por 1, 4 o
+         24 horas, las llaves dadas y la bitácora de lo que hizo.
+         sql/instalacion/01_base.sql (soporte_*). Lógica: js/secciones/configuracion/soporte.js.
+         Ids "cfgSop".
+         ================================================== -->
+    <section class="cfg-modulo" data-modulo="soporte" hidden>
+
+        <div class="cfg-modulo-cabecera">
+            <a href="#configuracion" class="cfg-volver"><i class="bi bi-arrow-left"></i> Configuración</a>
+            <h3 class="cfg-modulo-titulo"><i class="bi bi-shield-lock"></i> Soporte</h3>
+        </div>
+
+        <p id="cfgSopFaltaSql" class="cfg-nota" hidden>
+            <i class="bi bi-exclamation-triangle"></i>
+            Falta instalar la base de datos (<strong>sql/instalacion</strong>) en Supabase.
+        </p>
+
+        <p class="cfg-nota">
+            <i class="bi bi-info-circle"></i>
+            Sin llave, el Desarrollador solo ve la configuración y la lista de usuarios de la empresa. Con la llave
+            ve también los clientes, pedidos, viajes, inventario, precios y cajas (con <strong>Ver y corregir</strong>,
+            además los puede cambiar) hasta que la llave venza o la anules. Todo queda en la bitácora.
+        </p>
+
+        <div id="cfgSopContenido" class="cfg-tra">
+            <div class="tarjeta cfg-tarjeta">
+                <div class="cfg-tarjeta-cabecera">
+                    <div>
+                        <h3 class="cfg-tarjeta-titulo">Nueva llave</h3>
+                        <p class="cfg-tarjeta-texto">
+                            El código se ve una sola vez: díctalo o mándalo al Desarrollador. Una llave nueva anula la anterior.
+                        </p>
+                    </div>
+                </div>
+                <form id="cfgSopForm" class="cfg-sop-form" novalidate>
+                    <div class="campo">
+                        <label for="cfgSopHoras" class="campo-etiqueta">Dura</label>
+                        <select id="cfgSopHoras" class="campo-input">
+                            <option value="1">1 hora</option>
+                            <option value="4" selected>4 horas</option>
+                            <option value="24">24 horas</option>
+                        </select>
+                    </div>
+                    <div class="campo">
+                        <label for="cfgSopAlcance" class="campo-etiqueta">Puede</label>
+                        <select id="cfgSopAlcance" class="campo-input">
+                            <option value="ver">Solo ver</option>
+                            <option value="corregir">Ver y corregir</option>
+                        </select>
+                    </div>
+                    <button type="submit" id="cfgSopCrear" class="boton boton-principal">
+                        <i class="bi bi-key"></i>
+                        <span>Crear llave</span>
+                    </button>
+                </form>
+                <div id="cfgSopCodigo" class="cfg-sop-codigo" hidden>
+                    <span class="cfg-sop-codigo-etiqueta">Código para el Desarrollador</span>
+                    <strong id="cfgSopCodigoTexto" class="texto-codigo"></strong>
+                    <small id="cfgSopCodigoDetalle"></small>
+                    <button type="button" id="cfgSopCopiar" class="boton boton-secundario boton-chico">
+                        <i class="bi bi-clipboard"></i>
+                        <span>Copiar</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="tarjeta cfg-tarjeta">
+                <div class="cfg-tarjeta-cabecera">
+                    <div>
+                        <h3 class="cfg-tarjeta-titulo">Llaves</h3>
+                        <p class="cfg-tarjeta-texto">Las últimas 30. Una llave vigente se puede anular: el Desarrollador deja de ver los datos al momento.</p>
+                    </div>
+                </div>
+                <div class="tabla-caja">
+                    <table class="tabla cfg-tabla">
+                        <thead>
+                            <tr>
+                                <th>Creada</th>
+                                <th>Puede</th>
+                                <th>Vence</th>
+                                <th>Usada</th>
+                                <th>Estado</th>
+                                <th class="tabla-col-acciones">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cfgSopLlaves"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="tarjeta cfg-tarjeta">
+                <div class="cfg-tarjeta-cabecera">
+                    <div>
+                        <h3 class="cfg-tarjeta-titulo">Bitácora</h3>
+                        <p class="cfg-tarjeta-texto">
+                            Lo que vio y cambió el Desarrollador en la empresa, sus acciones de emergencia y quién dio,
+                            usó o anuló las llaves (los últimos 200). No se puede borrar.
+                        </p>
+                    </div>
+                </div>
+                <div class="tabla-caja">
+                    <table class="tabla cfg-tabla">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Quién</th>
+                                <th>Qué</th>
+                                <th>Detalle</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cfgSopBitacora"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </section>
 </div>
 
@@ -1444,7 +1573,7 @@
         <!-- Si la base no tiene la tabla de actividades -->
         <p id="cfgActFaltaSql" class="cfg-nota" hidden>
             <i class="bi bi-exclamation-triangle"></i>
-            Falta instalar la base de datos: <strong>sql/00_instalacion_completa.sql</strong>.
+            Falta instalar la base de datos: <strong>sql/instalacion</strong>.
         </p>
 
         <div class="tabla-caja">
@@ -1528,11 +1657,12 @@
             <fieldset class="campo campo-ancho cfg-act-usa">
                 <legend class="campo-etiqueta">Qué usa esta actividad en los pedidos</legend>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_bodega"> Recepción en bodega (estado "En bodega")</label>
-                <label class="cfg-si-no"><input type="checkbox" data-usa="usa_recoleccion"> Punto de partida</label>
+                <label class="cfg-si-no"><input type="checkbox" data-usa="usa_punto_partida"> Punto de partida</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_tamanos"> Tamaño de los bultos (S / M / L / XL)</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_compra"> Monto de la compra, envío gratis y cobrar la compra</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="permite_alcohol"> Puede llevar alcohol (el piloto confirma la mayoría de edad)</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_viajes"> Viajes con agenda: el cliente solicita día y hora, el vehículo y el conductor se asignan solos (sección Viajes, en vez de Pedidos)</label>
+                <label class="cfg-si-no"><input type="checkbox" data-usa="usa_recolecciones"> Recolecciones con agenda: el cliente elige la hora y qué se recoge; una sola agenda y tarifa diaria (sección Recolecciones, en vez de Pedidos)</label>
             </fieldset>
             <!-- Partes que se ven en TODO el sistema (sql/01 bloque 26): si ninguna actividad
                  de la empresa las usa, no aparecen (empresas/empresas.js: empresaUsa) -->
@@ -1543,7 +1673,7 @@
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_peso" data-parte> Peso (tarifas por kg, peso del pedido y Cotizador)</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_productos" data-parte> Productos de distribuidora (presentaciones, precios con IVA, bodega del día, carga, venta en ruta y devolución)</label>
                 <label class="cfg-si-no"><input type="checkbox" data-usa="usa_caja" data-parte> Caja de pilotos: fondo, cobros y cierre de caja (sección Caja y Configuración → Cajas)</label>
-                <small class="campo-ayuda" id="cfgActPartesFalta" hidden>Falta ejecutar sql/01_actualizacion_base_existente.sql (bloques 26 y 30).</small>
+                <small class="campo-ayuda" id="cfgActPartesFalta" hidden>Falta instalar la base de datos (sql/instalacion).</small>
             </fieldset>
         </div>
         <p id="cfgActError" class="form-error" role="alert"></p>
@@ -1606,21 +1736,8 @@
                     <input id="cfgVehCarga" type="number" min="0" step="1" class="campo-input" data-veh="carga_kg" data-nombre="Carga máxima">
                 </div>
                 <label class="cfg-si-no campo-ancho"><input type="checkbox" data-veh="acepta_mascotas"> Acepta mascotas</label>
-                <div class="campo">
-                    <label for="cfgVehKmLitro" class="campo-etiqueta">Km por litro</label>
-                    <input id="cfgVehKmLitro" type="number" min="0" step="0.1" class="campo-input" data-veh="km_por_litro" data-nombre="Km por litro">
-                </div>
-                <div class="campo">
-                    <label for="cfgVehHorasMes" class="campo-etiqueta">Horas de trabajo al mes</label>
-                    <input id="cfgVehHorasMes" type="number" min="0" step="1" class="campo-input" data-veh="horas_mes" data-nombre="Horas al mes">
-                </div>
-                <div class="campo">
-                    <label for="cfgVehKmMes" class="campo-etiqueta">Km al mes (estimado)</label>
-                    <input id="cfgVehKmMes" type="number" min="0" step="1" class="campo-input" data-veh="km_mes" data-nombre="Km al mes">
-                </div>
                 <small class="campo-ayuda campo-ancho">
-                    Sin asientos el vehículo no recibe viajes con personas. Km por litro, horas y km del mes
-                    sirven para calcular el costo por hora y por km (Configuración → Costos de operación).
+                    Sin asientos el vehículo no recibe viajes con personas.
                 </small>
             </fieldset>
             <div class="campo-ancho">

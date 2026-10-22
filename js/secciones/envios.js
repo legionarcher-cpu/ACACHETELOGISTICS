@@ -64,13 +64,13 @@ registrarSeccion('envios', (zona) => {
         const [cli, ct, act] = await Promise.all([
             db.from('clientes').select('id, nombre, apellido1, apellido2, telefono, direccion, ubicacion').eq('id', clienteActual() || 0).maybeSingle(),
             db.from('clientes_tiendas').select('tienda_id, tiendas(id, codigo, nombre)').eq('cliente_id', clienteActual() || 0),
-            db.from('actividades').select('codigo, nombre, activa, usa_recoleccion, usa_viajes').order('orden'),
+            db.from('actividades').select('codigo, nombre, activa, usa_punto_partida, usa_viajes').order('orden'),
         ]);
         cliente = cli.data || null;
         tiendas = (ct.data || []).map((x) => x.tiendas).filter(Boolean);
         const lista = act.error ? [] : act.data;
         actividades = lista.filter((a) => a.activa !== false && empresaTieneActividad(a.codigo) && !a.usa_viajes
-            && (a.usa_recoleccion !== undefined ? a.usa_recoleccion : esActividadDeRecoleccion(a.codigo)));
+            && (a.usa_punto_partida !== undefined ? a.usa_punto_partida : esActividadConPuntoPartida(a.codigo)));
     }
 
     async function cargarLista() {
@@ -132,7 +132,7 @@ registrarSeccion('envios', (zona) => {
         art.appendChild(cab);
 
         art.appendChild(el('p', 'env-fecha', `Para el ${fechaLarga(p ? p.fecha_entrega : s.fecha)}`));
-        art.append(punto('a', s.recoleccion_direccion, s.recoleccion_referencia), punto('b', s.entrega_direccion, s.entrega_referencia));
+        art.append(punto('a', s.partida_direccion, s.partida_referencia), punto('b', s.entrega_direccion, s.entrega_referencia));
 
         const datos = [s.descripcion, plural(s.bultos, 'bulto', 'bultos'), s.peso_kg ? `${Number(s.peso_kg)} kg aprox.` : null,
             s.recibe_nombre ? `Recibe: ${s.recibe_nombre}` : null].filter(Boolean).join(' · ');
@@ -181,11 +181,9 @@ registrarSeccion('envios', (zona) => {
         const { data, error } = await db.from('pedido_solicitudes').update({ estado: 'cancelada' })
             .eq('id', s.id).eq('estado', 'pendiente').select('id');
         if (error) { aviso.mostrar('No se pudo cancelar. Revisa la conexión.', 'error'); return; }
+        // (los avisos pendientes de la tienda los cierra la base: pedido_solicitudes_avisar)
         if (!data.length) aviso.mostrar('La tienda ya la revisó: no se puede cancelar.', 'error');
-        else {
-            resolverPendientes('solicitud_envio', s.id); // js/notificaciones.js
-            aviso.mostrar(`Solicitud S-${s.id} cancelada.`);
-        }
+        else aviso.mostrar(`Solicitud S-${s.id} cancelada.`);
         cargarLista();
     });
 
@@ -291,9 +289,9 @@ registrarSeccion('envios', (zona) => {
             usuario_id: sesion.id || null,
             cliente_nombre: cliente ? nombreCliente(cliente) : (sesion.nombre || ''),
             cliente_telefono: cliente ? cliente.telefono : '',
-            recoleccion_direccion: inputA.value.trim(),
-            recoleccion_referencia: $('#envRecogerRef').value.trim() || null,
-            recoleccion_lat: redondo(puntos.a.lat), recoleccion_lng: redondo(puntos.a.lng),
+            partida_direccion: inputA.value.trim(),
+            partida_referencia: $('#envRecogerRef').value.trim() || null,
+            partida_lat: redondo(puntos.a.lat), partida_lng: redondo(puntos.a.lng),
             entrega_direccion: inputB.value.trim(),
             entrega_referencia: $('#envEntregarRef').value.trim() || null,
             entrega_lat: redondo(puntos.b.lat), entrega_lng: redondo(puntos.b.lng),
@@ -324,14 +322,8 @@ registrarSeccion('envios', (zona) => {
                 : 'No se pudo enviar la solicitud. Revisa la conexión e intenta de nuevo.';
             return;
         }
-        // Aviso a quien aprueba: G3 de la tienda (si no hay, G2; si tampoco, Administrador y G1)
-        await notificarPendiente({
-            referenciaTipo: 'solicitud_envio', referenciaId: data.id, tiendaId: fila.tienda_id, soloTienda: true,
-            titulo: 'Solicitud de envío de un cliente',
-            mensaje: `${fila.cliente_nombre} pide recoger en ${fila.recoleccion_direccion} y entregar en ${fila.entrega_direccion} `
-                + `el ${fila.fecha.split('-').reverse().join('/')} (${plural(fila.bultos, 'bulto', 'bultos')}). Revísala en Pedidos.`,
-            enlace: '#pedidos?solicitudes=1',
-        });
+        // El aviso a quien aprueba (G3 de la tienda; si no hay, G2; si tampoco, Administrador y G1)
+        // lo manda la base: pedido_solicitudes_avisar (sql/instalacion/04_rutas_y_pedidos.sql)
         form.reset();
         if (mapa) mapa.limpiar();
         zona.querySelectorAll('[data-env-otra]').forEach((c) => { c.hidden = true; });

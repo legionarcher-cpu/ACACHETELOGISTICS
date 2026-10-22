@@ -59,7 +59,9 @@
 
    REGLAS:
      - Un pedido NUNCA se borra: se cancela (con motivo).
-     - Cada cambio queda en la línea de tiempo (tabla pedido_historial).
+     - Cada cambio queda en la línea de tiempo (tabla pedido_historial). El estado, el piloto
+       y la fecha solo los cambia la base (pedido_estado, pedido_asignar...); la página no
+       puede cambiarlos directo.
      - El número de pedido lo pone la base de datos (automático) o lo escribe
        el empleado (manual), según Configuración -> Pedidos.
      - El QR lleva solo un código seguro (token_qr), no datos personales.
@@ -289,9 +291,9 @@ registrarSeccion('pedidos', (zona) => {
     let tiendas = [];            // tiendas que el usuario puede ver
     let actividades = [];        // todas las actividades
     let pilotos = [];            // pilotos de esas tiendas
-    let capacidades = [];        // pedidos por horario por región o tienda (tabla capacidad_marcas)
+    let capacidades = [];        // pedidos por horario: la base y los ajustes por región o tienda (horarios_capacidad)
     let rutas = [];              // rutas de esas tiendas (vacío si la base aún no tiene la tabla rutas)
-    let config = { numero_pedido: 'automatico', pedidos_por_marca: 5 };
+    let config = { numero_pedido: 'automatico' };
 
     async function cargarBase() {
         // lat / lng: ubicación de la tienda en el mapa (punto A de sus entregas).
@@ -309,9 +311,9 @@ registrarSeccion('pedidos', (zona) => {
         const columnasAct = 'codigo, nombre, descripcion, icono, usa_bodega, activa, orden';
         const [tie, actNueva, conf, cap] = await Promise.all([
             tiendasConUbicacion,
-            db.from('actividades').select(`${columnasAct}, usa_recoleccion, usa_compra, usa_tamanos, permite_alcohol`).order('orden'),
-            db.from('configuracion').select('clave, valor').in('clave', ['numero_pedido', 'pedidos_por_marca']),
-            db.from('capacidad_marcas').select('region, tienda_id, pedidos_por_marca'),
+            db.from('actividades').select(`${columnasAct}, usa_punto_partida, usa_compra, usa_tamanos, permite_alcohol`).order('orden'),
+            db.from('configuracion').select('clave, valor').in('clave', ['numero_pedido']),
+            db.from('horarios_capacidad').select('region, tienda_id, pedidos'),
         ]);
         // Sin sql/01_actualizacion_base_existente no existen las columnas de "qué usa": se leen las básicas
         // y usaActividad() deduce lo que usa por el código (como antes)
@@ -405,21 +407,22 @@ registrarSeccion('pedidos', (zona) => {
     // Configuración -> Actividades y se aplican a todas las tiendas)
     const actividadesDeTienda = () => actividades.filter((a) => a.activa);
 
-    // Pedidos máximos por marca de una tienda: tienda > región > base
+    // Pedidos máximos por horario del piloto en una tienda: tienda > región > base de la empresa
     function capacidadMarca(tiendaId) {
         const tienda = tiendaPorId(tiendaId) || {};
         const deTienda = capacidades.find((c) => c.tienda_id === tiendaId);
-        if (deTienda) return deTienda.pedidos_por_marca;
+        if (deTienda) return deTienda.pedidos;
         const deRegion = capacidades.find((c) => c.region && c.region === tienda.region);
-        if (deRegion) return deRegion.pedidos_por_marca;
-        return Number(config.pedidos_por_marca) || 5;
+        if (deRegion) return deRegion.pedidos;
+        const base = capacidades.find((c) => !c.region && !c.tienda_id);
+        return base ? base.pedidos : 5;
     }
 
     // Marcas de una fecha con cuántos pedidos ya tiene cada una en esa tienda.
     // excluirId: el pedido que se está reasignando (no cuenta contra sí mismo).
     async function marcasConOcupacion(fecha, tiendaId, excluirId = null) {
         const [marcas, ocupados] = await Promise.all([
-            db.rpc('marcas_del_dia', { p_fecha: fecha }),
+            db.rpc('marcas_del_dia', { p_fecha: fecha, p_empresa: empresaActivaId() }),
             db.from('pedidos').select('id, marca_numero')
                 .eq('tienda_id', tiendaId).eq('fecha_entrega', fecha).eq('anulado', false)
                 .neq('estado', 'cancelado').not('marca_numero', 'is', null),
@@ -449,13 +452,12 @@ registrarSeccion('pedidos', (zona) => {
         select.value = actual == null ? '' : String(actual);
     }
 
-    // ---------- Slots de despacho (Configuración -> Slots; slots_del_dia en sql/00) ----------
+    // ---------- Slots de despacho (Configuración -> Slots; slots_del_dia) ----------
     // Slots de una fecha con cuántos pedidos tiene ya cada uno en esa tienda (sin límite).
-    // Sin el bloque 12 de sql/01 la función no existe: se trabaja sin slots.
     async function slotsConOcupacion(fecha, tiendaId, excluirId = null) {
         if (!fecha) return [];
         const [slots, ocupados] = await Promise.all([
-            db.rpc('slots_del_dia', { p_fecha: fecha }),
+            db.rpc('slots_del_dia', { p_fecha: fecha, p_empresa: empresaActivaId() }),
             db.from('pedidos').select('id, slot_numero')
                 .eq('tienda_id', tiendaId || 0).eq('fecha_entrega', fecha).eq('anulado', false)
                 .neq('estado', 'cancelado').not('slot_numero', 'is', null),
@@ -499,7 +501,9 @@ registrarSeccion('pedidos', (zona) => {
         select.value = actual && lista.some((r) => r.id === actual) ? String(actual) : (lista[0] ? String(lista[0].id) : '');
     }
 
-    // Agrega un evento a la línea de tiempo del pedido
+    // Agrega a la línea de tiempo un evento SIN cambio de estado (registrado, solicitud de
+    // reasignación, autorización). Los cambios de estado los anota la base (pedido_estado,
+    // pedido_asignar...); la base pone también quién lo hizo.
     function registrarEvento(pedidoId, evento, { antes = null, despues = null, detalle = null } = {}) {
         return db.from('pedido_historial').insert({
             pedido_id: pedidoId, evento, estado_anterior: antes, estado_nuevo: despues, detalle,
@@ -688,7 +692,7 @@ registrarSeccion('pedidos', (zona) => {
         $('#pedContador').textContent = 'Cargando pedidos...';
         const consulta = (conSlot) => {
             let q = db.from('pedidos').select(
-                'id, codigo, actividad, tienda_id, cliente_nombre, cliente_telefono, direccion_recoleccion, direccion_entrega, ' +
+                'id, codigo, actividad, tienda_id, cliente_nombre, cliente_telefono, direccion_partida, direccion_entrega, ' +
                 'fecha_entrega, marca_numero, piloto_id, estado, anulado, monto_compra, total_cobrar, peso_total_kg, lleva_alcohol, creado_en' +
                 (conSlot ? ', slot_numero' : '') + // slot_numero: sql/01 bloque 12
                 (rutas.length ? ', ruta_id' : '')); // ruta_id existe solo si la base tiene rutas
@@ -761,7 +765,7 @@ registrarSeccion('pedidos', (zona) => {
         const titulo = document.createElement('strong');
         titulo.textContent = `S-${s.id} · ${s.cliente_nombre} · para el ${fechaCorta(s.fecha)}`;
         const ruta = document.createElement('span');
-        ruta.textContent = `A: ${s.recoleccion_direccion}${s.recoleccion_referencia ? ` (${s.recoleccion_referencia})` : ''} → `
+        ruta.textContent = `A: ${s.partida_direccion}${s.partida_referencia ? ` (${s.partida_referencia})` : ''} → `
             + `B: ${s.entrega_direccion}${s.entrega_referencia ? ` (${s.entrega_referencia})` : ''}`;
         const datos = document.createElement('small');
         datos.textContent = [s.descripcion, plural(s.bultos, 'bulto', 'bultos'), s.peso_kg ? `${Number(s.peso_kg)} kg aprox.` : null,
@@ -955,11 +959,11 @@ registrarSeccion('pedidos', (zona) => {
             dir.title = p.direccion_entrega;
             dir.textContent = p.direccion_entrega;
             tdEntrega.appendChild(dir);
-            if (p.direccion_recoleccion && usaActividad(act, 'usa_recoleccion')) {
+            if (p.direccion_partida && usaActividad(act, 'usa_punto_partida')) {
                 const rec = document.createElement('small');
                 rec.className = 'ped-sub ped-corto';
-                rec.title = p.direccion_recoleccion;
-                rec.textContent = `Punto de partida: ${p.direccion_recoleccion}`;
+                rec.title = p.direccion_partida;
+                rec.textContent = `Punto de partida: ${p.direccion_partida}`;
                 tdEntrega.appendChild(rec);
             }
             if (!filtroFecha.value) {
@@ -1075,7 +1079,7 @@ registrarSeccion('pedidos', (zona) => {
             if (cat.error) {
                 console.error('Error al cargar los productos:', cat.error);
                 nota.hidden = false;
-                nota.textContent = distFaltaSql(cat.error) ? 'Falta ejecutar sql/01 (bloque 27: distribuidora).' : 'No se pudieron cargar los productos. Revisa la conexión.';
+                nota.textContent = distFaltaSql(cat.error) ? 'Falta instalar la base de datos (sql/instalacion).' : 'No se pudieron cargar los productos. Revisa la conexión.';
                 return;
             }
             distCat = cat;
@@ -1111,14 +1115,14 @@ registrarSeccion('pedidos', (zona) => {
     let rutaForm = null; // { km, minutos, aproximada } o null
     const inputRecoleccion = $('#pedRecoleccion');
     const inputDireccion = $('#pedDireccion');
-    const origenEsTienda = () => !usa('usa_recoleccion') || !inputRecoleccion.value.trim();
+    const origenEsTienda = () => !usa('usa_punto_partida') || !inputRecoleccion.value.trim();
     const tiendaForm = () => tiendaPorId(tiendaElegida()) || null;
     const textoTienda = () => { const t = tiendaForm() || {}; return t.direccion || ''; };
 
     // Campo A (como en el Cotizador). Sin recolección en la actividad: desactivado, A = la tienda.
     // Lo escrito se guarda aparte por si se vuelve a una actividad con recolección.
     function actualizarCampoA() {
-        const conRecoleccion = usa('usa_recoleccion');
+        const conRecoleccion = usa('usa_punto_partida');
         if (!conRecoleccion && inputRecoleccion.value) {
             inputRecoleccion.dataset.guardado = inputRecoleccion.value;
             inputRecoleccion.value = '';
@@ -1271,7 +1275,7 @@ registrarSeccion('pedidos', (zona) => {
         if (error) {
             console.error('Error al guardar la ubicación de la tienda:', error);
             aviso.mostrar(error.code === '42703'
-                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 9: ubicación de las tiendas).'
+                ? 'Falta instalar la base de datos (sql/instalacion).'
                 : 'No se pudo guardar la ubicación de la tienda.', 'error');
             return;
         }
@@ -1320,7 +1324,7 @@ registrarSeccion('pedidos', (zona) => {
             aviso.mostrar('No se pudo preparar el formulario. Revisa la conexión.', 'error');
             return;
         }
-        categorias = cat.data.filter((c) => empresaTieneActividad(c.actividad) && !esActividadDeViajes(c.actividad));
+        categorias = cat.data.filter((c) => empresaTieneActividad(c.actividad) && !esActividadSinPedidos(c.actividad));
         catalogo = catA.error ? [] : catA.data; // si falta la tabla, sin catálogo
         tamanos = tam.data;
         tarifas = tar.data;
@@ -1715,7 +1719,7 @@ registrarSeccion('pedidos', (zona) => {
                 console.error('Error al buscar clientes:', error);
                 cerrarResultadosCli();
                 mostrarEstadoCli(error.code === '42703'
-                    ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 11: clientes).'
+                    ? 'Falta instalar la base de datos (sql/instalacion).'
                     : 'No se pudo buscar. Revisa la conexión.');
             }
         }, CLI_PAUSA);
@@ -2434,7 +2438,7 @@ registrarSeccion('pedidos', (zona) => {
             if (ventana) ventana.close();
             console.error('Error al pedir la ubicación:', error);
             estadoUbicacion(error.code === 'P0001' ? error.message
-                : ['PGRST202', '42883'].includes(error.code) ? 'Falta ejecutar sql/01 (bloque 39: ubicación del cliente).'
+                : ['PGRST202', '42883'].includes(error.code) ? 'Falta instalar la base de datos (sql/instalacion).'
                     : 'No se pudo crear el enlace. Revisa la conexión.', 'error');
             return;
         }
@@ -2496,7 +2500,7 @@ registrarSeccion('pedidos', (zona) => {
         const { data: s, error } = await db.from('pedido_solicitudes').select('*').eq('id', id).maybeSingle();
         if (error || !s) {
             aviso.mostrar(!error ? 'No se encontró la solicitud.'
-                : faltaTabla(error) ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 23: solicitudes de envío).'
+                : faltaTabla(error) ? 'Falta instalar la base de datos (sql/instalacion).'
                     : 'No se pudo cargar la solicitud. Revisa la conexión.', 'error');
             return;
         }
@@ -2511,7 +2515,7 @@ registrarSeccion('pedidos', (zona) => {
         solicitudForm = s;
 
         // A primero: así, al cambiar de tienda, el punto de partida es la recolección (no la tienda)
-        inputRecoleccion.value = s.recoleccion_direccion;
+        inputRecoleccion.value = s.partida_direccion;
         if (s.tienda_id && tiendaElegida() !== s.tienda_id) {
             selTienda.value = String(s.tienda_id);
             await alCambiarTienda();
@@ -2521,7 +2525,7 @@ registrarSeccion('pedidos', (zona) => {
             radio.checked = true;
             alCambiarActividad();
         }
-        inputRecoleccion.value = s.recoleccion_direccion;
+        inputRecoleccion.value = s.partida_direccion;
         actualizarCampoA();
         inputDireccion.value = s.entrega_direccion;
 
@@ -2562,13 +2566,13 @@ registrarSeccion('pedidos', (zona) => {
         }
 
         // Referencias y nota del cliente
-        $('#pedNotas').value = [s.recoleccion_referencia ? `Recoger: ${s.recoleccion_referencia}` : null,
+        $('#pedNotas').value = [s.partida_referencia ? `Recoger: ${s.partida_referencia}` : null,
             s.entrega_referencia ? `Entregar: ${s.entrega_referencia}` : null, s.notas].filter(Boolean).join(' · ').slice(0, 300);
 
         // Puntos del mapa que marcó el cliente (ganan a cualquier búsqueda de dirección en curso)
         if (mapaRuta) {
             mapaRuta.etiquetas('Punto de partida', 'Entrega');
-            if (s.recoleccion_lat != null) mapaRuta.ponerA({ lat: Number(s.recoleccion_lat), lng: Number(s.recoleccion_lng) });
+            if (s.partida_lat != null) mapaRuta.ponerA({ lat: Number(s.partida_lat), lng: Number(s.partida_lng) });
             else mapaRuta.ubicarA();
             if (s.entrega_lat != null) mapaRuta.ponerB({ lat: Number(s.entrega_lat), lng: Number(s.entrega_lng) });
             else mapaRuta.ubicarB();
@@ -2664,7 +2668,7 @@ registrarSeccion('pedidos', (zona) => {
         if (solicitudForm) {
             detalle.solicitud = {
                 id: solicitudForm.id,
-                referencia_recoleccion: solicitudForm.recoleccion_referencia || null,
+                referencia_recoleccion: solicitudForm.partida_referencia || null,
                 referencia_entrega: solicitudForm.entrega_referencia || null,
             };
         }
@@ -2691,7 +2695,7 @@ registrarSeccion('pedidos', (zona) => {
             cliente_id: clienteId,
             cliente_nombre: $('#pedClienteNombre').value.trim(),
             cliente_telefono: datoConFormato('telefono', $('#pedClienteTelefono').value),
-            direccion_recoleccion: usa('usa_recoleccion') ? ($('#pedRecoleccion').value.trim() || null) : null,
+            direccion_partida: usa('usa_punto_partida') ? ($('#pedRecoleccion').value.trim() || null) : null,
             direccion_entrega: $('#pedDireccion').value.trim(),
             distancia_km: rutaForm ? rutaForm.km : null,
             recibe_tipo: autorizado ? 'autorizado' : 'cliente',
@@ -2814,8 +2818,11 @@ registrarSeccion('pedidos', (zona) => {
         // el pedido queda cancelado con el motivo y se avisa aquí mismo
         if (prod.error && prod.error.code === 'P0001') {
             console.error('Sin producto en la bodega:', prod.error);
-            await db.from('pedidos').update({ estado: 'cancelado', motivo_cancelacion: `No se registró: ${prod.error.message}` }).eq('id', data.id);
-            await registrarEvento(data.id, 'estado', { antes: estado, despues: 'cancelado', detalle: { motivo: prod.error.message } });
+            const can = await db.rpc('pedido_estado', { p: {
+                usuario_id: sesion.id, pedido_id: data.id, estado: 'cancelado', visto: estado,
+                motivo: `No se registró: ${prod.error.message}`, sin_productos: true,
+            } });
+            if (can.error) console.error('No se pudo cancelar el pedido sin producto:', can.error);
             formError.textContent = `${prod.error.message} El pedido ${data.codigo} quedó cancelado.`;
             boton.disabled = false;
             return;
@@ -2921,8 +2928,8 @@ registrarSeccion('pedidos', (zona) => {
             db.from('pedido_historial').select('evento, estado_anterior, estado_nuevo, detalle, usuario_id, usuario_nombre, creado_en').eq('pedido_id', id).order('creado_en'),
             db.from('pedido_entregas').select('*').eq('pedido_id', id).maybeSingle(),
             db.from('pedido_evidencias').select('tipo, url, creado_en, eliminada_en').eq('pedido_id', id).order('creado_en'),
-            db.rpc('marcas_del_dia', { p_fecha: data.fecha_entrega }),
-            db.rpc('slots_del_dia', { p_fecha: data.fecha_entrega }),
+            db.rpc('marcas_del_dia', { p_fecha: data.fecha_entrega, p_empresa: data.empresa_id }),
+            db.rpc('slots_del_dia', { p_fecha: data.fecha_entrega, p_empresa: data.empresa_id }),
             // Productos de la distribuidora (sql/01 bloque 27); sin la tabla, ninguno
             db.from('pedido_productos').select('id, presentacion_id, descripcion, cantidad, cantidad_entregada, motivo, precio, iva_pct')
                 .eq('pedido_id', id).order('id'),
@@ -3070,7 +3077,7 @@ registrarSeccion('pedidos', (zona) => {
         if (sol) dato(dl, 'Solicitado por el cliente', `S-${sol.id}`);
 
         dl = gDireccion;
-        dato(dl, 'Punto de partida', p.direccion_recoleccion);
+        dato(dl, 'Punto de partida', p.direccion_partida);
         // Puntos de referencia que dio el cliente, para el piloto
         if (sol) dato(dl, 'Referencia al recoger', sol.referencia_recoleccion);
         dato(dl, 'Entrega en', p.direccion_entrega);
@@ -3334,7 +3341,8 @@ registrarSeccion('pedidos', (zona) => {
     //   estados  -> en qué estados aparece | si(p) -> condición extra
     //   nuevo    -> estado al que pasa     | motivo -> 'requerido' / 'opcional'
     //
-    //   FLUJO DE DESPACHO (sql/00 sección 8 y sql/01 bloque 29; la hora de cada paso la guarda la base):
+    //   FLUJO DE DESPACHO (sql/instalacion/04_rutas_y_pedidos.sql: cada botón llama a pedido_estado o
+    //   pedido_asignar, que revisan quién puede y escriben el historial; de ahí sale la hora de cada paso):
     //     Alistando -> Listo para despachar (elige el slot; desde aquí lo ve el piloto) ->
     //     [piloto] Cargar con evidencia (foto, bultos, efectivo; js/carga-comun.js) = Cargado ->
     //     [piloto, en Inicio] Salir a ruta POR SLOT = En ruta (los listos sin cargar del slot
@@ -3531,17 +3539,16 @@ registrarSeccion('pedidos', (zona) => {
     // Recarga el detalle después de un cambio
     const recargarDetalle = () => abrirDetalle(pedido.id, false);
 
-    // Cambia el estado solo si el pedido sigue en el estado que se ve
-    // (si otra persona lo cambió mientras tanto, avisa en vez de pisarlo)
-    async function cambiarEstado(nuevo, cambios = {}, detalleEvento = {}) {
-        const antes = pedido.estado;
-        const { data, error } = await db.from('pedidos')
-            .update({ estado: nuevo, actualizado_en: new Date().toISOString(), ...cambios })
-            .eq('id', pedido.id).eq('estado', antes).select('id');
-        if (error) return error;
-        if (!data.length) return { mensajePropio: 'Otra persona cambió este pedido. Se recargó con los datos actuales.' };
-        const his = await registrarEvento(pedido.id, 'estado', { antes, despues: nuevo, detalle: detalleEvento });
-        return his.error || null;
+    // Cambia el estado con la base (pedido_estado, sql/instalacion/04_rutas_y_pedidos.sql): revisa
+    // quién puede y que el pedido siga en el estado que se ve (si otra persona lo cambió mientras
+    // tanto, avisa en vez de pisarlo), y escribe el historial.
+    // extra: { motivo, slot, cobro_forma, mayor_edad }
+    async function cambiarEstado(nuevo, extra = {}) {
+        const { error } = await db.rpc('pedido_estado', {
+            p: { usuario_id: sesion.id, pedido_id: pedido.id, estado: nuevo, visto: pedido.estado, ...extra },
+        });
+        if (!error) return null;
+        return error.hint === 'cambiado' ? { mensajePropio: error.message } : error;
     }
 
     // ---------- Ventana de confirmación (con motivo) ----------
@@ -3689,28 +3696,12 @@ registrarSeccion('pedidos', (zona) => {
             resultado = (await registrarEvento(pedido.id, 'solicitud_rechazada', { detalle: { motivo } })).error || null;
             if (!resultado) await cerrarSolicitud(false, motivo);
         } else {
-            const cambios = accion.nuevo === 'cancelado' ? { motivo_cancelacion: motivo } : {};
+            // Entregado: la base guarda además el cierre mínimo (pedido_entregas) con la forma de cobro
+            const extra = { motivo: motivo || null };
             const cobro = !$('#pedAccionCobroCaja').hidden && dlgAccion.querySelector('input[name="pedAccionCobro"]:checked');
-            if (cobro) cambios.cobro_forma = cobro.value;
-            const detalleEv = motivo ? (accion.motivo === 'requerido' ? { motivo } : { nota: motivo }) : {};
-            if (cobro) detalleEv.cobro = cobro.value;
-            resultado = await cambiarEstado(accion.nuevo, cambios, detalleEv);
-            // Base sin el bloque 24 (no existe cobro_forma): se marca igual, sin la forma de cobro
-            if (resultado && cambios.cobro_forma && ['42703', 'PGRST204'].includes(resultado.code)) {
-                delete cambios.cobro_forma;
-                resultado = await cambiarEstado(accion.nuevo, cambios, detalleEv);
-            }
-            // Entregado por el piloto desde el panel: se guarda un cierre mínimo
-            // (la app guardará además el QR / código, la satisfacción y las fotos)
-            if (!resultado && accion.id === 'entregado') {
-                const ent = await db.from('pedido_entregas').upsert({
-                    pedido_id: pedido.id, piloto_id: sesion.id || pedido.piloto_id,
-                    recibio_nombre: pedido.recibe_tipo === 'autorizado' ? pedido.recibe_nombre : pedido.cliente_nombre,
-                    confirma_mayor_edad: pedido.lleva_alcohol ? true : null,
-                    comentario: motivo || 'Marcado como entregado por el piloto desde el panel',
-                });
-                resultado = ent.error || null;
-            }
+            if (cobro) extra.cobro_forma = cobro.value;
+            if (!$('#pedAccionEdadCaja').hidden) extra.mayor_edad = $('#pedAccionEdad').checked;
+            resultado = await cambiarEstado(accion.nuevo, extra);
         }
 
         // Fotos: si el pedido no quedó entregado se borran; si quedó, se anotan en el pedido
@@ -3730,9 +3721,9 @@ registrarSeccion('pedidos', (zona) => {
         if (resultado) {
             console.error(`Error en la acción ${accion.id}:`, resultado);
             aviso.mostrar(resultado.mensajePropio
-                // Reglas de la base (ej. sql/01 bloque 38: sin escanear el QR no se marca entregado)
-                || (resultado.code === 'P0001' ? resultado.message
-                    : resultado.code === '23514' ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 12: despacho).'
+                // Reglas de la base (pedido_estado: quién puede, motivo, cobro; sin escanear el QR no se marca entregado)
+                || (['P0001', '42501'].includes(resultado.code) ? resultado.message
+                    : resultado.code === '23514' ? 'Falta instalar la base de datos (sql/instalacion).'
                         : 'No se pudo completar la acción. Intenta de nuevo.'), 'error');
         } else {
             aviso.mostrar(accion.id === 'rechazar_solicitud' ? 'Solicitud rechazada; se avisó a quien la pidió.'
@@ -3802,11 +3793,12 @@ registrarSeccion('pedidos', (zona) => {
             return;
         }
         $('#pedSlotSi').disabled = true;
-        const resultado = await cambiarEstado('listo_despacho', { slot_numero: slot }, { slot });
+        const resultado = await cambiarEstado('listo_despacho', { slot });
         $('#pedSlotSi').disabled = false;
         if (resultado) {
             console.error('Error al marcar listo para despachar:', resultado);
-            $('#pedSlotError').textContent = resultado.mensajePropio || 'No se pudo guardar. Intenta de nuevo.';
+            $('#pedSlotError').textContent = resultado.mensajePropio
+                || (['P0001', '42501'].includes(resultado.code) ? resultado.message : 'No se pudo guardar. Intenta de nuevo.');
             return;
         }
         dlgSlot.close();
@@ -3932,29 +3924,19 @@ registrarSeccion('pedidos', (zona) => {
         const reprograma = modo === 'reprogramar' || (modo === 'aplicar' && PED_POR_REPROGRAMAR.includes(pedido.estado));
         // Piloto vacío = el de la ruta esa fecha
         const piloto = pilotoManual || await pilotoAutomatico(ruta, fecha, pedido.id);
-        const act = actividadPorCodigo(pedido.actividad);
-        let nuevo = pedido.estado;
-        if (reprograma) nuevo = 'reprogramado';
-        else if (piloto && ['registrado', 'recibido_bodega'].includes(pedido.estado)) nuevo = 'asignado';
-        else if (!piloto && pedido.estado === 'asignado') nuevo = act.usa_bodega ? 'recibido_bodega' : 'registrado';
 
         const motivoFinal = motivo || (modo === 'aplicar' && solicitud ? `Solicitado por ${solicitud.usuario_nombre || 'Admin G3'}: ${(solicitud.detalle || {}).motivo || ''}` : '');
-        const cambios = { fecha_entrega: fecha, marca_numero: marca, piloto_id: piloto, actualizado_en: new Date().toISOString() };
-        if (rutas.length) cambios.ruta_id = ruta; // la columna existe si la base tiene rutas
-        const antes = pedido.estado;
-        const upd = await db.from('pedidos').update({ ...cambios, estado: nuevo }).eq('id', pedido.id).eq('estado', antes).select('id');
-        let fallo = upd.error || (!upd.data.length ? { mensajePropio: 'Otra persona cambió este pedido. Se recargó con los datos actuales.' } : null);
-        if (!fallo) {
-            const his = await registrarEvento(pedido.id, reprograma ? 'reprogramado' : 'asignado', {
-                antes, despues: nuevo,
-                detalle: {
-                    fecha, marca, ruta: nombreRuta(ruta) || undefined,
-                    piloto: piloto ? `${nombrePiloto(piloto) || ''}${pilotoManual ? '' : ' (de la ruta)'}` : 'Sin piloto',
-                    motivo: motivoFinal || undefined,
-                },
-            });
-            fallo = his.error || null;
-        }
+        // La base (pedido_asignar) revisa quién puede, calcula el estado nuevo (Asignado, Registrado /
+        // En bodega o Reprogramado) y escribe el historial
+        const datosAsig = {
+            usuario_id: sesion.id, pedido_id: pedido.id, visto: pedido.estado, fecha, marca, piloto_id: piloto,
+            de_ruta: !!piloto && !pilotoManual, reprogramar: reprograma, motivo: motivoFinal || null,
+        };
+        if (rutas.length) datosAsig.ruta_id = ruta; // sin rutas en la empresa, no se toca
+        const asig = await db.rpc('pedido_asignar', { p: datosAsig });
+        const fallo = !asig.error ? null
+            : asig.error.hint === 'cambiado' || ['P0001', '42501'].includes(asig.error.code) ? { ...asig.error, mensajePropio: asig.error.message }
+                : asig.error;
         // Cualquier asignación cierra la solicitud pendiente del G3 (se le avisa)
         if (!fallo && solicitud) await cerrarSolicitud(true);
 
@@ -4244,16 +4226,16 @@ registrarSeccion('pedidos', (zona) => {
                     : `El pedido ${p.codigo} está "${(PED_ESTADOS[p.estado] || {}).texto || p.estado}": no se puede cargar.`, 'error');
                 return;
             }
-            // Solo si sigue "Recibido para ruta" (si otro ya lo escaneó, no se repite)
-            const upd = await db.from('pedidos')
-                .update({ estado: 'cargado', cargado_por: sesion.id || null, actualizado_en: new Date().toISOString() })
-                .eq('id', p.id).eq('estado', 'recibido_ruta').select('id');
-            if (upd.error) throw upd.error;
-            if (!upd.data.length) {
+            // Solo si sigue "Recibido para ruta" (si otro ya lo escaneó, no se repite). La base
+            // (pedido_estado) guarda quién lo aprobó y el historial (de ahí sale la hora de carga)
+            const upd = await db.rpc('pedido_estado', { p: {
+                usuario_id: sesion.id, pedido_id: p.id, estado: 'cargado', visto: 'recibido_ruta',
+            } });
+            if (upd.error && upd.error.hint === 'cambiado') {
                 mostrarEstadoEscaner(`El pedido ${p.codigo} ya lo cargó otra persona.`, 'ok');
                 return;
             }
-            await registrarEvento(p.id, 'escaneo', { antes: 'recibido_ruta', despues: 'cargado', detalle: { slot: p.slot_numero } });
+            if (upd.error) throw upd.error;
 
             // Cómo va el slot: cuántos de sus pedidos ya están cargados
             let avance = '';
@@ -4279,9 +4261,9 @@ registrarSeccion('pedidos', (zona) => {
             setTimeout(() => { if (dlgEscaner.open) dlgEscaner.close(); }, 1800);
         } catch (e) {
             console.error('Error al cargar el pedido escaneado:', e);
-            mostrarEstadoEscaner(e && e.code === '23514'
-                ? 'Falta ejecutar sql/01_actualizacion_base_existente.sql (bloque 12: despacho).'
-                : 'No se pudo cargar. Revisa la conexión e intenta de nuevo.', 'error');
+            mostrarEstadoEscaner(e && ['P0001', '42501'].includes(e.code) ? e.message
+                : e && ['23514', 'PGRST202'].includes(e.code) ? 'Falta instalar la base de datos (sql/instalacion).'
+                    : 'No se pudo cargar. Revisa la conexión e intenta de nuevo.', 'error');
         } finally {
             procesando = false;
         }

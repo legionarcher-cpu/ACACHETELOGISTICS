@@ -32,14 +32,15 @@ js/
   ubicacion.js             GPS del piloto en ruta cada 2 min (piloto_ubicacion, sql/01 bloque 25)
   date.js                  Fecha y hora del encabezado
   menu-usuario.js          Menú desplegable del usuario y cerrar sesión
+  soporte.js               Aviso (en la campana) y llave de soporte del Desarrollador (Etapa 2C)
   menu-animado.js          Entrada en cascada del menú
   secciones/<nombre>.js    Lógica de cada sección
   secciones/configuracion/ Módulos grandes de Configuración (pedidos.js, actividades.js)
 responsive/                Tablet y celular (responsive.css + responsive.js)
 python/                    Scripts de Python (ver 09-python.md)
 herramientas/              empresas.bat (empresas/marcas: nueva, base, paleta, logos, activa),
-                           vaciar_base_datos.sql (pide la empresa), prueba_logica_viajes.html
-sql/                       Scripts de la base de datos (ver 05-base-de-datos.md)
+                           prueba_logica_viajes.html
+sql/                       instalacion/ (por módulo), actualizaciones/ (con fecha), historial/ (ver sql/LEEME.md)
 img/                       Logos e imágenes
 docs/                      Esta documentación
 ```
@@ -52,7 +53,7 @@ docs/                      Esta documentación
 3. **`js/sesion.js`** (sin `defer`) + un script en línea: si no hay sesión pone `<html class="sin-sesion">`,
    si hay pone `<html data-rol="...">` (el CSS oculta cosas según eso).
 4. Con `defer`, en este orden: supabase-js (CDN) → `supabase.js` → `avatar.js` → `componentes.js` →
-   `palabras.js` → `mapa.js` → `notificaciones.js` → `ubicacion.js` → `qr.js` → `viajes-comun.js` → `distribucion-comun.js` → `permisos.js` → `date.js` → `menu-usuario.js` → `menu-animado.js` →
+   `palabras.js` → `mapa.js` → `notificaciones.js` → `ubicacion.js` → `qr.js` → `viajes-comun.js` → `distribucion-comun.js` → `permisos.js` → `date.js` → `menu-usuario.js` → `soporte.js` → `menu-animado.js` →
    `pagina_inicial.js` (último) → `responsive/responsive.js`.
 
 ## Cargador de secciones (`js/pagina_inicial.js`)
@@ -85,24 +86,27 @@ Funciones que usan otros archivos: `irA(nombre)`, `mostrarSeccionActual()`, `lim
 ## Sesión y permisos (`js/sesion.js`, `js/permisos.js`)
 
 - La sesión se guarda en `sessionStorage` (se borra al cerrar la pestaña):
-  `{ id, usuario, nombre, rol, tienda: {id, codigo, nombre}|null, region, permisos, foto_url }`.
+  `{ id, usuario, nombre, rol, tienda: {id, codigo, nombre}|null, region, funciones, foto_url, empresa, cliente_id }`.
 - Funciones: `obtenerSesion()`, `guardarSesion()`, `cerrarSesion()`, `rolActual()`, `esAdministrador()`,
   `esAdminG1()`, `esAdminG2()`, `esAdminG3()`, `tiendaActual()`, `regionActual()`, `tienePermiso(seccion)`.
 - Qué secciones abre cada rol:
   - `SECCIONES_LIBRES`: `inicio`, `perfil` (todos).
   - `SECCIONES_POR_ROL`: el piloto **solo** `inicio` y `pedidos`.
   - `SECCIONES_BLOQUEADAS_POR_ROL`: el empleado **no** `usuarios`, `pilotos`, `reportes`, `rutas`.
-  - `USAR_PERMISOS = true`: dentro de lo que permite su rol, cada usuario entra solo a los módulos y hace solo
-    las funciones marcadas en Usuarios → "Módulos y funciones" (columna `permisos`; `MODULOS_USUARIO`;
-    `puedeHacer('pedidos.alistar')`). Vacía o `{*}` = todo; el Administrador y el Desarrollador no se limitan.
-    Al abrir la página se vuelven a leer (`js/permisos.js`).
+  - Módulos y funciones de cada usuario (Usuarios → "Módulos y funciones"): los dice la base (tablas `funciones`
+    y `usuario_funciones`; `mis_funciones()` → `sesion.funciones`) y cada sección pregunta con
+    `puedeHacer('pedidos.alistar', loQueDaSuRol)`. Los de arriba (`SECCIONES_POR_ROL`...) quedan de respaldo si
+    la base no respondió. El Administrador y el Desarrollador no se limitan. Al abrir la página se vuelven a
+    leer (`js/permisos.js`).
 - `aplicarPermisos()` (permisos.js) se llama al abrir, al iniciar y al cerrar sesión: pone el nombre y la
   foto, enciende/apaga la campana y bloquea con candado las secciones sin permiso.
 - **Dentro de cada sección**, lo que ve y hace cada rol lo decide su propio JS (ver
   [06-roles-y-permisos.md](06-roles-y-permisos.md)).
 
-⚠ Todo esto es **protección visual**: la base de datos hoy acepta todo con la clave pública.
-La protección real es la Fase 7 ([12-pendientes.md](12-pendientes.md)).
+Esto decide lo que la página **muestra**. La protección real la hace la base desde la Etapa 2A (2026-10-21): login con
+Supabase Auth y reglas RLS. Sin sesión no se ve nada, cada empresa ve solo lo suyo, el cliente solo lo suyo y nadie se
+sube de rol ([05-base-de-datos.md](05-base-de-datos.md), "Acceso"). Desde la Etapa 2B la base también aplica el
+alcance de pedidos y cajas (región, tienda, sus pedidos) y quién cambia cada catálogo según sus funciones.
 
 ## Funciones comunes (`js/componentes.js`)
 

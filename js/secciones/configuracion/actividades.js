@@ -32,11 +32,12 @@
 // Lo que puede usar una actividad (columnas usa_* de la tabla actividades) y su texto corto
 const ACT_USOS = {
     usa_bodega:      'Bodega',
-    usa_recoleccion: 'Punto de partida',
+    usa_punto_partida: 'Punto de partida',
     usa_tamanos:     'Tamaños',
     usa_compra:      'Compra',
     permite_alcohol: 'Alcohol',
-    usa_viajes:      'Viajes con agenda', // sql/01 bloque 19: sección Viajes en vez de Pedidos
+    usa_viajes:      'Viajes con agenda',        // sección Viajes en vez de Pedidos
+    usa_recolecciones: 'Recolecciones con agenda', // sección Recolecciones en vez de Pedidos
 };
 
 // Partes que se ven en todo el sistema (sql/01 bloque 26; empresas/empresas.js: empresaUsa).
@@ -124,7 +125,7 @@ registrarModuloConfig('actividades', (seccion, ctx) => {
         faltaSql.hidden = true;
         // Todas: las actividades son del sistema. Se marca cuáles realiza la empresa.
         actividades = act.data;
-        if (!tieneUsos) aviso.mostrar('Falta ejecutar sql/01_actualizacion_base_existente.sql en Supabase para elegir qué usa cada actividad.', 'error');
+        if (!tieneUsos) aviso.mostrar('Falta instalar la base de datos (sql/instalacion) para elegir qué usa cada actividad.', 'error');
         dibujar();
     }
 
