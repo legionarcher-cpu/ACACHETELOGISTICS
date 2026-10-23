@@ -166,7 +166,8 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
             tr.appendChild(crearCelda(f.nombre || '—'));
             tr.appendChild(crearCelda(textoDias(f.dias)));
             tr.appendChild(crearCelda(textoHorario(f)));
-            tr.appendChild(crearCelda([`${dinero(f.precio_km)} por km`, Number(f.cargo_base) ? `base ${dinero(f.cargo_base)}` : null,
+            tr.appendChild(crearCelda([`${dinero(f.precio_km)} por km`,
+                f.precio_km_extra != null ? `después de ${VIA_KM_TRAMO} km ${dinero(f.precio_km_extra)}` : null,
                 Number(f.minimo) ? `mínimo ${dinero(f.minimo)}` : null].filter(Boolean).join(' · ')));
             tr.appendChild(celdaMargen(f));
             tr.appendChild(f.activa ? crearCeldaEtiqueta('Activa', 'etiqueta-verde') : crearCeldaEtiqueta('Inactiva', 'etiqueta-gris'));
@@ -191,7 +192,7 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
 
     const camposFranja = {
         nombre: $('#cfgTraFrNombre'), desde: $('#cfgTraFrDesde'), hasta: $('#cfgTraFrHasta'),
-        precio_km: $('#cfgTraFrPrecioKm'), cargo_base: $('#cfgTraFrBase'), minimo: $('#cfgTraFrMinimo'), activa: $('#cfgTraFrActiva'),
+        precio_km: $('#cfgTraFrPrecioKm'), precio_km_extra: $('#cfgTraFrPrecioExtra'), minimo: $('#cfgTraFrMinimo'), activa: $('#cfgTraFrActiva'),
     };
 
     function abrirFranja(f = null) {
@@ -202,7 +203,7 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
         camposFranja.desde.value = f ? viaHHMM(f.desde) : '06:00';
         camposFranja.hasta.value = f ? viaHHMM(f.hasta) : '22:00';
         camposFranja.precio_km.value = f ? f.precio_km : '';
-        camposFranja.cargo_base.value = f ? f.cargo_base : '0';
+        camposFranja.precio_km_extra.value = f && f.precio_km_extra != null ? f.precio_km_extra : '';
         camposFranja.minimo.value = f ? f.minimo : '0';
         camposFranja.activa.checked = f ? f.activa : true;
         const dias = f ? f.dias.map(Number) : [1, 2, 3, 4, 5, 6];
@@ -212,18 +213,20 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
         camposFranja.nombre.focus();
     }
 
-    // "Lun a Sáb de 06:00 a 22:00: ₡350 por km · mínimo ₡2000. Ej.: 10 km = ₡3500"
+    // "Lun a Sáb de 06:00 a 22:00: ₡350 por km · después de 16 km ₡300 · mínimo ₡2000. Ej.: 10 km = ₡3500 · 20 km = ₡6800"
     function franjaEnPalabras() {
+        const extra = camposFranja.precio_km_extra.value.trim();
         const f = {
             dias: diasElegidos(), desde: camposFranja.desde.value, hasta: camposFranja.hasta.value,
-            precio_km: Number(camposFranja.precio_km.value) || 0, cargo_base: Number(camposFranja.cargo_base.value) || 0,
+            precio_km: Number(camposFranja.precio_km.value) || 0, precio_km_extra: extra === '' ? null : Number(extra) || 0,
             minimo: Number(camposFranja.minimo.value) || 0,
         };
         const p = $('#cfgTraFrPalabras');
         if (!f.dias.length || !f.desde || !f.hasta) { p.textContent = 'Elige los días y el horario.'; return; }
-        p.textContent = `${textoDias(f.dias)} de ${f.desde} a ${f.hasta}: `
-            + `${f.cargo_base ? `${dinero(f.cargo_base)} + ` : ''}${dinero(f.precio_km)} por km`
+        p.textContent = `${textoDias(f.dias)} de ${f.desde} a ${f.hasta}: ${dinero(f.precio_km)} por km`
+            + `${f.precio_km_extra != null ? ` · después de ${VIA_KM_TRAMO} km ${dinero(f.precio_km_extra)} por km` : ''}`
             + `${f.minimo ? ` · mínimo ${dinero(f.minimo)}` : ''}. Ej.: 5 km = ${dinero(precioFranja(f, 5, config))} · 10 km = ${dinero(precioFranja(f, 10, config))}`
+            + ` · 20 km = ${dinero(precioFranja(f, 20, config))}`
             + `${Number(config.redondeo) ? ` (redondeado a ${dinero(config.redondeo)})` : ''}.`;
     }
     $('#cfgTraFranjaForm').addEventListener('input', franjaEnPalabras);
@@ -239,13 +242,14 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
         const numero = (c) => (c.value.trim() === '' ? 0 : Number(c.value));
         const datos = {
             nombre: camposFranja.nombre.value.trim() || null, dias, desde, hasta,
-            precio_km: numero(camposFranja.precio_km), cargo_base: numero(camposFranja.cargo_base), minimo: numero(camposFranja.minimo),
+            precio_km: numero(camposFranja.precio_km), minimo: numero(camposFranja.minimo),
+            precio_km_extra: camposFranja.precio_km_extra.value.trim() === '' ? null : Number(camposFranja.precio_km_extra.value),
             activa: camposFranja.activa.checked,
         };
         if (!dias.length) { error.textContent = 'Marca al menos un día.'; return; }
         if (!desde || !hasta || hasta <= desde) { error.textContent = 'La hora "Hasta" debe ser después de "Desde".'; return; }
         if (camposFranja.precio_km.value.trim() === '') { error.textContent = 'Escribe el precio por km (puede ser 0 si solo cobras el mínimo).'; return; }
-        if ([datos.precio_km, datos.cargo_base, datos.minimo].some((n) => !Number.isFinite(n) || n < 0)) { error.textContent = 'Los montos deben ser números mayores o iguales a 0.'; return; }
+        if ([datos.precio_km, datos.precio_km_extra ?? 0, datos.minimo].some((n) => !Number.isFinite(n) || n < 0)) { error.textContent = 'Los montos deben ser números mayores o iguales a 0.'; return; }
         // Aviso inmediato si se encima con otra (la base también lo revisa)
         const choca = datos.activa && franjas.find((f) => f.activa && (!editandoFranja || f.id !== editandoFranja.id)
             && f.dias.some((d) => dias.includes(Number(d))) && viaHHMM(f.desde) < hasta && viaHHMM(f.hasta) > desde);

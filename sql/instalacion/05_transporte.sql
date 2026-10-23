@@ -67,17 +67,23 @@ create table if not exists public.transporte_franjas (
     dias        smallint[] not null,
     desde       time not null,
     hasta       time not null,
-    cargo_base  numeric(10,2) not null default 0,
-    precio_km   numeric(10,2) not null default 0,
-    minimo      numeric(10,2) not null default 0,
-    activa      boolean not null default true,
-    creado_en   timestamptz not null default now(),
+    precio_km       numeric(10,2) not null default 0,  -- hasta el km 16
+    precio_km_extra numeric(10,2),                     -- cada km después del 16 (null = el mismo precio_km)
+    minimo          numeric(10,2) not null default 0,
+    activa          boolean not null default true,
+    creado_en       timestamptz not null default now(),
 
     constraint franjas_horas_validas   check (hasta > desde),
-    constraint franjas_dias_validos    check (cardinality(dias) > 0 and dias <@ array[1, 2, 3, 4, 5, 6, 7]::smallint[]),
-    constraint franjas_valores_validos check (cargo_base >= 0 and precio_km >= 0 and minimo >= 0)
+    constraint franjas_dias_validos    check (cardinality(dias) > 0 and dias <@ array[1, 2, 3, 4, 5, 6, 7]::smallint[])
 );
 create index if not exists transporte_franjas_empresa_idx on public.transporte_franjas (empresa_id);
+
+-- Base ya instalada: precio por km después de los 16 km; ya no hay "cargo base"
+alter table public.transporte_franjas add column if not exists precio_km_extra numeric(10,2);
+alter table public.transporte_franjas drop constraint if exists franjas_valores_validos;
+alter table public.transporte_franjas drop column if exists cargo_base;
+alter table public.transporte_franjas add constraint franjas_valores_validos
+    check (precio_km >= 0 and minimo >= 0 and (precio_km_extra is null or precio_km_extra >= 0));
 
 -- Dos franjas activas no pueden cubrir la misma hora del mismo día
 create or replace function public.franjas_sin_encimar()
@@ -324,7 +330,8 @@ end;
 $$;
 
 -- Precio del viaje (jsonb con el desglose) o null si a esa hora no hay franja:
---   viaje = máximo(mínimo, cargo base + km × precio por km), redondeado hacia arriba
+--   viaje = máximo(mínimo, hasta 16 km × precio por km + km después del 16 × precio extra),
+--           redondeado hacia arriba (sin precio extra: el mismo precio por km)
 --   recargos = pasajeros adicionales + mercadería + mascotas (montos fijos)
 --   total = viaje (0 si es cortesía) + recargos
 create or replace function public.viaje_precio(p_empresa bigint, p_inicio timestamptz, p_km numeric,
@@ -337,6 +344,7 @@ as $$
 declare
     c       public.transporte_config;
     f       public.transporte_franjas;
+    v_tramo constant numeric := 16; -- desde aquí cada km se cobra a precio_km_extra
     v_viaje numeric;
     r_pas   numeric;
     r_merc  numeric;
@@ -347,7 +355,8 @@ begin
     if f.id is null then
         return null;
     end if;
-    v_viaje := greatest(f.minimo, f.cargo_base + coalesce(p_km, 0) * f.precio_km);
+    v_viaje := greatest(f.minimo, least(coalesce(p_km, 0), v_tramo) * f.precio_km
+        + greatest(coalesce(p_km, 0) - v_tramo, 0) * coalesce(f.precio_km_extra, f.precio_km));
     if coalesce(c.redondeo, 0) > 0 then
         v_viaje := ceil(v_viaje / c.redondeo) * c.redondeo;
     end if;
@@ -357,7 +366,7 @@ begin
     return jsonb_build_object(
         'franja_id', f.id,
         'franja', coalesce(f.nombre, to_char(f.desde, 'HH24:MI') || '–' || to_char(f.hasta, 'HH24:MI')),
-        'precio_km', f.precio_km, 'cargo_base', f.cargo_base, 'minimo', f.minimo, 'km', p_km,
+        'precio_km', f.precio_km, 'precio_km_extra', f.precio_km_extra, 'km_tramo', v_tramo, 'minimo', f.minimo, 'km', p_km,
         'viaje', v_viaje, 'cortesia', coalesce(p_cortesia, false),
         'recargo_pasajeros', r_pas, 'recargo_mercaderia', r_merc, 'recargo_mascotas', r_masc,
         'recargos', r_pas + r_merc + r_masc,

@@ -177,7 +177,8 @@ Configuración → **Franjas y precio** (Admin y G1). Ejemplo:
 | 19:00–22:00 (noche) | L–S | ₡500 | ₡3 000 |
 
 ```
-viaje = máximo(mínimo, cargo base + km × precio por km de la franja)
+viaje = máximo(mínimo, hasta 16 km × precio por km + km después del 16 × precio por km extra)
+        (precio extra vacío = el mismo precio por km; ya no hay "cargo base")
 recargos = pasajeros adicionales × monto + mercadería (monto por viaje) + mascotas × monto
 total = viaje + recargos
         → con cortesía: viaje = ₡0 (los recargos se cobran igual)

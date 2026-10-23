@@ -194,9 +194,16 @@ function textoDias(dias) {
 const viaHHMM = (hora) => String(hora || '').slice(0, 5);
 const nombreFranja = (f) => f.nombre || `${viaHHMM(f.desde)}–${viaHHMM(f.hasta)}`;
 
-// Precio del viaje en una franja (sin recargos): máximo(mínimo, base + km × precio), redondeado hacia arriba
+// Km hasta donde se cobra el "Precio por km"; después, el precio extra de la franja (igual que viaje_precio, sql 05)
+const VIA_KM_TRAMO = 16;
+
+// Precio del viaje en una franja (sin recargos), redondeado hacia arriba:
+//   máximo(mínimo, hasta 16 km × precio por km + km después del 16 × precio extra (o el mismo))
 function precioFranja(f, km, config = VIA_CONFIG_BASE) {
-    let precio = Math.max(Number(f.minimo || 0), Number(f.cargo_base || 0) + Number(km || 0) * Number(f.precio_km || 0));
+    const k = Number(km || 0);
+    const extra = f.precio_km_extra == null || f.precio_km_extra === '' ? Number(f.precio_km || 0) : Number(f.precio_km_extra);
+    let precio = Math.max(Number(f.minimo || 0),
+        Math.min(k, VIA_KM_TRAMO) * Number(f.precio_km || 0) + Math.max(k - VIA_KM_TRAMO, 0) * extra);
     const redondeo = Number(config.redondeo || 0);
     if (redondeo > 0) precio = Math.ceil(precio / redondeo) * redondeo;
     return precio;

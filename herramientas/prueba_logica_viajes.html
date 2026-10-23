@@ -27,10 +27,14 @@ const r = [];
 const ok = (n, c, v) => r.push(`${c ? 'OK   ' : 'MAL  '}${n}${c ? '' : `  -> ${JSON.stringify(v)}`}`);
 
 // Franjas y recargos
-const f = { minimo: 2500, cargo_base: 0, precio_km: 450 };
+const f = { minimo: 2500, precio_km: 450, precio_km_extra: null };
 ok('precio 3 km = mínimo 2500', precioFranja(f, 3, { redondeo: 100 }) === 2500, precioFranja(f, 3, { redondeo: 100 }));
 ok('precio 12 km = 5400', precioFranja(f, 12, { redondeo: 100 }) === 5400, precioFranja(f, 12, { redondeo: 100 }));
 ok('precio 12.3 km se redondea a 5600', precioFranja(f, 12.3, { redondeo: 100 }) === 5600, precioFranja(f, 12.3, { redondeo: 100 }));
+ok('sin precio extra: 20 km = 9000', precioFranja(f, 20, { redondeo: 100 }) === 9000, precioFranja(f, 20, { redondeo: 100 }));
+const fx = { ...f, precio_km_extra: 300 };
+ok('con extra 300: 20 km = 16×450 + 4×300 = 8400', precioFranja(fx, 20, { redondeo: 100 }) === 8400, precioFranja(fx, 20, { redondeo: 100 }));
+ok('con extra: 10 km no cambia (4500)', precioFranja(fx, 10, { redondeo: 100 }) === 4500, precioFranja(fx, 10, { redondeo: 100 }));
 const rec = recargosViaje({ personas: 3, mascotas: 1, mercaderia: true },
     { pasajeros_incluidos: 1, recargo_pasajero: 500, recargo_mercaderia: 1000, recargo_mascota: 700 });
 ok('recargos 2 × 500 + 1000 + 700 = 2700', rec.total === 2700, rec);

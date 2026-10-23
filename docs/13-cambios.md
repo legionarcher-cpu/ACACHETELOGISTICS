@@ -2,6 +2,16 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-22 · Transporte: precio por km después de 16 km; sin "Cargo base"
+
+SQL: ejecutar **`05_transporte.sql`**. Ctrl+F5 (versión `20261022i`).
+
+- Cada franja tiene **"Precio por km después de 16 km"** (`transporte_franjas.precio_km_extra`). Hasta el km 16 se
+  cobra el "Precio por km"; cada km después, el extra. Vacío = el mismo precio. Los 16 km son fijos
+  (`viaje_precio` en 05 y `VIA_KM_TRAMO` en `js/viajes-comun.js`).
+- Se quitó el **"Cargo base"** del formulario, del cálculo y de la base (`drop column cargo_base`).
+- La vista previa de la franja muestra también el ejemplo de 20 km.
+
 ## 2026-10-22 · Viajes: la imagen del QR llega por WhatsApp
 
 Sin SQL. Ctrl+F5 (versión `20261022h`).
