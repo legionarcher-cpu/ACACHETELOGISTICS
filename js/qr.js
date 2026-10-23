@@ -21,6 +21,10 @@
                                      puede marcar, con el botón "Validar y
                                      marcar" (validar_y_marcar_piloto): queda
                                      validado y marcado en un solo paso.
+     ACACHETE-VIAJE:<token>           QR del viaje (viajes.token_qr; se comparte con la
+                                     confirmación). El CONDUCTOR del viaje lo escanea al
+                                     recoger al cliente: el viaje pasa a "En curso" (A bordo).
+                                     El personal lo escanea y se abre el viaje en Viajes.
 
    Funciones que usan las secciones:
      escanearQrGeneral()            -> botón "Escanear QR" del encabezado
@@ -35,7 +39,7 @@
 
 const QR_LIB_DIBUJAR = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
 const QR_LIB_LEER = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
-const QR_PREFIJO = { pedido: 'ACACHETE-PEDIDO:', tienda: 'ACACHETE-TIENDA:', piloto: 'ACACHETE-PILOTO:' };
+const QR_PREFIJO = { pedido: 'ACACHETE-PEDIDO:', tienda: 'ACACHETE-TIENDA:', piloto: 'ACACHETE-PILOTO:', viaje: 'ACACHETE-VIAJE:' };
 
 // Texto y color de cada estado del pedido (los mismos de js/secciones/pedidos.js)
 const QR_ESTADOS = {
@@ -347,8 +351,8 @@ function escanearQrGeneral() {
     abrirLectorQr({
         titulo: 'Escanear QR',
         ayuda: piloto
-            ? 'Escanea el QR de marcas de la tienda (para marcar tu llegada) o el QR de un pedido.'
-            : 'Escanea el QR del día de un piloto (para validarlo y marcar su llegada) o el QR de un pedido.',
+            ? 'Escanea el QR de marcas de la tienda (para marcar tu llegada), el QR de un pedido o el de un viaje (cliente a bordo).'
+            : 'Escanea el QR del día de un piloto (para validarlo y marcar su llegada), el QR de un pedido o el de un viaje.',
         alLeer: qrLeerGeneral,
     });
 }
@@ -357,7 +361,27 @@ async function qrLeerGeneral(texto) {
     if (texto.startsWith(QR_PREFIJO.pedido)) return qrLeerPedido(texto.slice(QR_PREFIJO.pedido.length));
     if (texto.startsWith(QR_PREFIJO.tienda)) return qrLeerMarca(texto);
     if (texto.startsWith(QR_PREFIJO.piloto)) return qrLeerPiloto(texto.slice(QR_PREFIJO.piloto.length));
+    if (texto.startsWith(QR_PREFIJO.viaje)) return qrLeerViaje(texto.slice(QR_PREFIJO.viaje.length));
     return { tipo: 'error', mensaje: 'Ese QR no es del sistema.' };
+}
+
+// ---------- QR del VIAJE ----------
+//   El conductor del viaje (confirmado o en camino) lo escanea al recoger al cliente: pasa a
+//   "En curso" (viajes_avanzar, sql/instalacion/05). Cualquier otro caso: se abre el viaje.
+async function qrLeerViaje(token) {
+    if (!/^[0-9a-f-]{36}$/i.test(token)) return { tipo: 'error', mensaje: 'Ese QR de viaje no es válido.' };
+    const { data, error } = await db.from('viajes').select('id, codigo, estado, conductor_id').eq('token_qr', token).maybeSingle();
+    if (error || !data) return { tipo: 'error', mensaje: 'No se encontró ese viaje (o no tienes acceso a él).' };
+    const s = obtenerSesion() || {};
+    let mensaje = '';
+    if (rolActual() === 'piloto' && data.conductor_id === s.id && ['confirmado', 'en_camino'].includes(data.estado)) {
+        const r = await db.rpc('viajes_avanzar', { p_viaje: data.id, p_usuario: s.id, p_estado: 'en_curso' });
+        if (r.error) return { tipo: 'error', mensaje: r.error.code === 'P0001' ? r.error.message : 'No se pudo marcar "A bordo". Revisa la conexión.' };
+        mensaje = `✔ ${data.codigo}: cliente a bordo, viaje en curso.`;
+    }
+    window.dispatchEvent(new CustomEvent('acachete:viaje', { detail: { id: data.id } })); // Viajes recarga la lista
+    location.hash = `viajes?id=${data.id}`;
+    return { tipo: 'ok', mensaje: mensaje || `Viaje ${data.codigo}.`, cerrar: mensaje ? 1500 : 300 };
 }
 
 // ---------- QR del PEDIDO: ventana con toda la información ----------

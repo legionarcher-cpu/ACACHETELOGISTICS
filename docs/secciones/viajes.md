@@ -14,9 +14,12 @@ Solo aparece si la empresa hace **viajes** (actividad con `usa_viajes`, ej. Tran
 
 | Quién | Ve | Puede |
 |---|---|---|
-| **Cliente** (rol `cliente`) | Sus próximos viajes y los anteriores, su cortesía, Casa y Trabajo | Solicitar, cambiar la hora y cancelar hasta `cancelar_horas` antes |
-| **Conductor** (rol `piloto` con vehículo) | Sus viajes del día | "Voy en camino" → "A bordo" → "Terminar" · "No se presentó" · "Ir a A / B" (Google Maps) |
-| **Personal** (Administrador, G1, G2, G3, Empleado) | Agenda del día: resumen, filtros por estado, vehículo y texto | Solicitar para un cliente (paso 0), cambiar la hora, cancelar y avanzar el estado |
+| **Cliente** (rol `cliente`) | Sus próximos viajes y los anteriores, su cortesía, Casa y Trabajo | Solicitar, cambiar la hora y cancelar hasta `cancelar_horas` antes · "Mi QR" para mostrarlo al subir |
+| **Conductor** (rol `piloto` con vehículo) | Sus viajes del día | Aceptar / Rechazar → "Enviar confirmación" (QR + mensaje) → "Voy en camino" → "Escanear QR" del cliente (o "A bordo") → "Terminar" · "No se presentó" · "Ir a A / B" (Google Maps) |
+| **Personal** (Administrador, G1, G2, G3, Empleado) | Agenda del día: resumen, filtros por estado, vehículo y texto | Solicitar para un cliente (paso 0), cambiar la hora, cancelar, avanzar el estado y reenviar el QR |
+
+**QR del viaje:** cada viaje tiene uno único (`viajes.token_qr`, texto `ACACHETE-VIAJE:<token>`, sin datos personales).
+Se comparte como imagen con la confirmación. Al escanearlo el conductor del viaje, pasa a "En curso".
 
 Parámetros: `#viajes?nuevo=1` abre la solicitud · `#viajes?id=15` muestra ese viaje (lo usan las notificaciones).
 

@@ -142,6 +142,7 @@ create sequence if not exists public.viajes_codigo_seq;
 create table if not exists public.viajes (
     id                      bigint generated always as identity primary key,
     codigo                  text unique,
+    token_qr                uuid not null default gen_random_uuid(), -- QR del viaje (ACACHETE-VIAJE:<token>), sin datos personales
     empresa_id              bigint not null references public.empresas(id) on delete restrict,
     cliente_id              bigint references public.clientes(id) on delete set null,
     cliente_nombre          text not null,
@@ -232,6 +233,10 @@ alter table public.viajes drop constraint if exists viajes_forma_pago_valida;
 alter table public.viajes add constraint viajes_forma_pago_valida check (
     (forma_pago is null or forma_pago in ('efectivo', 'sinpe'))
     and (paga_con is null or (paga_con >= 0 and forma_pago = 'efectivo')));
+
+-- Base ya instalada: QR único de cada viaje (los viajes que ya existían reciben el suyo)
+alter table public.viajes add column if not exists token_qr uuid not null default gen_random_uuid();
+create unique index if not exists viajes_token_qr_idx on public.viajes (token_qr);
 
 create table if not exists public.cortesias (
     id              bigint generated always as identity primary key,

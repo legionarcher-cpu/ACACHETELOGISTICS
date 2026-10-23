@@ -2,6 +2,20 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-22 · Viajes: QR único de cada viaje
+
+SQL: ejecutar **`05_transporte.sql`**. Ctrl+F5 (versión `20261022g`).
+
+- Columna nueva `viajes.token_qr` (05), única; los viajes que ya existían reciben la suya. El QR lleva
+  `ACACHETE-VIAJE:<token>`, sin datos personales.
+- **Conductor:** al aceptar, "Enviar confirmación" abre la imagen del QR (empresa, código, día y hora, recogida,
+  vehículo) con **Compartir** (imagen + mensaje, en celular), **WhatsApp** (mensaje) y **Descargar**. Al recoger,
+  **"Escanear QR"** del cliente (o escribir el número del viaje) pasa el viaje a "En curso"; "A bordo" sigue para quien
+  no lo tenga.
+- **Cliente:** "Mi QR" en sus viajes por hacer. **Personal:** botón "QR" para reenviarlo.
+- El botón "Escanear QR" del encabezado reconoce el QR del viaje (`js/qr.js`): el conductor del viaje lo marca a
+  bordo; el personal abre el viaje en Viajes.
+
 ## 2026-10-22 · Viajes: sin mercadería; mascotas con motivo claro
 
 SQL: ejecutar **`05_transporte.sql`**. Ctrl+F5 (versión `20261022f`).

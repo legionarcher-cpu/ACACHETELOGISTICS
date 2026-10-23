@@ -10,9 +10,11 @@
                                 hasta "cancelar_horas" antes; su cortesía; su ubicación.
      Conductor (rol piloto)  -> arriba, los viajes que le llegaron: "Aceptar" o "Rechazar"
                                 (viajes_responder; si no responde a tiempo pasa a otro). Al
-                                aceptar: "Avisar al cliente" por WhatsApp con el mensaje listo.
-                                Sus viajes del día: "Voy en camino" -> "A bordo" ->
+                                aceptar: "Enviar confirmación" (imagen con el QR del viaje +
+                                mensaje, por Compartir o WhatsApp). Sus viajes del día:
+                                "Voy en camino" -> "Escanear QR" del cliente (o "A bordo") ->
                                 "Terminar" (o "No se presentó") y enlaces para navegar.
+     Cliente: "Mi QR" en sus viajes por hacer (lo muestra al subir).
      Personal (Administrador, G1, G2, G3, Empleado) -> agenda del día de la empresa:
                                 filtros, resumen, cambiar la hora, cancelar y avanzar.
                                 Viaje "Sin conductor": "Buscar conductor" y WhatsApp al cliente.
@@ -89,7 +91,10 @@ registrarSeccion('viajes', (zona) => {
             const destino = { lat: Number(v[`${lado}_lat`]), lng: Number(v[`${lado}_lng`]) };
             return { texto, icono: 'bi-sign-turn-right', href: enlacesNavegacion(null, destino).google, externo: true };
         };
+        // QR del viaje: solo si la base ya lo tiene (viajes.token_qr)
+        const qr = (texto, clase = 'boton-secundario') => (v.token_qr ? [{ texto, icono: 'bi-qr-code', accion: 'qr', clase }] : []);
         if (cliente) {
+            if (VIA_POR_HACER.includes(v.estado)) acciones.push(...qr('Mi QR'));
             if (clientePuedeCambiar(v)) {
                 acciones.push({ texto: 'Cambiar hora', icono: 'bi-clock', accion: 'cambiar' });
                 acciones.push({ texto: 'Cancelar', icono: 'bi-x-circle', accion: 'cancelar', clase: 'boton-secundario via-boton-peligro' });
@@ -108,13 +113,16 @@ registrarSeccion('viajes', (zona) => {
                 acciones.push({ texto: 'Rechazar', icono: 'bi-x-lg', accion: 'rechazar', clase: 'boton-secundario via-boton-peligro' });
                 return acciones;
             }
+            // Confirmación al cliente: la imagen con el QR del viaje + el mensaje (WhatsApp o Compartir)
             if (v.estado === 'confirmado') {
-                const w = whatsapp('confirmado', 'Avisar al cliente');
-                if (w) acciones.push(w);
+                if (v.token_qr) acciones.push(...qr('Enviar confirmación', 'boton-secundario via-boton-whatsapp'));
+                else { const w = whatsapp('confirmado', 'Avisar al cliente'); if (w) acciones.push(w); }
             }
             if (v.estado === 'confirmado') acciones.push({ texto: 'Voy en camino', icono: 'bi-car-front', accion: 'en_camino', clase: 'boton-principal' });
             if (['confirmado', 'en_camino'].includes(v.estado)) {
-                acciones.push({ texto: 'A bordo', icono: 'bi-person-check', accion: 'en_curso', clase: v.estado === 'en_camino' ? 'boton-principal' : 'boton-secundario' });
+                // Al recoger: escanea el QR que muestra el cliente (o "A bordo" si no lo tiene)
+                if (v.token_qr) acciones.push({ texto: 'Escanear QR', icono: 'bi-qr-code-scan', accion: 'escanear', clase: v.estado === 'en_camino' ? 'boton-principal' : 'boton-secundario' });
+                acciones.push({ texto: 'A bordo', icono: 'bi-person-check', accion: 'en_curso', clase: v.estado === 'en_camino' && !v.token_qr ? 'boton-principal' : 'boton-secundario' });
                 acciones.push(nav('origen', 'Ir a A'));
                 acciones.push({ texto: 'No se presentó', icono: 'bi-person-x', accion: 'no_se_presento' });
             }
@@ -125,6 +133,7 @@ registrarSeccion('viajes', (zona) => {
             return acciones;
         }
         // Personal
+        if (['pendiente', 'confirmado', 'en_camino'].includes(v.estado)) acciones.push(...qr('QR'));
         if (v.estado === 'sin_conductor') {
             acciones.push({ texto: 'Buscar conductor', icono: 'bi-arrow-repeat', accion: 'buscar', clase: 'boton-principal' });
             const w = whatsapp('sin_conductor', 'Avisar al cliente');
@@ -239,6 +248,8 @@ registrarSeccion('viajes', (zona) => {
         if (accion === 'cancelar') { abrirCancelar(v); return; }
         if (accion === 'aceptar' || accion === 'rechazar') { responder(v, accion === 'aceptar', boton); return; }
         if (accion === 'buscar') { buscarConductor(v, boton); return; }
+        if (accion === 'qr') { abrirQr(v); return; }
+        if (accion === 'escanear') { escanearAbordo(v); return; }
         const preguntas = {
             terminado: `¿Terminar el viaje ${v.codigo}?`,
             no_se_presento: `¿Marcar que ${v.cliente_nombre} no se presentó (${v.codigo})?`,
@@ -283,6 +294,147 @@ registrarSeccion('viajes', (zona) => {
         aviso.mostrar(`${v.codigo}: se le ofreció a ${(data.conductor || {}).nombre || 'otro conductor'}. Queda esperando que lo acepte.`);
         cargarLista();
     }
+
+    // ==================================================
+    // QR DEL VIAJE (ACACHETE-VIAJE:<token>, viajes.token_qr)
+    //   Conductor y personal: la imagen se manda al cliente con la confirmación (Compartir
+    //   o WhatsApp). Cliente: "Mi QR" para mostrarlo al subir. El conductor lo escanea
+    //   ("Escanear QR" aquí o el botón del encabezado, js/qr.js) y el viaje pasa a "En curso".
+    // ==================================================
+    const lienzoQr = $('#viaQrCanvas');
+    let viajeQr = null;
+
+    // Tarjeta: empresa, QR, código, día y hora, recogida y vehículo
+    function dibujarTarjetaQr(v) {
+        const ctx = lienzoQr.getContext('2d');
+        const ancho = lienzoQr.width;
+        const alto = lienzoQr.height;
+        // Recorta un texto largo con "..." para que quepa en el ancho
+        const recortar = (texto, max) => {
+            let t = String(texto || '');
+            if (ctx.measureText(t).width <= max) return t;
+            while (t && ctx.measureText(`${t}...`).width > max) t = t.slice(0, -1);
+            return `${t}...`;
+        };
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, ancho, alto);
+        ctx.textAlign = 'center';
+
+        // Encabezado azul marino con el nombre
+        ctx.fillStyle = '#07305C';
+        ctx.fillRect(0, 0, ancho, 90);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 34px Arial, sans-serif';
+        ctx.fillText(recortar((typeof empresaActual === 'function' && empresaActual() || {}).nombre || 'ACACHETE', ancho - 40), ancho / 2, 48);
+        ctx.fillStyle = '#F2660F';
+        ctx.font = 'bold 16px Arial, sans-serif';
+        ctx.fillText('V I A J E', ancho / 2, 74);
+
+        // QR
+        const qr = window.qrcode(0, 'M');
+        qr.addData(QR_PREFIJO.viaje + v.token_qr);
+        qr.make();
+        const modulos = qr.getModuleCount();
+        const celda = Math.floor(400 / modulos);
+        const tam = celda * modulos;
+        const x0 = Math.round((ancho - tam) / 2);
+        const y0 = 120;
+        ctx.fillStyle = '#000000';
+        for (let f = 0; f < modulos; f++) {
+            for (let c = 0; c < modulos; c++) if (qr.isDark(f, c)) ctx.fillRect(x0 + c * celda, y0 + f * celda, celda, celda);
+        }
+
+        // Textos
+        let y = y0 + tam + 56;
+        ctx.fillStyle = '#1F2937';
+        ctx.font = 'bold 40px Arial, sans-serif';
+        ctx.fillText(v.codigo, ancho / 2, y);
+        y += 40;
+        ctx.font = '24px Arial, sans-serif';
+        ctx.fillStyle = '#374151';
+        ctx.fillText(`${viaFecha(v.inicio, true)} · ${viaHora(v.inicio)}`, ancho / 2, y);
+        y += 34;
+        ctx.font = '20px Arial, sans-serif';
+        ctx.fillStyle = '#4B5563';
+        ctx.fillText(recortar(`Recogida: ${v.origen_direccion}`, ancho - 60), ancho / 2, y);
+        if (v.vehiculos) {
+            y += 30;
+            ctx.fillText(recortar(`Vehículo: ${v.vehiculos.marca} ${v.vehiculos.placa}`, ancho - 60), ancho / 2, y);
+        }
+        ctx.font = '18px Arial, sans-serif';
+        ctx.fillStyle = '#6B7280';
+        ctx.fillText('Al subir, muestre este QR al conductor.', ancho / 2, alto - 28);
+    }
+
+    async function abrirQr(v) {
+        viajeQr = v;
+        $('#viaQrTitulo').textContent = `QR del viaje ${v.codigo}`;
+        try {
+            await qrCargar(QR_LIB_DIBUJAR, 'qrcode'); // js/qr.js
+            dibujarTarjetaQr(v);
+        } catch (e) {
+            console.error(e);
+            aviso.mostrar('No se pudo generar el QR (revisa la conexión a internet).', 'error');
+            return;
+        }
+        if (!activa) return;
+        $('#viaQrTexto').textContent = cliente
+            ? 'Muestra este QR al conductor al subir: con él empieza tu viaje.'
+            : 'Envíale esta imagen al cliente con la confirmación: al subir la muestra y el conductor la escanea.';
+        const mensaje = viaMensajeCliente(v, 'confirmado');
+        const whatsapp = cliente ? null : viaWhatsappCliente(v, 'confirmado');
+        $('#viaQrWhatsapp').hidden = !whatsapp;
+        if (whatsapp) $('#viaQrWhatsapp').href = whatsapp;
+
+        // "Compartir" (imagen + mensaje) solo si el navegador puede compartir archivos (celulares)
+        const compartir = $('#viaQrCompartir');
+        compartir.hidden = true;
+        lienzoQr.toBlob((blob) => {
+            if (!blob) return;
+            const archivo = new File([blob], `viaje-${v.codigo}.png`, { type: 'image/png' });
+            if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
+                compartir.hidden = false;
+                compartir.onclick = () => navigator.share(cliente ? { files: [archivo] } : { files: [archivo], text: mensaje }).catch(() => {});
+            }
+        }, 'image/png');
+        $('#viaQrDialogo').showModal();
+    }
+
+    $('#viaQrDescargar').addEventListener('click', () => {
+        if (!viajeQr) return;
+        const a = document.createElement('a');
+        a.href = lienzoQr.toDataURL('image/png');
+        a.download = `viaje-${viajeQr.codigo}.png`;
+        a.click();
+    });
+    $('#viaQrCerrar').addEventListener('click', () => $('#viaQrDialogo').close());
+
+    // Conductor: escanea el QR que muestra el cliente (o escribe el número del viaje) -> "En curso"
+    function escanearAbordo(v) {
+        const revisar = async (esEste) => {
+            if (!esEste) return { tipo: 'error', mensaje: `Ese no es el QR del viaje ${v.codigo}.` };
+            const { error } = await db.rpc('viajes_avanzar', { p_viaje: v.id, p_usuario: sesion.id || 0, p_estado: 'en_curso' });
+            if (error) return { tipo: 'error', mensaje: viaErrorTexto(error, 'marcar "A bordo"') };
+            if (activa) { aviso.mostrar(`${v.codigo}: cliente a bordo, viaje en curso.`); cargarLista(); }
+            return { tipo: 'ok', mensaje: `✔ ${v.codigo}: cliente a bordo.`, cerrar: 1200 };
+        };
+        const numero = (t) => Number(String(t).replace(/\D/g, '')) || 0;
+        abrirLectorQr({ // js/qr.js
+            titulo: `Recoger ${v.codigo}`,
+            ayuda: 'Escanea el QR del viaje que muestra el cliente.',
+            alLeer: (texto) => (texto.startsWith(QR_PREFIJO.viaje)
+                ? revisar(texto === QR_PREFIJO.viaje + v.token_qr)
+                : { tipo: 'error', mensaje: 'Ese no es el QR de un viaje.' }),
+            manual: {
+                etiqueta: '¿No se puede leer el QR? Escribe el número del viaje que te dice el cliente:',
+                alEscribir: (texto) => revisar(numero(texto) > 0 && numero(texto) === numero(v.codigo)),
+            },
+        });
+    }
+
+    // El QR del viaje se escaneó con el botón del encabezado (js/qr.js): recarga la lista
+    const alEscanearViaje = () => { if (activa && !enFormulario) cargarLista(); };
+    window.addEventListener('acachete:viaje', alEscanearViaje);
 
     // ---------- Filtros del día ----------
     function moverDia(dias) {
@@ -939,10 +1091,11 @@ registrarSeccion('viajes', (zona) => {
     return () => {
         activa = false;
         clearInterval(reloj);
+        window.removeEventListener('acachete:viaje', alEscanearViaje);
         clearTimeout(esperaHoras);
         clearTimeout(esperaCliente);
         aviso.limpiar();
         if (mapa) mapa.destruir();
-        ['#viaCambiarDialogo', '#viaCancelarDialogo'].forEach((s) => { const d = $(s); if (d && d.open) d.close(); });
+        ['#viaCambiarDialogo', '#viaCancelarDialogo', '#viaQrDialogo'].forEach((s) => { const d = $(s); if (d && d.open) d.close(); });
     };
 });

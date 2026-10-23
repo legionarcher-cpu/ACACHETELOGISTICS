@@ -53,6 +53,29 @@
     border-style: dashed;
 }
 
+/* ---------- QR del viaje (tarjeta en un canvas) ---------- */
+.via-qr-canvas {
+    display: block;
+    width: 100%;
+    max-width: 17.778rem;
+    height: auto;
+    margin: 0 auto;
+    border: 1px solid var(--color-borde);
+    border-radius: 0.444rem;
+}
+
+.via-qr-texto {
+    text-align: center;
+}
+
+.via-qr-botones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.444rem;
+    margin-top: 0.667rem;
+}
+
 /* ---------- Día de la agenda ---------- */
 .via-dia {
     display: flex;

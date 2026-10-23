@@ -241,3 +241,22 @@
         <button type="button" id="viaCancelarSi" class="boton boton-peligro">Cancelar el viaje</button>
     </div>
 </dialog>
+
+<!-- ==================================================
+     VENTANA: QR DEL VIAJE
+     Imagen con el QR único del viaje (viajes.token_qr). Se comparte con la confirmación;
+     el cliente la muestra al subir y el conductor la escanea ("A bordo").
+     ================================================== -->
+<dialog id="viaQrDialogo" class="dialogo" aria-labelledby="viaQrTitulo">
+    <h3 id="viaQrTitulo" class="dialogo-titulo">QR del viaje</h3>
+    <canvas id="viaQrCanvas" class="via-qr-canvas" width="600" height="800" aria-label="Código QR del viaje"></canvas>
+    <p id="viaQrTexto" class="dialogo-texto via-qr-texto"></p>
+    <div class="via-qr-botones">
+        <button type="button" id="viaQrDescargar" class="boton boton-secundario"><i class="bi bi-download"></i> <span>Descargar imagen</span></button>
+        <button type="button" id="viaQrCompartir" class="boton boton-secundario" hidden><i class="bi bi-share"></i> <span>Compartir</span></button>
+        <a id="viaQrWhatsapp" class="boton boton-secundario via-boton-whatsapp" target="_blank" rel="noopener" hidden><i class="bi bi-whatsapp"></i> <span>Enviar por WhatsApp</span></a>
+    </div>
+    <div class="dialogo-botones">
+        <button type="button" id="viaQrCerrar" class="boton boton-principal">Listo</button>
+    </div>
+</dialog>

@@ -115,26 +115,32 @@ function viaTextoPago(v) {
         pagaCon > total ? `vuelto ${viaDinero(pagaCon - total)}` : pagaCon === total ? 'monto exacto' : `faltan ${viaDinero(total - pagaCon)}`].join(' · ');
 }
 
+// Mensaje para el cliente del viaje (WhatsApp o "Compartir" con la imagen del QR)
+//   tipo 'confirmado'    -> lo manda el conductor al aceptar (quién va, en qué vehículo y el QR)
+//   tipo 'sin_conductor' -> lo manda el personal si nadie aceptó
+function viaMensajeCliente(v, tipo) {
+    const cuando = `${viaFecha(v.inicio, true)} a las ${viaHora(v.inicio)}`;
+    const empresa = (typeof empresaActual === 'function' && empresaActual() || {}).nombre || '';
+    if (tipo === 'sin_conductor') {
+        return [`Hola ${v.cliente_nombre}, le escribimos${empresa ? ` de ${empresa}` : ''} por su viaje ${v.codigo} del ${cuando}.`,
+            'Por ahora no tenemos conductor disponible a esa hora. ¿Le podemos ofrecer otra hora o prefiere cancelarlo?'].join('\n');
+    }
+    return [`Hola ${v.cliente_nombre}, soy ${(v.conductor || {}).nombre || 'su conductor'}${empresa ? ` de ${empresa}` : ''}.`,
+        `Confirmo su viaje ${v.codigo} del ${cuando}.`,
+        `Recogida: ${v.origen_direccion}`,
+        `Destino: ${v.destino_direccion}`,
+        v.vehiculos ? `Vehículo: ${v.vehiculos.marca} ${v.vehiculos.placa}` : null,
+        Number(v.total) ? `Total: ${viaDinero(v.total)}${viaTextoPago(v) ? ` · ${viaTextoPago(v)}` : ''}` : null,
+        `Al subir, muestre el QR de su viaje al conductor (o diga el código ${v.codigo}).`].filter(Boolean).join('\n');
+}
+
 // WhatsApp al cliente del viaje con el mensaje ya escrito (la persona toca Enviar).
 // Sin teléfono del cliente: null. Teléfono de 8 dígitos: se le pone el 506.
-//   tipo 'confirmado'    -> lo manda el conductor al aceptar (quién va y en qué vehículo)
-//   tipo 'sin_conductor' -> lo manda el personal si nadie aceptó
 function viaWhatsappCliente(v, tipo) {
     const digitos = String(v.cliente_telefono || '').replace(/\D/g, '');
     if (!digitos) return null;
     const telefono = digitos.length === 8 ? VIA_CODIGO_PAIS + digitos : digitos;
-    const cuando = `${viaFecha(v.inicio, true)} a las ${viaHora(v.inicio)}`;
-    const empresa = (typeof empresaActual === 'function' && empresaActual() || {}).nombre || '';
-    const texto = tipo === 'sin_conductor'
-        ? [`Hola ${v.cliente_nombre}, le escribimos${empresa ? ` de ${empresa}` : ''} por su viaje ${v.codigo} del ${cuando}.`,
-            'Por ahora no tenemos conductor disponible a esa hora. ¿Le podemos ofrecer otra hora o prefiere cancelarlo?'].join('\n')
-        : [`Hola ${v.cliente_nombre}, soy ${(v.conductor || {}).nombre || 'su conductor'}${empresa ? ` de ${empresa}` : ''}.`,
-            `Confirmo su viaje ${v.codigo} del ${cuando}.`,
-            `Recogida: ${v.origen_direccion}`,
-            `Destino: ${v.destino_direccion}`,
-            v.vehiculos ? `Vehículo: ${v.vehiculos.marca} ${v.vehiculos.placa}` : null,
-            Number(v.total) ? `Total: ${viaDinero(v.total)}${viaTextoPago(v) ? ` · ${viaTextoPago(v)}` : ''}` : null].filter(Boolean).join('\n');
-    return `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`;
+    return `https://wa.me/${telefono}?text=${encodeURIComponent(viaMensajeCliente(v, tipo))}`;
 }
 
 function viaElemento(tag, clase, texto) {
