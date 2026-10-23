@@ -230,7 +230,7 @@ registrarSeccion('caja', (zona) => {
                 .eq('piloto_id', piloto.id).is('cierre_id', null).eq('anulado', false)
                 .in('estado', CAJ_ENTREGADOS).gt('total_cobrar', 0).order('fecha_entrega'),
             conViajes
-                ? db.from('viajes').select('id, codigo, cliente_nombre, total, cobro_forma, inicio')
+                ? db.from('viajes').select('id, codigo, cliente_nombre, total, forma_pago, cobro_forma, inicio')
                     .eq('conductor_id', piloto.id).is('cierre_id', null).eq('estado', 'terminado').gt('total', 0).order('inicio')
                 : Promise.resolve({ data: [] }),
         ]);
@@ -248,7 +248,8 @@ registrarSeccion('caja', (zona) => {
             })),
             ...(via.data || []).map((v) => ({
                 tipo: 'viaje', id: v.id, codigo: v.codigo, cliente: v.cliente_nombre,
-                fecha: v.inicio, monto: Number(v.total), forma: v.cobro_forma || 'efectivo', verificado: false,
+                // La que eligió el cliente al reservar (efectivo o SINPE), si todavía no se corrigió
+                fecha: v.inicio, monto: Number(v.total), forma: v.cobro_forma || v.forma_pago || 'efectivo', verificado: false,
             })),
         ].sort((a, b) => String(a.fecha).localeCompare(String(b.fecha)));
         comprobantes = await cargarComprobantes(ped.data.map((p) => p.id));

@@ -794,10 +794,6 @@
                             <input id="cfgTraRecPas" type="number" min="0" step="50" class="campo-input" data-cfg="recargo_pasajero">
                         </div>
                         <div class="campo">
-                            <label for="cfgTraRecMerc" class="campo-etiqueta">Mercadería (por viaje)</label>
-                            <input id="cfgTraRecMerc" type="number" min="0" step="50" class="campo-input" data-cfg="recargo_mercaderia">
-                        </div>
-                        <div class="campo">
                             <label for="cfgTraRecMasc" class="campo-etiqueta">Por cada mascota</label>
                             <input id="cfgTraRecMasc" type="number" min="0" step="50" class="campo-input" data-cfg="recargo_mascota">
                         </div>
@@ -887,7 +883,7 @@
                 <div class="cfg-tarjeta-cabecera">
                     <div>
                         <h3 class="cfg-tarjeta-titulo">Simulador: km × franja</h3>
-                        <p class="cfg-tarjeta-texto">Precio del viaje en cada franja (1 pasajero, sin mascotas ni mercadería). No se guarda.</p>
+                        <p class="cfg-tarjeta-texto">Precio del viaje en cada franja (1 pasajero, sin mascotas). No se guarda.</p>
                     </div>
                     <div class="cfg-tra-sim-controles">
                         <label class="campo-etiqueta" for="cfgTraSimHasta">Hasta</label>
@@ -1764,13 +1760,10 @@
                     <label for="cfgVehAsientos" class="campo-etiqueta">Asientos para pasajeros</label>
                     <input id="cfgVehAsientos" type="number" min="0" max="60" step="1" class="campo-input" data-veh="asientos" data-nombre="Asientos">
                 </div>
-                <div class="campo">
-                    <label for="cfgVehCarga" class="campo-etiqueta">Carga máxima (kg)</label>
-                    <input id="cfgVehCarga" type="number" min="0" step="1" class="campo-input" data-veh="carga_kg" data-nombre="Carga máxima">
-                </div>
                 <label class="cfg-si-no campo-ancho"><input type="checkbox" data-veh="acepta_mascotas"> Acepta mascotas</label>
                 <small class="campo-ayuda campo-ancho">
-                    Sin asientos el vehículo no recibe viajes con personas.
+                    Sin asientos el vehículo no recibe viajes. Los viajes con mascotas solo se le asignan si
+                    tiene marcado "Acepta mascotas".
                 </small>
             </fieldset>
             <div class="campo-ancho">

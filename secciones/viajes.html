@@ -115,12 +115,11 @@
 
         <!-- 1 · Quiénes y qué viajan -->
         <section class="tarjeta via-paso">
-            <h3 class="via-paso-titulo"><span class="via-paso-numero">1</span> ¿Quiénes y qué viajan?</h3>
+            <h3 class="via-paso-titulo"><span class="via-paso-numero">1</span> ¿Quiénes viajan?</h3>
             <div class="campos">
                 <div class="campo">
                     <label for="viaPersonas" class="campo-etiqueta">Personas que viajan *</label>
-                    <input id="viaPersonas" type="number" min="0" max="60" step="1" value="1" inputmode="numeric" class="campo-input">
-                    <small class="campo-ayuda">0 solo si es un envío de mercadería sin pasajero.</small>
+                    <input id="viaPersonas" type="number" min="1" max="60" step="1" value="1" inputmode="numeric" class="campo-input">
                 </div>
                 <fieldset class="campo via-si-no">
                     <legend class="campo-etiqueta">¿Lleva mascotas? *</legend>
@@ -137,25 +136,9 @@
                     <label for="viaMascotasNota" class="campo-etiqueta">Nota</label>
                     <input id="viaMascotasNota" type="text" maxlength="120" class="campo-input" placeholder="Ej. perro grande, con jaula">
                 </div>
-                <fieldset class="campo via-si-no campo-ancho">
-                    <legend class="campo-etiqueta">¿Lleva mercadería?</legend>
-                    <div class="via-si-no-opciones">
-                        <label><input type="radio" name="viaMercaderia" value="si"> Sí</label>
-                        <label><input type="radio" name="viaMercaderia" value="no" checked> No</label>
-                    </div>
-                </fieldset>
-                <div class="campo campo-ancho" data-si="mercaderia" hidden>
-                    <label for="viaMercDescripcion" class="campo-etiqueta">Descripción</label>
-                    <input id="viaMercDescripcion" type="text" maxlength="150" class="campo-input" placeholder="Ej. 3 cajas de ropa">
-                </div>
-                <div class="campo" data-si="mercaderia" hidden>
-                    <label for="viaMercBultos" class="campo-etiqueta">Bultos</label>
-                    <input id="viaMercBultos" type="number" min="1" max="999" step="1" inputmode="numeric" class="campo-input">
-                </div>
-                <div class="campo" data-si="mercaderia" hidden>
-                    <label for="viaMercKg" class="campo-etiqueta">Peso aproximado (kg)</label>
-                    <input id="viaMercKg" type="number" min="0" max="5000" step="0.5" inputmode="decimal" class="campo-input">
-                </div>
+                <p class="via-nota-chica campo-ancho" data-si="mascotas" hidden>
+                    Solo se asignan vehículos que aceptan mascotas (Configuración → Vehículos).
+                </p>
             </div>
         </section>
 
@@ -194,6 +177,21 @@
         <section class="tarjeta via-paso">
             <h3 class="via-paso-titulo"><span class="via-paso-numero">4</span> Confirmar</h3>
             <div id="viaConfirmar" class="via-confirmar"></div>
+            <!-- Forma de pago: efectivo (con cuánto paga, para el vuelto) o SINPE. No se acepta tarjeta.
+                 Sin respuesta marcada a propósito. Un viaje de cortesía en ₡0 no la pide. -->
+            <fieldset id="viaPagoCaja" class="campo via-si-no">
+                <legend class="campo-etiqueta">Forma de pago *</legend>
+                <div class="via-si-no-opciones">
+                    <label><input type="radio" name="viaPago" value="efectivo"> <i class="bi bi-cash"></i> Efectivo</label>
+                    <label><input type="radio" name="viaPago" value="sinpe"> <i class="bi bi-phone"></i> SINPE Móvil</label>
+                </div>
+                <small class="campo-ayuda">No se acepta tarjeta.</small>
+            </fieldset>
+            <div class="campo" data-si="efectivo" hidden>
+                <label for="viaPagaCon" class="campo-etiqueta">¿Con cuánto paga? *</label>
+                <input id="viaPagaCon" type="number" min="0" step="1" inputmode="numeric" class="campo-input" placeholder="Ej. 10000">
+                <small id="viaVuelto" class="campo-ayuda">Para que el conductor lleve el vuelto.</small>
+            </div>
             <div class="campo">
                 <label for="viaNotas" class="campo-etiqueta">Nota para el conductor</label>
                 <input id="viaNotas" type="text" maxlength="200" class="campo-input" placeholder="Ej. portón negro, esperar en recepción">

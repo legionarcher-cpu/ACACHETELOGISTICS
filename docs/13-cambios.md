@@ -2,6 +2,30 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-22 · Viajes: sin mercadería; mascotas con motivo claro
+
+SQL: ejecutar **`05_transporte.sql`**. Ctrl+F5 (versión `20261022f`).
+
+- **Mercadería fuera de Viajes:** el paso 1 ya no la pide (al menos 1 persona); se quitó el recargo de mercadería de
+  Configuración → Transporte y la "Carga máxima" del vehículo. `viajes_solicitar` la ignora. Los viajes viejos con
+  mercadería se siguen viendo igual. (Las columnas quedan en la base, sin uso.)
+- **Mascotas:** ya funcionaba la casilla "Acepta mascotas" del vehículo, pero si ningún vehículo con conductor la
+  tenía, todas las horas salían "Ocupado". Ahora `viaje_sin_vehiculo` (05) lo dice: "Por ahora ningún vehículo acepta
+  mascotas" (o "Ningún vehículo tiene lugar para N personas"), en la lista de horas y al reservar. Con mascotas, el
+  paso 1 avisa que solo se asignan vehículos que las aceptan.
+
+## 2026-10-22 · Viajes: forma de pago del cliente (efectivo o SINPE, sin tarjeta)
+
+SQL: ejecutar **`05_transporte.sql`**. Ctrl+F5 (versión `20261022e`).
+
+- Al reservar (paso 4) se elige la **forma de pago**: **Efectivo** (con "¿Con cuánto paga?", propone el monto exacto y
+  muestra el vuelto) o **SINPE Móvil**. Dice "No se acepta tarjeta"; la base la rechaza. Columnas nuevas
+  `viajes.forma_pago` y `paga_con` (05). Un viaje de cortesía en ₡0 no la pide.
+- `viajes_solicitar` revisa que esté la forma y que el efectivo alcance para el total final.
+- La tarjeta del viaje (conductor y personal) muestra "Efectivo · paga con ₡10 000 · vuelto ₡2 500" o "SINPE Móvil",
+  y el WhatsApp "Avisar al cliente" incluye el total y la forma de pago.
+- Caja y Reportes → Cajas toman esa forma para el viaje mientras no se corrija al cerrar (`cobro_forma`).
+
 ## 2026-10-22 · Viajes: el conductor acepta o rechaza, con sonido y WhatsApp al cliente
 
 SQL: ejecutar **`05_transporte.sql` y luego `11_acceso_web.sql`**. Ctrl+F5 (versión `20261022d`).

@@ -103,6 +103,18 @@ function viaErrorTexto(error, accion = 'completar la acción') {
     return `No se pudo ${accion}. Revisa la conexión e intenta de nuevo.`;
 }
 
+// Forma de pago que eligió el cliente: "Efectivo · paga con ₡10 000 · vuelto ₡2 500" o
+// "SINPE Móvil". No se acepta tarjeta. Sin forma (cortesía en ₡0 o viaje anterior): ''.
+function viaTextoPago(v) {
+    if (v.forma_pago === 'sinpe') return 'SINPE Móvil';
+    if (v.forma_pago !== 'efectivo') return '';
+    const pagaCon = Number(v.paga_con || 0);
+    const total = Number(v.total || 0);
+    if (!pagaCon) return 'Efectivo';
+    return ['Efectivo', `paga con ${viaDinero(pagaCon)}`,
+        pagaCon > total ? `vuelto ${viaDinero(pagaCon - total)}` : pagaCon === total ? 'monto exacto' : `faltan ${viaDinero(total - pagaCon)}`].join(' · ');
+}
+
 // WhatsApp al cliente del viaje con el mensaje ya escrito (la persona toca Enviar).
 // Sin teléfono del cliente: null. Teléfono de 8 dígitos: se le pone el 506.
 //   tipo 'confirmado'    -> lo manda el conductor al aceptar (quién va y en qué vehículo)
@@ -120,7 +132,8 @@ function viaWhatsappCliente(v, tipo) {
             `Confirmo su viaje ${v.codigo} del ${cuando}.`,
             `Recogida: ${v.origen_direccion}`,
             `Destino: ${v.destino_direccion}`,
-            v.vehiculos ? `Vehículo: ${v.vehiculos.marca} ${v.vehiculos.placa}` : null].filter(Boolean).join('\n');
+            v.vehiculos ? `Vehículo: ${v.vehiculos.marca} ${v.vehiculos.placa}` : null,
+            Number(v.total) ? `Total: ${viaDinero(v.total)}${viaTextoPago(v) ? ` · ${viaTextoPago(v)}` : ''}` : null].filter(Boolean).join('\n');
     return `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`;
 }
 
@@ -244,6 +257,8 @@ function tarjetaViaje(v, { verCliente = false, verConductor = true, acciones = [
     if (v.lleva_mercaderia) chip('bi-box-seam', ['Mercadería', v.mercaderia_bultos ? plural(v.mercaderia_bultos, 'bulto', 'bultos') : null,
         v.mercaderia_kg ? `${v.mercaderia_kg} kg` : null].filter(Boolean).join(' · '));
     chip('bi-signpost', `${viaKm(v.km)} · unos ${v.minutos} min`);
+    const pago = viaTextoPago(v);
+    if (pago) chip(v.forma_pago === 'sinpe' ? 'bi-phone' : 'bi-cash', pago);
     cuerpo.appendChild(chips);
 
     const pie = viaElemento('div', 'via-viaje-pie');

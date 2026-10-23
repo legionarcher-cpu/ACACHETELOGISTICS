@@ -284,14 +284,14 @@ function montarReporteCajas(caja, { puedeExportar, aviso, tiendas, limitar }) {
         const [ped, via] = await Promise.all([
             db.from('pedidos').select('id, codigo, cliente_nombre, total_cobrar, cobro_forma, forma_pago').eq('cierre_id', id).order('codigo'),
             typeof empresaTieneViajes === 'function' && empresaTieneViajes()
-                ? db.from('viajes').select('id, codigo, cliente_nombre, total, cobro_forma').eq('cierre_id', id)
+                ? db.from('viajes').select('id, codigo, cliente_nombre, total, forma_pago, cobro_forma').eq('cierre_id', id)
                 : Promise.resolve({ data: [] }),
         ]);
         const filas = [
             ...((ped.data) || []).map((p) => ({ enlace: `#pedidos?id=${p.id}`, codigo: p.codigo, cliente: p.cliente_nombre, monto: p.total_cobrar,
                 forma: p.cobro_forma || (p.forma_pago === 'tarjeta' ? 'tarjeta' : 'efectivo') })),
             ...((via.data) || []).map((v) => ({ enlace: `#viajes?id=${v.id}`, codigo: v.codigo || `#${v.id}`, cliente: v.cliente_nombre, monto: v.total,
-                forma: v.cobro_forma || 'efectivo' })),
+                forma: v.cobro_forma || v.forma_pago || 'efectivo' })),
         ];
         tb.replaceChildren();
         if (ped.error) {

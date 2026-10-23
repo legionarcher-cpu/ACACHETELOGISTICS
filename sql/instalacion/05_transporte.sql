@@ -182,6 +182,8 @@ create table if not exists public.viajes (
     cortesia_id             bigint,   -- la cortesía que se usó en este viaje
     cortesia_ganada_id      bigint,   -- la cortesía que se ganó con este viaje
 
+    forma_pago              text,     -- cómo dice el cliente que va a pagar: efectivo o sinpe (no se acepta tarjeta)
+    paga_con                numeric(10,2), -- efectivo: con cuánto paga (el conductor lleva el vuelto)
     cobro_forma             text,     -- cómo pagó (efectivo, sinpe, tarjeta)
     cierre_id               bigint,   -- cierre de caja: llave en 07_caja_y_ubicacion.sql
 
@@ -222,6 +224,14 @@ alter table public.viajes drop constraint if exists viajes_estado_valido;
 alter table public.viajes add constraint viajes_estado_valido check (estado in
     ('pendiente', 'sin_conductor', 'confirmado', 'en_camino', 'en_curso', 'terminado', 'cancelado', 'no_se_presento'));
 create index if not exists viajes_pendientes_idx on public.viajes (empresa_id, asignado_en) where estado = 'pendiente';
+
+-- Base ya instalada: forma de pago que elige el cliente (efectivo con cuánto paga, o SINPE)
+alter table public.viajes add column if not exists forma_pago text;
+alter table public.viajes add column if not exists paga_con numeric(10,2);
+alter table public.viajes drop constraint if exists viajes_forma_pago_valida;
+alter table public.viajes add constraint viajes_forma_pago_valida check (
+    (forma_pago is null or forma_pago in ('efectivo', 'sinpe'))
+    and (paga_con is null or (paga_con >= 0 and forma_pago = 'efectivo')));
 
 create table if not exists public.cortesias (
     id              bigint generated always as identity primary key,
@@ -413,6 +423,32 @@ begin
 end;
 $$;
 
+-- ¿Hay en la empresa ALGÚN vehículo (con conductor y sin mantenimiento) que sirva para el viaje,
+-- a cualquier hora? Si no, el motivo (si no, todas las horas saldrían "Ocupado" sin explicación):
+-- pocos asientos, o con mascotas y ningún vehículo las acepta (Configuración -> Vehículos).
+-- null = sí hay.
+create or replace function public.viaje_sin_vehiculo(p_empresa bigint, p_personas integer, p_mascotas integer)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    with sirven as (
+        select v.asientos, v.acepta_mascotas
+          from public.vehiculos v
+         where v.empresa_id = p_empresa and v.estado <> 'mantenimiento'
+           and exists (select 1 from public.usuarios x where x.vehiculo_id = v.id and x.rol = 'piloto' and x.aprobado))
+    select case
+        when not exists (select 1 from sirven where coalesce(asientos, 0) >= coalesce(p_personas, 1))
+            then format('Ningún vehículo tiene lugar para %s %s.', coalesce(p_personas, 1),
+                        case when coalesce(p_personas, 1) = 1 then 'persona' else 'personas' end)
+        when coalesce(p_mascotas, 0) > 0
+             and not exists (select 1 from sirven where coalesce(asientos, 0) >= coalesce(p_personas, 1) and acepta_mascotas)
+            then 'Por ahora ningún vehículo acepta mascotas.'
+    end;
+$$;
+
 -- ¿El bloque del vehículo (desde que sale hacia A hasta que queda libre) cae en una hora
 -- bloqueada? Devuelve el motivo ('' si no tiene) o null.
 create or replace function public.viaje_bloqueo(p_empresa bigint, p_desde timestamptz, p_hasta timestamptz)
@@ -504,6 +540,12 @@ begin
             'Ese día no hay servicio' || case when v_motivo <> '' then ': ' || v_motivo else '.' end;
         return;
     end if;
+    -- Ningún vehículo sirve (asientos o mascotas): una sola fila con el motivo
+    v_motivo := public.viaje_sin_vehiculo(p_empresa, p_personas, p_mascotas);
+    if v_motivo is not null then
+        return query select null::timestamptz, null::text, false, null::text, null::numeric, v_motivo;
+        return;
+    end if;
     v_min := coalesce(p_minutos, ceil(coalesce(p_km, 0) / greatest(c.velocidad_kmh, 1) * 60)::integer);
     for f in select x.* from public.transporte_franjas x
               where x.empresa_id = p_empresa and x.activa and extract(isodow from p_fecha)::smallint = any(x.dias)
@@ -590,7 +632,8 @@ $$;
 -- p: { usuario_id, empresa_id (solo Desarrollador), cliente_id (personal; el cliente es él mismo),
 --      origen: { direccion, lat, lng }, destino: {...}, km, minutos, aproximada,
 --      personas, mascotas, mascotas_nota, lleva_mercaderia, mercaderia_descripcion,
---      mercaderia_bultos, mercaderia_kg, inicio, notas }
+--      mercaderia_bultos, mercaderia_kg, inicio, notas,
+--      forma_pago ('efectivo' | 'sinpe'; no se acepta tarjeta), paga_con (efectivo: con cuánto paga) }
 create or replace function public.viajes_solicitar(p jsonb)
 returns jsonb
 language plpgsql
@@ -612,6 +655,10 @@ declare
     v_cort     bigint;
     v_precio   jsonb;
     v_viaje    public.viajes;
+    v_forma    text := nullif(btrim(coalesce(p ->> 'forma_pago', '')), '');
+    v_paga     numeric := nullif(p ->> 'paga_con', '')::numeric;
+    v_total    numeric;
+    v_motivo   text;
     b          record;
     vl         record;
 begin
@@ -632,18 +679,16 @@ begin
         raise exception 'La empresa no tiene una actividad de viajes activa.' using errcode = 'P0001';
     end if;
 
+    -- Viajes de personas (con o sin mascotas). La mercadería ya no se pide: se ignora.
     v_personas := (p ->> 'personas')::integer;
     v_mascotas := (p ->> 'mascotas')::integer;
-    v_merc := coalesce((p ->> 'lleva_mercaderia')::boolean, false);
-    v_kg := coalesce((p ->> 'mercaderia_kg')::numeric, 0);
-    if v_personas is null or v_personas < 0 then
-        raise exception 'Indica cuántas personas viajan.' using errcode = 'P0001';
+    v_merc := false;
+    v_kg := 0;
+    if v_personas is null or v_personas < 1 then
+        raise exception 'Indica cuántas personas viajan (al menos 1).' using errcode = 'P0001';
     end if;
     if v_mascotas is null or v_mascotas < 0 then
         raise exception 'Indica si lleva mascotas.' using errcode = 'P0001';
-    end if;
-    if v_personas = 0 and not v_merc then
-        raise exception 'Si no viaja nadie, el viaje debe llevar mercadería.' using errcode = 'P0001';
     end if;
     if (p #>> '{origen,lat}') is null or (p #>> '{origen,lng}') is null
        or (p #>> '{destino,lat}') is null or (p #>> '{destino,lng}') is null then
@@ -667,6 +712,10 @@ begin
     if public.viaje_bloqueo(v_empresa, b.bloque_inicio, b.bloque_fin) is not null then
         raise exception 'Esa hora no está disponible: elige otra.' using errcode = 'P0001', hint = 'ocupado';
     end if;
+    v_motivo := public.viaje_sin_vehiculo(v_empresa, v_personas, v_mascotas);
+    if v_motivo is not null then
+        raise exception '%', v_motivo using errcode = 'P0001';
+    end if;
     select * into vl from public.viaje_vehiculo_libre(v_empresa, b.bloque_inicio, b.bloque_fin, v_personas, v_kg, v_mascotas);
     if vl.vehiculo_id is null then
         raise exception 'Esa hora acaba de ocuparse: elige otra.' using errcode = 'P0001', hint = 'ocupado';
@@ -681,13 +730,33 @@ begin
     end if;
     v_precio := public.viaje_precio(v_empresa, v_inicio, v_km, v_personas, v_mascotas, v_merc, v_cort is not null);
 
+    -- Forma de pago: efectivo (con cuánto paga, para el vuelto) o SINPE. Sin tarjeta.
+    -- Un viaje de cortesía sin recargos (total ₡0) no pide forma de pago.
+    v_total := coalesce((v_precio ->> 'total')::numeric, 0);
+    if v_total <= 0 then
+        v_forma := null;
+        v_paga := null;
+    elsif v_forma = 'tarjeta' then
+        raise exception 'No se acepta tarjeta: elige efectivo o SINPE Móvil.' using errcode = 'P0001';
+    elsif v_forma is null or v_forma not in ('efectivo', 'sinpe') then
+        raise exception 'Elige la forma de pago: efectivo o SINPE Móvil.' using errcode = 'P0001';
+    elsif v_forma = 'sinpe' then
+        v_paga := null;
+    elsif v_paga is null then
+        raise exception 'Indica con cuánto paga en efectivo (para llevar el vuelto).' using errcode = 'P0001';
+    elsif v_paga < v_total then
+        raise exception 'Con ₡% no alcanza: el viaje cuesta ₡%.', to_char(v_paga, 'FM999G999G990'), to_char(v_total, 'FM999G999G990')
+            using errcode = 'P0001';
+    end if;
+
     insert into public.viajes (
         empresa_id, cliente_id, cliente_nombre, cliente_telefono, solicitado_por,
         origen_direccion, origen_lat, origen_lng, destino_direccion, destino_lat, destino_lng,
         km, minutos, ruta_aproximada, personas, mascotas, mascotas_nota,
         lleva_mercaderia, mercaderia_descripcion, mercaderia_bultos, mercaderia_kg,
         inicio, bloque_inicio, bloque_fin, vehiculo_id, conductor_id, franja_id,
-        precio_viaje, recargos, total, desglose, es_cortesia, cortesia_id, notas, estado, asignado_en)
+        precio_viaje, recargos, total, desglose, es_cortesia, cortesia_id, notas, estado, asignado_en,
+        forma_pago, paga_con)
     values (
         v_empresa, v_cliente.id, v_cliente.nombre, v_cliente.telefono, u.id,
         coalesce(nullif(btrim(p #>> '{origen,direccion}'), ''), 'Punto A'), (p #>> '{origen,lat}')::numeric, (p #>> '{origen,lng}')::numeric,
@@ -697,7 +766,8 @@ begin
         case when v_merc then (p ->> 'mercaderia_bultos')::smallint end, case when v_merc then nullif(v_kg, 0) end,
         v_inicio, b.bloque_inicio, b.bloque_fin, vl.vehiculo_id, vl.conductor_id, (v_precio ->> 'franja_id')::bigint,
         (v_precio ->> 'viaje')::numeric, (v_precio ->> 'recargos')::numeric, (v_precio ->> 'total')::numeric, v_precio,
-        v_cort is not null, v_cort, nullif(btrim(p ->> 'notas'), ''), 'pendiente', now())
+        v_cort is not null, v_cort, nullif(btrim(p ->> 'notas'), ''), 'pendiente', now(),
+        v_forma, v_paga)
     returning * into v_viaje;
 
     if v_cort is not null then

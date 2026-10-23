@@ -92,10 +92,10 @@ const CFG_TIPOS_VEHICULO = {
     microbus: { texto: 'Microbús',   icono: 'bi-bus-front' },
 };
 
-// Datos de Transporte de un vehículo. Solo se piden si la empresa hace viajes: asientos,
-// carga y mascotas los usa la agenda para asignar el vehículo. (Los costos ya no van por
-// vehículo: Configuración -> Costos de operación.)
-const CFG_VEH_TRANSPORTE = ['asientos', 'carga_kg', 'acepta_mascotas'];
+// Datos de Transporte de un vehículo. Solo se piden si la empresa hace viajes: asientos y
+// mascotas los usa la agenda para asignar el vehículo (la carga ya no: los viajes no llevan
+// mercadería). (Los costos ya no van por vehículo: Configuración -> Costos de operación.)
+const CFG_VEH_TRANSPORTE = ['asientos', 'acepta_mascotas'];
 
 // ==================================================
 // MÓDULOS EN ARCHIVO APARTE

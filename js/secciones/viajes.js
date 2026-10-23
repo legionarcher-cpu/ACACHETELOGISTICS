@@ -19,7 +19,8 @@
                                 Solicita viajes eligiendo al cliente (paso 0).
 
    SOLICITUD (4 pasos, primero la ruta y después la hora):
-     1. Personas (obligatorio), mascotas Sí/No (obligatorio, sin respuesta marcada) y mercadería.
+     1. Personas (al menos 1) y mascotas Sí/No (obligatorio, sin respuesta marcada). Con
+        mascotas solo sirven los vehículos que las aceptan. (La mercadería ya no se pide.)
      2. Ruta A -> B con el mapa (js/mapa.js: km y minutos por calle). Botón "Ubicación del
         cliente" para llenar un punto con la dirección y la ubicación de su ficha; "Guardar
         como ubicación del cliente" guarda el punto en su ficha (clientes.direccion y ubicacion).
@@ -350,16 +351,14 @@ registrarSeccion('viajes', (zona) => {
     const entradaA = $('#viaOrigen');
     const entradaB = $('#viaDestino');
     const opcionMascotas = () => (zona.querySelector('input[name="viaMascotas"]:checked') || {}).value || null;
-    const llevaMercaderia = () => (zona.querySelector('input[name="viaMercaderia"]:checked') || {}).value === 'si';
 
+    // Viajes solo de personas (con o sin mascotas): la mercadería ya no se pide
     function datosViajeros() {
         const personas = Number($('#viaPersonas').value);
         const conMascotas = opcionMascotas() === 'si';
         return {
-            personas: Number.isInteger(personas) && personas >= 0 ? personas : null,
+            personas: Number.isInteger(personas) && personas >= 1 ? personas : null,
             mascotas: opcionMascotas() === null ? null : conMascotas ? Math.max(1, Number($('#viaMascotasCantidad').value) || 1) : 0,
-            mercaderia: llevaMercaderia(),
-            kg: llevaMercaderia() ? Number($('#viaMercKg').value) || 0 : 0,
         };
     }
 
@@ -438,8 +437,8 @@ registrarSeccion('viajes', (zona) => {
                         b.type = 'button';
                         b.disabled = !h.disponible;
                         b.dataset.inicio = h.inicio;
-                        b.title = h.disponible ? `${h.hora} · ${viaDinero(h.total)}` : 'Ocupado';
-                        b.append(viaElemento('strong', null, h.hora), viaElemento('small', null, h.disponible ? viaDinero(h.total) : 'Ocupado'));
+                        b.title = h.disponible ? `${h.hora} · ${viaDinero(h.total)}` : h.motivo || 'Ocupado';
+                        b.append(viaElemento('strong', null, h.hora), viaElemento('small', null, h.disponible ? viaDinero(h.total) : h.motivo || 'Ocupado'));
                         b.addEventListener('click', () => {
                             cajaHoras.querySelectorAll('.via-hora.activo').forEach((x) => x.classList.remove('activo'));
                             b.classList.add('activo');
@@ -460,10 +459,10 @@ registrarSeccion('viajes', (zona) => {
     // Parámetros para buscar horas (null si todavía falta la ruta o los datos del paso 1)
     function parametrosHoras() {
         const d = datosViajeros();
-        if (!ruta || d.personas === null || d.mascotas === null || (d.personas === 0 && !d.mercaderia)) return null;
+        if (!ruta || d.personas === null || d.mascotas === null) return null;
         return {
             p_empresa: empresaActivaId(), p_km: ruta.km, p_minutos: ruta.minutos,
-            p_personas: d.personas, p_mascotas: d.mascotas, p_mercaderia: d.mercaderia, p_kg: d.kg,
+            p_personas: d.personas, p_mascotas: d.mascotas, p_mercaderia: false, p_kg: 0,
         };
     }
 
@@ -476,8 +475,7 @@ registrarSeccion('viajes', (zona) => {
             $('#viaHoraAyuda').textContent = p ? 'Elige el día y una hora libre. El precio es el de la franja de la hora de recogida.'
                 : !ruta ? 'Primero ubica A y B: la duración del viaje decide qué horas están libres.'
                     : d.mascotas === null ? 'Indica si lleva mascotas (paso 1).'
-                        : d.personas === null ? 'Indica cuántas personas viajan (paso 1).'
-                            : 'Si no viaja nadie, marca que lleva mercadería (paso 1).';
+                        : 'Indica cuántas personas viajan: al menos 1 (paso 1).';
             selectorForm.cargar(p);
         }, 350);
     }
@@ -485,10 +483,9 @@ registrarSeccion('viajes', (zona) => {
     // ---------- Paso 1 ----------
     function mostrarCondicionales() {
         zona.querySelectorAll('[data-si="mascotas"]').forEach((el) => { el.hidden = opcionMascotas() !== 'si'; });
-        zona.querySelectorAll('[data-si="mercaderia"]').forEach((el) => { el.hidden = !llevaMercaderia(); });
     }
-    ['#viaPersonas', '#viaMascotasCantidad', '#viaMercKg'].forEach((s) => $(s).addEventListener('input', refrescarHoras));
-    zona.querySelectorAll('input[name="viaMascotas"], input[name="viaMercaderia"]').forEach((r) => r.addEventListener('change', () => {
+    ['#viaPersonas', '#viaMascotasCantidad'].forEach((s) => $(s).addEventListener('input', refrescarHoras));
+    zona.querySelectorAll('input[name="viaMascotas"]').forEach((r) => r.addEventListener('change', () => {
         mostrarCondicionales();
         refrescarHoras();
     }));
@@ -640,10 +637,36 @@ registrarSeccion('viajes', (zona) => {
         }
     }));
 
+    // ---------- Paso 4: forma de pago (efectivo con cuánto paga, o SINPE; sin tarjeta) ----------
+    let totalEstimado = null;   // total del paso 4 (null mientras no hay hora elegida)
+    const formaPago = () => (zona.querySelector('input[name="viaPago"]:checked') || {}).value || null;
+
+    function pintarPago() {
+        const sinCobro = totalEstimado === 0; // cortesía sin recargos
+        $('#viaPagoCaja').hidden = sinCobro;
+        zona.querySelectorAll('[data-si="efectivo"]').forEach((el) => { el.hidden = sinCobro || formaPago() !== 'efectivo'; });
+        const pagaCon = Number($('#viaPagaCon').value);
+        const vuelto = $('#viaVuelto');
+        if (formaPago() === 'efectivo' && totalEstimado && $('#viaPagaCon').value.trim() !== '' && Number.isFinite(pagaCon)) {
+            vuelto.textContent = pagaCon >= totalEstimado
+                ? `Vuelto: ${viaDinero(pagaCon - totalEstimado)}.`
+                : `No alcanza: el viaje cuesta ${viaDinero(totalEstimado)}.`;
+        } else {
+            vuelto.textContent = 'Para que el conductor lleve el vuelto.';
+        }
+    }
+    zona.querySelectorAll('input[name="viaPago"]').forEach((r) => r.addEventListener('change', () => {
+        // Efectivo: se propone el monto exacto (se cambia si paga con un billete más grande)
+        if (formaPago() === 'efectivo' && !$('#viaPagaCon').value && totalEstimado) $('#viaPagaCon').value = Math.ceil(totalEstimado);
+        pintarPago();
+    }));
+    $('#viaPagaCon').addEventListener('input', pintarPago);
+
     // ---------- Paso 4: confirmar ----------
     function pintarConfirmar() {
         const caja = $('#viaConfirmar');
         caja.replaceChildren();
+        totalEstimado = null;
         const d = datosViajeros();
         const fila = (titulo, texto) => {
             const p = viaElemento('p', 'via-confirmar-fila');
@@ -652,22 +675,21 @@ registrarSeccion('viajes', (zona) => {
         };
         if (personal) fila('Cliente', clienteViaje ? nombreCliente(clienteViaje) : 'Falta elegirlo (paso 0)');
         fila('Viajan', [d.personas === null ? 'Falta indicar las personas' : plural(d.personas, 'persona', 'personas'),
-            d.mascotas === null ? 'falta indicar si lleva mascotas' : d.mascotas ? plural(d.mascotas, 'mascota', 'mascotas') : 'sin mascotas',
-            d.mercaderia ? 'con mercadería' : null].filter(Boolean).join(' · '));
+            d.mascotas === null ? 'falta indicar si lleva mascotas' : d.mascotas ? plural(d.mascotas, 'mascota', 'mascotas') : 'sin mascotas'].join(' · '));
         fila('Ruta', ruta ? `${entradaA.value || 'A'} → ${entradaB.value || 'B'} · ${viaKm(ruta.km)}` : 'Falta ubicar A y B (paso 2)');
         if (horaElegida) {
             fila('Día y hora', `${new Date(horaElegida.inicio).toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'long' })} · ${horaElegida.hora}`);
             fila('Franja', horaElegida.franja);
-            const recargos = recargosViaje({ personas: d.personas || 0, mascotas: d.mascotas || 0, mercaderia: d.mercaderia }, config);
+            const recargos = recargosViaje({ personas: d.personas || 0, mascotas: d.mascotas || 0 }, config);
             const cortesia = estadoCliente && (estadoCliente.cortesias || []).length && ruta && ruta.km <= Number(estadoCliente.radio_km);
             const total = cortesia ? recargos.total : Number(horaElegida.total || 0);
+            totalEstimado = total;
             const p = viaElemento('p', 'via-confirmar-total');
             p.append(viaElemento('span', null, cortesia ? 'Total (viaje de cortesía)' : 'Total estimado'), viaElemento('strong', null, viaDinero(total)));
             caja.appendChild(p);
             if (recargos.total > 0) {
                 caja.appendChild(viaElemento('p', 'via-nota-chica', `Incluye recargos: ${[
                     recargos.pasajeros ? `pasajeros adicionales ${viaDinero(recargos.pasajeros)}` : null,
-                    recargos.mercaderia ? `mercadería ${viaDinero(recargos.mercaderia)}` : null,
                     recargos.mascotas ? `mascotas ${viaDinero(recargos.mascotas)}` : null].filter(Boolean).join(', ')}.`));
             }
             caja.appendChild(viaElemento('p', 'via-nota-chica',
@@ -675,6 +697,7 @@ registrarSeccion('viajes', (zona) => {
         } else {
             fila('Día y hora', 'Falta elegir (paso 3)');
         }
+        pintarPago();
         $('#viaSolicitar').disabled = !(horaElegida && ruta && (!personal || clienteViaje));
     }
 
@@ -685,7 +708,7 @@ registrarSeccion('viajes', (zona) => {
         $('#viaForm').reset();
         $('#viaFormError').textContent = '';
         $('#viaPersonas').value = '1';
-        zona.querySelectorAll('input[name="viaMascotas"]').forEach((r) => { r.checked = false; }); // sin respuesta marcada
+        zona.querySelectorAll('input[name="viaMascotas"], input[name="viaPago"]').forEach((r) => { r.checked = false; }); // sin respuesta marcada
         delete entradaA.dataset.ubicado;
         delete entradaB.dataset.ubicado;
         mostrarCondicionales();
@@ -730,12 +753,27 @@ registrarSeccion('viajes', (zona) => {
         const d = datosViajeros();
         const puntos = mapa ? mapa.puntos() : {};
         const falta = (personal && !clienteViaje) ? 'Elige el cliente (paso 0).'
-            : d.personas === null ? 'Indica cuántas personas viajan.'
+            : d.personas === null ? 'Indica cuántas personas viajan (al menos 1).'
                 : d.mascotas === null ? 'Indica si lleva mascotas.'
-                    : d.personas === 0 && !d.mercaderia ? 'Si no viaja nadie, marca que lleva mercadería.'
-                        : !puntos.a || !puntos.b || !ruta ? 'Ubica el punto A y el punto B en el mapa.'
-                            : !horaElegida ? 'Elige el día y una hora libre.' : '';
+                    : !puntos.a || !puntos.b || !ruta ? 'Ubica el punto A y el punto B en el mapa.'
+                        : !horaElegida ? 'Elige el día y una hora libre.' : '';
         if (falta) { error.textContent = falta; return; }
+        // Forma de pago (la base lo vuelve a revisar con el total final)
+        const cobra = totalEstimado !== 0;
+        const pagaCon = Number($('#viaPagaCon').value);
+        if (cobra && !formaPago()) { error.textContent = 'Elige la forma de pago: efectivo o SINPE Móvil.'; return; }
+        if (cobra && formaPago() === 'efectivo') {
+            if ($('#viaPagaCon').value.trim() === '' || !Number.isFinite(pagaCon) || pagaCon <= 0) {
+                error.textContent = 'Indica con cuánto paga en efectivo (para llevar el vuelto).';
+                $('#viaPagaCon').focus();
+                return;
+            }
+            if (totalEstimado && pagaCon < totalEstimado) {
+                error.textContent = `Con ${viaDinero(pagaCon)} no alcanza: el viaje cuesta ${viaDinero(totalEstimado)}.`;
+                $('#viaPagaCon').focus();
+                return;
+            }
+        }
 
         const boton = $('#viaSolicitar');
         boton.disabled = true;
@@ -749,11 +787,10 @@ registrarSeccion('viajes', (zona) => {
                 destino: { direccion: entradaB.value.trim(), lat: puntos.b.lat, lng: puntos.b.lng },
                 km: ruta.km, minutos: ruta.minutos, aproximada: !!ruta.aproximada,
                 personas: d.personas, mascotas: d.mascotas, mascotas_nota: $('#viaMascotasNota').value.trim(),
-                lleva_mercaderia: d.mercaderia, mercaderia_descripcion: $('#viaMercDescripcion').value.trim(),
-                mercaderia_bultos: d.mercaderia ? Number($('#viaMercBultos').value) || null : null,
-                mercaderia_kg: d.mercaderia ? d.kg || null : null,
                 inicio: horaElegida.inicio,
                 notas: $('#viaNotas').value.trim(),
+                forma_pago: cobra ? formaPago() : null,
+                paga_con: cobra && formaPago() === 'efectivo' ? pagaCon : null,
             },
         });
         if (!activa) return;
