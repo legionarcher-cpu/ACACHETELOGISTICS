@@ -118,7 +118,7 @@ begin
         || ' or ' || v_cfg || '))');
 
     -- Configuración que ve solo el personal de la empresa; se cambia con su función
-    foreach t in array array['costos_config', 'cajas'] loop
+    foreach t in array array['costos_config', 'cajas', 'transporte_bloqueos'] loop
         perform public.reglas_tabla(t, v_per, '(' || v_per_cfg || ' and ' || v_cfg || ')');
     end loop;
     perform public.reglas_tabla('motivos_entrega_parcial', v_per, '(' || v_per_cfg || ' and ((select public.puede(''distribucion.catalogo''))'
@@ -332,7 +332,11 @@ revoke execute on function public.ubicacion_puede_tienda(public.usuarios, bigint
 revoke execute on function public.piloto_horario_abierto(bigint) from authenticated;
 revoke execute on function public.transporte_cfg(bigint) from authenticated;
 revoke execute on function public.viaje_validar_inicio(bigint, timestamptz) from authenticated;
+revoke execute on function public.viaje_bloqueo(bigint, timestamptz, timestamptz) from authenticated;
 revoke execute on function public.viaje_avisar(bigint, text, text, bigint) from authenticated;
+revoke execute on function public.viaje_avisar_conductor(bigint) from authenticated;
+revoke execute on function public.viaje_cerrar_avisos(bigint) from authenticated;
+revoke execute on function public.viaje_reasignar(bigint, boolean, boolean) from authenticated;
 revoke execute on function public.viaje_json(bigint) from authenticated;
 revoke execute on function public.cortesia_revisar(bigint, bigint) from authenticated;
 revoke execute on function public.dist_bodega_del_piloto(bigint, bigint) from authenticated;

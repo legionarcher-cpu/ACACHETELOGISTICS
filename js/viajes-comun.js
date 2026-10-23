@@ -29,6 +29,8 @@ const VIA_MONEDA_PDF = 'CRC '; // la letra estándar del PDF no tiene el símbol
 
 // Estado -> [texto, etiqueta de css/componentes.css]
 const VIA_ESTADOS = {
+    pendiente:      ['Esperando conductor', 'etiqueta-naranja'],
+    sin_conductor:  ['Sin conductor', 'etiqueta-rosada'],
     confirmado:     ['Confirmado', 'etiqueta-azul'],
     en_camino:      ['En camino', 'etiqueta-turquesa'],
     en_curso:       ['En curso', 'etiqueta-morada'],
@@ -36,7 +38,12 @@ const VIA_ESTADOS = {
     cancelado:      ['Cancelado', 'etiqueta-gris'],
     no_se_presento: ['No se presentó', 'etiqueta-rosada'],
 };
-const VIA_ACTIVOS = ['confirmado', 'en_camino', 'en_curso'];
+const VIA_ACTIVOS = ['pendiente', 'sin_conductor', 'confirmado', 'en_camino', 'en_curso'];
+// Por hacer: todavía no empieza (con o sin conductor que lo aceptó)
+const VIA_POR_HACER = ['pendiente', 'sin_conductor', 'confirmado', 'en_camino'];
+
+// Código de país para WhatsApp cuando el teléfono tiene 8 dígitos (Costa Rica = 506)
+const VIA_CODIGO_PAIS = '506';
 
 // Días de la semana como en transporte_franjas.dias (1 = lunes ... 7 = domingo)
 const VIA_DIAS = { 1: 'Lunes', 2: 'Martes', 3: 'Miércoles', 4: 'Jueves', 5: 'Viernes', 6: 'Sábado', 7: 'Domingo' };
@@ -51,6 +58,7 @@ const VIA_CONFIG_BASE = {
     anticipacion_min: 60, anticipacion_dias: 14, cancelar_horas: 2,
     pasajeros_incluidos: 1, recargo_pasajero: 0, recargo_mercaderia: 0, recargo_mascota: 0, redondeo: 100,
     cortesia_activa: true, cortesia_viajes: 5, cortesia_dias: 15, cortesia_vence_dias: 30, cortesia_radio_km: 8,
+    aceptar_min: 10,
 };
 
 // ==================================================
@@ -93,6 +101,27 @@ function viaErrorTexto(error, accion = 'completar la acción') {
             : `No se pudo ${accion}: tu usuario no tiene permiso. Pide al Administrador la función que hace falta (Usuarios → Módulos y funciones).`;
     }
     return `No se pudo ${accion}. Revisa la conexión e intenta de nuevo.`;
+}
+
+// WhatsApp al cliente del viaje con el mensaje ya escrito (la persona toca Enviar).
+// Sin teléfono del cliente: null. Teléfono de 8 dígitos: se le pone el 506.
+//   tipo 'confirmado'    -> lo manda el conductor al aceptar (quién va y en qué vehículo)
+//   tipo 'sin_conductor' -> lo manda el personal si nadie aceptó
+function viaWhatsappCliente(v, tipo) {
+    const digitos = String(v.cliente_telefono || '').replace(/\D/g, '');
+    if (!digitos) return null;
+    const telefono = digitos.length === 8 ? VIA_CODIGO_PAIS + digitos : digitos;
+    const cuando = `${viaFecha(v.inicio, true)} a las ${viaHora(v.inicio)}`;
+    const empresa = (typeof empresaActual === 'function' && empresaActual() || {}).nombre || '';
+    const texto = tipo === 'sin_conductor'
+        ? [`Hola ${v.cliente_nombre}, le escribimos${empresa ? ` de ${empresa}` : ''} por su viaje ${v.codigo} del ${cuando}.`,
+            'Por ahora no tenemos conductor disponible a esa hora. ¿Le podemos ofrecer otra hora o prefiere cancelarlo?'].join('\n')
+        : [`Hola ${v.cliente_nombre}, soy ${(v.conductor || {}).nombre || 'su conductor'}${empresa ? ` de ${empresa}` : ''}.`,
+            `Confirmo su viaje ${v.codigo} del ${cuando}.`,
+            `Recogida: ${v.origen_direccion}`,
+            `Destino: ${v.destino_direccion}`,
+            v.vehiculos ? `Vehículo: ${v.vehiculos.marca} ${v.vehiculos.placa}` : null].filter(Boolean).join('\n');
+    return `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`;
 }
 
 function viaElemento(tag, clase, texto) {
@@ -391,7 +420,7 @@ function montarInicioViajes(zona) {
             k.hidden = false;
             k.replaceChildren(
                 kpi(noCancel.length, modo === 'conductor' ? 'Mis viajes de hoy' : 'Viajes de hoy', 'resumen-azul', '#viajes', 'bi-calendar-day'),
-                kpi(noCancel.filter((v) => ['confirmado', 'en_camino'].includes(v.estado)).length, 'Por hacer', 'resumen-naranja', '#viajes', 'bi-hourglass-split'),
+                kpi(noCancel.filter((v) => VIA_POR_HACER.includes(v.estado)).length, 'Por hacer', 'resumen-naranja', '#viajes', 'bi-hourglass-split'),
                 kpi(noCancel.filter((v) => v.estado === 'en_curso').length, 'En curso', 'resumen-morada', '#viajes', 'bi-car-front'),
                 kpi(noCancel.filter((v) => v.estado === 'terminado').length, 'Terminados', 'resumen-verde', '#viajes', 'bi-check2-circle'),
                 ...(modo === 'personal' ? [kpi(viaDinero(noCancel.reduce((s, v) => s + Number(v.total || 0), 0)), 'Ingresos de hoy', 'resumen-azul', null, 'bi-cash-coin')] : []),

@@ -2,6 +2,43 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-22 · Viajes: el conductor acepta o rechaza, con sonido y WhatsApp al cliente
+
+SQL: ejecutar **`05_transporte.sql` y luego `11_acceso_web.sql`**. Ctrl+F5 (versión `20261022d`).
+
+- **Estados nuevos** del viaje: `pendiente` ("Esperando conductor") y `sin_conductor` ("Sin conductor"). Columnas nuevas
+  `viajes.asignado_en`, `aceptado_en`, `rechazado_por` y `transporte_config.aceptar_min` (10 por defecto; Configuración
+  → Transporte → "El conductor acepta o rechaza en (minutos)").
+- **Al reservar** el viaje queda "Esperando conductor" y al conductor le llega un aviso pendiente **con sonido**
+  (tres tonos y vibración en el celular; `js/notificaciones.js`). La página del piloto revisa cada 20 segundos.
+- **El conductor** (Viajes) ve arriba los que tiene por aceptar, de cualquier día: **Aceptar** o **Rechazar**
+  (`viajes_responder`). Al aceptar se le avisa al cliente en la campana, y la tarjeta muestra **"Avisar al cliente"**:
+  abre WhatsApp con el mensaje listo (quién va, vehículo, hora, A y B); el conductor toca Enviar.
+- **Rechaza o no responde a tiempo** (`viajes_revisar_pendientes`, la llama la página de cualquier persona conectada
+  de la empresa cada minuto): pasa a otro conductor libre que no lo haya rechazado (`viaje_reasignar`). Si no hay
+  ninguno, queda **"Sin conductor"** y se avisa al Administrador, al G1 y al cliente. El personal tiene **"Buscar
+  conductor"** (`viajes_buscar_conductor`, se le puede ofrecer otra vez a quien lo rechazó), **"Avisar al cliente"**
+  por WhatsApp, cambiar la hora o cancelar.
+- Cambiar la hora: si sigue el mismo conductor que ya lo aceptó, queda confirmado; si cambia, el nuevo lo tiene que
+  aceptar.
+- Límite: el sonido suena con la página abierta (en cualquier sección). Con el celular bloqueado o el navegador
+  cerrado no suena: eso requiere la app con notificaciones push (docs/16 y pendientes de la app).
+
+## 2026-10-22 · Transporte: horas bloqueadas (almuerzo), como en Recolecciones
+
+SQL: ejecutar **`05_transporte.sql`, luego `10_clientes_y_herramientas.sql` y `11_acceso_web.sql`**, en ese orden.
+Ctrl+F5 (versión `20261022c`).
+
+- Tabla nueva `transporte_bloqueos` (05): horas sin servicio un día (`fecha`) o todas las semanas (`dias`), con motivo.
+  Igual que `recoleccion_bloqueos`.
+- `viaje_bloqueo` (05): revisa el **bloque completo del vehículo** (desde que sale hacia el punto A hasta que queda libre),
+  así un viaje de 11:45 que termina 12:30 tampoco entra en un almuerzo de 12:00 a 13:00. Lo usan
+  `viajes_horas_disponibles` (la hora sale "No disponible"), `viajes_solicitar` y `viajes_cambiar_hora`. Los viajes
+  ya reservados no se tocan.
+- Configuración → Transporte: tarjeta nueva **"Horas bloqueadas"** con "Bloquear horas" (todas las semanas o un día,
+  desde, hasta y motivo) y quitar. La ve y la cambia quien tiene "Cambiar la configuración"; los clientes no la ven (11).
+- 10: "Limpiar datos" de una empresa también borra sus horas bloqueadas.
+
 ## 2026-10-22 · Costos: costo por día en vez de costo por km
 
 SQL: ninguno. Ctrl+F5 (versión `20261022b`).

@@ -8,10 +8,14 @@
    QUIÉN VE QUÉ:
      Cliente (rol cliente)   -> SUS viajes: próximos y anteriores; cambia la hora o cancela
                                 hasta "cancelar_horas" antes; su cortesía; su ubicación.
-     Conductor (rol piloto)  -> sus viajes del día: "Voy en camino" -> "A bordo" ->
+     Conductor (rol piloto)  -> arriba, los viajes que le llegaron: "Aceptar" o "Rechazar"
+                                (viajes_responder; si no responde a tiempo pasa a otro). Al
+                                aceptar: "Avisar al cliente" por WhatsApp con el mensaje listo.
+                                Sus viajes del día: "Voy en camino" -> "A bordo" ->
                                 "Terminar" (o "No se presentó") y enlaces para navegar.
      Personal (Administrador, G1, G2, G3, Empleado) -> agenda del día de la empresa:
                                 filtros, resumen, cambiar la hora, cancelar y avanzar.
+                                Viaje "Sin conductor": "Buscar conductor" y WhatsApp al cliente.
                                 Solicita viajes eligiendo al cliente (paso 0).
 
    SOLICITUD (4 pasos, primero la ruta y después la hora):
@@ -66,7 +70,7 @@ registrarSeccion('viajes', (zona) => {
     const puntoCliente = (c) => (c ? puntoDeTexto(c.ubicacion) : null);
     const mismoDia = (t, fecha) => viaFechaISO(new Date(t)) === fecha;
     // ¿El cliente todavía puede cambiar o cancelar? (la base lo vuelve a revisar)
-    const clientePuedeCambiar = (v) => v.estado === 'confirmado'
+    const clientePuedeCambiar = (v) => ['pendiente', 'sin_conductor', 'confirmado'].includes(v.estado)
         && Date.now() <= new Date(v.inicio).getTime() - Number(config.cancelar_horas || 0) * 3600000;
 
     function mostrarError(error, accion) {
@@ -91,7 +95,22 @@ registrarSeccion('viajes', (zona) => {
             }
             return acciones;
         }
+        // WhatsApp al cliente con el mensaje listo (si tiene teléfono)
+        const whatsapp = (tipo, texto) => {
+            const href = viaWhatsappCliente(v, tipo);
+            return href ? { texto, icono: 'bi-whatsapp', href, externo: true, clase: 'boton-secundario via-boton-whatsapp' } : null;
+        };
         if (conductor) {
+            // Le llegó: lo acepta o lo rechaza (si no responde a tiempo, pasa a otro conductor)
+            if (v.estado === 'pendiente') {
+                acciones.push({ texto: 'Aceptar', icono: 'bi-check-lg', accion: 'aceptar', clase: 'boton-principal' });
+                acciones.push({ texto: 'Rechazar', icono: 'bi-x-lg', accion: 'rechazar', clase: 'boton-secundario via-boton-peligro' });
+                return acciones;
+            }
+            if (v.estado === 'confirmado') {
+                const w = whatsapp('confirmado', 'Avisar al cliente');
+                if (w) acciones.push(w);
+            }
             if (v.estado === 'confirmado') acciones.push({ texto: 'Voy en camino', icono: 'bi-car-front', accion: 'en_camino', clase: 'boton-principal' });
             if (['confirmado', 'en_camino'].includes(v.estado)) {
                 acciones.push({ texto: 'A bordo', icono: 'bi-person-check', accion: 'en_curso', clase: v.estado === 'en_camino' ? 'boton-principal' : 'boton-secundario' });
@@ -105,6 +124,15 @@ registrarSeccion('viajes', (zona) => {
             return acciones;
         }
         // Personal
+        if (v.estado === 'sin_conductor') {
+            acciones.push({ texto: 'Buscar conductor', icono: 'bi-arrow-repeat', accion: 'buscar', clase: 'boton-principal' });
+            const w = whatsapp('sin_conductor', 'Avisar al cliente');
+            if (w) acciones.push(w);
+        }
+        if (['pendiente', 'sin_conductor'].includes(v.estado)) {
+            acciones.push({ texto: 'Cambiar hora', icono: 'bi-clock', accion: 'cambiar' });
+            acciones.push({ texto: 'Cancelar', icono: 'bi-x-circle', accion: 'cancelar', clase: 'boton-secundario via-boton-peligro' });
+        }
         if (['confirmado', 'en_camino'].includes(v.estado)) {
             acciones.push({ texto: 'Cambiar hora', icono: 'bi-clock', accion: 'cambiar' });
             if (v.estado === 'confirmado') acciones.push({ texto: 'En camino', icono: 'bi-car-front', accion: 'en_camino' });
@@ -125,14 +153,19 @@ registrarSeccion('viajes', (zona) => {
             q = q.gte('inicio', ini).lt('inicio', fin).order('inicio');
             if (conductor) q = q.eq('conductor_id', sesion.id || 0);
         }
-        const { data, error } = await q;
+        // Conductor: los que tiene por aceptar se ven arriba, aunque sean de otro día
+        const [{ data, error }, porAceptar] = await Promise.all([q, conductor
+            ? db.from('viajes').select(VIA_SELECT).eq('conductor_id', sesion.id || 0).eq('estado', 'pendiente').order('inicio')
+            : Promise.resolve({ data: [] })]);
         if (!activa) return;
         if (error) {
             mostrarError(error, 'cargar los viajes');
             $('#viaListaViajes').replaceChildren(viaElemento('p', 'via-vacio', 'Sin datos.'));
             return;
         }
-        viajes = data;
+        const ids = new Set(data.map((v) => v.id));
+        viajes = [...(porAceptar.data || []).filter((v) => !ids.has(v.id)), ...data]
+            .sort((a, b) => (a.estado === 'pendiente' ? 0 : 1) - (b.estado === 'pendiente' ? 0 : 1));
         dibujarLista();
     }
 
@@ -168,7 +201,7 @@ registrarSeccion('viajes', (zona) => {
         $('#viaResumen').hidden = false;
         $('#viaResumen').replaceChildren(
             cuadro(validos.length, 'Viajes del día', 'resumen-azul'),
-            cuadro(validos.filter((v) => ['confirmado', 'en_camino'].includes(v.estado)).length, 'Por hacer', 'resumen-naranja'),
+            cuadro(validos.filter((v) => VIA_POR_HACER.includes(v.estado)).length, 'Por hacer', 'resumen-naranja'),
             cuadro(validos.filter((v) => v.estado === 'en_curso').length, 'En curso', 'resumen-morada'),
             cuadro(validos.filter((v) => v.estado === 'terminado').length, 'Terminados', 'resumen-verde'),
             ...(personal ? [cuadro(viaDinero(validos.reduce((s, v) => s + Number(v.total || 0), 0)), 'Ingresos del día', 'resumen-azul')] : []),
@@ -203,6 +236,8 @@ registrarSeccion('viajes', (zona) => {
         const accion = boton.dataset.accion;
         if (accion === 'cambiar') { abrirCambiar(v); return; }
         if (accion === 'cancelar') { abrirCancelar(v); return; }
+        if (accion === 'aceptar' || accion === 'rechazar') { responder(v, accion === 'aceptar', boton); return; }
+        if (accion === 'buscar') { buscarConductor(v, boton); return; }
         const preguntas = {
             terminado: `¿Terminar el viaje ${v.codigo}?`,
             no_se_presento: `¿Marcar que ${v.cliente_nombre} no se presentó (${v.codigo})?`,
@@ -216,6 +251,37 @@ registrarSeccion('viajes', (zona) => {
         aviso.mostrar(`${v.codigo}: ${(VIA_ESTADOS[accion] || [accion])[0]}.`);
         cargarLista();
     });
+
+    // ---------- El conductor acepta o rechaza (viajes_responder) ----------
+    // Al aceptar, la tarjeta muestra "Avisar al cliente" (WhatsApp con el mensaje listo). No se
+    // abre sola: después de esperar a la base, el celular bloquea la ventana nueva.
+    async function responder(v, acepta, boton) {
+        if (!acepta && !confirm(`¿Rechazar el viaje ${v.codigo}? Se le pasa a otro conductor.`)) return;
+        boton.disabled = true;
+        const { data, error } = await db.rpc('viajes_responder', { p_viaje: v.id, p_usuario: sesion.id || 0, p_acepta: acepta });
+        if (!activa) return;
+        boton.disabled = false;
+        if (error) {
+            mostrarError(error, acepta ? 'aceptar el viaje' : 'rechazar el viaje');
+            if (error.hint === 'cambiado') cargarLista();
+            return;
+        }
+        aviso.mostrar(acepta
+            ? `Viaje ${v.codigo} aceptado.${data && data.cliente_telefono ? ' Avísale al cliente con el botón de WhatsApp.' : ''}`
+            : `Viaje ${v.codigo} rechazado: se le pasó a otro conductor.`);
+        cargarLista();
+    }
+
+    // ---------- Personal: viaje sin conductor -> buscar otra vez (viajes_buscar_conductor) ----------
+    async function buscarConductor(v, boton) {
+        boton.disabled = true;
+        const { data, error } = await db.rpc('viajes_buscar_conductor', { p_viaje: v.id, p_usuario: sesion.id || 0 });
+        if (!activa) return;
+        boton.disabled = false;
+        if (error) { mostrarError(error, 'buscar conductor'); if (error.hint === 'cambiado') cargarLista(); return; }
+        aviso.mostrar(`${v.codigo}: se le ofreció a ${(data.conductor || {}).nombre || 'otro conductor'}. Queda esperando que lo acepte.`);
+        cargarLista();
+    }
 
     // ---------- Filtros del día ----------
     function moverDia(dias) {
@@ -701,7 +767,8 @@ registrarSeccion('viajes', (zona) => {
         }
         cerrarFormulario();
         const quien = [data.vehiculo ? `${data.vehiculo.marca} ${data.vehiculo.placa}` : null, data.conductor ? data.conductor.nombre : null].filter(Boolean).join(' · ');
-        aviso.mostrar(`Viaje ${data.codigo} confirmado: ${viaFecha(data.inicio, true)} a las ${viaHora(data.inicio)}${quien ? ` · ${quien}` : ''}${data.es_cortesia ? ' · ¡viaje de cortesía!' : ''}.`);
+        aviso.mostrar(`Viaje ${data.codigo} reservado: ${viaFecha(data.inicio, true)} a las ${viaHora(data.inicio)}${quien ? ` · ${quien}` : ''}${data.es_cortesia ? ' · ¡viaje de cortesía!' : ''}.`
+            + (data.estado === 'pendiente' ? ' Queda esperando que el conductor lo acepte (te llega un aviso).' : ''));
         if (!cliente) $('#viaFecha').value = viaFechaISO(new Date(data.inicio));
         if (cliente) cargarCliente();
         cargarLista();

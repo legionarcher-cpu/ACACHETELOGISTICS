@@ -119,7 +119,7 @@ const TABLAS_POR_EMPRESA = new Set([
     'productos', 'producto_presentaciones', 'listas_precios', 'precios', 'motivos_entrega_parcial',
     'bodegas_dia', 'bodega_movimientos', 'cierres_mercaderia',
     // Transporte
-    'viajes', 'cortesias', 'transporte_config', 'transporte_franjas', 'transporte_dias_cerrados',
+    'viajes', 'cortesias', 'transporte_config', 'transporte_franjas', 'transporte_dias_cerrados', 'transporte_bloqueos',
     // Costos de operación
     'costos_operacion', 'costos_config',
     // Recolecciones con agenda

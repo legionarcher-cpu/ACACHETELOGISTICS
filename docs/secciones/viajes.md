@@ -7,7 +7,7 @@ Solo aparece si la empresa hace **viajes** (actividad con `usa_viajes`, ej. Tran
 |---|---|
 | `secciones/viajes.html`, `js/secciones/viajes.js`, `css/secciones/viajes.css` | La sección (ids `via`) |
 | `js/viajes-comun.js`, `css/viajes.css` | Lo común: estados, tarjeta de viaje, cortesía, precios por franja, costos, **Inicio de viajes** y **reporte de viajes** |
-| Tablas | `viajes`, `cortesias`, `transporte_config`, `transporte_franjas`, `transporte_dias_cerrados`, `transporte_costos` |
+| Tablas | `viajes`, `cortesias`, `transporte_config`, `transporte_franjas`, `transporte_dias_cerrados`, `transporte_bloqueos` (horas bloqueadas, ej. almuerzo), `costos_operacion` |
 | SQL | `sql/01` **bloque 19** (también en `sql/00`, sección 13) |
 
 ## Quién ve qué

@@ -243,6 +243,7 @@ begin
     -- Transporte, costos y horarios de la empresa
     delete from public.transporte_franjas where empresa_id = v_empresa.id;
     delete from public.transporte_dias_cerrados where empresa_id = v_empresa.id;
+    delete from public.transporte_bloqueos where empresa_id = v_empresa.id;
     delete from public.transporte_config where empresa_id = v_empresa.id;
     delete from public.costos_operacion where empresa_id = v_empresa.id;
     delete from public.costos_config where empresa_id = v_empresa.id;

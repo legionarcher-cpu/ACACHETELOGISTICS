@@ -48,6 +48,12 @@
 
 // Cada cuánto se revisan novedades (ms). 60000 = 1 minuto.
 const NOTI_INTERVALO = 60000;
+// El piloto / conductor, más seguido: le pueden llegar viajes que tiene que aceptar
+const NOTI_INTERVALO_PILOTO = 20000;
+
+// Avisos que suenan al llegar (referencia_tipo). viaje_nuevo: viaje que el conductor
+// debe aceptar o rechazar (sql/instalacion/05_transporte.sql, viaje_avisar_conductor).
+const NOTI_CON_SONIDO = ['viaje_nuevo'];
 
 // Cuántas notificaciones se muestran en la lista
 const NOTI_LIMITE = 30;
@@ -217,6 +223,44 @@ async function resolverPendientes(referenciaTipo, referenciaId) {
 let notiTemporizador = null;  // setInterval de la revisión cada minuto
 let notiUltimoId = null;      // id más alto ya visto (para saber cuáles son nuevas)
 let notiLista = [];           // últimas notificaciones del usuario
+let notiAudio = null;         // AudioContext del sonido (se crea con el primer clic)
+
+// Sonido de aviso: tres tonos cortos, sin archivo. El navegador solo deja sonar después
+// de que la persona tocó la página una vez (iniciar sesión ya cuenta).
+function sonarAviso() {
+    try {
+        notiAudio = notiAudio || new (window.AudioContext || window.webkitAudioContext)();
+        if (notiAudio.state === 'suspended') notiAudio.resume();
+        [880, 1175, 1568].forEach((frecuencia, i) => {
+            const inicio = notiAudio.currentTime + i * 0.18;
+            const tono = notiAudio.createOscillator();
+            const volumen = notiAudio.createGain();
+            tono.type = 'sine';
+            tono.frequency.value = frecuencia;
+            volumen.gain.setValueAtTime(0.0001, inicio);
+            volumen.gain.exponentialRampToValueAtTime(0.35, inicio + 0.02);
+            volumen.gain.exponentialRampToValueAtTime(0.0001, inicio + 0.16);
+            tono.connect(volumen).connect(notiAudio.destination);
+            tono.start(inicio);
+            tono.stop(inicio + 0.17);
+        });
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    } catch (err) {
+        console.warn('No se pudo sonar el aviso:', err);
+    }
+}
+
+// Viajes que el conductor no respondió a tiempo: pasan a otro conductor (la base no tiene
+// reloj; lo hace la página de cualquier persona de la empresa conectada).
+function revisarViajesPendientes() {
+    const sesion = obtenerSesion();
+    if (!sesion || sesion.rol === 'cliente' || typeof empresaTieneViajes !== 'function' || !empresaTieneViajes()) return;
+    const empresa = typeof empresaActivaId === 'function' ? empresaActivaId() : null;
+    if (!empresa) return;
+    db.rpc('viajes_revisar_pendientes', { p_empresa: empresa }).then(({ error }) => {
+        if (error && error.code !== 'PGRST202') console.warn('No se revisaron los viajes por aceptar:', error.message);
+    });
+}
 
 // "hace 5 min", "hace 2 h", "hace 3 días"
 function tiempoRelativo(fechaTexto) {
@@ -323,9 +367,10 @@ function mostrarAvisoNoti({ tipo, titulo, mensaje, enlace, id }) {
 async function refrescarNotificaciones() {
     const sesion = obtenerSesion();
     if (!sesion) return;
+    revisarViajesPendientes();
 
     const { data, error } = await db.from('notificaciones')
-        .select('id, tipo, titulo, mensaje, enlace, leida, creado_en')
+        .select('id, tipo, titulo, mensaje, enlace, leida, creado_en, referencia_tipo')
         .eq('usuario_id', sesion.id)
         .order('creado_en', { ascending: false })
         .limit(NOTI_LIMITE);
@@ -339,8 +384,9 @@ async function refrescarNotificaciones() {
     const primeraVez = notiUltimoId === null;
     const maxId = data.reduce((max, n) => Math.max(max, n.id), 0);
 
+    const conSonido = (n) => !n.leida && NOTI_CON_SONIDO.includes(n.referencia_tipo);
     if (primeraVez) {
-        // Al entrar: un solo aviso si hay sin leer
+        // Al entrar: un solo aviso si hay sin leer (y suena si alguna es un viaje por aceptar)
         const sinLeer = data.filter((n) => !n.leida).length;
         if (sinLeer > 0) {
             mostrarAvisoNoti({
@@ -349,10 +395,12 @@ async function refrescarNotificaciones() {
                 mensaje: 'Revísalas en la campana de arriba.',
             });
         }
+        if (data.some(conSonido)) sonarAviso();
     } else {
         // Después: un aviso por cada notificación nueva (máximo 3)
-        data.filter((n) => n.id > notiUltimoId && !n.leida).slice(0, 3).reverse()
-            .forEach((n) => mostrarAvisoNoti(n));
+        const nuevas = data.filter((n) => n.id > notiUltimoId && !n.leida);
+        nuevas.slice(0, 3).reverse().forEach((n) => mostrarAvisoNoti(n));
+        if (nuevas.some(conSonido)) sonarAviso();
     }
 
     notiUltimoId = Math.max(notiUltimoId || 0, maxId);
@@ -385,7 +433,9 @@ async function marcarTodasLeidas() {
 function iniciarNotificaciones() {
     if (notiTemporizador) return;
     refrescarNotificaciones();
-    notiTemporizador = setInterval(refrescarNotificaciones, NOTI_INTERVALO);
+    const sesion = obtenerSesion();
+    notiTemporizador = setInterval(refrescarNotificaciones,
+        sesion && sesion.rol === 'piloto' ? NOTI_INTERVALO_PILOTO : NOTI_INTERVALO);
 }
 
 // Apaga la campana (al cerrar sesión)
@@ -431,6 +481,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     document.getElementById('notiMarcarTodas').addEventListener('click', marcarTodasLeidas);
+
+    // El navegador solo deja sonar después de un toque: con el primero se prepara el sonido
+    document.addEventListener('pointerdown', () => {
+        try {
+            notiAudio = notiAudio || new (window.AudioContext || window.webkitAudioContext)();
+            if (notiAudio.state === 'suspended') notiAudio.resume();
+        } catch (err) { /* sin sonido en este navegador */ }
+    }, { once: true });
 
     // Al cambiar de sección también se revisan novedades
     window.addEventListener('hashchange', () => {

@@ -43,6 +43,12 @@
     color: var(--color-rojo);
 }
 
+/* "Avisar al cliente" por WhatsApp (verde de WhatsApp para reconocerlo) */
+.via-boton-whatsapp {
+    color: #128C7E;
+    border-color: #25D366;
+}
+
 .via-boton-suave {
     border-style: dashed;
 }

@@ -203,6 +203,7 @@ Ninguno de los QR lleva datos personales: solo un código que la base reconoce. 
 | `transporte_config` | Reglas de transporte de cada empresa (una fila por `empresa_id`): agenda (acercamiento, colchón, velocidad, anticipación, plazo para cancelar, zona horaria), recargos fijos, redondeo y cortesía |
 | `transporte_franjas` | Precio por km según la hora de recogida: `dias` (1 = lunes … 7 = domingo), `desde`, `hasta`, `cargo_base`, `precio_km`, `minimo`, `activa`. Trigger `franjas_sin_encimar` |
 | `transporte_dias_cerrados` | `empresa_id` + `fecha` + `motivo`: ese día no se reserva |
+| `transporte_bloqueos` | Horas sin servicio (almuerzo, entrada, salida): un día (`fecha`) o todas las semanas (`dias`), `desde`, `hasta`, `motivo`. `viaje_bloqueo` revisa el bloque completo del vehículo al reservar o cambiar la hora |
 | `costos_operacion` | Gastos del mes de la empresa: `concepto`, `tipo` (`fijo` / `variable`), `monto_mes` (el combustible es un gasto más) |
 | `costos_config` | `margen_objetivo` (% de utilidad deseado) y `trabajos_mes` (entregas o viajes al mes; vacío = los reales) |
 | `viajes` | Viajes (código `V-000001`): cliente, A y B (dirección y punto), km, minutos, personas, mascotas, mercadería, `inicio` y bloque del vehículo, vehículo, conductor, franja, precio, recargos, total, `desglose`, cortesía, estado y horas de cada paso. **La página solo lee**: se escribe con `viajes_solicitar`, `viajes_cambiar_hora`, `viajes_cancelar` y `viajes_avanzar` |

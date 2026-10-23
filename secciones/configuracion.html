@@ -116,7 +116,7 @@
             <span class="cfg-modulo-icono"><i class="bi bi-car-front"></i></span>
             <span class="cfg-modulo-textos">
                 <span class="cfg-modulo-nombre">Transporte</span>
-                <span class="cfg-modulo-descripcion">Agenda de viajes, franjas de precio por km, recargos, días cerrados y viaje de cortesía.</span>
+                <span class="cfg-modulo-descripcion">Agenda de viajes, franjas de precio por km, recargos, días cerrados, horas bloqueadas y viaje de cortesía.</span>
                 <span class="cfg-modulo-acceso">Administrador y Admin G1</span>
             </span>
             <i class="bi bi-chevron-right cfg-modulo-flecha"></i>
@@ -836,6 +836,10 @@
                             <input id="cfgTraCancelar" type="number" min="0" step="0.5" class="campo-input" data-cfg="cancelar_horas">
                         </div>
                         <div class="campo">
+                            <label for="cfgTraAceptar" class="campo-etiqueta">El conductor acepta o rechaza en (minutos)</label>
+                            <input id="cfgTraAceptar" type="number" min="1" max="240" step="1" class="campo-input" data-cfg="aceptar_min" data-entero>
+                        </div>
+                        <div class="campo">
                             <label for="cfgTraZona" class="campo-etiqueta">Zona horaria</label>
                             <select id="cfgTraZona" class="campo-input" data-cfg="zona_horaria" data-texto>
                                 <option value="America/Costa_Rica">Costa Rica</option>
@@ -932,6 +936,35 @@
                             </tr>
                         </thead>
                         <tbody id="cfgTraCerrados"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ---------- 5. Horas bloqueadas (transporte_bloqueos) ---------- -->
+            <div class="tarjeta cfg-tarjeta">
+                <div class="cfg-tarjeta-cabecera">
+                    <div>
+                        <h3 class="cfg-tarjeta-titulo">Horas bloqueadas</h3>
+                        <p class="cfg-tarjeta-texto">
+                            Almuerzo, entrada o salida: en esas horas ningún vehículo sale, así que no se pueden reservar
+                            viajes que las toquen. Un día o todas las semanas. Los viajes ya reservados no cambian.
+                        </p>
+                    </div>
+                    <button type="button" id="cfgTraBloqueoNuevo" class="boton boton-principal boton-chico">
+                        <i class="bi bi-slash-circle"></i> <span>Bloquear horas</span>
+                    </button>
+                </div>
+                <div class="tabla-caja">
+                    <table class="tabla cfg-tabla">
+                        <thead>
+                            <tr>
+                                <th>Cuándo</th>
+                                <th>Horas</th>
+                                <th>Motivo</th>
+                                <th class="tabla-col-acciones">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cfgTraBloqueos"></tbody>
                     </table>
                 </div>
             </div>
@@ -1812,6 +1845,47 @@
         <div class="dialogo-botones">
             <button type="button" id="cfgTraFrCancelar" class="boton boton-secundario">Cancelar</button>
             <button type="submit" id="cfgTraFrGuardar" class="boton boton-principal">Guardar</button>
+        </div>
+    </form>
+</dialog>
+
+<!-- Ventana: bloquear horas de Transporte (js/secciones/configuracion/transporte.js) -->
+<dialog id="cfgTraBloqueoDialogo" class="dialogo dialogo-chico" aria-labelledby="cfgTraBloqueoTitulo">
+    <form id="cfgTraBloqueoForm" class="dialogo-form" novalidate>
+        <h3 id="cfgTraBloqueoTitulo" class="dialogo-titulo">Bloquear horas</h3>
+        <div class="campos">
+            <fieldset class="campo campo-ancho via-si-no">
+                <legend class="campo-etiqueta">Cuándo *</legend>
+                <div class="via-si-no-opciones">
+                    <label><input type="radio" name="cfgTraBloqueoCuando" value="semana" checked> Todas las semanas</label>
+                    <label><input type="radio" name="cfgTraBloqueoCuando" value="dia"> Un día</label>
+                </div>
+            </fieldset>
+            <fieldset class="campo campo-ancho cfg-tra-dias" data-bloqueo="semana">
+                <legend class="campo-etiqueta">Días *</legend>
+                <div id="cfgTraBloqueoDias" class="cfg-tra-dias-opciones"></div>
+            </fieldset>
+            <div class="campo campo-ancho" data-bloqueo="dia" hidden>
+                <label for="cfgTraBloqueoFecha" class="campo-etiqueta">Fecha *</label>
+                <input id="cfgTraBloqueoFecha" type="date" class="campo-input">
+            </div>
+            <div class="campo">
+                <label for="cfgTraBloqueoDesde" class="campo-etiqueta">Desde *</label>
+                <input id="cfgTraBloqueoDesde" type="time" class="campo-input" step="300">
+            </div>
+            <div class="campo">
+                <label for="cfgTraBloqueoHasta" class="campo-etiqueta">Hasta *</label>
+                <input id="cfgTraBloqueoHasta" type="time" class="campo-input" step="300">
+            </div>
+            <div class="campo campo-ancho">
+                <label for="cfgTraBloqueoMotivo" class="campo-etiqueta">Motivo</label>
+                <input id="cfgTraBloqueoMotivo" type="text" maxlength="60" class="campo-input" placeholder="Ej. Almuerzo, Entrada, Salida">
+            </div>
+        </div>
+        <p id="cfgTraBloqueoError" class="form-error" role="alert"></p>
+        <div class="dialogo-botones">
+            <button type="button" id="cfgTraBloqueoCancelar" class="boton boton-secundario">Cancelar</button>
+            <button type="submit" class="boton boton-principal">Bloquear</button>
         </div>
     </form>
 </dialog>

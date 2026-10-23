@@ -8,10 +8,15 @@
 --     vehículo se asignan solos.
 --   - transporte_config: reglas por empresa (agenda, recargos, cortesía).
 --   - transporte_franjas: precio por km según la hora de recogida (no se enciman).
---   - transporte_dias_cerrados.
+--   - transporte_dias_cerrados y transporte_bloqueos (horas sin servicio, ej. almuerzo).
 --   - viajes y cortesias: la página SOLO LEE. Reservar, cambiar la hora, cancelar y
 --     avanzar el estado se hace con funciones que revisan las reglas y evitan que dos
 --     clientes tomen la misma hora.
+--   - El conductor ACEPTA o RECHAZA cada viaje que le llega (viajes_responder): queda
+--     "pendiente" (Esperando conductor) con aviso y sonido. Si lo rechaza o no responde en
+--     transporte_config.aceptar_min minutos (viajes_revisar_pendientes), pasa a otro
+--     conductor libre (viaje_reasignar); si no hay, queda "sin_conductor" y se avisa al
+--     cliente, al Administrador y al G1 (el personal usa viajes_buscar_conductor).
 -- Los gastos del mes (costos de operación) están en 06_costos.sql.
 -- Se puede repetir.
 -- ==================================================
@@ -39,6 +44,7 @@ create table if not exists public.transporte_config (
     cortesia_dias        smallint      not null default 15,  -- ...dentro de estos días
     cortesia_vence_dias  smallint      not null default 30,
     cortesia_radio_km    numeric(5,1)  not null default 8,
+    aceptar_min          smallint      not null default 10,  -- el conductor acepta o rechaza en N minutos (si no, pasa a otro)
     actualizado_en       timestamptz   not null default now(),
 
     constraint transporte_config_valida check (
@@ -48,6 +54,10 @@ create table if not exists public.transporte_config (
         and recargo_pasajero >= 0 and recargo_mercaderia >= 0 and recargo_mascota >= 0 and redondeo >= 0
         and cortesia_viajes > 0 and cortesia_dias > 0 and cortesia_vence_dias > 0 and cortesia_radio_km >= 0)
 );
+-- Base ya instalada: minutos para aceptar el viaje
+alter table public.transporte_config add column if not exists aceptar_min smallint not null default 10;
+alter table public.transporte_config drop constraint if exists transporte_config_aceptar_valido;
+alter table public.transporte_config add constraint transporte_config_aceptar_valido check (aceptar_min between 1 and 240);
 
 -- Precio por km según la hora de recogida. dias: 1 = lunes ... 7 = domingo.
 create table if not exists public.transporte_franjas (
@@ -106,6 +116,27 @@ create table if not exists public.transporte_dias_cerrados (
     primary key (empresa_id, fecha)
 );
 
+-- Horas bloqueadas (almuerzo, entrada, salida): un día (fecha) o todas las semanas (dias).
+-- Ningún vehículo sale en esas horas. Los viajes que ya existían no se tocan.
+-- (Igual que recoleccion_bloqueos en 09_recolecciones.sql.)
+create table if not exists public.transporte_bloqueos (
+    id          bigint generated always as identity primary key,
+    empresa_id  bigint not null default public.empresa_principal() references public.empresas(id) on delete cascade,
+    fecha       date,
+    dias        smallint[],
+    desde       time not null,
+    hasta       time not null,
+    motivo      text,
+    creado_por  bigint references public.usuarios(id) on delete set null,
+    creado_en   timestamptz not null default now(),
+
+    constraint transporte_bloqueos_validos check (
+        hasta > desde
+        and ((fecha is not null) <> (coalesce(cardinality(dias), 0) > 0))
+        and (dias is null or dias <@ array[1, 2, 3, 4, 5, 6, 7]::smallint[]))
+);
+create index if not exists transporte_bloqueos_empresa_idx on public.transporte_bloqueos (empresa_id);
+
 create sequence if not exists public.viajes_codigo_seq;
 
 create table if not exists public.viajes (
@@ -154,7 +185,12 @@ create table if not exists public.viajes (
     cobro_forma             text,     -- cómo pagó (efectivo, sinpe, tarjeta)
     cierre_id               bigint,   -- cierre de caja: llave en 07_caja_y_ubicacion.sql
 
-    estado                  text not null default 'confirmado',
+    -- pendiente (esperando que el conductor acepte) -> confirmado -> en_camino -> en_curso -> terminado.
+    -- sin_conductor: todos rechazaron o nadie estaba libre (el personal busca otro o cancela).
+    estado                  text not null default 'pendiente',
+    asignado_en             timestamptz,             -- cuándo se le ofreció al conductor actual
+    aceptado_en             timestamptz,             -- cuándo lo aceptó
+    rechazado_por           bigint[] not null default '{}', -- conductores que lo rechazaron o no respondieron
     notas                   text,
     motivo_cancelacion      text,
     cancelado_por           bigint references public.usuarios(id) on delete set null,
@@ -165,7 +201,6 @@ create table if not exists public.viajes (
     creado_en               timestamptz not null default now(),
     actualizado_en          timestamptz not null default now(),
 
-    constraint viajes_estado_valido      check (estado in ('confirmado', 'en_camino', 'en_curso', 'terminado', 'cancelado', 'no_se_presento')),
     constraint viajes_quienes_validos    check (personas >= 0 and mascotas >= 0 and (personas > 0 or lleva_mercaderia)),
     constraint viajes_bloque_valido      check (bloque_fin > bloque_inicio and km >= 0 and minutos >= 0),
     constraint viajes_montos_validos     check (precio_viaje >= 0 and recargos >= 0 and total >= 0),
@@ -177,6 +212,16 @@ create index if not exists viajes_vehiculo_idx       on public.viajes (vehiculo_
 create index if not exists viajes_cliente_idx        on public.viajes (cliente_id, estado);
 create index if not exists viajes_conductor_idx      on public.viajes (conductor_id, inicio);
 create index if not exists viajes_caja_idx           on public.viajes (conductor_id, cierre_id);
+
+-- Base ya instalada: aceptar o rechazar el viaje (estados pendiente y sin_conductor)
+alter table public.viajes add column if not exists asignado_en timestamptz;
+alter table public.viajes add column if not exists aceptado_en timestamptz;
+alter table public.viajes add column if not exists rechazado_por bigint[] not null default '{}';
+alter table public.viajes alter column estado set default 'pendiente';
+alter table public.viajes drop constraint if exists viajes_estado_valido;
+alter table public.viajes add constraint viajes_estado_valido check (estado in
+    ('pendiente', 'sin_conductor', 'confirmado', 'en_camino', 'en_curso', 'terminado', 'cancelado', 'no_se_presento'));
+create index if not exists viajes_pendientes_idx on public.viajes (empresa_id, asignado_en) where estado = 'pendiente';
 
 create table if not exists public.cortesias (
     id              bigint generated always as identity primary key,
@@ -329,8 +374,11 @@ $$;
 -- Vehículo libre para un bloque: activo, con conductor, con asientos y carga
 -- suficientes, que acepte mascotas si hacen falta y sin otro viaje que choque.
 -- Prefiere p_preferido (al cambiar la hora) y si no, el de menos viajes ese día.
+-- p_sin_conductores: conductores que ya rechazaron ese viaje (no se le vuelve a ofrecer).
+drop function if exists public.viaje_vehiculo_libre(bigint, timestamptz, timestamptz, integer, numeric, integer, bigint, bigint);
 create or replace function public.viaje_vehiculo_libre(p_empresa bigint, p_desde timestamptz, p_hasta timestamptz,
     p_personas integer, p_kg numeric, p_mascotas integer, p_excluir bigint default null, p_preferido bigint default null,
+    p_sin_conductores bigint[] default null,
     out vehiculo_id bigint, out conductor_id bigint)
 language plpgsql
 stable
@@ -341,6 +389,7 @@ begin
       from public.vehiculos v
       join lateral (select x.id from public.usuarios x
                      where x.vehiculo_id = v.id and x.rol = 'piloto' and x.aprobado
+                       and not (x.id = any(coalesce(p_sin_conductores, '{}'::bigint[])))
                      order by x.id limit 1) u on true
      where v.empresa_id = p_empresa
        and v.estado <> 'mantenimiento'
@@ -362,6 +411,28 @@ begin
               v.id
      limit 1;
 end;
+$$;
+
+-- ¿El bloque del vehículo (desde que sale hacia A hasta que queda libre) cae en una hora
+-- bloqueada? Devuelve el motivo ('' si no tiene) o null.
+create or replace function public.viaje_bloqueo(p_empresa bigint, p_desde timestamptz, p_hasta timestamptz)
+returns text
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+    select coalesce(b.motivo, '')
+      from public.transporte_bloqueos b,
+           lateral (select coalesce((select zona_horaria from public.transporte_config where empresa_id = p_empresa),
+                                    'America/Costa_Rica') as zona) z
+     where b.empresa_id = p_empresa
+       and (b.fecha = (p_desde at time zone z.zona)::date
+            or extract(isodow from (p_desde at time zone z.zona))::smallint = any(b.dias))
+       and b.desde < (p_hasta at time zone z.zona)::time
+       and b.hasta > (p_desde at time zone z.zona)::time
+     order by b.desde
+     limit 1;
 $$;
 
 -- ¿Se puede reservar a esa hora? (lanza el error con el motivo)
@@ -441,9 +512,16 @@ begin
             v_ini := t at time zone c.zona_horaria;
             continue when v_ini < now() + make_interval(mins => c.anticipacion_min);
             select * into b from public.viaje_bloque(p_empresa, v_ini, v_min);
+            v_precio := public.viaje_precio(p_empresa, v_ini, p_km, p_personas, p_mascotas, p_mercaderia, false);
+            -- Hora bloqueada (ej. almuerzo): ningún vehículo sale
+            if public.viaje_bloqueo(p_empresa, b.bloque_inicio, b.bloque_fin) is not null then
+                return query select v_ini, to_char(t, 'HH24:MI'), false,
+                    coalesce(f.nombre, to_char(f.desde, 'HH24:MI') || '–' || to_char(f.hasta, 'HH24:MI')),
+                    (v_precio ->> 'total')::numeric, 'No disponible'::text;
+                continue;
+            end if;
             select * into vl from public.viaje_vehiculo_libre(p_empresa, b.bloque_inicio, b.bloque_fin,
                 p_personas, p_kg, p_mascotas, p_excluir);
-            v_precio := public.viaje_precio(p_empresa, v_ini, p_km, p_personas, p_mascotas, p_mercaderia, false);
             return query select v_ini, to_char(t, 'HH24:MI'), vl.vehiculo_id is not null,
                 coalesce(f.nombre, to_char(f.desde, 'HH24:MI') || '–' || to_char(f.hasta, 'HH24:MI')),
                 (v_precio ->> 'total')::numeric,
@@ -477,6 +555,35 @@ as $$
     insert into public.notificaciones (usuario_id, tipo, titulo, mensaje, enlace, referencia_tipo, referencia_id)
     select p_usuario, 'info', p_titulo, p_mensaje, '#viajes?id=' || p_viaje, 'viaje', p_viaje
      where p_usuario is not null;
+$$;
+
+-- Viaje ofrecido a su conductor: aviso "pendiente" con sonido (referencia viaje_nuevo,
+-- js/notificaciones.js). Se cierra solo al aceptar, rechazar o pasar a otro.
+create or replace function public.viaje_avisar_conductor(p_viaje bigint)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+    insert into public.notificaciones (usuario_id, tipo, titulo, mensaje, enlace, referencia_tipo, referencia_id)
+    select v.conductor_id, 'pendiente', 'Viaje nuevo ' || v.codigo || ': acéptalo o recházalo',
+           format('%s · %s · %s → %s · tienes %s min para responder',
+                  to_char(v.inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), v.cliente_nombre,
+                  v.origen_direccion, v.destino_direccion, c.aceptar_min),
+           '#viajes?id=' || v.id, 'viaje_nuevo', v.id
+      from public.viajes v, public.transporte_cfg(v.empresa_id) c
+     where v.id = p_viaje and v.conductor_id is not null;
+$$;
+
+-- Avisos "pendiente" de un viaje ofrecido: se marcan leídos (ya respondió o pasó a otro)
+create or replace function public.viaje_cerrar_avisos(p_viaje bigint)
+returns void
+language sql
+security definer
+set search_path = ''
+as $$
+    update public.notificaciones set leida = true
+     where referencia_tipo = 'viaje_nuevo' and referencia_id = p_viaje and not leida;
 $$;
 
 -- ---------- Reservar ----------
@@ -557,6 +664,9 @@ begin
                         (p #>> '{destino,lat}')::numeric, (p #>> '{destino,lng}')::numeric)), 2);
     v_min := coalesce((p ->> 'minutos')::integer, ceil(v_km / greatest(c.velocidad_kmh, 1) * 60)::integer);
     select * into b from public.viaje_bloque(v_empresa, v_inicio, v_min);
+    if public.viaje_bloqueo(v_empresa, b.bloque_inicio, b.bloque_fin) is not null then
+        raise exception 'Esa hora no está disponible: elige otra.' using errcode = 'P0001', hint = 'ocupado';
+    end if;
     select * into vl from public.viaje_vehiculo_libre(v_empresa, b.bloque_inicio, b.bloque_fin, v_personas, v_kg, v_mascotas);
     if vl.vehiculo_id is null then
         raise exception 'Esa hora acaba de ocuparse: elige otra.' using errcode = 'P0001', hint = 'ocupado';
@@ -577,7 +687,7 @@ begin
         km, minutos, ruta_aproximada, personas, mascotas, mascotas_nota,
         lleva_mercaderia, mercaderia_descripcion, mercaderia_bultos, mercaderia_kg,
         inicio, bloque_inicio, bloque_fin, vehiculo_id, conductor_id, franja_id,
-        precio_viaje, recargos, total, desglose, es_cortesia, cortesia_id, notas)
+        precio_viaje, recargos, total, desglose, es_cortesia, cortesia_id, notas, estado, asignado_en)
     values (
         v_empresa, v_cliente.id, v_cliente.nombre, v_cliente.telefono, u.id,
         coalesce(nullif(btrim(p #>> '{origen,direccion}'), ''), 'Punto A'), (p #>> '{origen,lat}')::numeric, (p #>> '{origen,lng}')::numeric,
@@ -587,15 +697,14 @@ begin
         case when v_merc then (p ->> 'mercaderia_bultos')::smallint end, case when v_merc then nullif(v_kg, 0) end,
         v_inicio, b.bloque_inicio, b.bloque_fin, vl.vehiculo_id, vl.conductor_id, (v_precio ->> 'franja_id')::bigint,
         (v_precio ->> 'viaje')::numeric, (v_precio ->> 'recargos')::numeric, (v_precio ->> 'total')::numeric, v_precio,
-        v_cort is not null, v_cort, nullif(btrim(p ->> 'notas'), ''))
+        v_cort is not null, v_cort, nullif(btrim(p ->> 'notas'), ''), 'pendiente', now())
     returning * into v_viaje;
 
     if v_cort is not null then
         update public.cortesias set usada_viaje_id = v_viaje.id, usada_en = now() where id = v_cort;
     end if;
-    perform public.viaje_avisar(vl.conductor_id, 'Viaje nuevo ' || v_viaje.codigo,
-        format('%s · %s · %s → %s', to_char(v_inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'),
-               v_viaje.cliente_nombre, v_viaje.origen_direccion, v_viaje.destino_direccion), v_viaje.id);
+    -- Queda "Esperando conductor": el conductor lo acepta o lo rechaza (viajes_responder)
+    perform public.viaje_avisar_conductor(v_viaje.id);
     return public.viaje_json(v_viaje.id);
 end;
 $$;
@@ -612,7 +721,7 @@ begin
         if v.cliente_id is distinct from u.cliente_id then
             raise exception 'Ese viaje no es tuyo.' using errcode = 'P0001';
         end if;
-        if v.estado <> 'confirmado' then
+        if v.estado not in ('pendiente', 'sin_conductor', 'confirmado') then
             raise exception 'El viaje ya empezó: llama a la empresa.' using errcode = 'P0001';
         end if;
         if now() > v.inicio - make_interval(secs => (c.cancelar_horas * 3600)::integer) then
@@ -623,12 +732,12 @@ begin
         if u.empresa_id is distinct from v.empresa_id then
             raise exception 'Ese viaje es de otra empresa.' using errcode = 'P0001';
         end if;
-        if v.estado not in ('confirmado', 'en_camino') then
+        if v.estado not in ('pendiente', 'sin_conductor', 'confirmado', 'en_camino') then
             raise exception 'Ese viaje ya no se puede cambiar.' using errcode = 'P0001';
         end if;
     elsif u.rol = 'desarrollador' then
         perform public.soporte_exigir(v.empresa_id, 'corregir');
-        if v.estado not in ('confirmado', 'en_camino') then
+        if v.estado not in ('pendiente', 'sin_conductor', 'confirmado', 'en_camino') then
             raise exception 'Ese viaje ya no se puede cambiar.' using errcode = 'P0001';
         end if;
     else
@@ -666,6 +775,7 @@ begin
         update public.cortesias set usada_viaje_id = null, usada_en = null
          where id = v.cortesia_id and vence_en > now();
     end if;
+    perform public.viaje_cerrar_avisos(v.id);
     perform public.viaje_avisar(v.conductor_id, 'Viaje cancelado ' || v.codigo,
         format('%s · %s', to_char(v.inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), v.cliente_nombre), v.id);
     return public.viaje_json(v.id);
@@ -686,6 +796,7 @@ declare
     b        record;
     vl       record;
     v_precio jsonb;
+    v_sigue  boolean;
 begin
     u := public.usuario_activo(p_usuario);
     select * into v from public.viajes where id = p_viaje for update;
@@ -698,6 +809,9 @@ begin
     perform public.viaje_validar_inicio(v.empresa_id, p_inicio);
 
     select * into b from public.viaje_bloque(v.empresa_id, p_inicio, v.minutos);
+    if public.viaje_bloqueo(v.empresa_id, b.bloque_inicio, b.bloque_fin) is not null then
+        raise exception 'Esa hora no está disponible: elige otra. Tu viaje sigue como estaba.' using errcode = 'P0001', hint = 'ocupado';
+    end if;
     select * into vl from public.viaje_vehiculo_libre(v.empresa_id, b.bloque_inicio, b.bloque_fin,
         v.personas, coalesce(v.mercaderia_kg, 0), v.mascotas, v.id, v.vehiculo_id);
     if vl.vehiculo_id is null then
@@ -705,17 +819,194 @@ begin
     end if;
     v_precio := public.viaje_precio(v.empresa_id, p_inicio, v.km, v.personas, v.mascotas, v.lleva_mercaderia, v.es_cortesia);
 
+    -- El mismo conductor que ya lo aceptó: sigue confirmado. Otro conductor: lo tiene que aceptar.
+    v_sigue := v.conductor_id is not distinct from vl.conductor_id and v.estado in ('confirmado', 'en_camino');
     update public.viajes
        set inicio = p_inicio, bloque_inicio = b.bloque_inicio, bloque_fin = b.bloque_fin,
            vehiculo_id = vl.vehiculo_id, conductor_id = vl.conductor_id, franja_id = (v_precio ->> 'franja_id')::bigint,
            precio_viaje = (v_precio ->> 'viaje')::numeric, recargos = (v_precio ->> 'recargos')::numeric,
-           total = (v_precio ->> 'total')::numeric, desglose = v_precio, estado = 'confirmado', en_camino_en = null
+           total = (v_precio ->> 'total')::numeric, desglose = v_precio, en_camino_en = null,
+           estado = case when v_sigue then 'confirmado' else 'pendiente' end,
+           asignado_en = case when v_sigue then asignado_en else now() end,
+           aceptado_en = case when v_sigue then aceptado_en end,
+           rechazado_por = '{}'
      where id = v.id;
+    perform public.viaje_cerrar_avisos(v.id);
     if v.conductor_id is distinct from vl.conductor_id then
         perform public.viaje_avisar(v.conductor_id, 'Viaje reasignado ' || v.codigo, 'Ya no te toca este viaje.', v.id);
     end if;
-    perform public.viaje_avisar(vl.conductor_id, 'Viaje con hora nueva ' || v.codigo,
-        format('%s · %s', to_char(p_inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), v.cliente_nombre), v.id);
+    if v_sigue then
+        perform public.viaje_avisar(vl.conductor_id, 'Viaje con hora nueva ' || v.codigo,
+            format('%s · %s', to_char(p_inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), v.cliente_nombre), v.id);
+    else
+        perform public.viaje_avisar_conductor(v.id);
+    end if;
+    return public.viaje_json(v.id);
+end;
+$$;
+
+-- ---------- Pasar el viaje a otro conductor (rechazo o sin respuesta) ----------
+-- Busca otro vehículo con conductor libre, sin los que ya lo rechazaron. Si hay: queda
+-- "pendiente" para él (con aviso y sonido). Si no hay (o la hora ya pasó): "sin_conductor"
+-- y se avisa al cliente, al Administrador y al G1. Devuelve el estado en que quedó.
+--   p_excluir_actual: el conductor actual se suma a los que lo rechazaron
+--   p_avisar_sin: avisar si queda sin conductor (no, cuando el personal vuelve a buscar)
+create or replace function public.viaje_reasignar(p_viaje bigint, p_excluir_actual boolean, p_avisar_sin boolean default true)
+returns text
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    v         public.viajes;
+    c         public.transporte_config;
+    v_veh     bigint;
+    v_cond    bigint;
+    v_excluir bigint[];
+begin
+    select * into v from public.viajes where id = p_viaje for update;
+    c := public.transporte_cfg(v.empresa_id);
+    perform pg_advisory_xact_lock(7301, v.empresa_id::integer);
+    perform public.viaje_cerrar_avisos(v.id);
+    v_excluir := v.rechazado_por
+        || case when p_excluir_actual and v.conductor_id is not null then array[v.conductor_id] else '{}'::bigint[] end;
+
+    if v.inicio > now() and public.viaje_bloqueo(v.empresa_id, v.bloque_inicio, v.bloque_fin) is null then
+        select l.vehiculo_id, l.conductor_id into v_veh, v_cond
+          from public.viaje_vehiculo_libre(v.empresa_id, v.bloque_inicio, v.bloque_fin,
+               v.personas, coalesce(v.mercaderia_kg, 0), v.mascotas, v.id, null, v_excluir) l;
+    end if;
+
+    if v_veh is null then
+        update public.viajes
+           set estado = 'sin_conductor', vehiculo_id = null, conductor_id = null, asignado_en = null,
+               aceptado_en = null, rechazado_por = v_excluir
+         where id = v.id;
+        if p_avisar_sin then
+            perform public.viaje_avisar(x.id, 'Viaje sin conductor ' || v.codigo,
+                format('%s · %s · ningún conductor libre lo aceptó: busca otro, cambia la hora o cancélalo.',
+                       to_char(v.inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), v.cliente_nombre), v.id)
+              from public.usuarios x
+             where x.empresa_id = v.empresa_id and x.aprobado and x.rol in ('administrador', 'admin_g1');
+            perform public.viaje_avisar(x.id, 'Buscamos conductor para tu viaje ' || v.codigo,
+                format('%s · por ahora no hay conductor libre. La empresa te contactará.',
+                       to_char(v.inicio at time zone c.zona_horaria, 'DD/MM HH24:MI')), v.id)
+              from public.usuarios x where x.cliente_id = v.cliente_id;
+        end if;
+        return 'sin_conductor';
+    end if;
+
+    update public.viajes
+       set estado = 'pendiente', vehiculo_id = v_veh, conductor_id = v_cond,
+           asignado_en = now(), aceptado_en = null, rechazado_por = v_excluir
+     where id = v.id;
+    perform public.viaje_avisar_conductor(v.id);
+    return 'pendiente';
+end;
+$$;
+
+-- ---------- El conductor acepta o rechaza el viaje que le llegó ----------
+create or replace function public.viajes_responder(p_viaje bigint, p_usuario bigint, p_acepta boolean)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u public.usuarios;
+    v public.viajes;
+    c public.transporte_config;
+begin
+    u := public.usuario_activo(p_usuario);
+    select * into v from public.viajes where id = p_viaje for update;
+    if not found then
+        raise exception 'El viaje no existe.' using errcode = 'P0001';
+    end if;
+    if v.conductor_id is distinct from u.id then
+        raise exception 'Este viaje ya no está asignado a ti.' using errcode = 'P0001', hint = 'cambiado';
+    end if;
+    if v.estado <> 'pendiente' then
+        raise exception 'Este viaje ya fue respondido.' using errcode = 'P0001', hint = 'cambiado';
+    end if;
+    c := public.transporte_cfg(v.empresa_id);
+
+    if p_acepta then
+        update public.viajes set estado = 'confirmado', aceptado_en = now() where id = v.id;
+        perform public.viaje_cerrar_avisos(v.id);
+        perform public.viaje_avisar(x.id, 'Viaje confirmado ' || v.codigo,
+            format('%s · tu conductor es %s', to_char(v.inicio at time zone c.zona_horaria, 'DD/MM HH24:MI'), u.nombre), v.id)
+          from public.usuarios x where x.cliente_id = v.cliente_id;
+    else
+        perform public.viaje_reasignar(v.id, true);
+    end if;
+    return public.viaje_json(v.id);
+end;
+$$;
+
+-- ---------- Viajes que el conductor no respondió a tiempo ----------
+-- Pasan a otro conductor como si los hubiera rechazado. No hay un reloj en la base: la
+-- llama la página de cualquier persona conectada de la empresa (js/notificaciones.js, cada
+-- minuto). Devuelve cuántos pasó.
+create or replace function public.viajes_revisar_pendientes(p_empresa bigint)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    c   public.transporte_config;
+    r   record;
+    v_n integer := 0;
+begin
+    if p_empresa is null or not public.ve_empresa(p_empresa) or not public.es_personal() then
+        return 0;
+    end if;
+    c := public.transporte_cfg(p_empresa);
+    for r in select id, conductor_id, codigo from public.viajes
+              where empresa_id = p_empresa and estado = 'pendiente'
+                and asignado_en < now() - make_interval(mins => c.aceptar_min)
+              order by inicio
+              for update skip locked loop
+        perform public.viaje_avisar(r.conductor_id, 'Viaje ' || r.codigo || ' pasó a otro conductor',
+            format('No respondiste en %s minutos.', c.aceptar_min), r.id);
+        perform public.viaje_reasignar(r.id, true);
+        v_n := v_n + 1;
+    end loop;
+    return v_n;
+end;
+$$;
+
+-- ---------- Volver a buscar conductor (personal, viaje sin conductor) ----------
+-- Se le puede ofrecer de nuevo a quienes lo rechazaron (el personal ya habló con ellos).
+create or replace function public.viajes_buscar_conductor(p_viaje bigint, p_usuario bigint)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+    u public.usuarios;
+    v public.viajes;
+begin
+    u := public.usuario_activo(p_usuario);
+    select * into v from public.viajes where id = p_viaje for update;
+    if not found then
+        raise exception 'El viaje no existe.' using errcode = 'P0001';
+    end if;
+    if not ((u.rol = 'desarrollador' and public.soporte_puede(v.empresa_id, 'corregir'))
+            or (u.rol in ('administrador', 'admin_g1', 'admin_g2', 'admin_g3', 'empleado') and u.empresa_id = v.empresa_id)) then
+        raise exception 'Tu usuario no puede asignar viajes.' using errcode = 'P0001';
+    end if;
+    if v.estado <> 'sin_conductor' then
+        raise exception 'Ese viaje ya tiene conductor.' using errcode = 'P0001', hint = 'cambiado';
+    end if;
+    if v.inicio <= now() then
+        raise exception 'La hora del viaje ya pasó: cambia la hora o cancélalo.' using errcode = 'P0001';
+    end if;
+    update public.viajes set rechazado_por = '{}' where id = v.id;
+    if public.viaje_reasignar(v.id, false, false) = 'sin_conductor' then
+        raise exception 'No hay conductor libre a esa hora: cambia la hora o cancela el viaje.' using errcode = 'P0001';
+    end if;
     return public.viaje_json(v.id);
 end;
 $$;

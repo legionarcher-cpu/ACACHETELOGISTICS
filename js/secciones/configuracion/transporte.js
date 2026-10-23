@@ -17,7 +17,9 @@
         zona horaria y reglas del viaje de cortesía.
      3. Simulador km × franja (no se guarda).
      4. Días cerrados (transporte_dias_cerrados).
-   La base usa estas mismas reglas al reservar (viaje_precio, viajes_horas_disponibles).
+     5. Horas bloqueadas (transporte_bloqueos): almuerzo, entrada, salida; un día o todas
+        las semanas. Ningún vehículo sale en esas horas (como los bloqueos de Recolecciones).
+   La base usa estas mismas reglas al reservar (viaje_precio, viaje_bloqueo, viajes_horas_disponibles).
    ================================================== */
 
 registrarModuloConfig('transporte', (seccion, ctx) => {
@@ -29,6 +31,7 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
     let config = { ...VIA_CONFIG_BASE };
     let franjas = [];
     let cerrados = [];
+    let bloqueos = [];
     let costoViaje = 0;     // costo de operación por viaje (solo para el margen de las franjas)
     let kmPromedio = 0;     // km del viaje promedio (terminados en 30 días)
     let editandoFranja = null;
@@ -49,13 +52,14 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
 
     async function cargar() {
         const hace30 = new Date(Date.now() - 30 * 86400000).toISOString();
-        const [cfg, fr, ce, co, cc, v30] = await Promise.all([
+        const [cfg, fr, ce, co, cc, v30, bl] = await Promise.all([
             db.from('transporte_config').select('*').maybeSingle(),
             db.from('transporte_franjas').select('*').order('desde'),
             db.from('transporte_dias_cerrados').select('fecha, motivo').gte('fecha', viaFechaISO(new Date(), -7)).order('fecha'),
             db.from('costos_operacion').select('monto_mes'),
             db.from('costos_config').select('trabajos_mes').maybeSingle(),
             db.from('viajes').select('km').eq('estado', 'terminado').gte('inicio', hace30).limit(5000),
+            db.from('transporte_bloqueos').select('*').order('desde'),
         ]);
         if (!activo) return;
         const error = cfg.error || fr.error || ce.error;
@@ -68,6 +72,11 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
         config = { ...VIA_CONFIG_BASE, ...(cfg.data || {}) };
         franjas = fr.data;
         cerrados = ce.data;
+        // Bloqueos: los de un día que ya pasó no se muestran (sin la tabla: lista vacía)
+        const hoy = viaFechaISO();
+        bloqueos = (bl.error ? [] : bl.data).filter((b) => !b.fecha || b.fecha >= hoy)
+            .sort((a, b) => (a.fecha ? 1 : 0) - (b.fecha ? 1 : 0) || String(a.fecha || '').localeCompare(String(b.fecha || '')) || a.desde.localeCompare(b.desde));
+        if (bl.error && !faltaSql(bl.error)) console.error('Error al cargar las horas bloqueadas:', bl.error);
         const terminados = v30.error ? [] : v30.data;
         kmPromedio = terminados.length ? terminados.reduce((s, v) => s + Number(v.km || 0), 0) / terminados.length : 0;
         costoViaje = costoPorTrabajo(co.error ? [] : co.data, (cc.data && cc.data.trabajos_mes) || terminados.length);
@@ -75,6 +84,7 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
         dibujarFranjas();
         dibujarSimulador();
         dibujarCerrados();
+        dibujarBloqueos();
     }
 
     // ==================================================
@@ -111,6 +121,7 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
         }
         if (datos.velocidad_kmh !== undefined && datos.velocidad_kmh <= 0) { errorCaja.textContent = 'La velocidad debe ser mayor que 0.'; return; }
         if (datos.cortesia_viajes !== undefined && datos.cortesia_viajes < 1) { errorCaja.textContent = 'La cortesía necesita al menos 1 viaje.'; return; }
+        if (datos.aceptar_min !== undefined && (datos.aceptar_min < 1 || datos.aceptar_min > 240)) { errorCaja.textContent = 'El conductor responde en 1 a 240 minutos.'; return; }
         datos.actualizado_en = new Date().toISOString();
         const { error } = await db.from('transporte_config').upsert(datos, { onConflict: 'empresa_id' });
         if (error) {
@@ -346,13 +357,102 @@ registrarModuloConfig('transporte', (seccion, ctx) => {
     });
 
     // ==================================================
+    // 5. HORAS BLOQUEADAS (almuerzo, entrada, salida)
+    // ==================================================
+
+    function dibujarBloqueos() {
+        const cuerpo = enSeccion('#cfgTraBloqueos');
+        cuerpo.replaceChildren();
+        if (!bloqueos.length) { cuerpo.appendChild(crearFilaVacia('Sin horas bloqueadas. Usa "Bloquear horas" (ej. almuerzo de 12:00 a 13:00).', 4)); return; }
+        bloqueos.forEach((b) => {
+            const tr = document.createElement('tr');
+            tr.appendChild(crearCelda(b.fecha
+                ? new Date(`${b.fecha}T12:00:00`).toLocaleDateString('es-CR', { weekday: 'long', day: 'numeric', month: 'long' })
+                : `Todas las semanas: ${textoDias(b.dias)}`));
+            tr.appendChild(crearCelda(`${viaHHMM(b.desde)} – ${viaHHMM(b.hasta)}`));
+            tr.appendChild(crearCelda(b.motivo || '—'));
+            tr.appendChild(crearCeldaAcciones(crearBotonIcono('eliminar-cerrado', b.id, 'bi-trash3', 'Quitar el bloqueo')));
+            cuerpo.appendChild(tr);
+        });
+    }
+
+    enSeccion('#cfgTraBloqueos').addEventListener('click', (e) => {
+        const boton = e.target.closest('button[data-accion="eliminar-cerrado"]');
+        if (!boton) return;
+        const b = bloqueos.find((x) => x.id === Number(boton.dataset.id));
+        if (!b) return;
+        pedirConfirmacion(`¿Quitar el bloqueo de ${viaHHMM(b.desde)} a ${viaHHMM(b.hasta)}${b.motivo ? ` (${b.motivo})` : ''}?`, async () => {
+            const { error } = await db.from('transporte_bloqueos').delete().eq('id', b.id);
+            if (error) { errorBase(error, 'quitar el bloqueo'); return; }
+            aviso.mostrar('Bloqueo quitado.');
+            cargar();
+        });
+    });
+
+    // Casillas de los días del bloqueo (una vez)
+    const cajaDiasBloqueo = $('#cfgTraBloqueoDias');
+    cajaDiasBloqueo.replaceChildren(...Object.entries(VIA_DIAS).map(([n, nombre]) => {
+        const label = viaElemento('label', 'cfg-si-no');
+        const c = document.createElement('input');
+        c.type = 'checkbox';
+        c.value = n;
+        label.append(c, ` ${nombre}`);
+        return label;
+    }));
+
+    const cuandoBloqueo = () => ($('input[name="cfgTraBloqueoCuando"]:checked') || {}).value || 'semana';
+    function mostrarCuandoBloqueo() {
+        $('#cfgTraBloqueoDialogo').querySelectorAll('[data-bloqueo]').forEach((el) => { el.hidden = el.dataset.bloqueo !== cuandoBloqueo(); });
+    }
+    zona.querySelectorAll('input[name="cfgTraBloqueoCuando"]').forEach((r) => r.addEventListener('change', mostrarCuandoBloqueo));
+
+    enSeccion('#cfgTraBloqueoNuevo').addEventListener('click', () => {
+        $('#cfgTraBloqueoForm').reset();
+        $('#cfgTraBloqueoError').textContent = '';
+        // Marcados de entrada: los días que tienen alguna franja activa (o lunes a sábado)
+        const conFranja = [...new Set(franjas.filter((f) => f.activa).flatMap((f) => f.dias.map(Number)))];
+        const marcados = conFranja.length ? conFranja : [1, 2, 3, 4, 5, 6];
+        cajaDiasBloqueo.querySelectorAll('input').forEach((c) => { c.checked = marcados.includes(Number(c.value)); });
+        $('#cfgTraBloqueoFecha').value = viaFechaISO();
+        $('#cfgTraBloqueoDesde').value = '12:00';
+        $('#cfgTraBloqueoHasta').value = '13:00';
+        mostrarCuandoBloqueo();
+        $('#cfgTraBloqueoDialogo').showModal();
+    });
+    $('#cfgTraBloqueoCancelar').addEventListener('click', () => $('#cfgTraBloqueoDialogo').close());
+
+    $('#cfgTraBloqueoForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const error = $('#cfgTraBloqueoError');
+        const semana = cuandoBloqueo() === 'semana';
+        const dias = [...cajaDiasBloqueo.querySelectorAll('input:checked')].map((c) => Number(c.value));
+        const fecha = $('#cfgTraBloqueoFecha').value;
+        const desde = $('#cfgTraBloqueoDesde').value;
+        const hasta = $('#cfgTraBloqueoHasta').value;
+        if (semana && !dias.length) { error.textContent = 'Marca al menos un día.'; return; }
+        if (!semana && !fecha) { error.textContent = 'Elige la fecha.'; return; }
+        if (!desde || !hasta || hasta <= desde) { error.textContent = '"Hasta" debe ser después de "Desde".'; return; }
+        const sesion = obtenerSesion() || {};
+        const { error: err } = await db.from('transporte_bloqueos').insert({
+            fecha: semana ? null : fecha, dias: semana ? dias : null, desde, hasta,
+            motivo: $('#cfgTraBloqueoMotivo').value.trim() || null, creado_por: sesion.id || null,
+        });
+        if (err) { error.textContent = viaErrorTexto(err, 'bloquear las horas'); return; }
+        $('#cfgTraBloqueoDialogo').close();
+        aviso.mostrar(`Horas bloqueadas: ${desde} a ${hasta}.`);
+        cargar();
+    });
+
+    // ==================================================
     // ARRANQUE Y LIMPIEZA
     // ==================================================
     cargar();
 
     return () => {
         activo = false;
-        const d = $('#cfgTraFranjaDialogo');
-        if (d && d.open) d.close();
+        ['#cfgTraFranjaDialogo', '#cfgTraBloqueoDialogo'].forEach((s) => {
+            const d = $(s);
+            if (d && d.open) d.close();
+        });
     };
 });
