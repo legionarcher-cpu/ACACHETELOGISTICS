@@ -2,6 +2,16 @@
 
 Lo más nuevo, arriba. Cada entrada dice qué SQL hay que ejecutar.
 
+## 2026-10-22 · Viajes: la imagen del QR llega por WhatsApp
+
+Sin SQL. Ctrl+F5 (versión `20261022h`).
+
+- Un enlace de WhatsApp (`wa.me`) solo lleva texto. Ahora "Enviar por WhatsApp" de la ventana del QR:
+  en el **celular** abre Compartir con la imagen y el mensaje (se elige WhatsApp y el chat); en la **PC** copia la
+  imagen y abre WhatsApp: se pega con Ctrl+V.
+- El mensaje lleva además **"Su QR del viaje: <enlace>"**: página nueva `qr-viaje.html` (sin iniciar sesión, no
+  consulta la base) que dibuja el QR. El token va después del `#`. Agregada a `_headers` (noindex).
+
 ## 2026-10-22 · Viajes: QR único de cada viaje
 
 SQL: ejecutar **`05_transporte.sql`**. Ctrl+F5 (versión `20261022g`).

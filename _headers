@@ -28,3 +28,10 @@
 
 /ubicacion.html
   X-Robots-Tag: noindex, nofollow
+
+# Enlace del QR del viaje que va en la confirmación (js/viajes-comun.js -> viaEnlaceQr)
+/qr-viaje
+  X-Robots-Tag: noindex, nofollow
+
+/qr-viaje.html
+  X-Robots-Tag: noindex, nofollow

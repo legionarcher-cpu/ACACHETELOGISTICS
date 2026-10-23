@@ -383,20 +383,40 @@ registrarSeccion('viajes', (zona) => {
             : 'Envíale esta imagen al cliente con la confirmación: al subir la muestra y el conductor la escanea.';
         const mensaje = viaMensajeCliente(v, 'confirmado');
         const whatsapp = cliente ? null : viaWhatsappCliente(v, 'confirmado');
-        $('#viaQrWhatsapp').hidden = !whatsapp;
-        if (whatsapp) $('#viaQrWhatsapp').href = whatsapp;
+        const botonWhatsapp = $('#viaQrWhatsapp');
+        botonWhatsapp.hidden = !whatsapp;
+        if (whatsapp) botonWhatsapp.href = whatsapp;
 
-        // "Compartir" (imagen + mensaje) solo si el navegador puede compartir archivos (celulares)
+        // Un enlace de WhatsApp (wa.me) solo lleva texto. Para que llegue la IMAGEN del QR:
+        //   celular (puede compartir archivos) -> "Enviar por WhatsApp" abre Compartir con la
+        //     imagen y el mensaje (se elige WhatsApp y el chat del cliente).
+        //   PC -> copia la imagen y abre WhatsApp con el mensaje: se pega con Ctrl+V.
+        // El mensaje lleva además el enlace a qr-viaje.html, por si la imagen no llega.
         const compartir = $('#viaQrCompartir');
         compartir.hidden = true;
+        let archivo = null;
         lienzoQr.toBlob((blob) => {
             if (!blob) return;
-            const archivo = new File([blob], `viaje-${v.codigo}.png`, { type: 'image/png' });
-            if (navigator.canShare && navigator.canShare({ files: [archivo] })) {
-                compartir.hidden = false;
-                compartir.onclick = () => navigator.share(cliente ? { files: [archivo] } : { files: [archivo], text: mensaje }).catch(() => {});
-            }
+            const f = new File([blob], `viaje-${v.codigo}.png`, { type: 'image/png' });
+            if (!(navigator.canShare && navigator.canShare({ files: [f] }))) return;
+            archivo = f;
+            // Con WhatsApp, "Compartir" sobra (hace lo mismo); el cliente solo tiene "Compartir"
+            compartir.hidden = !!whatsapp;
+            compartir.onclick = () => navigator.share(cliente ? { files: [f] } : { files: [f], text: mensaje }).catch(() => {});
         }, 'image/png');
+        botonWhatsapp.onclick = (evento) => {
+            if (archivo) {
+                evento.preventDefault();
+                navigator.share({ files: [archivo], text: mensaje }).catch(() => {});
+                return;
+            }
+            if (navigator.clipboard && window.ClipboardItem) {
+                const imagen = new Promise((resolver) => lienzoQr.toBlob(resolver, 'image/png'));
+                navigator.clipboard.write([new ClipboardItem({ 'image/png': imagen })])
+                    .then(() => { $('#viaQrTexto').textContent = '✔ Imagen del QR copiada: en el chat de WhatsApp presiona Ctrl+V para pegarla y envíala.'; })
+                    .catch(() => { $('#viaQrTexto').textContent = 'No se pudo copiar la imagen: usa "Descargar imagen" y adjúntala en el chat.'; });
+            }
+        };
         $('#viaQrDialogo').showModal();
     }
 

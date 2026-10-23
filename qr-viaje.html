@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <!-- Página del cliente: no es para buscadores (también _headers) -->
+    <meta name="robots" content="noindex, nofollow">
+    <title>QR de tu viaje</title>
+    <!--
+    ==================================================
+    QR DEL VIAJE (sin iniciar sesión)
+    ACACHETE LOGISTICS
+
+    El mensaje de confirmación del viaje (WhatsApp) lleva este enlace:
+    qr-viaje.html?c=<código>#<token>  (js/viajes-comun.js -> viaEnlaceQr).
+    Dibuja el QR del viaje (ACACHETE-VIAJE:<token>) para mostrárselo al conductor al
+    subir. No consulta la base ni muestra datos personales: el token va después del "#",
+    que el navegador no le manda al servidor.
+    ==================================================
+    -->
+    <link rel="stylesheet" href="css/variables.css?v=20261013p">
+    <link rel="stylesheet" href="css/base.css?v=20261013p">
+    <link rel="stylesheet" href="css/componentes.css?v=20261013p">
+    <link rel="icon" type="image/png" href="img/logo.png">
+    <style>
+        body {
+            min-height: 100vh;
+            margin: 0;
+            padding: 1rem;
+            background-color: var(--color-fondo);
+            color: var(--color-texto);
+        }
+
+        .qrv-tarjeta {
+            max-width: 26rem;
+            margin: 0 auto;
+            padding: 1.25rem;
+            border-radius: var(--radio);
+            background-color: var(--color-blanco);
+            box-shadow: 0 0.5rem 1.5rem rgba(0, 28, 59, 0.1);
+            text-align: center;
+        }
+
+        .qrv-marca {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            font-weight: 700;
+            color: var(--color-azul);
+        }
+
+        .qrv-marca img {
+            width: 2rem;
+            height: 2rem;
+            object-fit: contain;
+        }
+
+        .qrv-codigo {
+            margin: 0 0 0.75rem;
+            font-size: 1.6rem;
+        }
+
+        .qrv-imagen {
+            display: block;
+            width: min(18rem, 100%);
+            height: auto;
+            margin: 0 auto;
+            image-rendering: pixelated;
+        }
+
+        .qrv-texto {
+            margin: 1rem 0 0;
+            color: var(--color-gris);
+            line-height: 1.5;
+        }
+
+        [hidden] { display: none !important; }
+    </style>
+    <script src="empresas/empresas.js?v=20261013p"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js" defer></script>
+</head>
+<body>
+    <main class="qrv-tarjeta">
+        <div class="qrv-marca"><img src="img/logo.png" alt=""> <span id="qrvMarca"></span></div>
+        <h1 class="qrv-codigo" id="qrvCodigo">Tu viaje</h1>
+        <img class="qrv-imagen" id="qrvImagen" alt="Código QR del viaje" hidden>
+        <p class="qrv-texto" id="qrvTexto">Al subir, muestra este QR al conductor. Puedes guardar una captura de pantalla.</p>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const $ = (id) => document.getElementById(id);
+            const token = decodeURIComponent(location.hash.slice(1));
+            const codigo = new URLSearchParams(location.search).get('c') || '';
+
+            $('qrvMarca').textContent = (typeof EMPRESA !== 'undefined' && EMPRESA.nombre) || 'ACACHETE Logistics';
+            if (codigo) $('qrvCodigo').textContent = `Viaje ${codigo}`;
+
+            if (!/^[0-9a-f-]{36}$/i.test(token) || !window.qrcode) {
+                $('qrvCodigo').textContent = window.qrcode ? 'Enlace no válido' : 'No se pudo dibujar el QR';
+                $('qrvTexto').textContent = window.qrcode
+                    ? 'Revisa que el enlace esté completo o pide la confirmación otra vez.'
+                    : 'Revisa tu conexión a internet y vuelve a abrir el enlace.';
+                return;
+            }
+            const qr = window.qrcode(0, 'M');
+            qr.addData(`ACACHETE-VIAJE:${token}`);
+            qr.make();
+            $('qrvImagen').src = qr.createDataURL(8, 4);
+            $('qrvImagen').hidden = false;
+        });
+    </script>
+</body>
+</html>

@@ -131,7 +131,15 @@ function viaMensajeCliente(v, tipo) {
         `Destino: ${v.destino_direccion}`,
         v.vehiculos ? `Vehículo: ${v.vehiculos.marca} ${v.vehiculos.placa}` : null,
         Number(v.total) ? `Total: ${viaDinero(v.total)}${viaTextoPago(v) ? ` · ${viaTextoPago(v)}` : ''}` : null,
+        viaEnlaceQr(v) ? `Su QR del viaje: ${viaEnlaceQr(v)}` : null,
         `Al subir, muestre el QR de su viaje al conductor (o diga el código ${v.codigo}).`].filter(Boolean).join('\n');
+}
+
+// Enlace a la página que dibuja el QR del viaje (qr-viaje.html, sin iniciar sesión). El token va
+// después del "#" (no llega al servidor). Abriendo la app desde un archivo (file:) no hay enlace.
+function viaEnlaceQr(v) {
+    if (!v.token_qr || !/^https?:$/.test(location.protocol)) return null;
+    return new URL(`qr-viaje.html?c=${encodeURIComponent(v.codigo || '')}#${v.token_qr}`, location.href).href;
 }
 
 // WhatsApp al cliente del viaje con el mensaje ya escrito (la persona toca Enviar).
