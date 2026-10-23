@@ -3,17 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- La app pide usuario y clave: que Google no la muestre en sus resultados (tambiÃ©n _headers) -->
+    <!-- La app pide usuario y clave: que Google no la muestre en sus resultados (también _headers) -->
     <meta name="robots" content="noindex, nofollow">
 
-    <!-- Estilos (el orden importa: si una regla se repite, gana la de mÃ¡s abajo)
+    <!-- Estilos (el orden importa: si una regla se repite, gana la de más abajo)
          variables.css   -> colores, fuentes y medidas con nombre
          base.css        -> reinicio y fuente general
          animaciones.css -> @keyframes compartidos
          componentes.css -> botones, tablas, formularios, ventanas, avisos...
-         index.css       -> marco del index (encabezado, menÃº, pie)
-         encabezados.css -> imÃ¡genes del encabezado por marca y empresa (al final)
-         El CSS de cada secciÃ³n (css/secciones/) lo carga js/pagina_inicial.js -->
+         index.css       -> marco del index (encabezado, menú, pie)
+         encabezados.css -> imágenes del encabezado por marca y empresa (al final)
+         El CSS de cada sección (css/secciones/) lo carga js/pagina_inicial.js -->
     <link rel="stylesheet" href="css/variables.css?v=20261022h">
     <link rel="stylesheet" href="css/base.css?v=20261022h">
     <link rel="stylesheet" href="css/animaciones.css?v=20261022h">
@@ -24,56 +24,56 @@
     <link rel="stylesheet" href="css/despacho.css?v=20261022h">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <!-- Tablet y celular (carpeta responsive/): solo reglas @media, va al final.
-         ?v=N: subir el nÃºmero al cambiar el archivo, para que los celulares no usen la copia vieja -->
+         ?v=N: subir el número al cambiar el archivo, para que los celulares no usen la copia vieja -->
 
     <link rel="stylesheet" href="responsive/responsive.css?v=20261022h">
 
-    <!-- ImÃ¡genes del encabezado de cada marca y empresa (logos e imagen del tÃ­tulo).
-         Va al final para que sus reglas ganen. Se cambian SOLO ahÃ­. -->
+    <!-- Imágenes del encabezado de cada marca y empresa (logos e imagen del título).
+         Va al final para que sus reglas ganen. Se cambian SOLO ahí. -->
     <link rel="stylesheet" href="css/encabezados.css?v=20261022h">
 
     <link rel="icon" type="image/png" href="img/logo.png">
 
-    <!-- Empresa activa (multimarca): colores, logo, tÃ­tulo, pie, actividades y
+    <!-- Empresa activa (multimarca): colores, logo, título, pie, actividades y
          base de datos. SIN defer, para que los colores se apliquen antes de
-         dibujar la pÃ¡gina. Se configura en empresas/empresas.js -->
-    <!-- VERSIÃ“N de los archivos: se suma a cada JS, CSS y HTML que se descarga, asÃ­ el navegador
+         dibujar la página. Se configura en empresas/empresas.js -->
+    <!-- VERSIÓN de los archivos: se suma a cada JS, CSS y HTML que se descarga, así el navegador
          no usa copias viejas guardadas. SUBIRLA cada vez que se publiquen cambios (docs/10-recetas.md). -->
     <script>window.VERSION_APP = '20261022h';</script>
     <script src="empresas/empresas.js?v=20261022h"></script>
 
-    <!-- SesiÃ³n: SIN defer, para saber ANTES de dibujar la pÃ¡gina si hay sesiÃ³n.
+    <!-- Sesión: SIN defer, para saber ANTES de dibujar la página si hay sesión.
          Si no la hay, se marca <html class="sin-sesion"> (oculta el usuario y
          los botones del pie sin que se vean un instante). -->
     <script src="js/sesion.js?v=20261022h"></script>
     <script>
-        // Sin sesiÃ³n -> html.sin-sesion | Con sesiÃ³n -> html[data-rol="..."] (ver css/index.css)
+        // Sin sesión -> html.sin-sesion | Con sesión -> html[data-rol="..."] (ver css/index.css)
         const sesionInicial = obtenerSesion();
         if (!sesionInicial) document.documentElement.classList.add('sin-sesion');
         else document.documentElement.dataset.rol = sesionInicial.rol;
     </script>
 
     <!-- Scripts (se ejecutan en este orden)
-         supabase-js + js/supabase.js -> conexiÃ³n con la base de datos (objeto "db")
+         supabase-js + js/supabase.js -> conexión con la base de datos (objeto "db")
          avatar.js -> fotos de usuario (encabezado, perfil y usuarios)
          componentes.js -> avisos, celdas y botones que usan varias secciones
          palabras.js -> "Pedido" se lee "Viaje" (y "Piloto" "Conductor") si la actividad lo pide
          notificaciones.js -> campana de notificaciones (antes de permisos.js, que la enciende)
-         permisos.js -> bloquea el menÃº segÃºn la sesiÃ³n y pinta el usuario del encabezado
+         permisos.js -> bloquea el menú según la sesión y pinta el usuario del encabezado
          pagina_inicial.js -> carga las secciones en .cuerpo-principal (va al final)
-         Los JS propios de cada secciÃ³n van en js/secciones/ y los carga pagina_inicial.js -->
+         Los JS propios de cada sección van en js/secciones/ y los carga pagina_inicial.js -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <script src="js/supabase.js?v=20261022h" defer></script>
     <script src="js/avatar.js?v=20261022h" defer></script>
     <script src="js/componentes.js?v=20261022h" defer></script>
     <!-- Palabras de la actividad (Pedido -> Viaje, Piloto -> Conductor) en todo lo que se ve -->
     <script src="js/palabras.js?v=20261022h" defer></script>
-    <!-- Mapa gratis (Leaflet + OpenStreetMap), bÃºsqueda de direcciones y distancia por calle -->
+    <!-- Mapa gratis (Leaflet + OpenStreetMap), búsqueda de direcciones y distancia por calle -->
     <script src="js/mapa.js?v=20261022h" defer></script>
     <script src="js/notificaciones.js?v=20261022h" defer></script>
-    <!-- UbicaciÃ³n del piloto en ruta cada 2 minutos (js/ubicacion.js, sql/01 bloque 25) -->
+    <!-- Ubicación del piloto en ruta cada 2 minutos (js/ubicacion.js, sql/01 bloque 25) -->
     <script src="js/ubicacion.js?v=20261022h" defer></script>
-    <!-- QR: lector con la cÃ¡mara, QR de pedido / marcas de tienda / piloto del dÃ­a (js/qr.js) -->
+    <!-- QR: lector con la cámara, QR de pedido / marcas de tienda / piloto del día (js/qr.js) -->
     <script src="js/qr.js?v=20261022h" defer></script>
     <!-- Viajes (Transporte): estados, precios, Inicio y reporte de viajes (js/viajes-comun.js) -->
     <script src="js/viajes-comun.js?v=20261022h" defer></script>
@@ -88,7 +88,7 @@
     <script src="js/soporte.js?v=20261022h" defer></script>
     <script src="js/menu-animado.js?v=20261022h" defer></script>
     <script src="js/pagina_inicial.js?v=20261022h" defer></script>
-    <!-- BotÃ³n â˜° del menÃº en tablet y celular (responsive/responsive.js) -->
+    <!-- Botón ☰ del menú en tablet y celular (responsive/responsive.js) -->
     <script src="responsive/responsive.js?v=20261022h" defer></script>
 
     <title>ACACHETE Logistics</title>
@@ -108,7 +108,7 @@
                 <div id="log-sec"></div>
             </div>
 
-            <!--titulos: imagen (css/encabezados.css, segÃºn la marca y la empresa activas)
+            <!--titulos: imagen (css/encabezados.css, según la marca y la empresa activas)
                 o, si no tiene, el texto de empresas/empresas.js-->
             <div class="titulos-primordial">
                 <div class="encabezado-imagen" aria-hidden="true"></div>
@@ -131,14 +131,14 @@
 
         <!--informacion y menu de logeo de usuario-->
         <div class="info-user">
-            <!-- Escanear QR (js/qr.js): pedido -> su informaciÃ³n | marcas de tienda -> el piloto marca |
-                 QR del dÃ­a del piloto -> la tienda lo valida (nombre y foto) -->
+            <!-- Escanear QR (js/qr.js): pedido -> su información | marcas de tienda -> el piloto marca |
+                 QR del día del piloto -> la tienda lo valida (nombre y foto) -->
             <button type="button" class="noti-campana qr-boton" id="qrBoton" aria-label="Escanear QR" title="Escanear QR">
                 <i class="bi bi-qr-code-scan"></i>
             </button>
 
-            <!-- Campana de notificaciones (js/notificaciones.js). El nÃºmero rojo
-                 cuenta las no leÃ­das; al hacer clic se abre la lista. -->
+            <!-- Campana de notificaciones (js/notificaciones.js). El número rojo
+                 cuenta las no leídas; al hacer clic se abre la lista. -->
             <button type="button" class="noti-campana" id="notiCampana" aria-label="Notificaciones" aria-controls="notiPanel">
                 <i class="bi bi-bell"></i>
                 <span class="noti-contador" id="notiContador" hidden>0</span>
@@ -147,10 +147,10 @@
             <div class="noti-panel" id="notiPanel">
                 <div class="noti-panel-cabecera">
                     <span class="noti-panel-titulo">Notificaciones</span>
-                    <button type="button" class="noti-marcar-todas" id="notiMarcarTodas">Marcar todas como leÃ­das</button>
+                    <button type="button" class="noti-marcar-todas" id="notiMarcarTodas">Marcar todas como leídas</button>
                 </div>
                 <!-- Soporte: solo el Desarrollador (js/soporte.js). Dice si puede configurar la
-                     empresa, si le falta la llave o hasta quÃ© hora tiene el modo soporte. -->
+                     empresa, si le falta la llave o hasta qué hora tiene el modo soporte. -->
                 <div class="noti-soporte" id="soporteAviso" role="status" hidden>
                     <i class="bi bi-shield-lock" aria-hidden="true"></i>
                     <span class="noti-soporte-texto" id="soporteAvisoTexto"></span>
@@ -162,7 +162,7 @@
             <button class="user-trigger" id="userTrigger">
                 <div class="user-avatar"></div>
                 <span class="user-nombre">Nombre Usuario</span>
-                <span class="user-flecha">â–¾</span>
+                <span class="user-flecha">▾</span>
             </button>
 
             <div class="user-menu" id="userMenu">
@@ -173,9 +173,9 @@
                     <select id="userEmpresaElegir" class="campo-input" aria-label="Empresa activa" hidden></select>
                 </div>
                 <a href="#perfil" class="user-menu-item">Mi perfil</a>
-                <a href="#configuracion" class="user-menu-item">ConfiguraciÃ³n</a>
+                <a href="#configuracion" class="user-menu-item">Configuración</a>
                 <hr class="user-menu-divider">
-                <a href="#" class="user-menu-item user-menu-salir" id="btnCerrarSesion">Cerrar sesiÃ³n</a>
+                <a href="#" class="user-menu-item user-menu-salir" id="btnCerrarSesion">Cerrar sesión</a>
             </div>
         </div>
     </header>
@@ -185,12 +185,12 @@
         <form id="soporteForm" class="dialogo-form" novalidate>
             <h3 id="soporteDialogoTitulo" class="dialogo-titulo">Llave de soporte</h3>
             <p class="dialogo-texto">
-                Escribe el cÃ³digo que te dio el Admin TI de <strong id="soporteEmpresa"></strong>.
-                Lo que veas y cambies queda en la bitÃ¡cora de la empresa.
+                Escribe el código que te dio el Admin TI de <strong id="soporteEmpresa"></strong>.
+                Lo que veas y cambies queda en la bitácora de la empresa.
             </p>
             <div class="campos">
                 <div class="campo campo-ancho">
-                    <label for="soporteCodigo" class="campo-etiqueta">CÃ³digo *</label>
+                    <label for="soporteCodigo" class="campo-etiqueta">Código *</label>
                     <input id="soporteCodigo" type="text" maxlength="9" autocomplete="off" spellcheck="false"
                            class="campo-input texto-codigo" placeholder="K7M2-Q9XP">
                 </div>
@@ -210,21 +210,21 @@
                 <li class="menu-item"><a href="#pedidos"><i class="bi bi-box-seam"></i> Pedidos</a></li>
                 <!-- Solo si la empresa hace viajes (Transporte); js/permisos.js la oculta si no -->
                 <li class="menu-item" hidden><a href="#viajes"><i class="bi bi-car-front"></i> Viajes</a></li>
-                <!-- Solo si la empresa tiene la actividad RecolecciÃ³n (sql/01 bloque 46; js/sesion.js: seccionAplica) -->
+                <!-- Solo si la empresa tiene la actividad Recolección (sql/01 bloque 46; js/sesion.js: seccionAplica) -->
                 <li class="menu-item" hidden><a href="#recolecciones"><i class="bi bi-inbox"></i> Recolecciones</a></li>
                 <!-- Solo el cliente de una empresa de encomiendas (js/sesion.js: seccionAplica) -->
-                <li class="menu-item" hidden><a href="#envios"><i class="bi bi-box-arrow-up-right"></i> Mis envÃ­os</a></li>
+                <li class="menu-item" hidden><a href="#envios"><i class="bi bi-box-arrow-up-right"></i> Mis envíos</a></li>
                 <li class="menu-item"><a href="#pilotos"><i class="bi bi-person-badge"></i> Pilotos</a></li>
                 <!-- Caja de pilotos y conductores (si el plan de la empresa la incluye; js/secciones/caja.js) -->
                 <li class="menu-item"><a href="#caja"><i class="bi bi-safe"></i> Caja</a></li>
-                <!-- Distribuidora: productos, bodega del dÃ­a, carga, venta en ruta y cierres (solo si alguna
+                <!-- Distribuidora: productos, bodega del día, carga, venta en ruta y cierres (solo si alguna
                      actividad de la empresa usa productos y su plan la incluye; js/secciones/distribucion.js) -->
-                <li class="menu-item" hidden><a href="#distribucion"><i class="bi bi-boxes"></i> DistribuciÃ³n</a></li>
+                <li class="menu-item" hidden><a href="#distribucion"><i class="bi bi-boxes"></i> Distribución</a></li>
                 <li class="menu-item"><a href="#rutas"><i class="bi bi-signpost-split"></i> Rutas y asignaciones</a></li>
                 <li class="menu-item"><a href="#tiendas"><i class="bi bi-shop"></i> Tiendas</a></li>
                 <li class="menu-item"><a href="#reportes"><i class="bi bi-bar-chart"></i> Reportes</a></li>
                 <li class="menu-item"><a href="#usuarios"><i class="bi bi-people"></i> Usuarios</a></li>
-                <li class="menu-item"><a href="#configuracion"><i class="bi bi-gear"></i> ConfiguraciÃ³n</a></li>
+                <li class="menu-item"><a href="#configuracion"><i class="bi bi-gear"></i> Configuración</a></li>
             </ul>
         </nav>
 
@@ -243,8 +243,8 @@
                 <i class="bi bi-plus-circle"></i>
                 <span>Crear Pedido</span>
             </button>
-            <!-- Cargar Pedidos: para compaÃ±Ã­as que reciben pedidos desde otra web o app.
-                 Solo G2 y G3 (css/index.css). TodavÃ­a sin funciÃ³n. -->
+            <!-- Cargar Pedidos: para compañías que reciben pedidos desde otra web o app.
+                 Solo G2 y G3 (css/index.css). Todavía sin función. -->
             <button class="acceso-btn btn-cargar">
                 <i class="bi bi-upload"></i>
                 <span>Cargar Pedidos</span>
@@ -266,15 +266,15 @@
                 <i class="bi bi-bar-chart-line"></i>
                 <span>Generar reporte</span>
             </button>
-            <!-- Cotizador: calcula el precio de un envÃ­o de Encomiendas con las tarifas de
-                 ConfiguraciÃ³n. Solo si la empresa realiza Encomiendas (js/pagina_inicial.js) -->
+            <!-- Cotizador: calcula el precio de un envío de Encomiendas con las tarifas de
+                 Configuración. Solo si la empresa realiza Encomiendas (js/pagina_inicial.js) -->
             <button class="acceso-btn btn-cotizar" hidden>
                 <i class="bi bi-calculator"></i>
                 <span>Cotizador</span>
             </button>
         </div>
 
-        <!-- Las lÃ­neas las pone empresas/empresas.js (campo "pie") -->
+        <!-- Las líneas las pone empresas/empresas.js (campo "pie") -->
         <div class="info-empresa">
             <span>Derechos Reservados Achete Logistics S.A.</span>
         </div>
